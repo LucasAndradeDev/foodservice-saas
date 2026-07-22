@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @OpenAPIDefinition(
-        info = @Info(title = "Restaurant SaaS API", version = "v1", description = "API para Gestão de Restaurantes e Mesas"),
+        info = @Info(title = "Restaurant SaaS API", version = "v1", description = "API for restaurant and table management"),
         security = @SecurityRequirement(name = "bearerAuth")
 )
 @SecurityScheme(

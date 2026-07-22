@@ -7,21 +7,21 @@ import lombok.Data;
 @Data
 public class UpdateRestaurantRequest {
 
-    @Size(max = 100, message = "O nome fantasia deve ter no máximo 100 caracteres")
+    @Size(max = 100, message = "Trade name must be at most 100 characters long")
     private String tradeName;
 
-    @Size(max = 255, message = "A URL do logo deve ter no máximo 255 caracteres")
+    @Size(max = 255, message = "Logo URL must be at most 255 characters long")
     private String logo;
 
-    @Size(max = 20, message = "A cor principal deve ter no máximo 20 caracteres")
+    @Size(max = 20, message = "Primary color must be at most 20 characters long")
     private String primaryColor;
 
-    @PositiveOrZero(message = "A quantidade de mesas não pode ser negativa")
+    @PositiveOrZero(message = "Table count cannot be negative")
     private Integer tableCount;
 
-    @Size(max = 20, message = "O telefone deve ter no máximo 20 caracteres")
+    @Size(max = 20, message = "Phone must be at most 20 characters long")
     private String phone;
 
-    @Size(max = 255, message = "O endereço deve ter no máximo 255 caracteres")
+    @Size(max = 255, message = "Address must be at most 255 characters long")
     private String address;
 }

@@ -44,11 +44,11 @@ public class AuthService {
     @Transactional
     public AuthResponse registerRestaurant(RegisterRestaurantRequest request) {
         if (userRepository.existsByEmail(request.getOwnerEmail())) {
-            throw new IllegalArgumentException("E-mail já cadastrado no sistema.");
+            throw new IllegalArgumentException("Email already registered.");
         }
 
         if (request.getCnpj() != null && !request.getCnpj().isBlank() && restaurantRepository.existsByCnpj(request.getCnpj())) {
-            throw new IllegalArgumentException("CNPJ já cadastrado no sistema.");
+            throw new IllegalArgumentException("CNPJ already registered.");
         }
 
         Restaurant restaurant = Restaurant.builder()
@@ -84,7 +84,7 @@ public class AuthService {
         );
 
         User user = userRepository.findByEmail(request.getEmail().toLowerCase().trim())
-                .orElseThrow(() -> new IllegalArgumentException("Usuário ou senha inválidos."));
+                .orElseThrow(() -> new IllegalArgumentException("Invalid username or password."));
 
         UserDetailsImpl userDetails = new UserDetailsImpl(user);
         String accessToken = jwtService.generateToken(userDetails);
@@ -98,10 +98,10 @@ public class AuthService {
     @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         RefreshToken token = refreshTokenRepository.findByToken(request.getRefreshToken())
-                .orElseThrow(() -> new IllegalArgumentException("Refresh token não encontrado."));
+                .orElseThrow(() -> new IllegalArgumentException("Refresh token not found."));
 
         if (Boolean.TRUE.equals(token.getRevoked()) || token.getExpiryDate().isBefore(OffsetDateTime.now())) {
-            throw new IllegalArgumentException("Refresh token expirado ou revogado.");
+            throw new IllegalArgumentException("Refresh token expired or revoked.");
         }
 
         User user = token.getUser();
@@ -114,10 +114,10 @@ public class AuthService {
     @Transactional
     public void changePassword(UUID userId, ChangePasswordRequest request) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado."));
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
 
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("Senha atual incorreta.");
+            throw new IllegalArgumentException("Current password is incorrect.");
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
@@ -127,7 +127,7 @@ public class AuthService {
     @Transactional(readOnly = true)
     public AuthResponse getMe(UUID userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado."));
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
         return buildAuthResponse(null, null, user, user.getRestaurant());
     }
 

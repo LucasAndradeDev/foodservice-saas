@@ -48,11 +48,11 @@ public class UserService {
     @Transactional
     public UserResponse createUser(UUID restaurantId, UserRole actingRole, CreateUserRequest request) {
         if (!assignableRoles(actingRole).contains(request.getRole())) {
-            throw new IllegalStateException("Você não tem permissão para criar um usuário com o papel " + request.getRole() + ".");
+            throw new IllegalStateException("You do not have permission to create a user with role " + request.getRole() + ".");
         }
 
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("E-mail já cadastrado no sistema.");
+            throw new IllegalArgumentException("Email already registered.");
         }
 
         User user = User.builder()
@@ -72,21 +72,21 @@ public class UserService {
         User target = findByIdAndRestaurant(restaurantId, targetUserId);
 
         if (targetUserId.equals(actingUserId) && (request.getRole() != null || request.getActive() != null)) {
-            throw new IllegalStateException("Você não pode alterar o seu próprio papel ou status de ativação.");
+            throw new IllegalStateException("You cannot change your own role or activation status.");
         }
 
         if (actingRole == UserRole.MANAGER && !assignableRoles(UserRole.MANAGER).contains(target.getRole())) {
-            throw new IllegalStateException("Você não tem permissão para gerenciar esse usuário.");
+            throw new IllegalStateException("You do not have permission to manage this user.");
         }
 
         if (request.getRole() != null && !assignableRoles(actingRole).contains(request.getRole())) {
-            throw new IllegalStateException("Você não tem permissão para atribuir o papel " + request.getRole() + ".");
+            throw new IllegalStateException("You do not have permission to assign role " + request.getRole() + ".");
         }
 
         if (Boolean.FALSE.equals(request.getActive()) && target.getRole() == UserRole.OWNER) {
             long activeOwners = userRepository.countByRestaurantIdAndRoleAndActive(restaurantId, UserRole.OWNER, true);
             if (activeOwners <= 1) {
-                throw new IllegalStateException("Não é possível desativar o único proprietário ativo do restaurante.");
+                throw new IllegalStateException("Cannot deactivate the restaurant's only active owner.");
             }
         }
 
@@ -109,7 +109,7 @@ public class UserService {
 
     private User findByIdAndRestaurant(UUID restaurantId, UUID userId) {
         return userRepository.findByIdAndRestaurantId(userId, restaurantId)
-                .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado."));
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
     }
 
     private UserResponse toResponse(User user) {

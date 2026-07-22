@@ -21,8 +21,8 @@ public class GlobalExceptionHandler {
         body.put("timestamp", OffsetDateTime.now());
         body.put("status", HttpStatus.UNAUTHORIZED.value());
         body.put("error", "Unauthorized");
-        // Mensagem genérica de propósito: não revelar se o e-mail existe, está inativo ou a senha está errada.
-        body.put("message", "Usuário ou senha inválidos.");
+        // Deliberately generic message: don't reveal whether the email exists, is inactive, or the password is wrong.
+        body.put("message", "Invalid username or password.");
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
     }

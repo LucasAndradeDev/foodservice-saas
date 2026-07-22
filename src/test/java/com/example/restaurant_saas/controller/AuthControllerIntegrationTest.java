@@ -43,10 +43,10 @@ class AuthControllerIntegrationTest {
         registerRequest.setRestaurantName("Burger House");
         registerRequest.setCnpj(null);
         registerRequest.setPhone("11999999999");
-        registerRequest.setAddress("Rua 1, 100");
-        registerRequest.setOwnerName("Dono");
-        registerRequest.setOwnerEmail("dono+" + System.nanoTime() + "@teste.com");
-        registerRequest.setOwnerPassword("senha123");
+        registerRequest.setAddress("Main St, 100");
+        registerRequest.setOwnerName("Owner");
+        registerRequest.setOwnerEmail("owner+" + System.nanoTime() + "@test.com");
+        registerRequest.setOwnerPassword("password123");
     }
 
     @Test
@@ -73,7 +73,7 @@ class AuthControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("E-mail já cadastrado no sistema."));
+                .andExpect(jsonPath("$.message").value("Email already registered."));
     }
 
     @Test
@@ -104,20 +104,20 @@ class AuthControllerIntegrationTest {
 
         LoginRequest loginRequest = new LoginRequest();
         loginRequest.setEmail(registerRequest.getOwnerEmail());
-        loginRequest.setPassword("senhaErrada");
+        loginRequest.setPassword("wrongPassword");
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("Usuário ou senha inválidos."));
+                .andExpect(jsonPath("$.message").value("Invalid username or password."));
     }
 
     @Test
     void login_withNonExistentEmail_shouldReturn401() throws Exception {
         LoginRequest loginRequest = new LoginRequest();
-        loginRequest.setEmail("naoexiste@teste.com");
-        loginRequest.setPassword("qualquer");
+        loginRequest.setEmail("doesnotexist@test.com");
+        loginRequest.setPassword("whatever");
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -169,7 +169,7 @@ class AuthControllerIntegrationTest {
     @Test
     void refreshToken_withInvalidToken_shouldReturn400() throws Exception {
         RefreshTokenRequest refreshRequest = new RefreshTokenRequest();
-        refreshRequest.setRefreshToken("token-que-nao-existe");
+        refreshRequest.setRefreshToken("token-that-does-not-exist");
 
         mockMvc.perform(post("/api/v1/auth/refresh-token")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -211,7 +211,7 @@ class AuthControllerIntegrationTest {
 
         ChangePasswordRequest changeRequest = new ChangePasswordRequest();
         changeRequest.setCurrentPassword(registerRequest.getOwnerPassword());
-        changeRequest.setNewPassword("novaSenha456");
+        changeRequest.setNewPassword("newPassword456");
 
         mockMvc.perform(post("/api/v1/auth/change-password")
                         .header("Authorization", "Bearer " + accessToken)
@@ -221,7 +221,7 @@ class AuthControllerIntegrationTest {
 
         LoginRequest loginRequest = new LoginRequest();
         loginRequest.setEmail(registerRequest.getOwnerEmail());
-        loginRequest.setPassword("novaSenha456");
+        loginRequest.setPassword("newPassword456");
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -240,8 +240,8 @@ class AuthControllerIntegrationTest {
         String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
 
         ChangePasswordRequest changeRequest = new ChangePasswordRequest();
-        changeRequest.setCurrentPassword("senhaErrada");
-        changeRequest.setNewPassword("novaSenha456");
+        changeRequest.setCurrentPassword("wrongPassword");
+        changeRequest.setNewPassword("newPassword456");
 
         mockMvc.perform(post("/api/v1/auth/change-password")
                         .header("Authorization", "Bearer " + accessToken)
@@ -254,9 +254,9 @@ class AuthControllerIntegrationTest {
     void twoRestaurants_shouldHaveIsolatedTenantIdsInTheirTokens() throws Exception {
         RegisterRestaurantRequest secondRequest = new RegisterRestaurantRequest();
         secondRequest.setRestaurantName("Pizza Place");
-        secondRequest.setOwnerName("Outra Dona");
-        secondRequest.setOwnerEmail("outra+" + System.nanoTime() + "@teste.com");
-        secondRequest.setOwnerPassword("senha789");
+        secondRequest.setOwnerName("Another Owner");
+        secondRequest.setOwnerEmail("another+" + System.nanoTime() + "@test.com");
+        secondRequest.setOwnerPassword("password789");
 
         MvcResult firstResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
                         .contentType(MediaType.APPLICATION_JSON)

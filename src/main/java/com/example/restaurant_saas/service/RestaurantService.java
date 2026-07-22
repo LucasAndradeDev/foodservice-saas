@@ -51,7 +51,7 @@ public class RestaurantService {
 
     private Restaurant findById(UUID restaurantId) {
         return restaurantRepository.findById(restaurantId)
-                .orElseThrow(() -> new IllegalArgumentException("Restaurante não encontrado."));
+                .orElseThrow(() -> new IllegalArgumentException("Restaurant not found."));
     }
 
     private RestaurantResponse toResponse(Restaurant restaurant) {

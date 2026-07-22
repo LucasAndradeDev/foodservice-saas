@@ -49,10 +49,10 @@ class UserControllerIntegrationTest {
         registerRequest = new RegisterRestaurantRequest();
         registerRequest.setRestaurantName("Burger House");
         registerRequest.setPhone("11999999999");
-        registerRequest.setAddress("Rua 1, 100");
-        registerRequest.setOwnerName("Dono");
-        registerRequest.setOwnerEmail("dono+" + System.nanoTime() + "@teste.com");
-        registerRequest.setOwnerPassword("senha123");
+        registerRequest.setAddress("Main St, 100");
+        registerRequest.setOwnerName("Owner");
+        registerRequest.setOwnerEmail("owner+" + System.nanoTime() + "@test.com");
+        registerRequest.setOwnerPassword("password123");
     }
 
     private String registerOwnerAndGetToken() throws Exception {
@@ -68,8 +68,8 @@ class UserControllerIntegrationTest {
         User user = User.builder()
                 .restaurant(owner.getRestaurant())
                 .name(role.name())
-                .email(role.name().toLowerCase() + "+" + System.nanoTime() + "@teste.com")
-                .password(passwordEncoder.encode("senha123"))
+                .email(role.name().toLowerCase() + "+" + System.nanoTime() + "@test.com")
+                .password(passwordEncoder.encode("password123"))
                 .role(role)
                 .active(true)
                 .build();
@@ -85,9 +85,9 @@ class UserControllerIntegrationTest {
         String ownerToken = registerOwnerAndGetToken();
 
         CreateUserRequest request = new CreateUserRequest();
-        request.setName("Garcom 1");
-        request.setEmail("garcom1+" + System.nanoTime() + "@teste.com");
-        request.setPassword("senha123");
+        request.setName("Waiter 1");
+        request.setEmail("waiter1+" + System.nanoTime() + "@test.com");
+        request.setPassword("password123");
         request.setRole(UserRole.WAITER);
 
         mockMvc.perform(post("/api/v1/users")
@@ -104,9 +104,9 @@ class UserControllerIntegrationTest {
         String ownerToken = registerOwnerAndGetToken();
 
         CreateUserRequest request = new CreateUserRequest();
-        request.setName("Gerente 1");
-        request.setEmail("gerente1+" + System.nanoTime() + "@teste.com");
-        request.setPassword("senha123");
+        request.setName("Manager 1");
+        request.setEmail("manager1+" + System.nanoTime() + "@test.com");
+        request.setPassword("password123");
         request.setRole(UserRole.MANAGER);
 
         mockMvc.perform(post("/api/v1/users")
@@ -125,9 +125,9 @@ class UserControllerIntegrationTest {
         String managerToken = tokenFor(manager);
 
         CreateUserRequest request = new CreateUserRequest();
-        request.setName("Outro Gerente");
-        request.setEmail("outrogerente+" + System.nanoTime() + "@teste.com");
-        request.setPassword("senha123");
+        request.setName("Another Manager");
+        request.setEmail("anothermanager+" + System.nanoTime() + "@test.com");
+        request.setPassword("password123");
         request.setRole(UserRole.MANAGER);
 
         mockMvc.perform(post("/api/v1/users")
@@ -145,9 +145,9 @@ class UserControllerIntegrationTest {
         String managerToken = tokenFor(manager);
 
         CreateUserRequest request = new CreateUserRequest();
-        request.setName("Cozinha 1");
-        request.setEmail("cozinha1+" + System.nanoTime() + "@teste.com");
-        request.setPassword("senha123");
+        request.setName("Kitchen 1");
+        request.setEmail("kitchen1+" + System.nanoTime() + "@test.com");
+        request.setPassword("password123");
         request.setRole(UserRole.KITCHEN);
 
         mockMvc.perform(post("/api/v1/users")
@@ -166,9 +166,9 @@ class UserControllerIntegrationTest {
         String waiterToken = tokenFor(waiter);
 
         CreateUserRequest request = new CreateUserRequest();
-        request.setName("Outro Garcom");
-        request.setEmail("outrogarcom+" + System.nanoTime() + "@teste.com");
-        request.setPassword("senha123");
+        request.setName("Another Waiter");
+        request.setEmail("anotherwaiter+" + System.nanoTime() + "@test.com");
+        request.setPassword("password123");
         request.setRole(UserRole.WAITER);
 
         mockMvc.perform(post("/api/v1/users")
@@ -183,9 +183,9 @@ class UserControllerIntegrationTest {
         String ownerToken = registerOwnerAndGetToken();
 
         CreateUserRequest request = new CreateUserRequest();
-        request.setName("Garcom 1");
+        request.setName("Waiter 1");
         request.setEmail(registerRequest.getOwnerEmail());
-        request.setPassword("senha123");
+        request.setPassword("password123");
         request.setRole(UserRole.WAITER);
 
         mockMvc.perform(post("/api/v1/users")
@@ -209,6 +209,40 @@ class UserControllerIntegrationTest {
     }
 
     @Test
+    void listUsers_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+
+        mockMvc.perform(get("/api/v1/users")
+                        .header("Authorization", "Bearer " + waiterToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getUser_crossTenant_shouldNotBeFound() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        RegisterRestaurantRequest otherRestaurant = new RegisterRestaurantRequest();
+        otherRestaurant.setRestaurantName("Pizza Place");
+        otherRestaurant.setOwnerName("Another Owner");
+        otherRestaurant.setOwnerEmail("anotherlookup+" + System.nanoTime() + "@test.com");
+        otherRestaurant.setOwnerPassword("password789");
+
+        mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(otherRestaurant)))
+                .andExpect(status().isCreated());
+
+        User otherOwner = userRepository.findByEmail(otherRestaurant.getOwnerEmail()).orElseThrow();
+
+        mockMvc.perform(get("/api/v1/users/" + otherOwner.getId())
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void listUsers_filterByRole_shouldReturnOnlyMatching() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
@@ -229,7 +263,7 @@ class UserControllerIntegrationTest {
         User waiter = createUserDirectly(owner, UserRole.WAITER);
 
         UpdateUserRequest request = new UpdateUserRequest();
-        request.setName("Garcom Renomeado");
+        request.setName("Renamed Waiter");
         request.setRole(UserRole.CASHIER);
 
         mockMvc.perform(put("/api/v1/users/" + waiter.getId())
@@ -237,7 +271,7 @@ class UserControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Garcom Renomeado"))
+                .andExpect(jsonPath("$.name").value("Renamed Waiter"))
                 .andExpect(jsonPath("$.role").value("CASHIER"));
     }
 
@@ -283,7 +317,7 @@ class UserControllerIntegrationTest {
         UpdateUserRequest request = new UpdateUserRequest();
         request.setActive(false);
 
-        // MANAGER não gerencia OWNER (não está no conjunto de papéis que ele pode tocar).
+        // A MANAGER does not manage an OWNER (not in the set of roles it can touch).
         mockMvc.perform(put("/api/v1/users/" + owner.getId())
                         .header("Authorization", "Bearer " + managerToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -332,9 +366,9 @@ class UserControllerIntegrationTest {
 
         RegisterRestaurantRequest otherRestaurant = new RegisterRestaurantRequest();
         otherRestaurant.setRestaurantName("Pizza Place");
-        otherRestaurant.setOwnerName("Outro Dono");
-        otherRestaurant.setOwnerEmail("outro+" + System.nanoTime() + "@teste.com");
-        otherRestaurant.setOwnerPassword("senha789");
+        otherRestaurant.setOwnerName("Another Owner");
+        otherRestaurant.setOwnerEmail("another+" + System.nanoTime() + "@test.com");
+        otherRestaurant.setOwnerPassword("password789");
 
         mockMvc.perform(post("/api/v1/auth/register-restaurant")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -344,7 +378,7 @@ class UserControllerIntegrationTest {
         User otherOwner = userRepository.findByEmail(otherRestaurant.getOwnerEmail()).orElseThrow();
 
         UpdateUserRequest request = new UpdateUserRequest();
-        request.setName("Não deveria funcionar");
+        request.setName("Should not work");
 
         mockMvc.perform(put("/api/v1/users/" + otherOwner.getId())
                         .header("Authorization", "Bearer " + ownerToken)

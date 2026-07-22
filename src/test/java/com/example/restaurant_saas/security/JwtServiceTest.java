@@ -26,12 +26,12 @@ class JwtServiceTest {
         ReflectionTestUtils.setField(jwtService, "jwtExpiration", 3_600_000L);
 
         restaurantId = UUID.randomUUID();
-        Restaurant restaurant = Restaurant.builder().id(restaurantId).name("Restaurante Teste").build();
+        Restaurant restaurant = Restaurant.builder().id(restaurantId).name("Test Restaurant").build();
         User user = User.builder()
                 .id(UUID.randomUUID())
                 .restaurant(restaurant)
-                .name("Dono")
-                .email("dono@teste.com")
+                .name("Owner")
+                .email("owner@test.com")
                 .password("hash")
                 .role(UserRole.OWNER)
                 .active(true)
@@ -43,7 +43,7 @@ class JwtServiceTest {
     void generateToken_shouldEmbedEmailAndRestaurantId() {
         String token = jwtService.generateToken(userDetails);
 
-        assertThat(jwtService.extractEmail(token)).isEqualTo("dono@teste.com");
+        assertThat(jwtService.extractEmail(token)).isEqualTo("owner@test.com");
         assertThat(jwtService.extractRestaurantId(token)).isEqualTo(restaurantId);
     }
 
@@ -51,14 +51,14 @@ class JwtServiceTest {
     void isTokenValid_shouldReturnTrueForMatchingUserAndUnexpiredToken() {
         String token = jwtService.generateToken(userDetails);
 
-        assertThat(jwtService.isTokenValid(token, "dono@teste.com")).isTrue();
+        assertThat(jwtService.isTokenValid(token, "owner@test.com")).isTrue();
     }
 
     @Test
     void isTokenValid_shouldReturnFalseForDifferentUser() {
         String token = jwtService.generateToken(userDetails);
 
-        assertThat(jwtService.isTokenValid(token, "outro@teste.com")).isFalse();
+        assertThat(jwtService.isTokenValid(token, "another@test.com")).isFalse();
     }
 
     @Test
@@ -66,6 +66,6 @@ class JwtServiceTest {
         ReflectionTestUtils.setField(jwtService, "jwtExpiration", -1_000L);
         String expiredToken = jwtService.generateToken(userDetails);
 
-        assertThat(jwtService.isTokenValid(expiredToken, "dono@teste.com")).isFalse();
+        assertThat(jwtService.isTokenValid(expiredToken, "owner@test.com")).isFalse();
     }
 }

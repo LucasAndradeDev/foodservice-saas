@@ -50,10 +50,10 @@ class RestaurantControllerIntegrationTest {
         registerRequest = new RegisterRestaurantRequest();
         registerRequest.setRestaurantName("Burger House");
         registerRequest.setPhone("11999999999");
-        registerRequest.setAddress("Rua 1, 100");
-        registerRequest.setOwnerName("Dono");
-        registerRequest.setOwnerEmail("dono+" + System.nanoTime() + "@teste.com");
-        registerRequest.setOwnerPassword("senha123");
+        registerRequest.setAddress("Main St, 100");
+        registerRequest.setOwnerName("Owner");
+        registerRequest.setOwnerEmail("owner+" + System.nanoTime() + "@test.com");
+        registerRequest.setOwnerPassword("password123");
     }
 
     private String registerAndGetToken() throws Exception {
@@ -82,12 +82,35 @@ class RestaurantControllerIntegrationTest {
     }
 
     @Test
+    void getMyRestaurant_asWaiter_shouldSucceed() throws Exception {
+        registerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+
+        User waiter = User.builder()
+                .restaurant(owner.getRestaurant())
+                .name("Waiter")
+                .email("waiter+" + System.nanoTime() + "@test.com")
+                .password(passwordEncoder.encode("password123"))
+                .role(UserRole.WAITER)
+                .active(true)
+                .build();
+        waiter = userRepository.save(waiter);
+
+        String waiterToken = jwtService.generateToken(new UserDetailsImpl(waiter));
+
+        mockMvc.perform(get("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + waiterToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Burger House"));
+    }
+
+    @Test
     void updateMyRestaurant_asOwner_shouldUpdateSettings() throws Exception {
         String token = registerAndGetToken();
 
         UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
-        updateRequest.setTradeName("Burger House Centro");
-        updateRequest.setLogo("https://cdn.teste.com/logo.png");
+        updateRequest.setTradeName("Burger House Downtown");
+        updateRequest.setLogo("https://cdn.test.com/logo.png");
         updateRequest.setPrimaryColor("#FF0000");
         updateRequest.setTableCount(10);
 
@@ -96,8 +119,8 @@ class RestaurantControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.tradeName").value("Burger House Centro"))
-                .andExpect(jsonPath("$.logo").value("https://cdn.teste.com/logo.png"))
+                .andExpect(jsonPath("$.tradeName").value("Burger House Downtown"))
+                .andExpect(jsonPath("$.logo").value("https://cdn.test.com/logo.png"))
                 .andExpect(jsonPath("$.primaryColor").value("#FF0000"))
                 .andExpect(jsonPath("$.tableCount").value(10));
     }
@@ -116,7 +139,7 @@ class RestaurantControllerIntegrationTest {
     @Test
     void updateMyRestaurant_withoutToken_shouldBeRejected() throws Exception {
         UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
-        updateRequest.setTradeName("Nao deveria salvar");
+        updateRequest.setTradeName("Should not be saved");
 
         mockMvc.perform(put("/api/v1/restaurants/me")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -131,9 +154,9 @@ class RestaurantControllerIntegrationTest {
 
         User waiter = User.builder()
                 .restaurant(owner.getRestaurant())
-                .name("Garcom")
-                .email("garcom+" + System.nanoTime() + "@teste.com")
-                .password(passwordEncoder.encode("senha123"))
+                .name("Waiter")
+                .email("waiter+" + System.nanoTime() + "@test.com")
+                .password(passwordEncoder.encode("password123"))
                 .role(UserRole.WAITER)
                 .active(true)
                 .build();
@@ -142,7 +165,7 @@ class RestaurantControllerIntegrationTest {
         String waiterToken = jwtService.generateToken(new UserDetailsImpl(waiter));
 
         UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
-        updateRequest.setTradeName("Nao deveria salvar");
+        updateRequest.setTradeName("Should not be saved");
 
         mockMvc.perform(put("/api/v1/restaurants/me")
                         .header("Authorization", "Bearer " + waiterToken)

@@ -56,7 +56,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authToken);
 
-                        // Definir o tenant no contexto da thread
+                        // Set the tenant in the thread context
                         final UUID restaurantId = jwtService.extractRestaurantId(jwt);
                         if (restaurantId != null) {
                             TenantContext.setCurrentTenant(restaurantId);
@@ -66,12 +66,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
                 }
             } catch (JwtException | IllegalArgumentException ex) {
-                // Token ausente, expirado ou malformado: segue sem autenticar.
-                // As regras de autorização do SecurityConfig cuidam de rejeitar a requisição.
+                // Missing, expired or malformed token: proceed without authenticating.
+                // SecurityConfig's authorization rules take care of rejecting the request.
             }
             filterChain.doFilter(request, response);
         } finally {
-            // Limpar o contexto do tenant após a requisição
+            // Clear the tenant context after the request
             TenantContext.clear();
         }
     }

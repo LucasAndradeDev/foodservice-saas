@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class UpdateUserRequest {
 
-    @Size(max = 100, message = "O nome deve ter no máximo 100 caracteres")
+    @Size(max = 100, message = "Name must be at most 100 characters long")
     private String name;
 
     private UserRole role;

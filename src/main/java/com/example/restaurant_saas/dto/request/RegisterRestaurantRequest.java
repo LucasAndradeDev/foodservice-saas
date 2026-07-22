@@ -8,23 +8,23 @@ import lombok.Data;
 @Data
 public class RegisterRestaurantRequest {
 
-    // Dados do Restaurante
-    @NotBlank(message = "O nome do restaurante é obrigatório")
+    // Restaurant data
+    @NotBlank(message = "Restaurant name is required")
     private String restaurantName;
 
     private String cnpj;
     private String phone;
     private String address;
 
-    // Dados do Proprietário (OWNER)
-    @NotBlank(message = "O nome do proprietário é obrigatório")
+    // Owner data (OWNER)
+    @NotBlank(message = "Owner name is required")
     private String ownerName;
 
-    @NotBlank(message = "O e-mail é obrigatório")
-    @Email(message = "Formato de e-mail inválido")
+    @NotBlank(message = "Email is required")
+    @Email(message = "Invalid email format")
     private String ownerEmail;
 
-    @NotBlank(message = "A senha é obrigatória")
-    @Size(min = 6, message = "A senha deve ter no mínimo 6 caracteres")
+    @NotBlank(message = "Password is required")
+    @Size(min = 6, message = "Password must be at least 6 characters long")
     private String ownerPassword;
 }
