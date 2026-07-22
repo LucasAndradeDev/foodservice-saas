@@ -1,0 +1,519 @@
+package com.example.restaurant_saas.controller;
+
+import com.example.restaurant_saas.domain.entity.User;
+import com.example.restaurant_saas.domain.enums.UserRole;
+import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
+import com.example.restaurant_saas.dto.request.CreateProductRequest;
+import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
+import com.example.restaurant_saas.dto.request.UpdateProductRequest;
+import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.security.JwtService;
+import com.example.restaurant_saas.security.UserDetailsImpl;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jayway.jsonpath.JsonPath;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import java.math.BigDecimal;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+class ProductControllerIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    private RegisterRestaurantRequest registerRequest;
+
+    @BeforeEach
+    void setUp() {
+        registerRequest = new RegisterRestaurantRequest();
+        registerRequest.setRestaurantName("Burger House");
+        registerRequest.setPhone("11999999999");
+        registerRequest.setAddress("Main St, 100");
+        registerRequest.setOwnerName("Owner");
+        registerRequest.setOwnerEmail("owner+" + System.nanoTime() + "@test.com");
+        registerRequest.setOwnerPassword("password123");
+    }
+
+    private String registerOwnerAndGetToken() throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+    }
+
+    private String createCategory(String ownerToken, String name) throws Exception {
+        CreateCategoryRequest request = new CreateCategoryRequest();
+        request.setName(name);
+        MvcResult result = mockMvc.perform(post("/api/v1/categories")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private User createUserDirectly(User owner, UserRole role) {
+        User user = User.builder()
+                .restaurant(owner.getRestaurant())
+                .name(role.name())
+                .email(role.name().toLowerCase() + "+" + System.nanoTime() + "@test.com")
+                .password(passwordEncoder.encode("password123"))
+                .role(role)
+                .active(true)
+                .build();
+        return userRepository.save(user);
+    }
+
+    private String tokenFor(User user) {
+        return jwtService.generateToken(new UserDetailsImpl(user));
+    }
+
+    @Test
+    void createProduct_asOwner_shouldSucceed() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setDescription("Beef patty with cheese");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Cheeseburger"))
+                .andExpect(jsonPath("$.price").value(25.90))
+                .andExpect(jsonPath("$.categoryId").value(categoryId))
+                .andExpect(jsonPath("$.active").value(true));
+    }
+
+    @Test
+    void createProduct_withCategoryFromAnotherRestaurant_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        RegisterRestaurantRequest otherRestaurant = new RegisterRestaurantRequest();
+        otherRestaurant.setRestaurantName("Pizza Place");
+        otherRestaurant.setOwnerName("Another Owner");
+        otherRestaurant.setOwnerEmail("another+" + System.nanoTime() + "@test.com");
+        otherRestaurant.setOwnerPassword("password789");
+        MvcResult otherResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(otherRestaurant)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String otherToken = JsonPath.read(otherResult.getResponse().getContentAsString(), "$.accessToken");
+        String otherCategoryId = createCategory(otherToken, "Pizzas");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Margherita");
+        request.setPrice(new BigDecimal("35.00"));
+        request.setCategoryId(java.util.UUID.fromString(otherCategoryId));
+
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createProduct_withNonPositivePrice_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Free Sample");
+        request.setPrice(BigDecimal.ZERO);
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createProduct_withDuplicateNameCaseInsensitive_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        CreateProductRequest duplicateRequest = new CreateProductRequest();
+        duplicateRequest.setName("CHEESEBURGER");
+        duplicateRequest.setPrice(new BigDecimal("29.90"));
+        duplicateRequest.setCategoryId(java.util.UUID.fromString(categoryId));
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(duplicateRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createProduct_withDuplicateNameInDifferentCategory_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String burgersId = createCategory(ownerToken, "Burgers");
+        String comboId = createCategory(ownerToken, "Combos");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(burgersId));
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        CreateProductRequest duplicateRequest = new CreateProductRequest();
+        duplicateRequest.setName("Cheeseburger");
+        duplicateRequest.setPrice(new BigDecimal("29.90"));
+        duplicateRequest.setCategoryId(java.util.UUID.fromString(comboId));
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(duplicateRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateProduct_keepingSameName_shouldSucceed() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+        MvcResult createResult = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String productId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        UpdateProductRequest updateRequest = new UpdateProductRequest();
+        updateRequest.setName("Cheeseburger");
+        updateRequest.setPrice(new BigDecimal("27.90"));
+
+        mockMvc.perform(put("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.price").value(27.90));
+    }
+
+    @Test
+    void createProduct_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void listProducts_asWaiter_shouldSucceed() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/products")
+                        .header("Authorization", "Bearer " + waiterToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void listProducts_filterByCategory_shouldReturnOnlyMatching() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String burgersId = createCategory(ownerToken, "Burgers");
+        String drinksId = createCategory(ownerToken, "Drinks");
+
+        CreateProductRequest burger = new CreateProductRequest();
+        burger.setName("Cheeseburger");
+        burger.setPrice(new BigDecimal("25.90"));
+        burger.setCategoryId(java.util.UUID.fromString(burgersId));
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(burger)))
+                .andExpect(status().isCreated());
+
+        CreateProductRequest soda = new CreateProductRequest();
+        soda.setName("Soda");
+        soda.setPrice(new BigDecimal("6.00"));
+        soda.setCategoryId(java.util.UUID.fromString(drinksId));
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(soda)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/products").param("categoryId", drinksId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("Soda"));
+    }
+
+    @Test
+    void listProducts_searchByName_shouldReturnOnlyMatching() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest cheeseburger = new CreateProductRequest();
+        cheeseburger.setName("Cheeseburger");
+        cheeseburger.setPrice(new BigDecimal("25.90"));
+        cheeseburger.setCategoryId(java.util.UUID.fromString(categoryId));
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(cheeseburger)))
+                .andExpect(status().isCreated());
+
+        CreateProductRequest baconBurger = new CreateProductRequest();
+        baconBurger.setName("Bacon Burger");
+        baconBurger.setPrice(new BigDecimal("28.90"));
+        baconBurger.setCategoryId(java.util.UUID.fromString(categoryId));
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(baconBurger)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/products").param("search", "cheese")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("Cheeseburger"));
+    }
+
+    @Test
+    void getProduct_crossTenant_shouldNotBeFound() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        RegisterRestaurantRequest otherRestaurant = new RegisterRestaurantRequest();
+        otherRestaurant.setRestaurantName("Pizza Place");
+        otherRestaurant.setOwnerName("Another Owner");
+        otherRestaurant.setOwnerEmail("another2+" + System.nanoTime() + "@test.com");
+        otherRestaurant.setOwnerPassword("password789");
+        MvcResult otherResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(otherRestaurant)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String otherToken = JsonPath.read(otherResult.getResponse().getContentAsString(), "$.accessToken");
+        String otherCategoryId = createCategory(otherToken, "Pizzas");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Margherita");
+        request.setPrice(new BigDecimal("35.00"));
+        request.setCategoryId(java.util.UUID.fromString(otherCategoryId));
+        MvcResult productResult = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + otherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String otherProductId = JsonPath.read(productResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(get("/api/v1/products/" + otherProductId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateProduct_asOwner_shouldChangePriceAndCategory() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String burgersId = createCategory(ownerToken, "Burgers");
+        String comboId = createCategory(ownerToken, "Combos");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(burgersId));
+        MvcResult createResult = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String productId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        UpdateProductRequest updateRequest = new UpdateProductRequest();
+        updateRequest.setPrice(new BigDecimal("29.90"));
+        updateRequest.setCategoryId(java.util.UUID.fromString(comboId));
+
+        mockMvc.perform(put("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.price").value(29.90))
+                .andExpect(jsonPath("$.categoryId").value(comboId));
+    }
+
+    @Test
+    void updateProduct_deactivate_shouldSucceed() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+        MvcResult createResult = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String productId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        UpdateProductRequest updateRequest = new UpdateProductRequest();
+        updateRequest.setActive(false);
+
+        mockMvc.perform(put("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(false));
+    }
+
+    @Test
+    void updateProduct_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+        MvcResult createResult = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String productId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        UpdateProductRequest updateRequest = new UpdateProductRequest();
+        updateRequest.setName("Should not work");
+
+        mockMvc.perform(put("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updateProduct_withCategoryFromAnotherRestaurant_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+        MvcResult createResult = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String productId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        RegisterRestaurantRequest otherRestaurant = new RegisterRestaurantRequest();
+        otherRestaurant.setRestaurantName("Pizza Place");
+        otherRestaurant.setOwnerName("Another Owner");
+        otherRestaurant.setOwnerEmail("another3+" + System.nanoTime() + "@test.com");
+        otherRestaurant.setOwnerPassword("password789");
+        MvcResult otherResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(otherRestaurant)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String otherToken = JsonPath.read(otherResult.getResponse().getContentAsString(), "$.accessToken");
+        String otherCategoryId = createCategory(otherToken, "Pizzas");
+
+        UpdateProductRequest updateRequest = new UpdateProductRequest();
+        updateRequest.setCategoryId(java.util.UUID.fromString(otherCategoryId));
+
+        mockMvc.perform(put("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isBadRequest());
+    }
+}
