@@ -1,0 +1,57 @@
+package com.example.restaurant_saas.domain.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
+@Entity
+@Table(name = "restaurants")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Restaurant {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    @Column(unique = true, length = 20)
+    private String cnpj;
+
+    @Column(length = 20)
+    private String phone;
+
+    private String address;
+
+    @Column(name = "trade_name", length = 100)
+    private String tradeName;
+
+    private String logo;
+
+    @Column(name = "primary_color", length = 20)
+    private String primaryColor;
+
+    @Column(name = "table_count")
+    @Builder.Default
+    private Integer tableCount = 0;
+
+    @Builder.Default
+    private Boolean active = true;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private OffsetDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private OffsetDateTime updatedAt;
+}

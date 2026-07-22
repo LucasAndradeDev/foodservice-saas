@@ -1,0 +1,39 @@
+CREATE TABLE IF NOT EXISTS restaurants (
+    id UUID PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    cnpj VARCHAR(20) UNIQUE,
+    phone VARCHAR(20),
+    address VARCHAR(255),
+    trade_name VARCHAR(100),
+    logo VARCHAR(255),
+    primary_color VARCHAR(20),
+    table_count INT DEFAULT 0,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY,
+    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id UUID PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token VARCHAR(255) NOT NULL UNIQUE,
+    expiry_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    revoked BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_restaurant_id ON users(restaurant_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
