@@ -126,6 +126,34 @@ class RestaurantControllerIntegrationTest {
     }
 
     @Test
+    void updateMyRestaurant_asManager_shouldSucceed() throws Exception {
+        registerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+
+        User manager = User.builder()
+                .restaurant(owner.getRestaurant())
+                .name("Manager")
+                .email("manager+" + System.nanoTime() + "@test.com")
+                .password(passwordEncoder.encode("password123"))
+                .role(UserRole.MANAGER)
+                .active(true)
+                .build();
+        manager = userRepository.save(manager);
+
+        String managerToken = jwtService.generateToken(new UserDetailsImpl(manager));
+
+        UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
+        updateRequest.setTableCount(20);
+
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + managerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tableCount").value(20));
+    }
+
+    @Test
     void updateMyRestaurant_withNegativeTableCount_shouldReturn400() throws Exception {
         String token = registerAndGetToken();
 

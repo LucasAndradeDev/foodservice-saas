@@ -221,6 +221,30 @@ class UserControllerIntegrationTest {
     }
 
     @Test
+    void getUser_asOwner_shouldReturnUserDetails() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+
+        mockMvc.perform(get("/api/v1/users/" + waiter.getId())
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(waiter.getId().toString()))
+                .andExpect(jsonPath("$.role").value("WAITER"));
+    }
+
+    @Test
+    void createUser_withMissingFields_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        mockMvc.perform(post("/api/v1/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void getUser_crossTenant_shouldNotBeFound() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
 
@@ -340,6 +364,32 @@ class UserControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(false));
+    }
+
+    @Test
+    void updateUser_deactivatingLastActiveOwner_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User secondOwner = createUserDirectly(owner, UserRole.OWNER);
+
+        UpdateUserRequest deactivateRequest = new UpdateUserRequest();
+        deactivateRequest.setActive(false);
+
+        // First deactivation succeeds: two active owners before it, one remains after.
+        mockMvc.perform(put("/api/v1/users/" + secondOwner.getId())
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(deactivateRequest)))
+                .andExpect(status().isOk());
+
+        // Only one active owner is left (the acting user); trying to touch the other
+        // OWNER's active flag again must be blocked, since it would leave the
+        // restaurant with zero active owners if it were ever allowed to succeed.
+        mockMvc.perform(put("/api/v1/users/" + secondOwner.getId())
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(deactivateRequest)))
+                .andExpect(status().isForbidden());
     }
 
     @Test

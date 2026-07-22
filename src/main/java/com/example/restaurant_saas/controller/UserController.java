@@ -6,6 +6,11 @@ import com.example.restaurant_saas.dto.request.UpdateUserRequest;
 import com.example.restaurant_saas.dto.response.UserResponse;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.example.restaurant_saas.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,20 +26,32 @@ import java.util.UUID;
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+@Tag(name = "Users", description = "Manage restaurant staff (OWNER/MANAGER/WAITER/KITCHEN/CASHIER). Restricted to OWNER and MANAGER.")
 public class UserController {
 
     private final UserService userService;
 
     @GetMapping
+    @Operation(summary = "List staff", description = "Lists the restaurant's staff, optionally filtered by role and/or active status.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Staff list returned"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
+    })
     public ResponseEntity<List<UserResponse>> listUsers(
             @AuthenticationPrincipal UserDetailsImpl currentUser,
-            @RequestParam(required = false) UserRole role,
-            @RequestParam(required = false) Boolean active
+            @Parameter(description = "Filter by role") @RequestParam(required = false) UserRole role,
+            @Parameter(description = "Filter by active status") @RequestParam(required = false) Boolean active
     ) {
         return ResponseEntity.ok(userService.listUsers(currentUser.getRestaurantId(), role, active));
     }
 
     @GetMapping("/{id}")
+    @Operation(summary = "Get staff member", description = "Returns a single staff member by id, scoped to the authenticated user's restaurant.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Staff member returned"),
+            @ApiResponse(responseCode = "400", description = "User not found in this restaurant"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
+    })
     public ResponseEntity<UserResponse> getUser(
             @AuthenticationPrincipal UserDetailsImpl currentUser,
             @PathVariable UUID id
@@ -43,6 +60,12 @@ public class UserController {
     }
 
     @PostMapping
+    @Operation(summary = "Create staff member", description = "Creates a new staff member with an initial password set by the caller. OWNER can assign MANAGER, WAITER, KITCHEN or CASHIER; MANAGER can only assign WAITER, KITCHEN or CASHIER. The OWNER role can never be assigned through this endpoint.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Staff member created"),
+            @ApiResponse(responseCode = "400", description = "Validation error or email already registered"),
+            @ApiResponse(responseCode = "403", description = "Caller is not allowed to assign the requested role")
+    })
     public ResponseEntity<UserResponse> createUser(
             @AuthenticationPrincipal UserDetailsImpl currentUser,
             @Valid @RequestBody CreateUserRequest request
@@ -53,6 +76,12 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
+    @Operation(summary = "Update staff member", description = "Updates name, role and/or active status. A user can never change their own role or active status, and the restaurant's last active OWNER cannot be deactivated. Fields omitted from the request body are left unchanged.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Staff member updated"),
+            @ApiResponse(responseCode = "400", description = "User not found in this restaurant"),
+            @ApiResponse(responseCode = "403", description = "Self role/active change, target out of caller's management scope, or would leave the restaurant without an active owner")
+    })
     public ResponseEntity<UserResponse> updateUser(
             @AuthenticationPrincipal UserDetailsImpl currentUser,
             @PathVariable UUID id,
