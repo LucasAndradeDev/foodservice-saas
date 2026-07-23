@@ -35,3 +35,7 @@ export function openTab(tableIds: string[]) {
 export function cancelTab(id: string) {
   return http.patch<Tab>(`/tabs/${id}/cancel`).then((res) => res.data)
 }
+
+export function payTab(id: string, paymentMethod: PaymentMethod, paidAmount: number) {
+  return http.patch<Tab>(`/tabs/${id}/pay`, { paymentMethod, paidAmount }).then((res) => res.data)
+}

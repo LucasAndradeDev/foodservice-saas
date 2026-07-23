@@ -3,6 +3,7 @@ import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './layout/AppLayout'
 import { CategoriesPage } from './pages/CategoriesPage'
+import { CheckoutPage } from './pages/CheckoutPage'
 import { HomePage } from './pages/HomePage'
 import { KitchenPage } from './pages/KitchenPage'
 import { LoginPage } from './pages/LoginPage'
@@ -25,6 +26,7 @@ function App() {
               <Route path="/tables" element={<TablesPage />} />
               <Route path="/tabs/:tabId" element={<TabDetailPage />} />
               <Route path="/kitchen" element={<KitchenPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/settings" element={<RestaurantSettingsPage />} />
