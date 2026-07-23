@@ -590,4 +590,102 @@ class TableControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(statusRequest)))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void deleteTable_asOwner_whenFree_shouldSucceed() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        CreateTableRequest request = new CreateTableRequest();
+        request.setNumber(1);
+        MvcResult createResult = mockMvc.perform(post("/api/v1/tables")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String tableId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(delete("/api/v1/tables/" + tableId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/tables/" + tableId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deleteTable_whenNotFree_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        CreateTableRequest request = new CreateTableRequest();
+        request.setNumber(1);
+        MvcResult createResult = mockMvc.perform(post("/api/v1/tables")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String tableId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        UpdateTableStatusRequest statusRequest = new UpdateTableStatusRequest();
+        statusRequest.setStatus(com.example.restaurant_saas.domain.enums.TableStatus.OCCUPIED);
+        mockMvc.perform(patch("/api/v1/tables/" + tableId + "/status")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusRequest)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/tables/" + tableId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteTable_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+
+        CreateTableRequest request = new CreateTableRequest();
+        request.setNumber(1);
+        MvcResult createResult = mockMvc.perform(post("/api/v1/tables")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String tableId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(delete("/api/v1/tables/" + tableId)
+                        .header("Authorization", "Bearer " + waiterToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteTable_crossTenant_shouldNotBeFound() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        RegisterRestaurantRequest otherRestaurant = new RegisterRestaurantRequest();
+        otherRestaurant.setRestaurantName("Pizza Place");
+        otherRestaurant.setOwnerName("Another Owner");
+        otherRestaurant.setOwnerEmail("another3+" + System.nanoTime() + "@test.com");
+        otherRestaurant.setOwnerPassword("password789");
+        String otherToken = registerAndGetToken(otherRestaurant);
+
+        CreateTableRequest request = new CreateTableRequest();
+        request.setNumber(1);
+        MvcResult createResult = mockMvc.perform(post("/api/v1/tables")
+                        .header("Authorization", "Bearer " + otherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String otherTableId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(delete("/api/v1/tables/" + otherTableId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest());
+    }
 }

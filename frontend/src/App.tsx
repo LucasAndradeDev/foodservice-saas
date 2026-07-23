@@ -8,6 +8,7 @@ import { LoginPage } from './pages/LoginPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { RestaurantSettingsPage } from './pages/RestaurantSettingsPage'
+import { TabDetailPage } from './pages/TabDetailPage'
 import { TablesPage } from './pages/TablesPage'
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
             <Route element={<AppLayout />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/tables" element={<TablesPage />} />
+              <Route path="/tabs/:tabId" element={<TabDetailPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/settings" element={<RestaurantSettingsPage />} />

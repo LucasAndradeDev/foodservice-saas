@@ -83,4 +83,19 @@ public class TabController {
     ) {
         return ResponseEntity.ok(tabService.payTab(currentUser.getRestaurantId(), id, request));
     }
+
+    @PatchMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "Cancel tab", description = "Cancels an open tab that has no orders yet (e.g. opened by mistake), closing it without payment and freeing all linked tables. Not allowed once any order has been sent to the kitchen.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Tab cancelled"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant or already closed"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission, or tab already has orders")
+    })
+    public ResponseEntity<TabResponse> cancelTab(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(tabService.cancelTab(currentUser.getRestaurantId(), id));
+    }
 }

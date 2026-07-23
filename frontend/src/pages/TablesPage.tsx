@@ -1,14 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   createTable,
   createTablesBulk,
+  deleteTable,
   listTables,
   updateTable,
   updateTableStatus,
   type RestaurantTable,
   type TableStatus,
 } from '../api/tables'
+import { listTabs, openTab } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
 
@@ -26,8 +29,10 @@ const STATUS_STYLES: Record<TableStatus, string> = {
 
 export function TablesPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const canManage = user?.role === 'OWNER' || user?.role === 'MANAGER'
   const canChangeStatus = canManage || user?.role === 'WAITER'
+  const canOpenTab = canManage || user?.role === 'WAITER' || user?.role === 'CASHIER'
   const queryClient = useQueryClient()
 
   const { data: tables, isLoading } = useQuery({
@@ -35,8 +40,24 @@ export function TablesPage() {
     queryFn: () => listTables(),
   })
 
+  const { data: openTabs } = useQuery({
+    queryKey: ['tabs', 'OPEN'],
+    queryFn: () => listTabs('OPEN'),
+    enabled: canOpenTab,
+  })
+
+  const tableTabMap = useMemo(() => {
+    const map = new Map<string, string>()
+    openTabs?.forEach((tab) => {
+      tab.tables.forEach((table) => map.set(table.id, tab.id))
+    })
+    return map
+  }, [openTabs])
+
   const [isCreating, setIsCreating] = useState(false)
   const [isBulkCreating, setIsBulkCreating] = useState(false)
+  const [isSelectingTables, setIsSelectingTables] = useState(false)
+  const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(new Set())
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null)
   const [numberInput, setNumberInput] = useState('')
   const [quantityInput, setQuantityInput] = useState('')
@@ -78,6 +99,27 @@ export function TablesPage() {
     onSuccess: invalidate,
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: deleteTable,
+    onSuccess: () => {
+      invalidate()
+      closeTableModal()
+    },
+    onError: () => setError('Não foi possível excluir a mesa.'),
+  })
+
+  const openTabMutation = useMutation({
+    mutationFn: openTab,
+    onSuccess: (tab) => {
+      invalidate()
+      queryClient.invalidateQueries({ queryKey: ['tabs'] })
+      setIsSelectingTables(false)
+      setSelectedTableIds(new Set())
+      navigate(`/tabs/${tab.id}`)
+    },
+    onError: () => setError('Não foi possível abrir a comanda. Verifique se as mesas selecionadas estão livres.'),
+  })
+
   function openCreateForm() {
     setNumberInput('')
     setError(null)
@@ -100,6 +142,17 @@ export function TablesPage() {
 
   function closeTableModal() {
     setSelectedTable(null)
+  }
+
+  function handleDelete() {
+    if (!selectedTable) return
+    const confirmed = window.confirm(
+      `Excluir a Mesa ${selectedTable.number}? Essa ação não pode ser desfeita.`,
+    )
+    if (confirmed) {
+      setError(null)
+      deleteMutation.mutate(selectedTable.id)
+    }
   }
 
   function handleCreateSubmit(event: FormEvent) {
@@ -131,29 +184,110 @@ export function TablesPage() {
     closeTableModal()
   }
 
+  function startSelectingTables() {
+    setError(null)
+    setSelectedTableIds(new Set())
+    setIsSelectingTables(true)
+  }
+
+  function cancelSelectingTables() {
+    setIsSelectingTables(false)
+    setSelectedTableIds(new Set())
+  }
+
+  function toggleTableSelection(table: RestaurantTable) {
+    if (table.status !== 'FREE') return
+    setSelectedTableIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(table.id)) {
+        next.delete(table.id)
+      } else {
+        next.add(table.id)
+      }
+      return next
+    })
+  }
+
+  function confirmOpenTab() {
+    setError(null)
+    openTabMutation.mutate(Array.from(selectedTableIds))
+  }
+
+  function handleTableClick(table: RestaurantTable) {
+    if (isSelectingTables) {
+      toggleTableSelection(table)
+      return
+    }
+    const tabId = tableTabMap.get(table.id)
+    if (tabId) {
+      navigate(`/tabs/${tabId}`)
+      return
+    }
+    openTableModal(table)
+  }
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-800">Mesas</h1>
-        {canManage && (
+        <div className="flex gap-2">
+          {canOpenTab && !isSelectingTables && (
+            <button
+              type="button"
+              onClick={startSelectingTables}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              Abrir comanda
+            </button>
+          )}
+          {canManage && !isSelectingTables && (
+            <>
+              <button
+                type="button"
+                onClick={openBulkForm}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Criar em lote
+              </button>
+              <button
+                type="button"
+                onClick={openCreateForm}
+                className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800"
+              >
+                Nova mesa
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {isSelectingTables && (
+        <div className="mb-4 flex items-center justify-between rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-sm">
+          <span>
+            Selecione uma ou mais mesas livres ({selectedTableIds.size} selecionada
+            {selectedTableIds.size === 1 ? '' : 's'})
+          </span>
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={openBulkForm}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+              onClick={cancelSelectingTables}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-gray-700 hover:bg-gray-100"
             >
-              Criar em lote
+              Cancelar
             </button>
             <button
               type="button"
-              onClick={openCreateForm}
-              className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800"
+              onClick={confirmOpenTab}
+              disabled={selectedTableIds.size === 0 || openTabMutation.isPending}
+              className="rounded-md bg-gray-900 px-3 py-1.5 font-medium text-white hover:bg-gray-800 disabled:opacity-50"
             >
-              Nova mesa
+              Abrir comanda
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {error && !selectedTable && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
 
@@ -163,19 +297,23 @@ export function TablesPage() {
 
       {tables && tables.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {tables.map((table) => (
-            <button
-              key={table.id}
-              type="button"
-              disabled={!canChangeStatus && !canManage}
-              onClick={() => openTableModal(table)}
-              className={`rounded-lg border-2 p-4 text-center shadow-sm transition disabled:cursor-default ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-40' : ''}`}
-            >
-              <div className="text-lg font-semibold">Mesa {table.number}</div>
-              <div className="text-xs">{STATUS_LABELS[table.status]}</div>
-              {!table.active && <div className="text-xs">(inativa)</div>}
-            </button>
-          ))}
+          {tables.map((table) => {
+            const isSelected = selectedTableIds.has(table.id)
+            const isSelectableNow = !isSelectingTables || table.status === 'FREE'
+            return (
+              <button
+                key={table.id}
+                type="button"
+                disabled={(!canChangeStatus && !canManage && !canOpenTab) || !isSelectableNow}
+                onClick={() => handleTableClick(table)}
+                className={`rounded-lg border-2 p-4 text-center shadow-sm transition disabled:cursor-default disabled:opacity-40 ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-40' : ''} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
+              >
+                <div className="text-lg font-semibold">Mesa {table.number}</div>
+                <div className="text-xs">{STATUS_LABELS[table.status]}</div>
+                {!table.active && <div className="text-xs">(inativa)</div>}
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -293,6 +431,17 @@ export function TablesPage() {
                 className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
               >
                 Salvar
+              </button>
+            )}
+
+            {canManage && selectedTable.status === 'FREE' && (
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+                className="mt-2 w-full rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+              >
+                Excluir mesa
               </button>
             )}
           </form>

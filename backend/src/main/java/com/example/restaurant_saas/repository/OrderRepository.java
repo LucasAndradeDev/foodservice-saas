@@ -12,4 +12,5 @@ import java.util.UUID;
 public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByTabIdAndRestaurantId(UUID tabId, UUID restaurantId);
     Optional<Order> findByIdAndRestaurantId(UUID id, UUID restaurantId);
+    boolean existsByTabId(UUID tabId);
 }

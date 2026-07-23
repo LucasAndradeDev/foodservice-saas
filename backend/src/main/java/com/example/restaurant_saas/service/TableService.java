@@ -114,6 +114,15 @@ public class TableService {
         return toResponse(tableRepository.save(table));
     }
 
+    @Transactional
+    public void deleteTable(UUID restaurantId, UUID tableId) {
+        RestaurantTable table = findByIdAndRestaurant(restaurantId, tableId);
+        if (table.getStatus() != TableStatus.FREE) {
+            throw new IllegalStateException("Cannot delete a table that is not FREE.");
+        }
+        tableRepository.delete(table);
+    }
+
     private RestaurantTable findByIdAndRestaurant(UUID restaurantId, UUID tableId) {
         return tableRepository.findByIdAndRestaurantId(tableId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Table not found."));

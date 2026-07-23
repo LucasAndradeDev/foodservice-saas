@@ -34,3 +34,7 @@ export function updateTable(id: string, payload: { number?: number; active?: boo
 export function updateTableStatus(id: string, status: TableStatus) {
   return http.patch<RestaurantTable>(`/tables/${id}/status`, { status }).then((res) => res.data)
 }
+
+export function deleteTable(id: string) {
+  return http.delete<void>(`/tables/${id}`).then((res) => res.data)
+}

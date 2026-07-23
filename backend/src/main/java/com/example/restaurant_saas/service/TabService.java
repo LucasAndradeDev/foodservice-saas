@@ -10,6 +10,7 @@ import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.dto.response.TabTableSummary;
 import com.example.restaurant_saas.repository.OrderItemRepository;
+import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.RestaurantTableRepository;
 import com.example.restaurant_saas.repository.TabRepository;
@@ -30,6 +31,7 @@ public class TabService {
     private final RestaurantTableRepository tableRepository;
     private final RestaurantRepository restaurantRepository;
     private final OrderItemRepository orderItemRepository;
+    private final OrderRepository orderRepository;
 
     @Transactional(readOnly = true)
     public List<TabResponse> listTabs(UUID restaurantId, TabStatus statusFilter) {
@@ -97,6 +99,26 @@ public class TabService {
         tab.setPaymentMethod(request.getPaymentMethod());
         tab.setPaidAmount(request.getPaidAmount());
         tab.setPaidAt(now);
+        tab = tabRepository.save(tab);
+
+        tab.getTables().forEach(table -> table.setStatus(TableStatus.FREE));
+        tableRepository.saveAll(tab.getTables());
+
+        return toResponse(tab);
+    }
+
+    @Transactional
+    public TabResponse cancelTab(UUID restaurantId, UUID tabId) {
+        Tab tab = findByIdAndRestaurant(restaurantId, tabId);
+        if (tab.getStatus() == TabStatus.CLOSED) {
+            throw new IllegalArgumentException("Tab is already closed.");
+        }
+        if (orderRepository.existsByTabId(tabId)) {
+            throw new IllegalStateException("Cannot cancel a tab that already has orders.");
+        }
+
+        tab.setStatus(TabStatus.CLOSED);
+        tab.setClosedAt(OffsetDateTime.now());
         tab = tabRepository.save(tab);
 
         tab.getTables().forEach(table -> table.setStatus(TableStatus.FREE));

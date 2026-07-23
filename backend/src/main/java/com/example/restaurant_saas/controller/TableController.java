@@ -103,6 +103,22 @@ public class TableController {
         return ResponseEntity.ok(tableService.updateTable(currentUser.getRestaurantId(), id, request));
     }
 
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @Operation(summary = "Delete table", description = "Permanently deletes a table. Only allowed while the table is FREE, to avoid removing a table that is part of an in-progress tab.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Table deleted"),
+            @ApiResponse(responseCode = "400", description = "Table not found in this restaurant"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER, or table is not FREE")
+    })
+    public ResponseEntity<Void> deleteTable(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id
+    ) {
+        tableService.deleteTable(currentUser.getRestaurantId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER')")
     @Operation(summary = "Update table status", description = "Manually changes the table status (FREE, OCCUPIED, CLOSING). Any transition is allowed for now; Sprint 5 will drive this transition automatically from the Tab flow.")

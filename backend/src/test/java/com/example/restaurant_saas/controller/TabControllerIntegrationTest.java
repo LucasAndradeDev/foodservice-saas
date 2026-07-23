@@ -578,4 +578,62 @@ class TabControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/tabs"))
                 .andExpect(status().is4xxClientError());
     }
+
+    @Test
+    void cancelTab_withNoOrders_shouldCloseAndFreeTables() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.paymentMethod").doesNotExist())
+                .andExpect(jsonPath("$.paidAmount").doesNotExist());
+
+        mockMvc.perform(get("/api/v1/tables/" + tableId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FREE"));
+    }
+
+    @Test
+    void cancelTab_withOrders_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+        createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void cancelTab_alreadyClosed_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cancelTab_withoutToken_shouldBeRejected() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel"))
+                .andExpect(status().is4xxClientError());
+    }
 }
