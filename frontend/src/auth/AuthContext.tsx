@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import {
   login as loginRequest,
@@ -31,17 +32,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const initial = getStoredAuth()
   const [user, setUser] = useState<StoredUser | null>(initial?.user ?? null)
   const [restaurant, setRestaurant] = useState<StoredRestaurant | null>(initial?.restaurant ?? null)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     function handleForcedLogout() {
+      queryClient.clear()
       setUser(null)
       setRestaurant(null)
     }
     window.addEventListener(AUTH_LOGOUT_EVENT, handleForcedLogout)
     return () => window.removeEventListener(AUTH_LOGOUT_EVENT, handleForcedLogout)
-  }, [])
+  }, [queryClient])
 
   function applyAuthResponse(response: AuthResponse) {
+    // Clear any cached data from a previous session/restaurant before switching —
+    // query keys aren't scoped by restaurantId, so stale cross-tenant data would
+    // otherwise flash briefly on the first visit to each screen.
+    queryClient.clear()
     setStoredAuth({
       accessToken: response.accessToken,
       refreshToken: response.refreshToken,
@@ -61,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    queryClient.clear()
     clearStoredAuth()
     setUser(null)
     setRestaurant(null)
