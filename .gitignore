@@ -33,3 +33,6 @@ build/
 .vscode/
 .aider*
 .env
+
+### Local sprint notes (not versioned) ###
+docs/SPRINT*.md
