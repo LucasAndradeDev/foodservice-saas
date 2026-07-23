@@ -4,6 +4,7 @@ import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './layout/AppLayout'
 import { CategoriesPage } from './pages/CategoriesPage'
 import { HomePage } from './pages/HomePage'
+import { KitchenPage } from './pages/KitchenPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { RegisterPage } from './pages/RegisterPage'
@@ -23,6 +24,7 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/tables" element={<TablesPage />} />
               <Route path="/tabs/:tabId" element={<TabDetailPage />} />
+              <Route path="/kitchen" element={<KitchenPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/settings" element={<RestaurantSettingsPage />} />

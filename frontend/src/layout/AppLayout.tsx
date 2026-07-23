@@ -11,6 +11,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 const NAV_ITEMS = [
   { to: '/tables', label: 'Mesas' },
+  { to: '/kitchen', label: 'Cozinha' },
   { to: '/categories', label: 'Categorias' },
   { to: '/products', label: 'Produtos' },
   { to: '/settings', label: 'Configurações' },
