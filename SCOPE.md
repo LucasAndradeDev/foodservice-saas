@@ -100,6 +100,7 @@ Representa a conta aberta da mesa.
 - **Campos:** `id`, `table_id`, `status`, `opened_at`, `closed_at`, `restaurant_id`
 - **Status:** `OPEN`, `CLOSED`
 - **Regras:** Uma mesa só pode possuir uma comanda aberta.
+- **Nota para Sprint 5 (decidido na Sprint 4):** quando um grupo precisa juntar mesas (ex: mesas 5 e 6 encostadas pra caber mais gente), a solução não deve mexer no cadastro de `Mesa` (fundir/desfundir entidades é frágil — não fica claro quem é a mesa "principal" nem como desfazer). O modelo correto é trocar `table_id` (1:1) por um relacionamento N:N entre Comanda e Mesa (tabela de junção `tab_tables`). Ao abrir uma comanda pra um grupo, ela referencia várias mesas de uma vez; todas ficam `OCCUPIED` e recebem os mesmos pedidos; ao fechar, todas voltam a `FREE` independentemente. As mesas em si continuam sendo entidades simples e permanentes.
 
 #### 8. Pedido (Order)
 Representa um envio para cozinha. Uma mesma comanda pode possuir vários pedidos.
