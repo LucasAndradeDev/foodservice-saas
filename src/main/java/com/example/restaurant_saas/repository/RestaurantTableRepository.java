@@ -14,6 +14,7 @@ import java.util.UUID;
 public interface RestaurantTableRepository extends JpaRepository<RestaurantTable, UUID> {
     List<RestaurantTable> findByRestaurantId(UUID restaurantId);
     Optional<RestaurantTable> findByIdAndRestaurantId(UUID id, UUID restaurantId);
+    List<RestaurantTable> findByIdInAndRestaurantId(List<UUID> ids, UUID restaurantId);
     boolean existsByRestaurantIdAndNumber(UUID restaurantId, Integer number);
     boolean existsByRestaurantIdAndNumberAndIdNot(UUID restaurantId, Integer number, UUID id);
 

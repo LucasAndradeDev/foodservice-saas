@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS tabs (
+    id UUID PRIMARY KEY,
+    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+    opened_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    closed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS tab_tables (
+    tab_id UUID NOT NULL REFERENCES tabs(id) ON DELETE CASCADE,
+    table_id UUID NOT NULL REFERENCES restaurant_tables(id) ON DELETE CASCADE,
+    PRIMARY KEY (tab_id, table_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tabs_restaurant_id ON tabs(restaurant_id);
+CREATE INDEX IF NOT EXISTS idx_tab_tables_table_id ON tab_tables(table_id);
