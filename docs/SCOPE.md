@@ -1,4 +1,4 @@
-# 🍔 Food Service SaaS - MVP
+# 🍔 Morá - MVP
 ## Sistema de Gestão de Mesas para Restaurantes
 
 ### Objetivo
@@ -226,6 +226,20 @@ Mesa volta para Livre
 - **Sprint 6:** Pedidos (Adicionar itens, Remover itens, Observações, Total)
 - **Sprint 7:** Tela da Cozinha (Atualização dos status)
 - **Sprint 8:** Pagamento, Fechamento, Dashboard
+
+---
+
+### Ordem de Desenvolvimento — Frontend
+
+Backend (Sprints 1–8) concluído primeiro; frontend retomado a partir da Sprint 9, priorizando o fluxo operacional (Mesas → Produtos → Comanda → Cozinha → Caixa) antes de telas de apoio como o Dashboard.
+
+- **Sprint 9:** Infraestrutura (Vite, React, TypeScript, Tailwind), React Router, cliente HTTP com refresh token, React Query, Login, rotas protegidas, layout base.
+- **Sprint 10:** Categorias e Produtos (CRUD, busca, filtro por categoria).
+- **Sprint 11:** Mesas (grade por status, CRUD, criação em lote).
+- **Sprint 12:** Comanda e Pedidos — tela de Mesa (Detalhes): abrir comanda, listar itens, adicionar item, enviar para cozinha.
+- **Sprint 13:** Cozinha — fila de itens por status com atualização quase em tempo real.
+- **Sprint 14:** Caixa — resumo da comanda, forma de pagamento, fechamento.
+- **Sprint 15:** Dashboard.
 
 ---
 

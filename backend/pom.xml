@@ -11,8 +11,8 @@
     <groupId>com.example</groupId>
     <artifactId>restaurant-saas</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>restaurant-saas</name>
-    <description>SaaS para gerenciamento de restaurantes e lanchonetes</description>
+    <name>mora</name>
+    <description>Morá - SaaS para gerenciamento de restaurantes e lanchonetes</description>
     <properties>
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
