@@ -2,11 +2,13 @@ package com.example.restaurant_saas.service;
 
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
+import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.domain.enums.TableStatus;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.dto.response.TabTableSummary;
+import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.RestaurantTableRepository;
 import com.example.restaurant_saas.repository.TabRepository;
@@ -25,6 +27,7 @@ public class TabService {
     private final TabRepository tabRepository;
     private final RestaurantTableRepository tableRepository;
     private final RestaurantRepository restaurantRepository;
+    private final OrderItemRepository orderItemRepository;
 
     @Transactional(readOnly = true)
     public List<TabResponse> listTabs(UUID restaurantId, TabStatus statusFilter) {
@@ -76,6 +79,9 @@ public class TabService {
         Tab tab = findByIdAndRestaurant(restaurantId, tabId);
         if (tab.getStatus() == TabStatus.CLOSED) {
             throw new IllegalArgumentException("Tab is already closed.");
+        }
+        if (orderItemRepository.existsByOrder_Tab_IdAndStatusNotIn(tabId, List.of(ItemStatus.DELIVERED, ItemStatus.CANCELLED))) {
+            throw new IllegalStateException("Tab has order items that are not DELIVERED or CANCELLED yet.");
         }
 
         tab.setStatus(TabStatus.CLOSED);

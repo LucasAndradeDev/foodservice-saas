@@ -2,9 +2,15 @@ package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.UserRole;
+import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
+import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
+import com.example.restaurant_saas.dto.request.CreateOrderRequest;
+import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
+import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
+import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
@@ -20,6 +26,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -101,6 +108,106 @@ class TabControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private String openTabAndGetId(String token, String tableId) throws Exception {
+        OpenTabRequest request = new OpenTabRequest();
+        request.setTableIds(List.of(UUID.fromString(tableId)));
+        MvcResult result = mockMvc.perform(post("/api/v1/tabs")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private String createCategoryAndGetId(String token) throws Exception {
+        CreateCategoryRequest request = new CreateCategoryRequest();
+        request.setName("Burgers " + System.nanoTime());
+        MvcResult result = mockMvc.perform(post("/api/v1/categories")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private String createProductAndGetId(String token, String categoryId, String name, String price) throws Exception {
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName(name);
+        request.setPrice(new BigDecimal(price));
+        request.setCategoryId(UUID.fromString(categoryId));
+        MvcResult result = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private String createOrderAndGetFirstItemId(String token, String tabId, String productId) throws Exception {
+        CreateOrderItemRequest item = new CreateOrderItemRequest();
+        item.setProductId(UUID.fromString(productId));
+        item.setQuantity(1);
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setItems(List.of(item));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/orders")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.items[0].id");
+    }
+
+    private void updateItemStatus(String token, String itemId, ItemStatus status) throws Exception {
+        UpdateOrderItemStatusRequest request = new UpdateOrderItemStatusRequest();
+        request.setStatus(status);
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void closeTab_withPendingItems_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+        createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/close")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void closeTab_withAllItemsDeliveredOrCancelled_shouldSucceed() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+
+        String deliveredItemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, deliveredItemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, deliveredItemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, deliveredItemId, ItemStatus.DELIVERED);
+
+        String cancelledItemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, cancelledItemId, ItemStatus.CANCELLED);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/close")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"));
     }
 
     @Test

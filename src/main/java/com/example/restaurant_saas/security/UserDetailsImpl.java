@@ -1,6 +1,7 @@
 package com.example.restaurant_saas.security;
 
 import com.example.restaurant_saas.domain.entity.User;
+import com.example.restaurant_saas.domain.enums.UserRole;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -18,6 +19,7 @@ public class UserDetailsImpl implements UserDetails {
     private final String name;
     private final String email;
     private final String password;
+    private final UserRole role;
     private final Collection<? extends GrantedAuthority> authorities;
     private final boolean active;
 
@@ -27,6 +29,7 @@ public class UserDetailsImpl implements UserDetails {
         this.name = user.getName();
         this.email = user.getEmail();
         this.password = user.getPassword();
+        this.role = user.getRole();
         this.active = Boolean.TRUE.equals(user.getActive());
         this.authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
     }
