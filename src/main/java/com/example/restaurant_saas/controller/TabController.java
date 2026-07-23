@@ -2,6 +2,7 @@ package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
+import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.example.restaurant_saas.service.TabService;
@@ -67,18 +68,19 @@ public class TabController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PatchMapping("/{id}/close")
+    @PatchMapping("/{id}/pay")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
-    @Operation(summary = "Close tab", description = "Closes an open tab and frees all tables linked to it (OCCUPIED to FREE).")
+    @Operation(summary = "Pay and close tab", description = "Registers the payment and closes an open tab in the same step, freeing all tables linked to it (OCCUPIED to FREE). The paid amount must match the tab's total exactly, and all order items must already be DELIVERED or CANCELLED.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Tab closed"),
-            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, or already closed"),
-            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission")
+            @ApiResponse(responseCode = "200", description = "Tab paid and closed"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, already closed, or paid amount does not match the total"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission, or tab has order items not yet DELIVERED or CANCELLED")
     })
-    public ResponseEntity<TabResponse> closeTab(
+    public ResponseEntity<TabResponse> payTab(
             @AuthenticationPrincipal UserDetailsImpl currentUser,
-            @PathVariable UUID id
+            @PathVariable UUID id,
+            @Valid @RequestBody PayTabRequest request
     ) {
-        return ResponseEntity.ok(tabService.closeTab(currentUser.getRestaurantId(), id));
+        return ResponseEntity.ok(tabService.payTab(currentUser.getRestaurantId(), id, request));
     }
 }

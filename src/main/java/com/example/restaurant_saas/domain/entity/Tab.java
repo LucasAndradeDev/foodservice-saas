@@ -1,11 +1,13 @@
 package com.example.restaurant_saas.domain.entity;
 
+import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +39,16 @@ public class Tab {
 
     @Column(name = "closed_at")
     private OffsetDateTime closedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", length = 20)
+    private PaymentMethod paymentMethod;
+
+    @Column(name = "paid_amount", precision = 10, scale = 2)
+    private BigDecimal paidAmount;
+
+    @Column(name = "paid_at")
+    private OffsetDateTime paidAt;
 
     @ManyToMany
     @JoinTable(

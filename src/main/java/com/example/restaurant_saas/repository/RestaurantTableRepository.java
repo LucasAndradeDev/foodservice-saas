@@ -1,6 +1,7 @@
 package com.example.restaurant_saas.repository;
 
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
+import com.example.restaurant_saas.domain.enums.TableStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,6 +18,7 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
     List<RestaurantTable> findByIdInAndRestaurantId(List<UUID> ids, UUID restaurantId);
     boolean existsByRestaurantIdAndNumber(UUID restaurantId, Integer number);
     boolean existsByRestaurantIdAndNumberAndIdNot(UUID restaurantId, Integer number, UUID id);
+    long countByRestaurantIdAndStatus(UUID restaurantId, TableStatus status);
 
     @Query("SELECT COALESCE(MAX(t.number), 0) FROM RestaurantTable t WHERE t.restaurant.id = :restaurantId")
     Integer findMaxNumberByRestaurantId(@Param("restaurantId") UUID restaurantId);

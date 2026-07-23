@@ -6,6 +6,7 @@ import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.domain.enums.TableStatus;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
+import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.dto.response.TabTableSummary;
 import com.example.restaurant_saas.repository.OrderItemRepository;
@@ -16,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -75,7 +77,7 @@ public class TabService {
     }
 
     @Transactional
-    public TabResponse closeTab(UUID restaurantId, UUID tabId) {
+    public TabResponse payTab(UUID restaurantId, UUID tabId, PayTabRequest request) {
         Tab tab = findByIdAndRestaurant(restaurantId, tabId);
         if (tab.getStatus() == TabStatus.CLOSED) {
             throw new IllegalArgumentException("Tab is already closed.");
@@ -84,8 +86,17 @@ public class TabService {
             throw new IllegalStateException("Tab has order items that are not DELIVERED or CANCELLED yet.");
         }
 
+        BigDecimal total = orderItemRepository.sumDeliveredTotalByTabAndRestaurant(tabId, restaurantId);
+        if (total.compareTo(request.getPaidAmount()) != 0) {
+            throw new IllegalArgumentException("Paid amount does not match the tab total.");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
         tab.setStatus(TabStatus.CLOSED);
-        tab.setClosedAt(OffsetDateTime.now());
+        tab.setClosedAt(now);
+        tab.setPaymentMethod(request.getPaymentMethod());
+        tab.setPaidAmount(request.getPaidAmount());
+        tab.setPaidAt(now);
         tab = tabRepository.save(tab);
 
         tab.getTables().forEach(table -> table.setStatus(TableStatus.FREE));
@@ -106,6 +117,9 @@ public class TabService {
                 .status(tab.getStatus())
                 .openedAt(tab.getOpenedAt())
                 .closedAt(tab.getClosedAt())
+                .paymentMethod(tab.getPaymentMethod())
+                .paidAmount(tab.getPaidAmount())
+                .paidAt(tab.getPaidAt())
                 .tables(tab.getTables().stream()
                         .map(table -> TabTableSummary.builder()
                                 .id(table.getId())

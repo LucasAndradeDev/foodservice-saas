@@ -1,9 +1,11 @@
 package com.example.restaurant_saas.dto.response;
 
+import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -16,5 +18,8 @@ public class TabResponse {
     private TabStatus status;
     private OffsetDateTime openedAt;
     private OffsetDateTime closedAt;
+    private PaymentMethod paymentMethod;
+    private BigDecimal paidAmount;
+    private OffsetDateTime paidAt;
     private List<TabTableSummary> tables;
 }

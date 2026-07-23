@@ -1,6 +1,7 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.entity.User;
+import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
@@ -8,6 +9,7 @@ import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
+import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.repository.UserRepository;
@@ -248,8 +250,13 @@ class OrderControllerIntegrationTest {
         String categoryId = createCategoryAndGetId(ownerToken);
         String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/close")
-                        .header("Authorization", "Bearer " + ownerToken))
+        PayTabRequest payRequest = new PayTabRequest();
+        payRequest.setPaymentMethod(PaymentMethod.CASH);
+        payRequest.setPaidAmount(BigDecimal.ZERO);
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payRequest)))
                 .andExpect(status().isOk());
 
         CreateOrderItemRequest item = new CreateOrderItemRequest();
