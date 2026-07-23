@@ -17,7 +17,6 @@ export interface UpdateRestaurantPayload {
   tradeName?: string
   logo?: string
   primaryColor?: string
-  tableCount?: number
   phone?: string
   address?: string
   cnpj?: string

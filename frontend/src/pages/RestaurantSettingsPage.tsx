@@ -17,7 +17,6 @@ export function RestaurantSettingsPage() {
   const [tradeName, setTradeName] = useState('')
   const [logo, setLogo] = useState('')
   const [primaryColor, setPrimaryColor] = useState('')
-  const [tableCount, setTableCount] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +28,6 @@ export function RestaurantSettingsPage() {
     setTradeName(restaurant.tradeName ?? '')
     setLogo(restaurant.logo ?? '')
     setPrimaryColor(restaurant.primaryColor ?? '')
-    setTableCount(restaurant.tableCount !== null ? String(restaurant.tableCount) : '')
     setPhone(restaurant.phone ?? '')
     setAddress(restaurant.address ?? '')
   }, [restaurant])
@@ -53,7 +51,6 @@ export function RestaurantSettingsPage() {
       tradeName: tradeName || undefined,
       logo: logo || undefined,
       primaryColor: primaryColor || undefined,
-      tableCount: tableCount ? Number(tableCount) : undefined,
       phone: phone || undefined,
       address: address || undefined,
     })
@@ -126,19 +123,6 @@ export function RestaurantSettingsPage() {
           placeholder="#000000"
           value={primaryColor}
           onChange={(e) => setPrimaryColor(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
-        />
-
-        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="tableCount">
-          Quantidade de mesas
-        </label>
-        <input
-          id="tableCount"
-          type="number"
-          min="0"
-          disabled={!canManage}
-          value={tableCount}
-          onChange={(e) => setTableCount(e.target.value)}
           className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
         />
 

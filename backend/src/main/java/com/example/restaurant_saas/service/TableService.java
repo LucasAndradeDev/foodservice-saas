@@ -78,7 +78,16 @@ public class TableService {
     }
 
     private int nextAvailableNumber(UUID restaurantId) {
-        return tableRepository.findMaxNumberByRestaurantId(restaurantId) + 1;
+        int candidate = 1;
+        for (int number : tableRepository.findAllNumbersByRestaurantId(restaurantId)) {
+            if (number > candidate) {
+                break;
+            }
+            if (number == candidate) {
+                candidate++;
+            }
+        }
+        return candidate;
     }
 
     @Transactional

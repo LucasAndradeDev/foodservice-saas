@@ -178,7 +178,7 @@ class TableControllerIntegrationTest {
     }
 
     @Test
-    void createTable_withoutNumber_afterManualNumber_shouldContinueFromHighest() throws Exception {
+    void createTable_withoutNumber_afterManualNumber_shouldFillGapFromStart() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
 
         CreateTableRequest manualRequest = new CreateTableRequest();
@@ -189,6 +189,39 @@ class TableControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(manualRequest)))
                 .andExpect(status().isCreated());
 
+        // Numbers 1-9 were never created, so the next auto-assigned number should
+        // fill that gap instead of jumping to 11 (highest + 1).
+        CreateTableRequest autoRequest = new CreateTableRequest();
+        mockMvc.perform(post("/api/v1/tables")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(autoRequest)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.number").value(1));
+    }
+
+    @Test
+    void createTable_withoutNumber_shouldFillGapBetweenExistingNumbers() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        CreateTablesBulkRequest bulkRequest = new CreateTablesBulkRequest();
+        bulkRequest.setQuantity(10);
+        mockMvc.perform(post("/api/v1/tables/bulk")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(bulkRequest)))
+                .andExpect(status().isCreated());
+
+        CreateTableRequest farRequest = new CreateTableRequest();
+        farRequest.setNumber(50);
+        mockMvc.perform(post("/api/v1/tables")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(farRequest)))
+                .andExpect(status().isCreated());
+
+        // Tables 1-10 and 50 exist; the next auto-assigned number should fill the
+        // gap (11) instead of jumping past table 50 (51).
         CreateTableRequest autoRequest = new CreateTableRequest();
         mockMvc.perform(post("/api/v1/tables")
                         .header("Authorization", "Bearer " + ownerToken)
@@ -217,17 +250,27 @@ class TableControllerIntegrationTest {
     }
 
     @Test
-    void createTablesBulk_continuesFromHighestExistingNumber() throws Exception {
+    void createTablesBulk_fillsGapBeforeHigherExistingNumber() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
 
-        CreateTableRequest existingRequest = new CreateTableRequest();
-        existingRequest.setNumber(10);
-        mockMvc.perform(post("/api/v1/tables")
+        CreateTablesBulkRequest existingRequest = new CreateTablesBulkRequest();
+        existingRequest.setQuantity(10);
+        mockMvc.perform(post("/api/v1/tables/bulk")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(existingRequest)))
                 .andExpect(status().isCreated());
 
+        CreateTableRequest farRequest = new CreateTableRequest();
+        farRequest.setNumber(50);
+        mockMvc.perform(post("/api/v1/tables")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(farRequest)))
+                .andExpect(status().isCreated());
+
+        // Tables 1-10 and 50 exist; bulk creation should fill the gap (11, 12, 13)
+        // instead of jumping past table 50 (51, 52, 53).
         CreateTablesBulkRequest bulkRequest = new CreateTablesBulkRequest();
         bulkRequest.setQuantity(3);
 

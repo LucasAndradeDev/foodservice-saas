@@ -20,6 +20,6 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
     boolean existsByRestaurantIdAndNumberAndIdNot(UUID restaurantId, Integer number, UUID id);
     long countByRestaurantIdAndStatus(UUID restaurantId, TableStatus status);
 
-    @Query("SELECT COALESCE(MAX(t.number), 0) FROM RestaurantTable t WHERE t.restaurant.id = :restaurantId")
-    Integer findMaxNumberByRestaurantId(@Param("restaurantId") UUID restaurantId);
+    @Query("SELECT t.number FROM RestaurantTable t WHERE t.restaurant.id = :restaurantId ORDER BY t.number ASC")
+    List<Integer> findAllNumbersByRestaurantId(@Param("restaurantId") UUID restaurantId);
 }
