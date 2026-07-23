@@ -240,6 +240,10 @@ Backend (Sprints 1–8) concluído primeiro; frontend retomado a partir da Sprin
 - **Sprint 13:** Cozinha — fila de itens por status com atualização quase em tempo real.
 - **Sprint 14:** Caixa — resumo da comanda, forma de pagamento, fechamento.
 - **Sprint 15:** Dashboard.
+- **Sprint 16:** Configurações do Restaurante — nome fantasia, logo, cor principal, quantidade de mesas, telefone, endereço, CNPJ (`GET/PUT /restaurants/me`, já existe no backend desde a Sprint 2). **Concluída antecipadamente, junto da Sprint 10** (ver `docs/SPRINT10.md`).
+- **Sprint 17:** Gestão de Funcionários — CRUD de usuários com papéis (`UserController`, já existe no backend desde a Sprint 2).
+
+Sprints 16 e 17 ficam por último por serem telas de configuração/administração, não do fluxo operacional do salão — mesmo critério de priorização usado para deixar o Dashboard na Sprint 15.
 
 ---
 

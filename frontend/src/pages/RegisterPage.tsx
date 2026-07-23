@@ -6,6 +6,9 @@ export function RegisterPage() {
   const { registerRestaurant, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [restaurantName, setRestaurantName] = useState('')
+  const [cnpj, setCnpj] = useState('')
+  const [phone, setPhone] = useState('')
+  const [address, setAddress] = useState('')
   const [ownerName, setOwnerName] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
   const [ownerPassword, setOwnerPassword] = useState('')
@@ -21,7 +24,15 @@ export function RegisterPage() {
     setError(null)
     setIsSubmitting(true)
     try {
-      await registerRestaurant({ restaurantName, ownerName, ownerEmail, ownerPassword })
+      await registerRestaurant({
+        restaurantName,
+        cnpj: cnpj || undefined,
+        phone: phone || undefined,
+        address: address || undefined,
+        ownerName,
+        ownerEmail,
+        ownerPassword,
+      })
       navigate('/')
     } catch {
       setError('Não foi possível concluir o cadastro. Verifique os dados e tente novamente.')
@@ -49,6 +60,39 @@ export function RegisterPage() {
           required
           value={restaurantName}
           onChange={(e) => setRestaurantName(e.target.value)}
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+        />
+
+        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="cnpj">
+          CNPJ <span className="font-normal text-gray-400">(opcional)</span>
+        </label>
+        <input
+          id="cnpj"
+          type="text"
+          value={cnpj}
+          onChange={(e) => setCnpj(e.target.value)}
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+        />
+
+        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="phone">
+          Telefone <span className="font-normal text-gray-400">(opcional)</span>
+        </label>
+        <input
+          id="phone"
+          type="text"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+        />
+
+        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="address">
+          Endereço <span className="font-normal text-gray-400">(opcional)</span>
+        </label>
+        <input
+          id="address"
+          type="text"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
           className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
         />
 

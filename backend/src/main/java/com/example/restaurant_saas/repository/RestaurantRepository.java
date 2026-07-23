@@ -10,4 +10,6 @@ import java.util.UUID;
 @Repository
 public interface RestaurantRepository extends JpaRepository<Restaurant, UUID> {
     boolean existsByCnpj(String cnpj);
+
+    boolean existsByCnpjAndIdNot(String cnpj, UUID id);
 }

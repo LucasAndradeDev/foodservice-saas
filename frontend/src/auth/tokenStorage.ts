@@ -46,6 +46,14 @@ export function updateStoredTokens(accessToken: string, refreshToken: string): v
   setStoredAuth({ ...current, accessToken, refreshToken })
 }
 
+export function updateStoredRestaurant(restaurant: Partial<StoredRestaurant>): StoredRestaurant | null {
+  const current = getStoredAuth()
+  if (!current) return null
+  const updated = { ...current.restaurant, ...restaurant }
+  setStoredAuth({ ...current, restaurant: updated })
+  return updated
+}
+
 export function clearStoredAuth(): void {
   localStorage.removeItem(STORAGE_KEY)
 }

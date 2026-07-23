@@ -10,6 +10,7 @@ import {
   clearStoredAuth,
   getStoredAuth,
   setStoredAuth,
+  updateStoredRestaurant,
   type StoredRestaurant,
   type StoredUser,
 } from './tokenStorage'
@@ -20,6 +21,7 @@ interface AuthContextValue {
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
   registerRestaurant: (payload: RegisterRestaurantPayload) => Promise<void>
+  updateRestaurant: (restaurant: Partial<StoredRestaurant>) => void
   logout: () => void
 }
 
@@ -64,9 +66,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRestaurant(null)
   }
 
+  function updateRestaurant(partial: Partial<StoredRestaurant>) {
+    const updated = updateStoredRestaurant(partial)
+    if (updated) setRestaurant(updated)
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, restaurant, isAuthenticated: user !== null, login, registerRestaurant, logout }}
+      value={{
+        user,
+        restaurant,
+        isAuthenticated: user !== null,
+        login,
+        registerRestaurant,
+        updateRestaurant,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

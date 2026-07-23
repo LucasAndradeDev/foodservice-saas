@@ -2,9 +2,12 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './layout/AppLayout'
+import { CategoriesPage } from './pages/CategoriesPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
+import { ProductsPage } from './pages/ProductsPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { RestaurantSettingsPage } from './pages/RestaurantSettingsPage'
 
 function App() {
   return (
@@ -16,6 +19,9 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/" element={<HomePage />} />
+              <Route path="/categories" element={<CategoriesPage />} />
+              <Route path="/products" element={<ProductsPage />} />
+              <Route path="/settings" element={<RestaurantSettingsPage />} />
             </Route>
           </Route>
         </Routes>

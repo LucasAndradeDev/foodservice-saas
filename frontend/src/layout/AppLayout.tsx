@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -8,6 +8,12 @@ const ROLE_LABELS: Record<string, string> = {
   KITCHEN: 'Cozinha',
   CASHIER: 'Caixa',
 }
+
+const NAV_ITEMS = [
+  { to: '/categories', label: 'Categorias' },
+  { to: '/products', label: 'Produtos' },
+  { to: '/settings', label: 'Configurações' },
+]
 
 export function AppLayout() {
   const { user, restaurant, logout } = useAuth()
@@ -21,9 +27,24 @@ export function AppLayout() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3">
-        <span className="font-semibold text-gray-800">
-          {restaurant?.tradeName ?? restaurant?.name}
-        </span>
+        <div className="flex items-center gap-6">
+          <span className="font-semibold text-gray-800">
+            {restaurant?.tradeName ?? restaurant?.name}
+          </span>
+          <nav className="flex gap-4">
+            {NAV_ITEMS.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `text-sm ${isActive ? 'font-medium text-gray-900' : 'text-gray-500 hover:text-gray-800'}`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+        </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-600">
             {user?.name} · {user ? ROLE_LABELS[user.role] : ''}

@@ -44,6 +44,12 @@ public class RestaurantService {
         if (request.getAddress() != null) {
             restaurant.setAddress(request.getAddress());
         }
+        if (request.getCnpj() != null) {
+            if (!request.getCnpj().isBlank() && restaurantRepository.existsByCnpjAndIdNot(request.getCnpj(), restaurantId)) {
+                throw new IllegalArgumentException("CNPJ already registered.");
+            }
+            restaurant.setCnpj(request.getCnpj());
+        }
 
         restaurant = restaurantRepository.save(restaurant);
         return toResponse(restaurant);

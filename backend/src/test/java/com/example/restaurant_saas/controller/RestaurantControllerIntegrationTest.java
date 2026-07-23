@@ -126,6 +126,45 @@ class RestaurantControllerIntegrationTest {
     }
 
     @Test
+    void updateMyRestaurant_withCnpj_shouldUpdateCnpj() throws Exception {
+        String token = registerAndGetToken();
+        String cnpj = String.valueOf(System.nanoTime());
+
+        UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
+        updateRequest.setCnpj(cnpj);
+
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cnpj").value(cnpj));
+    }
+
+    @Test
+    void updateMyRestaurant_withCnpjAlreadyUsedByAnotherRestaurant_shouldReturn400() throws Exception {
+        String cnpj = String.valueOf(System.nanoTime());
+        registerRequest.setCnpj(cnpj);
+        registerAndGetToken();
+
+        registerRequest = new RegisterRestaurantRequest();
+        registerRequest.setRestaurantName("Pizza Place");
+        registerRequest.setOwnerName("Owner 2");
+        registerRequest.setOwnerEmail("owner2+" + System.nanoTime() + "@test.com");
+        registerRequest.setOwnerPassword("password123");
+        String secondToken = registerAndGetToken();
+
+        UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
+        updateRequest.setCnpj(cnpj);
+
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + secondToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void updateMyRestaurant_asManager_shouldSucceed() throws Exception {
         registerAndGetToken();
         User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
