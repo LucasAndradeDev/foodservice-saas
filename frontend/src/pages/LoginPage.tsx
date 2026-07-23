@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import moraLogo from '../assets/mora-logo.svg'
 import { useAuth } from '../auth/AuthContext'
 
 export function LoginPage() {
@@ -34,9 +35,7 @@ export function LoginPage() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-lg bg-white p-8 shadow-sm"
       >
-        <h1 className="mb-6 text-center text-xl font-semibold text-gray-800">
-          Morá
-        </h1>
+        <img src={moraLogo} alt="Morá" className="mx-auto mb-6 h-12 w-auto" />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="email">
           Email

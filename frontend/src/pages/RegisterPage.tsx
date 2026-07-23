@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import moraLogo from '../assets/mora-logo.svg'
 import { useAuth } from '../auth/AuthContext'
 
 export function RegisterPage() {
@@ -47,7 +48,8 @@ export function RegisterPage() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-lg bg-white p-8 shadow-sm"
       >
-        <h1 className="mb-6 text-center text-xl font-semibold text-gray-800">
+        <img src={moraLogo} alt="Morá" className="mx-auto mb-4 h-12 w-auto" />
+        <h1 className="mb-6 text-center text-sm font-medium text-gray-500">
           Cadastrar restaurante
         </h1>
 
