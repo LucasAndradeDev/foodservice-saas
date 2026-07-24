@@ -1,10 +1,13 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.domain.entity.Order;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.domain.enums.TableStatus;
+import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
+import com.example.restaurant_saas.dto.request.MergeTabRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.response.TabResponse;
@@ -111,10 +114,66 @@ public class TabService {
     }
 
     @Transactional
+    public TabResponse addTable(UUID restaurantId, UUID tabId, AddTableToTabRequest request) {
+        Tab tab = findByIdAndRestaurant(restaurantId, tabId);
+        if (tab.getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Tab is not open.");
+        }
+
+        RestaurantTable table = tableRepository.findByIdAndRestaurantIdForUpdate(request.getTableId(), restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Table not found."));
+        if (!Boolean.TRUE.equals(table.getActive())) {
+            throw new IllegalStateException("Table is not active.");
+        }
+        if (table.getStatus() != TableStatus.FREE) {
+            throw new IllegalStateException("Table " + table.getNumber() + " is not free.");
+        }
+
+        tab.getTables().add(table);
+        tabRepository.save(tab);
+
+        table.setStatus(TableStatus.OCCUPIED);
+        tableRepository.save(table);
+
+        return toResponse(tab);
+    }
+
+    @Transactional
+    public TabResponse mergeTab(UUID restaurantId, UUID targetTabId, MergeTabRequest request) {
+        if (targetTabId.equals(request.getSourceTabId())) {
+            throw new IllegalArgumentException("A tab cannot be merged into itself.");
+        }
+
+        Tab target = findByIdAndRestaurant(restaurantId, targetTabId);
+        if (target.getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Target tab is not open.");
+        }
+
+        Tab source = findByIdAndRestaurant(restaurantId, request.getSourceTabId());
+        if (source.getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Source tab is not open.");
+        }
+
+        List<Order> sourceOrders = orderRepository.findByTabIdAndRestaurantId(source.getId(), restaurantId);
+        sourceOrders.forEach(order -> order.setTab(target));
+        orderRepository.saveAll(sourceOrders);
+
+        target.getTables().addAll(source.getTables());
+        source.getTables().clear();
+
+        source.setStatus(TabStatus.MERGED);
+        source.setClosedAt(OffsetDateTime.now());
+        tabRepository.save(source);
+        Tab savedTarget = tabRepository.save(target);
+
+        return toResponse(savedTarget);
+    }
+
+    @Transactional
     public TabResponse payTab(UUID restaurantId, UUID tabId, PayTabRequest request) {
         Tab tab = findByIdAndRestaurant(restaurantId, tabId);
-        if (tab.getStatus() == TabStatus.CLOSED) {
-            throw new IllegalArgumentException("Tab is already closed.");
+        if (tab.getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Tab is not open.");
         }
         if (orderItemRepository.existsByOrder_Tab_IdAndStatusNotIn(tabId, List.of(ItemStatus.DELIVERED, ItemStatus.CANCELLED))) {
             throw new IllegalStateException("Tab has order items that are not DELIVERED or CANCELLED yet.");
@@ -142,8 +201,8 @@ public class TabService {
     @Transactional
     public TabResponse cancelTab(UUID restaurantId, UUID tabId) {
         Tab tab = findByIdAndRestaurant(restaurantId, tabId);
-        if (tab.getStatus() == TabStatus.CLOSED) {
-            throw new IllegalArgumentException("Tab is already closed.");
+        if (tab.getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Tab is not open.");
         }
         if (orderRepository.existsByTabId(tabId)) {
             throw new IllegalStateException("Cannot cancel a tab that already has orders.");

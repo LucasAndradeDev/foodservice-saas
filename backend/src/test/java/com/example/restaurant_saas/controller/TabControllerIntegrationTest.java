@@ -2,11 +2,13 @@ package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.UserRole;
+import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
+import com.example.restaurant_saas.dto.request.MergeTabRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.PayTabRequest;
@@ -754,5 +756,139 @@ class TabControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
                 .andExpect(jsonPath("$.tables").isEmpty());
+    }
+
+    private String addTableRequestBody(String tableId) throws Exception {
+        AddTableToTabRequest request = new AddTableToTabRequest();
+        request.setTableId(UUID.fromString(tableId));
+        return objectMapper.writeValueAsString(request);
+    }
+
+    private String mergeTabRequestBody(String sourceTabId) throws Exception {
+        MergeTabRequest request = new MergeTabRequest();
+        request.setSourceTabId(UUID.fromString(sourceTabId));
+        return objectMapper.writeValueAsString(request);
+    }
+
+    @Test
+    void addTable_toFreeTable_shouldOccupyItAndAppendToTab() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String table1 = createTableAndGetId(ownerToken);
+        String table2 = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, table1);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/tables")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(addTableRequestBody(table2)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tables.length()").value(2));
+
+        mockMvc.perform(get("/api/v1/tables/" + table2)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.status").value("OCCUPIED"));
+    }
+
+    @Test
+    void addTable_alreadyOccupied_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String table1 = createTableAndGetId(ownerToken);
+        String table2 = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, table1);
+        openTabAndGetId(ownerToken, table2);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/tables")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(addTableRequestBody(table2)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void addTable_toClosedTab_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String table1 = createTableAndGetId(ownerToken);
+        String table2 = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, table1);
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/tables")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(addTableRequestBody(table2)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void mergeTab_shouldMoveTablesAndOrdersAndMarkSourceMerged() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String table1 = createTableAndGetId(ownerToken);
+        String table2 = createTableAndGetId(ownerToken);
+        String targetTabId = openTabAndGetId(ownerToken, table1);
+        String sourceTabId = openTabAndGetId(ownerToken, table2);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+        createOrderAndGetFirstItemId(ownerToken, targetTabId, productId);
+        createOrderAndGetFirstItemId(ownerToken, sourceTabId, productId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + targetTabId + "/merge")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mergeTabRequestBody(sourceTabId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(targetTabId))
+                .andExpect(jsonPath("$.tables.length()").value(2));
+
+        mockMvc.perform(get("/api/v1/tabs/" + targetTabId + "/orders")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+
+        mockMvc.perform(get("/api/v1/tabs/" + sourceTabId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("MERGED"))
+                .andExpect(jsonPath("$.tables").isEmpty());
+
+        mockMvc.perform(get("/api/v1/tables/" + table2)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.status").value("OCCUPIED"));
+
+        mockMvc.perform(get("/api/v1/tabs").param("status", "OPEN")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void mergeTab_intoItself_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/merge")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mergeTabRequestBody(tabId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void mergeTab_withClosedSource_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String table1 = createTableAndGetId(ownerToken);
+        String table2 = createTableAndGetId(ownerToken);
+        String targetTabId = openTabAndGetId(ownerToken, table1);
+        String sourceTabId = openTabAndGetId(ownerToken, table2);
+        mockMvc.perform(patch("/api/v1/tabs/" + sourceTabId + "/cancel")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + targetTabId + "/merge")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mergeTabRequestBody(sourceTabId)))
+                .andExpect(status().isBadRequest());
     }
 }

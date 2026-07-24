@@ -4,7 +4,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { createOrder, listOrders, type ItemStatus, type Order } from '../api/orders'
 import { listProducts } from '../api/products'
 import { getMyRestaurant } from '../api/restaurant'
-import { cancelTab, getTab } from '../api/tabs'
+import { listTables } from '../api/tables'
+import { addTableToTab, cancelTab, getTab, listTabs, mergeTabs, type Tab } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
 import { formatTableLabel } from '../utils/tableLabel'
@@ -70,6 +71,19 @@ export function TabDetailPage() {
   const [quantity, setQuantity] = useState('1')
   const [observation, setObservation] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [isMerging, setIsMerging] = useState(false)
+
+  const { data: freeTables } = useQuery({
+    queryKey: ['tables', 'FREE'],
+    queryFn: () => listTables({ status: 'FREE', active: true }),
+    enabled: isMerging,
+  })
+
+  const { data: otherOpenTabs } = useQuery({
+    queryKey: ['tabs', 'OPEN'],
+    queryFn: () => listTabs('OPEN'),
+    enabled: isMerging,
+  })
 
   const createOrderMutation = useMutation({
     mutationFn: (items: DraftItem[]) =>
@@ -92,6 +106,26 @@ export function TabDetailPage() {
     mutationFn: () => cancelTab(tabId!),
     onSuccess: () => navigate('/tables'),
     onError: () => setError('Não foi possível cancelar a comanda.'),
+  })
+
+  function invalidateAfterMerge() {
+    queryClient.invalidateQueries({ queryKey: ['tabs', tabId] })
+    queryClient.invalidateQueries({ queryKey: ['tabs', tabId, 'orders'] })
+    queryClient.invalidateQueries({ queryKey: ['tables'] })
+    queryClient.invalidateQueries({ queryKey: ['tabs', 'OPEN'] })
+    setIsMerging(false)
+  }
+
+  const addTableMutation = useMutation({
+    mutationFn: (tableId: string) => addTableToTab(tabId!, tableId),
+    onSuccess: invalidateAfterMerge,
+    onError: () => setError('Não foi possível adicionar essa mesa à comanda.'),
+  })
+
+  const mergeMutation = useMutation({
+    mutationFn: (sourceTabId: string) => mergeTabs(tabId!, sourceTabId),
+    onSuccess: invalidateAfterMerge,
+    onError: () => setError('Não foi possível mesclar essa comanda.'),
   })
 
   function openAddItemForm() {
@@ -157,6 +191,22 @@ export function TabDetailPage() {
     }
   }
 
+  function openMergeModal() {
+    setError(null)
+    setIsMerging(true)
+  }
+
+  function handleMergeTab(sourceTab: Tab) {
+    const label = formatTableLabel(sourceTab.tables.map((t) => t.number))
+    const confirmed = window.confirm(
+      `Mesclar com ${label}? Os pedidos dessa comanda serão movidos pra cá, e ela será encerrada.`,
+    )
+    if (confirmed) {
+      setError(null)
+      mergeMutation.mutate(sourceTab.id)
+    }
+  }
+
   if (isTabLoading || isOrdersLoading || !tab) {
     return <p className="text-sm text-gray-500">Carregando...</p>
   }
@@ -197,6 +247,13 @@ export function TabDetailPage() {
                 Cancelar comanda
               </button>
             )}
+            <button
+              type="button"
+              onClick={openMergeModal}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              Mesclar comanda
+            </button>
             <button
               type="button"
               onClick={openAddItemForm}
@@ -354,6 +411,54 @@ export function TabDetailPage() {
               Adicionar à comanda
             </button>
           </form>
+        </Modal>
+      )}
+
+      {isMerging && (
+        <Modal title="Mesclar comanda" onClose={() => setIsMerging(false)}>
+          {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+
+          <p className="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">Mesas livres</p>
+          {freeTables?.length === 0 && (
+            <p className="mb-4 text-sm text-gray-500">Nenhuma mesa livre no momento.</p>
+          )}
+          <ul className="mb-4 divide-y divide-gray-100">
+            {freeTables?.map((table) => (
+              <li key={table.id} className="flex items-center justify-between py-2 text-sm">
+                <span>Mesa {table.number}</span>
+                <button
+                  type="button"
+                  onClick={() => addTableMutation.mutate(table.id)}
+                  disabled={addTableMutation.isPending}
+                  className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                >
+                  Adicionar a esta comanda
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <p className="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">Outras comandas abertas</p>
+          {otherOpenTabs?.filter((t) => t.id !== tabId).length === 0 && (
+            <p className="text-sm text-gray-500">Nenhuma outra comanda aberta.</p>
+          )}
+          <ul className="divide-y divide-gray-100">
+            {otherOpenTabs
+              ?.filter((t) => t.id !== tabId)
+              .map((otherTab) => (
+                <li key={otherTab.id} className="flex items-center justify-between py-2 text-sm">
+                  <span>{formatTableLabel(otherTab.tables.map((t) => t.number))}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleMergeTab(otherTab)}
+                    disabled={mergeMutation.isPending}
+                    className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    Mesclar aqui
+                  </button>
+                </li>
+              ))}
+          </ul>
         </Modal>
       )}
     </div>

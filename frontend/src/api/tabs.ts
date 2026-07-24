@@ -1,6 +1,6 @@
 import { http } from './http'
 
-export type TabStatus = 'OPEN' | 'CLOSED'
+export type TabStatus = 'OPEN' | 'CLOSED' | 'MERGED'
 export type PaymentMethod = 'PIX' | 'CASH' | 'DEBIT_CARD' | 'CREDIT_CARD'
 
 export interface TabTableSummary {
@@ -35,6 +35,14 @@ export function openTab(tableIds: string[]) {
 
 export function cancelTab(id: string) {
   return http.patch<Tab>(`/tabs/${id}/cancel`).then((res) => res.data)
+}
+
+export function addTableToTab(tabId: string, tableId: string) {
+  return http.patch<Tab>(`/tabs/${tabId}/tables`, { tableId }).then((res) => res.data)
+}
+
+export function mergeTabs(targetTabId: string, sourceTabId: string) {
+  return http.patch<Tab>(`/tabs/${targetTabId}/merge`, { sourceTabId }).then((res) => res.data)
 }
 
 export function payTab(id: string, paymentMethod: PaymentMethod, paidAmount: number) {

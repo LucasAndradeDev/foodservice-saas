@@ -1,6 +1,8 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.enums.TabStatus;
+import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
+import com.example.restaurant_saas.dto.request.MergeTabRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.response.TabResponse;
@@ -66,6 +68,38 @@ public class TabController {
     ) {
         TabResponse response = tabService.openTab(currentUser.getRestaurantId(), request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PatchMapping("/{id}/tables")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "Add a free table to an open tab", description = "Attaches a table that is currently active and FREE to an already open tab, marking it OCCUPIED. Used when a group grows mid-service and grabs a neighboring empty table.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Table added to the tab"),
+            @ApiResponse(responseCode = "400", description = "Tab or table not found in this restaurant, or tab is not open"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission, or table is inactive or not FREE")
+    })
+    public ResponseEntity<TabResponse> addTable(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id,
+            @Valid @RequestBody AddTableToTabRequest request
+    ) {
+        return ResponseEntity.ok(tabService.addTable(currentUser.getRestaurantId(), id, request));
+    }
+
+    @PatchMapping("/{id}/merge")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "Merge another open tab into this one", description = "Moves all tables and orders from the source tab into this one, then closes the source tab with status MERGED (not counted as a paid sale). Used when two separately-opened tabs decide to become a single bill.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Tabs merged, returns the surviving (target) tab"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, source and target are the same tab, or either tab is not open"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission")
+    })
+    public ResponseEntity<TabResponse> mergeTab(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id,
+            @Valid @RequestBody MergeTabRequest request
+    ) {
+        return ResponseEntity.ok(tabService.mergeTab(currentUser.getRestaurantId(), id, request));
     }
 
     @PatchMapping("/{id}/pay")
