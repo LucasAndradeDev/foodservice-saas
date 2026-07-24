@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Store } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { getMyRestaurant, updateMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
@@ -70,10 +71,13 @@ export function RestaurantSettingsPage() {
 
   return (
     <div>
-      <h1 className="mb-4 text-lg font-semibold text-gray-800">Configurações do restaurante</h1>
+      <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800">
+        <Store className="h-5 w-5 text-brand-600" />
+        Configurações do restaurante
+      </h1>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,28rem)_minmax(0,22rem)]">
-        <form onSubmit={handleSubmit} className="rounded-lg border border-gray-200 bg-white p-6">
+        <form onSubmit={handleSubmit} className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <label className="mb-1 block text-sm font-medium text-gray-700">Nome (razão social)</label>
           <input
             type="text"

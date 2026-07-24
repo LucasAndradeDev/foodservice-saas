@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { BarChart3, Receipt, TrendingUp, Wallet, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { getReportSummary } from '../api/reports'
 import type { PaymentMethod } from '../api/tabs'
@@ -21,14 +22,18 @@ function startOfMonth(date: Date) {
 }
 
 interface StatTileProps {
+  icon: LucideIcon
   label: string
   value: string
 }
 
-function StatTile({ label, value }: StatTileProps) {
+function StatTile({ icon: Icon, label, value }: StatTileProps) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
-      <div className="text-sm text-gray-500">{label}</div>
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center gap-1.5 text-sm text-gray-500">
+        <Icon className="h-4 w-4" />
+        {label}
+      </div>
       <div className="mt-1 text-3xl font-semibold text-brand-700">{value}</div>
     </div>
   )
@@ -62,9 +67,12 @@ export function ReportsPage() {
 
   return (
     <div>
-      <h1 className="mb-4 text-lg font-semibold text-gray-800">Relatórios</h1>
+      <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800">
+        <BarChart3 className="h-5 w-5 text-brand-600" />
+        Relatórios
+      </h1>
 
-      <div className="mb-6 flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -114,13 +122,13 @@ export function ReportsPage() {
       ) : (
         <>
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <StatTile label="Faturamento total" value={currencyFormatter.format(data.totalRevenue)} />
-            <StatTile label="Comandas fechadas" value={String(data.closedTabsCount)} />
-            <StatTile label="Ticket médio" value={currencyFormatter.format(data.averageTicket)} />
+            <StatTile icon={Wallet} label="Faturamento total" value={currencyFormatter.format(data.totalRevenue)} />
+            <StatTile icon={Receipt} label="Comandas fechadas" value={String(data.closedTabsCount)} />
+            <StatTile icon={TrendingUp} label="Ticket médio" value={currencyFormatter.format(data.averageTicket)} />
           </div>
 
           <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
               <h2 className="border-b border-gray-100 px-4 py-3 text-sm font-medium text-gray-700">
                 Faturamento por forma de pagamento
               </h2>
@@ -148,7 +156,7 @@ export function ReportsPage() {
               )}
             </div>
 
-            <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
               <h2 className="border-b border-gray-100 px-4 py-3 text-sm font-medium text-gray-700">Produtos mais vendidos</h2>
               {data.topProducts.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-gray-500">Nenhuma venda no período.</p>

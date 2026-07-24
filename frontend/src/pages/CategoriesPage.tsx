@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Power } from 'lucide-react'
+import { CheckCircle2, Circle, Pencil, Power, Tag } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { createCategory, listCategories, updateCategory, type Category } from '../api/categories'
 import { useAuth } from '../auth/AuthContext'
@@ -74,7 +74,10 @@ export function CategoriesPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-800">Categorias</h1>
+        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+          <Tag className="h-5 w-5 text-brand-600" />
+          Categorias
+        </h1>
         {canManage && (
           <button
             type="button"
@@ -97,14 +100,15 @@ export function CategoriesPage() {
           {/* Mobile: stacked cards */}
           <div className="space-y-2 sm:hidden">
             {categories.map((category) => (
-              <div key={category.id} className="rounded-lg border border-gray-200 bg-white p-4">
+              <div key={category.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-medium text-gray-800">{category.name}</span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
+                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                       category.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                     }`}
                   >
+                    {category.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                     {category.active ? 'Ativa' : 'Inativa'}
                   </span>
                 </div>
@@ -120,7 +124,7 @@ export function CategoriesPage() {
           </div>
 
           {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-lg border border-gray-200 bg-white sm:block">
+          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-gray-500">
                 <tr>
@@ -135,10 +139,11 @@ export function CategoriesPage() {
                     <td className="px-4 py-2 text-gray-800">{category.name}</td>
                     <td className="px-4 py-2">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${
+                        className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                           category.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                         }`}
                       >
+                        {category.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                         {category.active ? 'Ativa' : 'Inativa'}
                       </span>
                     </td>

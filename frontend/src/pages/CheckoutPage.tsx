@@ -1,4 +1,5 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CheckCircle2, Clock, Printer, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listOrders, type OrderItem } from '../api/orders'
@@ -98,7 +99,10 @@ export function CheckoutPage() {
 
   return (
     <div>
-      <h1 className="mb-4 text-lg font-semibold text-gray-800">Caixa</h1>
+      <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800">
+        <Wallet className="h-5 w-5 text-brand-600" />
+        Caixa
+      </h1>
 
       {isTabsLoading && <p className="text-sm text-gray-500">Carregando...</p>}
 
@@ -111,7 +115,7 @@ export function CheckoutPage() {
               key={summary.tab.id}
               type="button"
               onClick={() => handleCardClick(summary)}
-              className={`rounded-lg border-2 bg-white p-4 text-left shadow-sm transition ${
+              className={`rounded-xl border-2 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
                 summary.isReady ? 'border-green-300 hover:bg-green-50' : 'border-gray-200 hover:bg-gray-50'
               }`}
             >
@@ -122,7 +126,8 @@ export function CheckoutPage() {
                 <div className="mt-1 text-sm text-gray-500">Carregando itens...</div>
               ) : summary.isReady ? (
                 <>
-                  <span className="mt-1 inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                  <span className="mt-1 flex w-fit items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                    <CheckCircle2 className="h-3 w-3" />
                     Pronta para fechar
                   </span>
                   <div className="mt-2 text-lg font-semibold text-gray-800">
@@ -130,7 +135,8 @@ export function CheckoutPage() {
                   </div>
                 </>
               ) : (
-                <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                <span className="mt-1 flex w-fit items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                  <Clock className="h-3 w-3" />
                   Itens ainda em preparo
                 </span>
               )}
@@ -143,12 +149,16 @@ export function CheckoutPage() {
         <Modal title={`Fechar conta — ${formatTableLabel(selectedSummary.tab.tables.map((t) => t.number))}`} onClose={handleCloseModal}>
           {justPaidTabId === selectedSummary.tab.id ? (
             <>
-              <p className="mb-4 text-sm font-medium text-green-700">Pagamento confirmado.</p>
+              <p className="mb-4 flex items-center gap-1.5 text-sm font-medium text-green-700">
+                <CheckCircle2 className="h-4 w-4" />
+                Pagamento confirmado.
+              </p>
               <Link
                 to={`/tabs/${selectedSummary.tab.id}/print`}
                 target="_blank"
-                className="mb-2 block w-full rounded-md bg-brand-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-brand-700"
+                className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-md bg-brand-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-brand-700"
               >
+                <Printer className="h-4 w-4" />
                 Imprimir recibo
               </Link>
               <button

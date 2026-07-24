@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
-import { Pencil, Power, Trash2 } from 'lucide-react'
+import { CheckCircle2, Circle, Package, Pencil, Power, Trash2 } from 'lucide-react'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { listCategories } from '../api/categories'
@@ -176,7 +176,10 @@ export function ProductsPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-800">Produtos</h1>
+        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+          <Package className="h-5 w-5 text-brand-600" />
+          Produtos
+        </h1>
         {canManage && (
           <button
             type="button"
@@ -239,7 +242,7 @@ export function ProductsPage() {
           {/* Mobile: stacked cards */}
           <div className="space-y-2 sm:hidden">
             {products.map((product) => (
-              <div key={product.id} className="rounded-lg border border-gray-200 bg-white p-4">
+              <div key={product.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <span className="flex items-center gap-3">
                     {product.imageUrl ? (
@@ -255,10 +258,11 @@ export function ProductsPage() {
                     </span>
                   </span>
                   <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
+                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                       product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                     }`}
                   >
+                    {product.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                     {product.active ? 'Ativo' : 'Inativo'}
                   </span>
                 </div>
@@ -275,7 +279,7 @@ export function ProductsPage() {
           </div>
 
           {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-lg border border-gray-200 bg-white sm:block">
+          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-gray-500">
                 <tr>
@@ -303,10 +307,11 @@ export function ProductsPage() {
                     <td className="px-4 py-2 text-gray-600">{currencyFormatter.format(product.price)}</td>
                     <td className="px-4 py-2">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${
+                        className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                           product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                         }`}
                       >
+                        {product.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                         {product.active ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>

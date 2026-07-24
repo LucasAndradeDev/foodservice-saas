@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CheckCircle2, Circle, Pencil, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import type { UserRole } from '../auth/types'
 import { createUser, listUsers, updateUser, type StaffMember } from '../api/users'
@@ -101,7 +102,10 @@ export function StaffPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-gray-800">Funcionários</h1>
+        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+          <Users className="h-5 w-5 text-brand-600" />
+          Funcionários
+        </h1>
         <button
           type="button"
           onClick={openCreateForm}
@@ -120,16 +124,17 @@ export function StaffPage() {
           {/* Mobile: stacked cards */}
           <div className="space-y-2 sm:hidden">
             {staff.map((row) => (
-              <div key={row.id} className="rounded-lg border border-gray-200 bg-white p-4">
+              <div key={row.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                 <div className="mb-1 flex items-center justify-between">
                   <span className="font-medium text-gray-800">
                     {row.name} {row.id === user?.id && <span className="text-gray-400">(você)</span>}
                   </span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
+                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                       row.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                     }`}
                   >
+                    {row.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                     {row.active ? 'Ativo' : 'Inativo'}
                   </span>
                 </div>
@@ -137,8 +142,14 @@ export function StaffPage() {
                   {row.email} · {ROLE_LABELS[row.role]}
                 </div>
                 {canEditRow(row) && (
-                  <button type="button" onClick={() => openEditForm(row)} className="text-sm text-brand-700 hover:underline">
-                    Editar
+                  <button
+                    type="button"
+                    onClick={() => openEditForm(row)}
+                    title="Editar"
+                    aria-label="Editar"
+                    className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
+                  >
+                    <Pencil className="h-4 w-4" />
                   </button>
                 )}
               </div>
@@ -146,7 +157,7 @@ export function StaffPage() {
           </div>
 
           {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-lg border border-gray-200 bg-white sm:block">
+          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-gray-500">
                 <tr>
@@ -167,10 +178,11 @@ export function StaffPage() {
                     <td className="px-4 py-2 text-gray-600">{ROLE_LABELS[row.role]}</td>
                     <td className="px-4 py-2">
                       <span
-                        className={`rounded-full px-2 py-0.5 text-xs ${
+                        className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                           row.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                         }`}
                       >
+                        {row.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                         {row.active ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
@@ -179,9 +191,11 @@ export function StaffPage() {
                         <button
                           type="button"
                           onClick={() => openEditForm(row)}
-                          className="text-brand-700 hover:underline"
+                          title="Editar"
+                          aria-label="Editar"
+                          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
                         >
-                          Editar
+                          <Pencil className="h-4 w-4" />
                         </button>
                       )}
                     </td>
