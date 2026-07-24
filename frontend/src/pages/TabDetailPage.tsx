@@ -7,6 +7,7 @@ import { getMyRestaurant } from '../api/restaurant'
 import { cancelTab, getTab } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
+import { formatTableLabel } from '../utils/tableLabel'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -178,7 +179,7 @@ export function TabDetailPage() {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-gray-800">
-            Mesa{tab.tables.length > 1 ? 's' : ''} {tab.tables.map((t) => t.number).join(', ')}
+            {formatTableLabel(tab.tables.map((t) => t.number))}
           </h1>
           <p className="text-sm text-gray-500">
             {tab.status === 'OPEN' ? 'Comanda aberta' : 'Comanda fechada'}

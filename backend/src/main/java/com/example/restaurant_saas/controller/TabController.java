@@ -54,7 +54,7 @@ public class TabController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
-    @Operation(summary = "Open tab", description = "Opens a new tab linked to one or more tables. All tables must exist in the restaurant, be active and FREE; on success, all linked tables become OCCUPIED. The whole operation is atomic: if any table is unavailable, nothing changes.")
+    @Operation(summary = "Open tab", description = "Opens a new tab linked to zero or more tables. An empty tableIds list opens a counter (Balcão) tab, not linked to any table. Otherwise, all tables must exist in the restaurant, be active and FREE; on success, all linked tables become OCCUPIED. The whole operation is atomic: if any table is unavailable, nothing changes.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Tab opened"),
             @ApiResponse(responseCode = "400", description = "Validation error or one or more tables not found in this restaurant"),

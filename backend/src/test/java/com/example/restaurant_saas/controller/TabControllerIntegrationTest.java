@@ -371,16 +371,13 @@ class TabControllerIntegrationTest {
     }
 
     @Test
-    void openTab_withEmptyTableIds_shouldReturn400() throws Exception {
+    void openTab_withNullTableIds_shouldReturn400() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-
-        OpenTabRequest request = new OpenTabRequest();
-        request.setTableIds(List.of());
 
         mockMvc.perform(post("/api/v1/tabs")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content("{}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -710,5 +707,52 @@ class TabControllerIntegrationTest {
         mockMvc.perform(patch("/api/v1/tabs/" + otherTabId + "/print")
                         .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void openTab_withoutTables_shouldCreateCounterTabWithEmptyTablesList() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        OpenTabRequest request = new OpenTabRequest();
+        request.setTableIds(List.of());
+
+        mockMvc.perform(post("/api/v1/tabs")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.tables").isArray())
+                .andExpect(jsonPath("$.tables").isEmpty());
+    }
+
+    @Test
+    void openTab_withoutTables_thenOrderAndPay_shouldWorkEndToEnd() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+
+        OpenTabRequest request = new OpenTabRequest();
+        request.setTableIds(List.of());
+        MvcResult openResult = mockMvc.perform(post("/api/v1/tabs")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String tabId = JsonPath.read(openResult.getResponse().getContentAsString(), "$.id");
+
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "25.90")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.tables").isEmpty());
     }
 }

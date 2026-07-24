@@ -250,6 +250,7 @@ Com o roadmap original (Sprints 1–17) concluído, o desenvolvimento passou a p
 - **Sprint 18:** Impressão de comandas/cozinha (backend) — `printed_at`/`receipt_printed_at`/`auto_print_kitchen_tickets`, endpoints de marcação (ver `docs/SPRINT18.md`).
 - **Sprint 19:** Impressão de comandas/cozinha (frontend) — telas de impressão via `window.print()`, botão manual, disparo automático, checkbox de configuração (ver `docs/SPRINT19.md`). **Feature concluída ponta a ponta.**
 - **Sprint 20:** Relatórios financeiros — `GET /reports/summary` (faturamento, ticket médio, quebra por forma de pagamento, produtos mais vendidos) por período, restrito a `OWNER`/`MANAGER`, e tela `/reports` com presets de período (ver `docs/SPRINT20.md`). **Feature concluída ponta a ponta.**
+- **Sprint 21:** Balcão — comanda sem mesa (`tableIds` vazio em `POST /tabs`), botão "Balcão" e lista de retomada em Mesas (ver `docs/SPRINT21.md`). **Feature concluída ponta a ponta.**
 
 ---
 
@@ -259,7 +260,7 @@ Após validar o produto com clientes reais, considerar:
 - Cardápio digital
 - Pedidos pelo celular
 - Delivery
-- Balcão
+- ~~Balcão~~ ✅ Sprint 21
 - ~~Impressão de comandas~~ ✅ Sprint 19
 - ~~Impressão de cozinha~~ ✅ Sprint 19
 - Impressão fiscal (NFC-e)

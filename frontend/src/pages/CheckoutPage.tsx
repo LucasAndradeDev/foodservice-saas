@@ -5,6 +5,7 @@ import { listOrders, type OrderItem } from '../api/orders'
 import { listTabs, payTab, type PaymentMethod, type Tab } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
+import { formatTableLabel } from '../utils/tableLabel'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -115,8 +116,7 @@ export function CheckoutPage() {
               }`}
             >
               <div className="text-base font-semibold text-gray-800">
-                Mesa{summary.tab.tables.length > 1 ? 's' : ''}{' '}
-                {summary.tab.tables.map((t) => t.number).join(', ')}
+                {formatTableLabel(summary.tab.tables.map((t) => t.number))}
               </div>
               {summary.isLoading ? (
                 <div className="mt-1 text-sm text-gray-500">Carregando itens...</div>
@@ -140,7 +140,7 @@ export function CheckoutPage() {
       )}
 
       {selectedSummary && (
-        <Modal title={`Fechar conta — Mesa${selectedSummary.tab.tables.length > 1 ? 's' : ''} ${selectedSummary.tab.tables.map((t) => t.number).join(', ')}`} onClose={handleCloseModal}>
+        <Modal title={`Fechar conta — ${formatTableLabel(selectedSummary.tab.tables.map((t) => t.number))}`} onClose={handleCloseModal}>
           {justPaidTabId === selectedSummary.tab.id ? (
             <>
               <p className="mb-4 text-sm font-medium text-green-700">Pagamento confirmado.</p>

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { listKitchenQueue, updateItemStatus, type KitchenItem } from '../api/kitchen'
 import type { ItemStatus } from '../api/orders'
 import { useAuth } from '../auth/AuthContext'
+import { formatTableLabel } from '../utils/tableLabel'
 
 const STATUS_LABELS: Record<ItemStatus, string> = {
   PENDING: 'Pendente',
@@ -74,7 +75,7 @@ export function KitchenPage() {
               >
                 <div>
                   <div className="text-sm text-gray-500">
-                    Mesa{item.tableNumbers.length > 1 ? 's' : ''} {item.tableNumbers.join(', ')}
+                    {formatTableLabel(item.tableNumbers)}
                     {' · '}
                     <span className={isStale ? 'font-semibold text-red-600' : ''}>há {minutes} min</span>
                   </div>

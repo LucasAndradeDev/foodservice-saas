@@ -54,6 +54,8 @@ export function TablesPage() {
     return map
   }, [openTabs])
 
+  const counterTabs = useMemo(() => openTabs?.filter((tab) => tab.tables.length === 0) ?? [], [openTabs])
+
   const [isCreating, setIsCreating] = useState(false)
   const [isBulkCreating, setIsBulkCreating] = useState(false)
   const [isSelectingTables, setIsSelectingTables] = useState(false)
@@ -213,6 +215,11 @@ export function TablesPage() {
     openTabMutation.mutate(Array.from(selectedTableIds))
   }
 
+  function openCounterTab() {
+    setError(null)
+    openTabMutation.mutate([])
+  }
+
   function handleTableClick(table: RestaurantTable) {
     if (isSelectingTables) {
       toggleTableSelection(table)
@@ -232,13 +239,23 @@ export function TablesPage() {
         <h1 className="text-lg font-semibold text-gray-800">Mesas</h1>
         <div className="flex flex-wrap gap-2">
           {canOpenTab && !isSelectingTables && (
-            <button
-              type="button"
-              onClick={startSelectingTables}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-            >
-              Abrir comanda
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={startSelectingTables}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Abrir comanda
+              </button>
+              <button
+                type="button"
+                onClick={openCounterTab}
+                disabled={openTabMutation.isPending}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              >
+                Balcão
+              </button>
+            </>
           )}
           {canManage && !isSelectingTables && (
             <>
@@ -288,6 +305,27 @@ export function TablesPage() {
       )}
 
       {error && !selectedTable && <p className="mb-4 text-sm text-red-600">{error}</p>}
+
+      {canOpenTab && counterTabs.length > 0 && (
+        <div className="mb-4">
+          <p className="mb-2 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+            Comandas de balcão abertas
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {counterTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => navigate(`/tabs/${tab.id}`)}
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Balcão · aberta às{' '}
+                {new Date(tab.openedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
 

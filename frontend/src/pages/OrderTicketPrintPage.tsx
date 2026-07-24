@@ -4,6 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getOrder, markOrderPrinted } from '../api/orders'
 import { getTab } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
+import { formatTableLabel } from '../utils/tableLabel'
 
 export function OrderTicketPrintPage() {
   const { orderId } = useParams<{ orderId: string }>()
@@ -60,7 +61,7 @@ export function OrderTicketPrintPage() {
           {restaurant?.tradeName || restaurant?.name}
         </h1>
         <p className="text-sm text-gray-600">
-          Mesa{tab && tab.tables.length > 1 ? 's' : ''} {tab?.tables.map((t) => t.number).join(', ')}
+          {tab && formatTableLabel(tab.tables.map((t) => t.number))}
         </p>
         <p className="text-xs text-gray-500">
           {new Date(order.createdAt).toLocaleString('pt-BR')}

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { listOrders } from '../api/orders'
 import { getTab, markTabReceiptPrinted, type PaymentMethod } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
+import { formatTableLabel } from '../utils/tableLabel'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -62,7 +63,7 @@ export function TabReceiptPrintPage() {
           {restaurant?.tradeName || restaurant?.name}
         </h1>
         <p className="text-sm text-gray-600">
-          Mesa{tab.tables.length > 1 ? 's' : ''} {tab.tables.map((t) => t.number).join(', ')}
+          {formatTableLabel(tab.tables.map((t) => t.number))}
         </p>
       </div>
 
