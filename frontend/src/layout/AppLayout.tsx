@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import type { UserRole } from '../auth/types'
 import { useAuth } from '../auth/AuthContext'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -9,18 +10,21 @@ const ROLE_LABELS: Record<string, string> = {
   CASHIER: 'Caixa',
 }
 
-const NAV_ITEMS = [
+const NAV_ITEMS: { to: string; label: string; end?: boolean; roles?: UserRole[] }[] = [
+  { to: '/', label: 'Dashboard', end: true },
   { to: '/tables', label: 'Mesas' },
   { to: '/kitchen', label: 'Cozinha' },
   { to: '/checkout', label: 'Caixa' },
   { to: '/categories', label: 'Categorias' },
   { to: '/products', label: 'Produtos' },
-  { to: '/settings', label: 'Configurações' },
+  { to: '/settings', label: 'Configurações', roles: ['OWNER', 'MANAGER'] },
+  { to: '/staff', label: 'Funcionários', roles: ['OWNER', 'MANAGER'] },
 ]
 
 export function AppLayout() {
   const { user, restaurant, logout } = useAuth()
   const navigate = useNavigate()
+  const visibleNavItems = NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
 
   function handleLogout() {
     logout()
@@ -35,10 +39,11 @@ export function AppLayout() {
             {restaurant?.tradeName ?? restaurant?.name}
           </span>
           <nav className="flex gap-4">
-            {NAV_ITEMS.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.end}
                 className={({ isActive }) =>
                   `text-sm ${isActive ? 'font-medium text-gray-900' : 'text-gray-500 hover:text-gray-800'}`
                 }

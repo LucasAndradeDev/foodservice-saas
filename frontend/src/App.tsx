@@ -4,12 +4,13 @@ import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './layout/AppLayout'
 import { CategoriesPage } from './pages/CategoriesPage'
 import { CheckoutPage } from './pages/CheckoutPage'
-import { HomePage } from './pages/HomePage'
+import { DashboardPage } from './pages/DashboardPage'
 import { KitchenPage } from './pages/KitchenPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { RestaurantSettingsPage } from './pages/RestaurantSettingsPage'
+import { StaffPage } from './pages/StaffPage'
 import { TabDetailPage } from './pages/TabDetailPage'
 import { TablesPage } from './pages/TablesPage'
 
@@ -22,7 +23,7 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
-              <Route path="/" element={<HomePage />} />
+              <Route path="/" element={<DashboardPage />} />
               <Route path="/tables" element={<TablesPage />} />
               <Route path="/tabs/:tabId" element={<TabDetailPage />} />
               <Route path="/kitchen" element={<KitchenPage />} />
@@ -30,6 +31,7 @@ function App() {
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/settings" element={<RestaurantSettingsPage />} />
+              <Route path="/staff" element={<StaffPage />} />
             </Route>
           </Route>
         </Routes>
