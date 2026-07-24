@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Pencil, Power } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { createCategory, listCategories, updateCategory, type Category } from '../api/categories'
 import { useAuth } from '../auth/AuthContext'
@@ -108,14 +109,11 @@ export function CategoriesPage() {
                   </span>
                 </div>
                 {canManage && (
-                  <div className="flex gap-4 text-sm">
-                    <button type="button" onClick={() => openEditForm(category)} className="text-brand-700 hover:underline">
-                      Editar
-                    </button>
-                    <button type="button" onClick={() => toggleActive(category)} className="text-gray-600 hover:underline">
-                      {category.active ? 'Desativar' : 'Ativar'}
-                    </button>
-                  </div>
+                  <CategoryActionButtons
+                    category={category}
+                    onEdit={() => openEditForm(category)}
+                    onToggleActive={() => toggleActive(category)}
+                  />
                 )}
               </div>
             ))}
@@ -146,20 +144,12 @@ export function CategoriesPage() {
                     </td>
                     {canManage && (
                       <td className="px-4 py-2 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openEditForm(category)}
-                          className="mr-3 text-brand-700 hover:underline"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleActive(category)}
-                          className="text-gray-600 hover:underline"
-                        >
-                          {category.active ? 'Desativar' : 'Ativar'}
-                        </button>
+                        <CategoryActionButtons
+                          category={category}
+                          onEdit={() => openEditForm(category)}
+                          onToggleActive={() => toggleActive(category)}
+                          align="end"
+                        />
                       </td>
                     )}
                   </tr>
@@ -198,6 +188,38 @@ export function CategoriesPage() {
           </form>
         </Modal>
       )}
+    </div>
+  )
+}
+
+interface CategoryActionButtonsProps {
+  category: Category
+  onEdit: () => void
+  onToggleActive: () => void
+  align?: 'start' | 'end'
+}
+
+function CategoryActionButtons({ category, onEdit, onToggleActive, align = 'start' }: CategoryActionButtonsProps) {
+  return (
+    <div className={`flex items-center gap-1 ${align === 'end' ? 'justify-end' : ''}`}>
+      <button
+        type="button"
+        onClick={onEdit}
+        title="Editar"
+        aria-label="Editar"
+        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
+      >
+        <Pencil className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onToggleActive}
+        title={category.active ? 'Desativar' : 'Ativar'}
+        aria-label={category.active ? 'Desativar' : 'Ativar'}
+        className={`rounded-md p-1.5 hover:bg-gray-100 ${category.active ? 'text-gray-500 hover:text-amber-700' : 'text-gray-400 hover:text-green-700'}`}
+      >
+        <Power className="h-4 w-4" />
+      </button>
     </div>
   )
 }

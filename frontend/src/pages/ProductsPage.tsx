@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
+import { Pencil, Power, Trash2 } from 'lucide-react'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { listCategories } from '../api/categories'
@@ -29,6 +30,7 @@ export function ProductsPage() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active')
 
   useEffect(() => {
     const timeout = setTimeout(() => setSearch(searchInput), 300)
@@ -36,11 +38,12 @@ export function ProductsPage() {
   }, [searchInput])
 
   const { data: products, isLoading } = useQuery({
-    queryKey: ['products', categoryFilter, search],
+    queryKey: ['products', categoryFilter, search, statusFilter],
     queryFn: () =>
       listProducts({
         categoryId: categoryFilter || undefined,
         search: search || undefined,
+        active: statusFilter === 'all' ? undefined : statusFilter === 'active',
       }),
   })
 
@@ -214,6 +217,15 @@ export function ProductsPage() {
             </option>
           ))}
         </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | 'all')}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none sm:w-auto"
+        >
+          <option value="active">Ativos</option>
+          <option value="inactive">Inativos</option>
+          <option value="all">Todos</option>
+        </select>
       </div>
 
       {listError && <p className="mb-4 text-sm text-red-600">{listError}</p>}
@@ -228,36 +240,35 @@ export function ProductsPage() {
           <div className="space-y-2 sm:hidden">
             {products.map((product) => (
               <div key={product.id} className="rounded-lg border border-gray-200 bg-white p-4">
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-2 font-medium text-gray-800">
-                    {product.imageUrl && (
-                      <img src={product.imageUrl} alt="" className="h-8 w-8 rounded object-cover" />
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <span className="flex items-center gap-3">
+                    {product.imageUrl ? (
+                      <img src={product.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <span className="h-14 w-14 shrink-0 rounded-lg bg-gray-100" />
                     )}
-                    {product.name}
+                    <span>
+                      <span className="block font-medium text-gray-800">{product.name}</span>
+                      <span className="block text-sm text-gray-500">
+                        {categoryName(product.categoryId)} · {currencyFormatter.format(product.price)}
+                      </span>
+                    </span>
                   </span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${
                       product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
                     }`}
                   >
                     {product.active ? 'Ativo' : 'Inativo'}
                   </span>
                 </div>
-                <div className="mb-2 text-sm text-gray-500">
-                  {categoryName(product.categoryId)} · {currencyFormatter.format(product.price)}
-                </div>
                 {canManage && (
-                  <div className="flex gap-4 text-sm">
-                    <button type="button" onClick={() => openEditForm(product)} className="text-brand-700 hover:underline">
-                      Editar
-                    </button>
-                    <button type="button" onClick={() => toggleActive(product)} className="text-gray-600 hover:underline">
-                      {product.active ? 'Desativar' : 'Ativar'}
-                    </button>
-                    <button type="button" onClick={() => handleDelete(product)} className="text-red-600 hover:underline">
-                      Excluir
-                    </button>
-                  </div>
+                  <ProductActionButtons
+                    product={product}
+                    onEdit={() => openEditForm(product)}
+                    onToggleActive={() => toggleActive(product)}
+                    onDelete={() => handleDelete(product)}
+                  />
                 )}
               </div>
             ))}
@@ -279,9 +290,11 @@ export function ProductsPage() {
                 {products.map((product) => (
                   <tr key={product.id} className="border-t border-gray-100">
                     <td className="px-4 py-2 text-gray-800">
-                      <span className="flex items-center gap-2">
-                        {product.imageUrl && (
-                          <img src={product.imageUrl} alt="" className="h-8 w-8 rounded object-cover" />
+                      <span className="flex items-center gap-3">
+                        {product.imageUrl ? (
+                          <img src={product.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                        ) : (
+                          <span className="h-14 w-14 shrink-0 rounded-lg bg-gray-100" />
                         )}
                         {product.name}
                       </span>
@@ -299,27 +312,13 @@ export function ProductsPage() {
                     </td>
                     {canManage && (
                       <td className="px-4 py-2 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openEditForm(product)}
-                          className="mr-3 text-brand-700 hover:underline"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleActive(product)}
-                          className="mr-3 text-gray-600 hover:underline"
-                        >
-                          {product.active ? 'Desativar' : 'Ativar'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(product)}
-                          className="text-red-600 hover:underline"
-                        >
-                          Excluir
-                        </button>
+                        <ProductActionButtons
+                          product={product}
+                          onEdit={() => openEditForm(product)}
+                          onToggleActive={() => toggleActive(product)}
+                          onDelete={() => handleDelete(product)}
+                          align="end"
+                        />
                       </td>
                     )}
                   </tr>
@@ -427,6 +426,48 @@ export function ProductsPage() {
           </form>
         </Modal>
       )}
+    </div>
+  )
+}
+
+interface ProductActionButtonsProps {
+  product: Product
+  onEdit: () => void
+  onToggleActive: () => void
+  onDelete: () => void
+  align?: 'start' | 'end'
+}
+
+function ProductActionButtons({ product, onEdit, onToggleActive, onDelete, align = 'start' }: ProductActionButtonsProps) {
+  return (
+    <div className={`flex items-center gap-1 ${align === 'end' ? 'justify-end' : ''}`}>
+      <button
+        type="button"
+        onClick={onEdit}
+        title="Editar"
+        aria-label="Editar"
+        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
+      >
+        <Pencil className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onToggleActive}
+        title={product.active ? 'Desativar' : 'Ativar'}
+        aria-label={product.active ? 'Desativar' : 'Ativar'}
+        className={`rounded-md p-1.5 hover:bg-gray-100 ${product.active ? 'text-gray-500 hover:text-amber-700' : 'text-gray-400 hover:text-green-700'}`}
+      >
+        <Power className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        title="Excluir"
+        aria-label="Excluir"
+        className="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
     </div>
   )
 }
