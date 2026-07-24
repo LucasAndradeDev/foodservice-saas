@@ -12,6 +12,7 @@ export function RegisterPage() {
   const [address, setAddress] = useState('')
   const [ownerName, setOwnerName] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
+  const [confirmOwnerEmail, setConfirmOwnerEmail] = useState('')
   const [ownerPassword, setOwnerPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -23,6 +24,12 @@ export function RegisterPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
+
+    if (ownerEmail.trim().toLowerCase() !== confirmOwnerEmail.trim().toLowerCase()) {
+      setError('Os emails não coincidem.')
+      return
+    }
+
     setIsSubmitting(true)
     try {
       await registerRestaurant({
@@ -119,6 +126,19 @@ export function RegisterPage() {
           required
           value={ownerEmail}
           onChange={(e) => setOwnerEmail(e.target.value)}
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+        />
+
+        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="confirmOwnerEmail">
+          Confirmar email
+        </label>
+        <input
+          id="confirmOwnerEmail"
+          type="email"
+          required
+          value={confirmOwnerEmail}
+          onChange={(e) => setConfirmOwnerEmail(e.target.value)}
+          onPaste={(e) => e.preventDefault()}
           className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
         />
 
