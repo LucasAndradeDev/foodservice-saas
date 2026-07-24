@@ -16,6 +16,9 @@ public class UpdateProductRequest {
     @Size(max = 255, message = "Description must be at most 255 characters long")
     private String description;
 
+    @Size(max = 500, message = "Image URL must be at most 500 characters long")
+    private String imageUrl;
+
     @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than zero")
     private BigDecimal price;
 

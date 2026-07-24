@@ -29,6 +29,12 @@ public class RestaurantService {
         if (request.getTradeName() != null) {
             restaurant.setTradeName(request.getTradeName());
         }
+        if (request.getSlug() != null) {
+            if (!request.getSlug().isBlank() && restaurantRepository.existsBySlugAndIdNot(request.getSlug(), restaurantId)) {
+                throw new IllegalArgumentException("Slug already in use.");
+            }
+            restaurant.setSlug(request.getSlug());
+        }
         if (request.getLogo() != null) {
             restaurant.setLogo(request.getLogo());
         }
@@ -68,6 +74,7 @@ public class RestaurantService {
                 .id(restaurant.getId())
                 .name(restaurant.getName())
                 .tradeName(restaurant.getTradeName())
+                .slug(restaurant.getSlug())
                 .cnpj(restaurant.getCnpj())
                 .phone(restaurant.getPhone())
                 .address(restaurant.getAddress())

@@ -8,13 +8,10 @@ import java.util.UUID;
 
 @Data
 @Builder
-public class ProductResponse {
+public class PublicMenuProductResponse {
     private UUID id;
-    private UUID restaurantId;
-    private UUID categoryId;
     private String name;
     private String description;
     private String imageUrl;
     private BigDecimal price;
-    private Boolean active;
 }

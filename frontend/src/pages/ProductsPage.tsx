@@ -40,6 +40,7 @@ export function ProductsPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [photoUrl, setPhotoUrl] = useState('')
   const [price, setPrice] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +72,7 @@ export function ProductsPage() {
     }
     setName('')
     setDescription('')
+    setPhotoUrl('')
     setPrice('')
     setCategoryId(categories[0].id)
     setError(null)
@@ -81,6 +83,7 @@ export function ProductsPage() {
     setEditingProduct(product)
     setName(product.name)
     setDescription(product.description ?? '')
+    setPhotoUrl(product.imageUrl ?? '')
     setPrice(String(product.price))
     setCategoryId(product.categoryId)
     setError(null)
@@ -97,6 +100,7 @@ export function ProductsPage() {
     const payload = {
       name,
       description: description || undefined,
+      imageUrl: photoUrl || undefined,
       price: Number(price),
       categoryId,
     }
@@ -172,8 +176,13 @@ export function ProductsPage() {
           <div className="space-y-2 sm:hidden">
             {products.map((product) => (
               <div key={product.id} className="rounded-lg border border-gray-200 bg-white p-4">
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="font-medium text-gray-800">{product.name}</span>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 font-medium text-gray-800">
+                    {product.imageUrl && (
+                      <img src={product.imageUrl} alt="" className="h-8 w-8 rounded object-cover" />
+                    )}
+                    {product.name}
+                  </span>
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${
                       product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
@@ -214,7 +223,14 @@ export function ProductsPage() {
               <tbody>
                 {products.map((product) => (
                   <tr key={product.id} className="border-t border-gray-100">
-                    <td className="px-4 py-2 text-gray-800">{product.name}</td>
+                    <td className="px-4 py-2 text-gray-800">
+                      <span className="flex items-center gap-2">
+                        {product.imageUrl && (
+                          <img src={product.imageUrl} alt="" className="h-8 w-8 rounded object-cover" />
+                        )}
+                        {product.name}
+                      </span>
+                    </td>
                     <td className="px-4 py-2 text-gray-600">{categoryName(product.categoryId)}</td>
                     <td className="px-4 py-2 text-gray-600">{currencyFormatter.format(product.price)}</td>
                     <td className="px-4 py-2">
@@ -278,6 +294,18 @@ export function ProductsPage() {
               onChange={(e) => setDescription(e.target.value)}
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
               rows={2}
+            />
+
+            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productPhotoUrl">
+              URL da foto <span className="font-normal text-gray-400">(opcional)</span>
+            </label>
+            <input
+              id="productPhotoUrl"
+              type="text"
+              maxLength={500}
+              value={photoUrl}
+              onChange={(e) => setPhotoUrl(e.target.value)}
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
 
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productPrice">

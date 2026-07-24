@@ -4,6 +4,7 @@ export interface Restaurant {
   id: string
   name: string
   tradeName: string | null
+  slug: string | null
   cnpj: string | null
   phone: string | null
   address: string | null
@@ -16,6 +17,7 @@ export interface Restaurant {
 
 export interface UpdateRestaurantPayload {
   tradeName?: string
+  slug?: string
   logo?: string
   primaryColor?: string
   phone?: string

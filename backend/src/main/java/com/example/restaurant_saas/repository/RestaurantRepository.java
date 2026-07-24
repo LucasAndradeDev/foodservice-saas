@@ -12,4 +12,10 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, UUID> {
     boolean existsByCnpj(String cnpj);
 
     boolean existsByCnpjAndIdNot(String cnpj, UUID id);
+
+    boolean existsBySlug(String slug);
+
+    boolean existsBySlugAndIdNot(String slug, UUID id);
+
+    Optional<Restaurant> findBySlug(String slug);
 }

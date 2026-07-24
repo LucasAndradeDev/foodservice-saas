@@ -118,6 +118,37 @@ class ProductControllerIntegrationTest {
     }
 
     @Test
+    void createProduct_withImageUrl_shouldPersistAndAllowUpdate() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+        request.setImageUrl("https://cdn.test.com/cheeseburger.jpg");
+
+        MvcResult result = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.imageUrl").value("https://cdn.test.com/cheeseburger.jpg"))
+                .andReturn();
+        String productId = JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+
+        UpdateProductRequest updateRequest = new UpdateProductRequest();
+        updateRequest.setImageUrl("https://cdn.test.com/cheeseburger-v2.jpg");
+
+        mockMvc.perform(put("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.imageUrl").value("https://cdn.test.com/cheeseburger-v2.jpg"));
+    }
+
+    @Test
     void createProduct_withCategoryFromAnotherRestaurant_shouldReturn400() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
 

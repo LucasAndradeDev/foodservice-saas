@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { QRCodeCanvas } from 'qrcode.react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { getMyRestaurant, updateMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
@@ -15,6 +16,8 @@ export function RestaurantSettingsPage() {
 
   const [cnpj, setCnpj] = useState('')
   const [tradeName, setTradeName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [linkCopied, setLinkCopied] = useState(false)
   const [logo, setLogo] = useState('')
   const [primaryColor, setPrimaryColor] = useState('')
   const [phone, setPhone] = useState('')
@@ -27,6 +30,7 @@ export function RestaurantSettingsPage() {
     if (!restaurant) return
     setCnpj(restaurant.cnpj ?? '')
     setTradeName(restaurant.tradeName ?? '')
+    setSlug(restaurant.slug ?? '')
     setLogo(restaurant.logo ?? '')
     setPrimaryColor(restaurant.primaryColor ?? '')
     setPhone(restaurant.phone ?? '')
@@ -51,6 +55,7 @@ export function RestaurantSettingsPage() {
     updateMutation.mutate({
       cnpj: cnpj || undefined,
       tradeName: tradeName || undefined,
+      slug: slug || undefined,
       logo: logo || undefined,
       primaryColor: primaryColor || undefined,
       phone: phone || undefined,
@@ -101,6 +106,23 @@ export function RestaurantSettingsPage() {
           onChange={(e) => setTradeName(e.target.value)}
           className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
         />
+
+        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="slug">
+          Slug do cardápio
+        </label>
+        <input
+          id="slug"
+          type="text"
+          disabled={!canManage}
+          maxLength={150}
+          placeholder="meu-restaurante"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value.toLowerCase())}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+        />
+        <p className="mb-4 mt-1 text-xs text-gray-500">
+          Só letras minúsculas, números e hífen. Link do cardápio: {window.location.origin}/menu/{slug || '...'}
+        </p>
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="logo">
           Logo (URL)
@@ -178,6 +200,42 @@ export function RestaurantSettingsPage() {
           </button>
         )}
       </form>
+
+      {restaurant.slug && (
+        <div className="mt-6 max-w-lg rounded-lg border border-gray-200 bg-white p-6">
+          <h2 className="mb-3 text-sm font-medium text-gray-700">Cardápio digital</h2>
+          <QRCodeCanvas value={publicMenuUrl(restaurant.slug)} size={160} />
+          <p className="mt-3 break-all text-sm text-gray-600">{publicMenuUrl(restaurant.slug)}</p>
+          <div className="mt-3 flex gap-2">
+            <a
+              href={publicMenuUrl(restaurant.slug)}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              Abrir cardápio
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(publicMenuUrl(restaurant.slug!))
+                setLinkCopied(true)
+                setTimeout(() => setLinkCopied(false), 2000)
+              }}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              {linkCopied ? 'Copiado!' : 'Copiar link'}
+            </button>
+          </div>
+          <p className="mt-3 text-xs text-gray-500">
+            Clique com o botão direito no QR Code pra salvar a imagem e imprimir nas mesas.
+          </p>
+        </div>
+      )}
     </div>
   )
+}
+
+function publicMenuUrl(slug: string) {
+  return `${window.location.origin}/menu/${slug}`
 }

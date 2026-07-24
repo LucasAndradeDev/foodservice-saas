@@ -251,13 +251,14 @@ Com o roadmap original (Sprints 1–17) concluído, o desenvolvimento passou a p
 - **Sprint 19:** Impressão de comandas/cozinha (frontend) — telas de impressão via `window.print()`, botão manual, disparo automático, checkbox de configuração (ver `docs/SPRINT19.md`). **Feature concluída ponta a ponta.**
 - **Sprint 20:** Relatórios financeiros — `GET /reports/summary` (faturamento, ticket médio, quebra por forma de pagamento, produtos mais vendidos) por período, restrito a `OWNER`/`MANAGER`, e tela `/reports` com presets de período (ver `docs/SPRINT20.md`). **Feature concluída ponta a ponta.**
 - **Sprint 21:** Balcão — comanda sem mesa (`tableIds` vazio em `POST /tabs`), botão "Balcão" e lista de retomada em Mesas (ver `docs/SPRINT21.md`). **Feature concluída ponta a ponta.**
+- **Sprint 22:** Cardápio digital — página pública `/menu/:slug` (sem login), slug amigável gerado automaticamente, foto por produto, QR Code gerado em Configurações (ver `docs/SPRINT22.md`). **Feature concluída ponta a ponta.**
 
 ---
 
 ### Funcionalidades Futuras (Backlog)
 Após validar o produto com clientes reais, considerar:
 - Comanda por QR Code
-- Cardápio digital
+- ~~Cardápio digital~~ ✅ Sprint 22
 - Pedidos pelo celular
 - Delivery
 - ~~Balcão~~ ✅ Sprint 21

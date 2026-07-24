@@ -6,6 +6,7 @@ export interface Product {
   categoryId: string
   name: string
   description: string | null
+  imageUrl: string | null
   price: number
   active: boolean
 }
@@ -19,6 +20,7 @@ export interface ProductFilters {
 export interface ProductPayload {
   name: string
   description?: string
+  imageUrl?: string
   price: number
   categoryId: string
 }

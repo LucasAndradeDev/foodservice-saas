@@ -11,6 +11,7 @@ import java.util.UUID;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, UUID> {
     List<Product> findByRestaurantId(UUID restaurantId);
+    List<Product> findByRestaurantIdAndActiveTrue(UUID restaurantId);
     Optional<Product> findByIdAndRestaurantId(UUID id, UUID restaurantId);
     boolean existsByCategoryIdAndActiveTrue(UUID categoryId);
     boolean existsByRestaurantIdAndNameIgnoreCase(UUID restaurantId, String name);

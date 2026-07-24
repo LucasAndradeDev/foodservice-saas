@@ -52,6 +52,7 @@ public class ProductService {
                 .category(category)
                 .name(request.getName())
                 .description(request.getDescription())
+                .imageUrl(request.getImageUrl())
                 .price(request.getPrice())
                 .active(true)
                 .build();
@@ -71,6 +72,9 @@ public class ProductService {
         }
         if (request.getDescription() != null) {
             product.setDescription(request.getDescription());
+        }
+        if (request.getImageUrl() != null) {
+            product.setImageUrl(request.getImageUrl());
         }
         if (request.getPrice() != null) {
             product.setPrice(request.getPrice());
@@ -102,6 +106,7 @@ public class ProductService {
                 .categoryId(product.getCategory().getId())
                 .name(product.getName())
                 .description(product.getDescription())
+                .imageUrl(product.getImageUrl())
                 .price(product.getPrice())
                 .active(product.getActive())
                 .build();

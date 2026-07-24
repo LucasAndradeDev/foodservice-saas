@@ -76,6 +76,91 @@ class RestaurantControllerIntegrationTest {
     }
 
     @Test
+    void registerRestaurant_shouldAutoGenerateSlugFromName() throws Exception {
+        String uniqueName = "Slug Test Grill " + System.nanoTime();
+        registerRequest.setRestaurantName(uniqueName);
+        String token = registerAndGetToken();
+
+        mockMvc.perform(get("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.slug").value(uniqueName.toLowerCase().replace(" ", "-")));
+    }
+
+    @Test
+    void registerRestaurant_withDuplicateName_shouldGetDisambiguatedSlug() throws Exception {
+        String uniqueName = "Dup Test Grill " + System.nanoTime();
+        registerRequest.setRestaurantName(uniqueName);
+        registerAndGetToken();
+
+        registerRequest = new RegisterRestaurantRequest();
+        registerRequest.setRestaurantName(uniqueName);
+        registerRequest.setOwnerName("Owner 2");
+        registerRequest.setOwnerEmail("owner2+" + System.nanoTime() + "@test.com");
+        registerRequest.setOwnerPassword("password123");
+        String secondToken = registerAndGetToken();
+
+        String expectedSlug = uniqueName.toLowerCase().replace(" ", "-");
+        mockMvc.perform(get("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + secondToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.slug").value(expectedSlug + "-2"));
+    }
+
+    @Test
+    void updateMyRestaurant_withSlug_shouldUpdateSlug() throws Exception {
+        String token = registerAndGetToken();
+        String customSlug = "my-custom-slug-" + System.nanoTime();
+
+        UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
+        updateRequest.setSlug(customSlug);
+
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.slug").value(customSlug));
+    }
+
+    @Test
+    void updateMyRestaurant_withInvalidSlugFormat_shouldReturn400() throws Exception {
+        String token = registerAndGetToken();
+
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"slug\": \"Not A Valid Slug!\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateMyRestaurant_withSlugAlreadyUsedByAnotherRestaurant_shouldReturn400() throws Exception {
+        String firstToken = registerAndGetToken();
+        MvcResult firstResult = mockMvc.perform(get("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + firstToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        String firstSlug = JsonPath.read(firstResult.getResponse().getContentAsString(), "$.slug");
+
+        registerRequest = new RegisterRestaurantRequest();
+        registerRequest.setRestaurantName("Pizza Place");
+        registerRequest.setOwnerName("Owner 2");
+        registerRequest.setOwnerEmail("owner2+" + System.nanoTime() + "@test.com");
+        registerRequest.setOwnerPassword("password123");
+        String secondToken = registerAndGetToken();
+
+        UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
+        updateRequest.setSlug(firstSlug);
+
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + secondToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void getMyRestaurant_withoutToken_shouldBeRejected() throws Exception {
         mockMvc.perform(get("/api/v1/restaurants/me"))
                 .andExpect(status().is4xxClientError());

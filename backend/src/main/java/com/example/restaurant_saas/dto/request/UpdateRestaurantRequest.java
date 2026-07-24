@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.dto.request;
 
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -9,6 +10,10 @@ public class UpdateRestaurantRequest {
 
     @Size(max = 100, message = "Trade name must be at most 100 characters long")
     private String tradeName;
+
+    @Size(max = 150, message = "Slug must be at most 150 characters long")
+    @Pattern(regexp = "^$|^[a-z0-9]+(-[a-z0-9]+)*$", message = "Slug must contain only lowercase letters, numbers and hyphens")
+    private String slug;
 
     @Size(max = 255, message = "Logo URL must be at most 255 characters long")
     private String logo;

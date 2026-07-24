@@ -35,6 +35,9 @@ public class Restaurant {
     @Column(name = "trade_name", length = 100)
     private String tradeName;
 
+    @Column(unique = true, length = 150)
+    private String slug;
+
     private String logo;
 
     @Column(name = "primary_color", length = 20)

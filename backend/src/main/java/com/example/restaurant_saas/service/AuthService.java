@@ -24,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -53,6 +54,7 @@ public class AuthService {
 
         Restaurant restaurant = Restaurant.builder()
                 .name(request.getRestaurantName())
+                .slug(generateUniqueSlug(request.getRestaurantName()))
                 .cnpj(request.getCnpj())
                 .phone(request.getPhone())
                 .address(request.getAddress())
@@ -131,6 +133,26 @@ public class AuthService {
         return buildAuthResponse(null, null, user, user.getRestaurant());
     }
 
+    private String generateUniqueSlug(String name) {
+        String base = slugify(name);
+        String candidate = base;
+        int suffix = 2;
+        while (restaurantRepository.existsBySlug(candidate)) {
+            candidate = base + "-" + suffix;
+            suffix++;
+        }
+        return candidate;
+    }
+
+    private String slugify(String input) {
+        String normalized = Normalizer.normalize(input, Normalizer.Form.NFD);
+        String withoutAccents = normalized.replaceAll("\\p{M}", "");
+        String slug = withoutAccents.toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-+|-+$", "");
+        return slug.isBlank() ? "restaurante" : slug;
+    }
+
     private RefreshToken createRefreshToken(User user) {
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
@@ -155,6 +177,7 @@ public class AuthService {
                 .id(restaurant.getId())
                 .name(restaurant.getName())
                 .tradeName(restaurant.getTradeName())
+                .slug(restaurant.getSlug())
                 .cnpj(restaurant.getCnpj())
                 .phone(restaurant.getPhone())
                 .address(restaurant.getAddress())

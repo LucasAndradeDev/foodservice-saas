@@ -11,6 +11,7 @@ public class RestaurantResponse {
     private UUID id;
     private String name;
     private String tradeName;
+    private String slug;
     private String cnpj;
     private String phone;
     private String address;
