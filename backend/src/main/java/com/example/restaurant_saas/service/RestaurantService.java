@@ -50,6 +50,9 @@ public class RestaurantService {
             }
             restaurant.setCnpj(request.getCnpj());
         }
+        if (request.getAutoPrintKitchenTickets() != null) {
+            restaurant.setAutoPrintKitchenTickets(request.getAutoPrintKitchenTickets());
+        }
 
         restaurant = restaurantRepository.save(restaurant);
         return toResponse(restaurant);
@@ -72,6 +75,7 @@ public class RestaurantService {
                 .primaryColor(restaurant.getPrimaryColor())
                 .tableCount(restaurant.getTableCount())
                 .active(restaurant.getActive())
+                .autoPrintKitchenTickets(restaurant.getAutoPrintKitchenTickets())
                 .build();
     }
 }

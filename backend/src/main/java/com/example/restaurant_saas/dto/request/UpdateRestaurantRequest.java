@@ -27,4 +27,6 @@ public class UpdateRestaurantRequest {
 
     @Size(max = 20, message = "CNPJ must be at most 20 characters long")
     private String cnpj;
+
+    private Boolean autoPrintKitchenTickets;
 }

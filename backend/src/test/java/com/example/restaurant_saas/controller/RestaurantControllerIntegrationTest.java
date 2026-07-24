@@ -215,6 +215,35 @@ class RestaurantControllerIntegrationTest {
     }
 
     @Test
+    void updateMyRestaurant_withAutoPrintKitchenTickets_shouldPersistAndSurviveOmittedUpdate() throws Exception {
+        String token = registerAndGetToken();
+
+        mockMvc.perform(get("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.autoPrintKitchenTickets").value(false));
+
+        UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
+        updateRequest.setAutoPrintKitchenTickets(true);
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.autoPrintKitchenTickets").value(true));
+
+        UpdateRestaurantRequest partialUpdate = new UpdateRestaurantRequest();
+        partialUpdate.setTableCount(5);
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(partialUpdate)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tableCount").value(5))
+                .andExpect(jsonPath("$.autoPrintKitchenTickets").value(true));
+    }
+
+    @Test
     void updateMyRestaurant_asWaiter_shouldBeForbidden() throws Exception {
         registerAndGetToken();
         User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();

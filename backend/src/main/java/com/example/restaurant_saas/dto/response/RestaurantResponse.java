@@ -18,4 +18,5 @@ public class RestaurantResponse {
     private String primaryColor;
     private Integer tableCount;
     private Boolean active;
+    private Boolean autoPrintKitchenTickets;
 }

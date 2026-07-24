@@ -98,4 +98,18 @@ public class TabController {
     ) {
         return ResponseEntity.ok(tabService.cancelTab(currentUser.getRestaurantId(), id));
     }
+
+    @PatchMapping("/{id}/print")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "Mark tab receipt as printed", description = "Records that this tab's bill/receipt was printed by setting receiptPrintedAt to now. Can be called again on reprint.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Tab marked as printed"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant")
+    })
+    public ResponseEntity<TabResponse> markReceiptPrinted(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(tabService.markReceiptPrinted(currentUser.getRestaurantId(), id));
+    }
 }

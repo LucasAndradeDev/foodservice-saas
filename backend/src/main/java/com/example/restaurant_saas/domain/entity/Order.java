@@ -37,4 +37,7 @@ public class Order {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
+
+    @Column(name = "printed_at")
+    private OffsetDateTime printedAt;
 }

@@ -65,4 +65,18 @@ public class OrderController {
     ) {
         return ResponseEntity.ok(orderService.getOrder(currentUser.getRestaurantId(), id));
     }
+
+    @PatchMapping("/orders/{id}/print")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','KITCHEN','CASHIER')")
+    @Operation(summary = "Mark order as printed", description = "Records that this order's kitchen ticket was printed by setting printedAt to now. Can be called again on reprint (idempotent, always overwrites with the latest timestamp).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Order marked as printed"),
+            @ApiResponse(responseCode = "400", description = "Order not found in this restaurant")
+    })
+    public ResponseEntity<OrderResponse> markPrinted(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(orderService.markPrinted(currentUser.getRestaurantId(), id));
+    }
 }

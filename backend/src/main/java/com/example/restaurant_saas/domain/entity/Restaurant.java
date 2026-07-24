@@ -47,6 +47,10 @@ public class Restaurant {
     @Builder.Default
     private Boolean active = true;
 
+    @Column(name = "auto_print_kitchen_tickets", nullable = false)
+    @Builder.Default
+    private Boolean autoPrintKitchenTickets = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

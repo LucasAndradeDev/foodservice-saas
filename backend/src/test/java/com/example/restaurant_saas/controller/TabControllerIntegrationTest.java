@@ -636,4 +636,79 @@ class TabControllerIntegrationTest {
         mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel"))
                 .andExpect(status().is4xxClientError());
     }
+
+    @Test
+    void markReceiptPrinted_shouldSetReceiptPrintedAt() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(get("/api/v1/tabs/" + tabId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.receiptPrintedAt").doesNotExist());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/print")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.receiptPrintedAt").exists());
+    }
+
+    @Test
+    void markReceiptPrinted_calledTwice_shouldSucceedBothTimes() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/print")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.receiptPrintedAt").exists());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/print")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.receiptPrintedAt").exists());
+    }
+
+    @Test
+    void markReceiptPrinted_asKitchen_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User kitchen = createUserDirectly(owner, UserRole.KITCHEN);
+        String kitchenToken = tokenFor(kitchen);
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/print")
+                        .header("Authorization", "Bearer " + kitchenToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void markReceiptPrinted_crossTenant_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        RegisterRestaurantRequest otherRestaurant = new RegisterRestaurantRequest();
+        otherRestaurant.setRestaurantName("Pizza Place");
+        otherRestaurant.setOwnerName("Another Owner");
+        otherRestaurant.setOwnerEmail("another3+" + System.nanoTime() + "@test.com");
+        otherRestaurant.setOwnerPassword("password789");
+        String otherToken = registerAndGetToken(otherRestaurant);
+        String otherTable = createTableAndGetId(otherToken);
+
+        OpenTabRequest request = new OpenTabRequest();
+        request.setTableIds(List.of(UUID.fromString(otherTable)));
+        MvcResult openResult = mockMvc.perform(post("/api/v1/tabs")
+                        .header("Authorization", "Bearer " + otherToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String otherTabId = JsonPath.read(openResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(patch("/api/v1/tabs/" + otherTabId + "/print")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest());
+    }
 }

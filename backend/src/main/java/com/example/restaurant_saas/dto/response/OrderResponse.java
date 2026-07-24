@@ -17,4 +17,5 @@ public class OrderResponse {
     private OffsetDateTime createdAt;
     private List<OrderItemResponse> items;
     private BigDecimal total;
+    private OffsetDateTime printedAt;
 }

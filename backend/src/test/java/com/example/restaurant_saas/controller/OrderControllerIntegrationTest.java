@@ -417,4 +417,105 @@ class OrderControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/tabs/" + UUID.randomUUID() + "/orders"))
                 .andExpect(status().is4xxClientError());
     }
+
+    @Test
+    void markPrinted_shouldSetPrintedAt() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+
+        CreateOrderItemRequest item = new CreateOrderItemRequest();
+        item.setProductId(UUID.fromString(productId));
+        item.setQuantity(1);
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setItems(List.of(item));
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/orders")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.printedAt").doesNotExist())
+                .andReturn();
+        String orderId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(patch("/api/v1/orders/" + orderId + "/print")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.printedAt").exists());
+    }
+
+    @Test
+    void markPrinted_calledTwice_shouldUpdateTimestampBothTimes() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+
+        CreateOrderItemRequest item = new CreateOrderItemRequest();
+        item.setProductId(UUID.fromString(productId));
+        item.setQuantity(1);
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setItems(List.of(item));
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/orders")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String orderId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(patch("/api/v1/orders/" + orderId + "/print")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.printedAt").exists());
+
+        mockMvc.perform(patch("/api/v1/orders/" + orderId + "/print")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.printedAt").exists());
+    }
+
+    @Test
+    void markPrinted_crossTenant_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+
+        CreateOrderItemRequest item = new CreateOrderItemRequest();
+        item.setProductId(UUID.fromString(productId));
+        item.setQuantity(1);
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setItems(List.of(item));
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/orders")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String orderId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        RegisterRestaurantRequest otherRestaurant = new RegisterRestaurantRequest();
+        otherRestaurant.setRestaurantName("Pizza Place");
+        otherRestaurant.setOwnerName("Another Owner");
+        otherRestaurant.setOwnerEmail("another+" + System.nanoTime() + "@test.com");
+        otherRestaurant.setOwnerPassword("password789");
+        MvcResult otherResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(otherRestaurant)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String otherToken = JsonPath.read(otherResult.getResponse().getContentAsString(), "$.accessToken");
+
+        mockMvc.perform(patch("/api/v1/orders/" + orderId + "/print")
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isBadRequest());
+    }
 }

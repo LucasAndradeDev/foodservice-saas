@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -61,6 +62,13 @@ public class OrderService {
                 .toList();
         order.setItems(items);
 
+        return toResponse(orderRepository.save(order));
+    }
+
+    @Transactional
+    public OrderResponse markPrinted(UUID restaurantId, UUID orderId) {
+        Order order = findByIdAndRestaurant(restaurantId, orderId);
+        order.setPrintedAt(OffsetDateTime.now());
         return toResponse(orderRepository.save(order));
     }
 
@@ -111,6 +119,7 @@ public class OrderService {
                 .createdAt(order.getCreatedAt())
                 .items(itemResponses)
                 .total(total)
+                .printedAt(order.getPrintedAt())
                 .build();
     }
 }

@@ -22,4 +22,5 @@ public class TabResponse {
     private BigDecimal paidAmount;
     private OffsetDateTime paidAt;
     private List<TabTableSummary> tables;
+    private OffsetDateTime receiptPrintedAt;
 }

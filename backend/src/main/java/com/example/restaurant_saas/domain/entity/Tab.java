@@ -50,6 +50,9 @@ public class Tab {
     @Column(name = "paid_at")
     private OffsetDateTime paidAt;
 
+    @Column(name = "receipt_printed_at")
+    private OffsetDateTime receiptPrintedAt;
+
     @ManyToMany
     @JoinTable(
             name = "tab_tables",

@@ -127,6 +127,13 @@ public class TabService {
         return toResponse(tab);
     }
 
+    @Transactional
+    public TabResponse markReceiptPrinted(UUID restaurantId, UUID tabId) {
+        Tab tab = findByIdAndRestaurant(restaurantId, tabId);
+        tab.setReceiptPrintedAt(OffsetDateTime.now());
+        return toResponse(tabRepository.save(tab));
+    }
+
     private Tab findByIdAndRestaurant(UUID restaurantId, UUID tabId) {
         return tabRepository.findByIdAndRestaurantId(tabId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tab not found."));
@@ -142,6 +149,7 @@ public class TabService {
                 .paymentMethod(tab.getPaymentMethod())
                 .paidAmount(tab.getPaidAmount())
                 .paidAt(tab.getPaidAt())
+                .receiptPrintedAt(tab.getReceiptPrintedAt())
                 .tables(tab.getTables().stream()
                         .map(table -> TabTableSummary.builder()
                                 .id(table.getId())
