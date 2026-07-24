@@ -1,4 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  CheckCircle2,
+  Clock,
+  Coffee,
+  Flame,
+  LayoutGrid,
+  Layers,
+  Plus,
+  Users,
+  UtensilsCrossed,
+  type LucideIcon,
+} from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -11,11 +23,12 @@ import {
   type RestaurantTable,
   type TableStatus,
 } from '../api/tables'
-import { listTabs, openTab } from '../api/tabs'
+import { listTabs, openTab, type Tab } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
 import { QrCodeCard } from '../components/QrCodeCard'
+import { minutesSince } from '../utils/time'
 import { publicMenuUrl } from '../utils/publicMenuUrl'
 
 const STATUS_LABELS: Record<TableStatus, string> = {
@@ -25,9 +38,38 @@ const STATUS_LABELS: Record<TableStatus, string> = {
 }
 
 const STATUS_STYLES: Record<TableStatus, string> = {
-  FREE: 'border-green-300 bg-green-50 text-green-800',
-  OCCUPIED: 'border-red-300 bg-red-50 text-red-800',
-  CLOSING: 'border-amber-300 bg-amber-50 text-amber-800',
+  FREE: 'border-green-300 bg-gradient-to-br from-green-50 to-white text-green-800',
+  OCCUPIED: 'border-red-300 bg-gradient-to-br from-red-50 to-white text-red-800',
+  CLOSING: 'border-amber-300 bg-gradient-to-br from-amber-50 to-white text-amber-800',
+}
+
+const STATUS_ICONS: Record<TableStatus, LucideIcon> = {
+  FREE: CheckCircle2,
+  OCCUPIED: Flame,
+  CLOSING: Clock,
+}
+
+const STATUS_PILL_STYLES: Record<TableStatus, string> = {
+  FREE: 'border-green-200 bg-green-50 text-green-800',
+  OCCUPIED: 'border-red-200 bg-red-50 text-red-800',
+  CLOSING: 'border-amber-200 bg-amber-50 text-amber-800',
+}
+
+interface StatPillProps {
+  icon: LucideIcon
+  label: string
+  value: number
+  className: string
+}
+
+function StatPill({ icon: Icon, label, value, className }: StatPillProps) {
+  return (
+    <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${className}`}>
+      <Icon className="h-4 w-4" />
+      <span className="text-lg font-semibold leading-none">{value}</span>
+      <span className="text-xs font-medium">{label}</span>
+    </div>
+  )
 }
 
 export function TablesPage() {
@@ -55,14 +97,22 @@ export function TablesPage() {
   })
 
   const tableTabMap = useMemo(() => {
-    const map = new Map<string, string>()
+    const map = new Map<string, Tab>()
     openTabs?.forEach((tab) => {
-      tab.tables.forEach((table) => map.set(table.id, tab.id))
+      tab.tables.forEach((table) => map.set(table.id, tab))
     })
     return map
   }, [openTabs])
 
   const counterTabs = useMemo(() => openTabs?.filter((tab) => tab.tables.length === 0) ?? [], [openTabs])
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<TableStatus, number> = { FREE: 0, OCCUPIED: 0, CLOSING: 0 }
+    tables?.forEach((table) => {
+      counts[table.status] += 1
+    })
+    return counts
+  }, [tables])
 
   const [isCreating, setIsCreating] = useState(false)
   const [isBulkCreating, setIsBulkCreating] = useState(false)
@@ -233,9 +283,9 @@ export function TablesPage() {
       toggleTableSelection(table)
       return
     }
-    const tabId = tableTabMap.get(table.id)
-    if (tabId) {
-      navigate(`/tabs/${tabId}`)
+    const tab = tableTabMap.get(table.id)
+    if (tab) {
+      navigate(`/tabs/${tab.id}`)
       return
     }
     openTableModal(table)
@@ -244,23 +294,28 @@ export function TablesPage() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold text-gray-800">Mesas</h1>
+        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+          <LayoutGrid className="h-5 w-5 text-brand-600" />
+          Mesas
+        </h1>
         <div className="flex flex-wrap gap-2">
           {canOpenTab && !isSelectingTables && (
             <>
               <button
                 type="button"
                 onClick={startSelectingTables}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+                className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
               >
+                <Users className="h-4 w-4" />
                 Abrir comanda
               </button>
               <button
                 type="button"
                 onClick={openCounterTab}
                 disabled={openTabMutation.isPending}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
               >
+                <Coffee className="h-4 w-4" />
                 Balcão
               </button>
             </>
@@ -270,15 +325,17 @@ export function TablesPage() {
               <button
                 type="button"
                 onClick={openBulkForm}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+                className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
               >
+                <Layers className="h-4 w-4" />
                 Criar em lote
               </button>
               <button
                 type="button"
                 onClick={openCreateForm}
-                className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+                className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
               >
+                <Plus className="h-4 w-4" />
                 Nova mesa
               </button>
             </>
@@ -286,9 +343,20 @@ export function TablesPage() {
         </div>
       </div>
 
+      {tables && tables.length > 0 && (
+        <div className="mb-6 flex flex-wrap gap-3">
+          <StatPill icon={CheckCircle2} label="livres" value={statusCounts.FREE} className={STATUS_PILL_STYLES.FREE} />
+          <StatPill icon={Flame} label="ocupadas" value={statusCounts.OCCUPIED} className={STATUS_PILL_STYLES.OCCUPIED} />
+          {statusCounts.CLOSING > 0 && (
+            <StatPill icon={Clock} label="fechando" value={statusCounts.CLOSING} className={STATUS_PILL_STYLES.CLOSING} />
+          )}
+        </div>
+      )}
+
       {isSelectingTables && (
-        <div className="mb-4 flex flex-col gap-2 rounded-md border border-gray-300 bg-gray-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <span>
+        <div className="mb-4 flex flex-col gap-2 rounded-lg border border-brand-300 bg-brand-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex items-center gap-2 text-brand-800">
+            <Users className="h-4 w-4" />
             Selecione uma ou mais mesas livres ({selectedTableIds.size} selecionada
             {selectedTableIds.size === 1 ? '' : 's'})
           </span>
@@ -296,7 +364,7 @@ export function TablesPage() {
             <button
               type="button"
               onClick={cancelSelectingTables}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-gray-700 hover:bg-gray-100"
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-100"
             >
               Cancelar
             </button>
@@ -315,7 +383,7 @@ export function TablesPage() {
       {error && !selectedTable && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {canOpenTab && counterTabs.length > 0 && (
-        <div className="mb-4">
+        <div className="mb-6">
           <p className="mb-2 text-xs font-semibold tracking-wide text-gray-400 uppercase">
             Comandas de balcão abertas
           </p>
@@ -325,10 +393,12 @@ export function TablesPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => navigate(`/tabs/${tab.id}`)}
-                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+                className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
               >
+                <Coffee className="h-4 w-4 text-brand-600" />
                 Balcão · aberta às{' '}
                 {new Date(tab.openedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                <span className="text-gray-400">· há {minutesSince(tab.openedAt)} min</span>
               </button>
             ))}
           </div>
@@ -338,7 +408,20 @@ export function TablesPage() {
       {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
 
       {tables && tables.length === 0 && (
-        <p className="text-sm text-gray-500">Nenhuma mesa cadastrada.</p>
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 py-16 text-center">
+          <UtensilsCrossed className="h-10 w-10 text-gray-300" />
+          <p className="text-sm text-gray-500">Nenhuma mesa cadastrada ainda.</p>
+          {canManage && (
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="mt-1 flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+            >
+              <Plus className="h-4 w-4" />
+              Criar primeira mesa
+            </button>
+          )}
+        </div>
       )}
 
       {tables && tables.length > 0 && (
@@ -346,17 +429,23 @@ export function TablesPage() {
           {tables.map((table) => {
             const isSelected = selectedTableIds.has(table.id)
             const isSelectableNow = !isSelectingTables || table.status === 'FREE'
+            const tab = tableTabMap.get(table.id)
+            const StatusIcon = STATUS_ICONS[table.status]
             return (
               <button
                 key={table.id}
                 type="button"
                 disabled={(!canChangeStatus && !canManage && !canOpenTab) || !isSelectableNow}
                 onClick={() => handleTableClick(table)}
-                className={`rounded-lg border-2 p-4 text-center shadow-sm transition disabled:cursor-default disabled:opacity-40 ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-40' : ''} ${isSelected ? 'ring-2 ring-brand-500' : ''}`}
+                className={`flex flex-col items-center gap-1 rounded-xl border-2 p-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}
               >
-                <div className="text-lg font-semibold">Mesa {table.number}</div>
-                <div className="text-xs">{STATUS_LABELS[table.status]}</div>
-                {!table.active && <div className="text-xs">(inativa)</div>}
+                <StatusIcon className="h-5 w-5" />
+                <div className="text-xl font-bold leading-none">{table.number}</div>
+                <div className="text-[11px] font-semibold tracking-wide uppercase">{STATUS_LABELS[table.status]}</div>
+                {tab && table.status === 'OCCUPIED' && (
+                  <div className="text-[11px] opacity-75">há {minutesSince(tab.openedAt)} min</div>
+                )}
+                {!table.active && <div className="text-[11px]">Inativa</div>}
               </button>
             )
           })}

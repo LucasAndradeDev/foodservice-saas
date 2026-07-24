@@ -17,6 +17,7 @@ import { listKitchenQueue, updateItemStatus, type KitchenItem } from '../api/kit
 import type { ItemStatus } from '../api/orders'
 import { useAuth } from '../auth/AuthContext'
 import { formatTableLabel } from '../utils/tableLabel'
+import { minutesSince } from '../utils/time'
 
 const STATUS_LABELS: Record<ItemStatus, string> = {
   PENDING: 'Pendente',
@@ -44,10 +45,6 @@ const STATUS_ICONS: Record<ItemStatus, LucideIcon> = {
 
 const STALE_MINUTES = 10
 const POLL_INTERVAL_MS = 4000
-
-function minutesSince(dateString: string) {
-  return Math.floor((Date.now() - new Date(dateString).getTime()) / 60000)
-}
 
 export function KitchenPage() {
   const { user } = useAuth()
