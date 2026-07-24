@@ -13,4 +13,5 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByTabIdAndRestaurantId(UUID tabId, UUID restaurantId);
     Optional<Order> findByIdAndRestaurantId(UUID id, UUID restaurantId);
     boolean existsByTabId(UUID tabId);
+    List<Order> findByTabIdAndMergedFromTabId(UUID tabId, UUID mergedFromTabId);
 }

@@ -40,4 +40,7 @@ public class Order {
 
     @Column(name = "printed_at")
     private OffsetDateTime printedAt;
+
+    @Column(name = "merged_from_tab_id")
+    private UUID mergedFromTabId;
 }

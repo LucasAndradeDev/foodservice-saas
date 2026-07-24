@@ -155,16 +155,49 @@ public class TabService {
         }
 
         List<Order> sourceOrders = orderRepository.findByTabIdAndRestaurantId(source.getId(), restaurantId);
-        sourceOrders.forEach(order -> order.setTab(target));
+        sourceOrders.forEach(order -> {
+            order.setMergedFromTabId(source.getId());
+            order.setTab(target);
+        });
         orderRepository.saveAll(sourceOrders);
 
+        // Source keeps its own tables (not cleared) so a short-lived "undo merge" can restore them;
+        // it's excluded from OPEN listings anyway since its status is MERGED.
         target.getTables().addAll(source.getTables());
-        source.getTables().clear();
 
         source.setStatus(TabStatus.MERGED);
         source.setClosedAt(OffsetDateTime.now());
         tabRepository.save(source);
         Tab savedTarget = tabRepository.save(target);
+
+        return toResponse(savedTarget);
+    }
+
+    @Transactional
+    public TabResponse unmergeTab(UUID restaurantId, UUID targetTabId, UUID sourceTabId) {
+        Tab target = findByIdAndRestaurant(restaurantId, targetTabId);
+        if (target.getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Target tab is not open.");
+        }
+
+        Tab source = findByIdAndRestaurant(restaurantId, sourceTabId);
+        if (source.getStatus() != TabStatus.MERGED) {
+            throw new IllegalArgumentException("Source tab was not merged into this tab.");
+        }
+
+        List<Order> movedOrders = orderRepository.findByTabIdAndMergedFromTabId(targetTabId, sourceTabId);
+        movedOrders.forEach(order -> {
+            order.setTab(source);
+            order.setMergedFromTabId(null);
+        });
+        orderRepository.saveAll(movedOrders);
+
+        target.getTables().removeAll(source.getTables());
+        Tab savedTarget = tabRepository.save(target);
+
+        source.setStatus(TabStatus.OPEN);
+        source.setClosedAt(null);
+        tabRepository.save(source);
 
         return toResponse(savedTarget);
     }

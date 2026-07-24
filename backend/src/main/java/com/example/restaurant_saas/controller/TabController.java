@@ -102,6 +102,22 @@ public class TabController {
         return ResponseEntity.ok(tabService.mergeTab(currentUser.getRestaurantId(), id, request));
     }
 
+    @PatchMapping("/{id}/unmerge")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "Undo a merge", description = "Reverses a previous merge: moves the source tab's tables and orders back out of this tab and reopens the source tab. Only works while this tab and the source tab haven't changed since the merge (target still open, source still MERGED). Meant for a short window right after merging, to fix a mistaken click.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Merge undone, returns this tab in its restored state"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, this tab is not open, or the source tab was not merged into it"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission")
+    })
+    public ResponseEntity<TabResponse> unmergeTab(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id,
+            @Valid @RequestBody MergeTabRequest request
+    ) {
+        return ResponseEntity.ok(tabService.unmergeTab(currentUser.getRestaurantId(), id, request.getSourceTabId()));
+    }
+
     @PatchMapping("/{id}/pay")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
     @Operation(summary = "Pay and close tab", description = "Registers the payment and closes an open tab in the same step, freeing all tables linked to it (OCCUPIED to FREE). The paid amount must match the tab's total exactly, and all order items must already be DELIVERED or CANCELLED.")

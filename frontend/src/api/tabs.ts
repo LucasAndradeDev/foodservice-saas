@@ -45,6 +45,10 @@ export function mergeTabs(targetTabId: string, sourceTabId: string) {
   return http.patch<Tab>(`/tabs/${targetTabId}/merge`, { sourceTabId }).then((res) => res.data)
 }
 
+export function unmergeTabs(targetTabId: string, sourceTabId: string) {
+  return http.patch<Tab>(`/tabs/${targetTabId}/unmerge`, { sourceTabId }).then((res) => res.data)
+}
+
 export function payTab(id: string, paymentMethod: PaymentMethod, paidAmount: number) {
   return http.patch<Tab>(`/tabs/${id}/pay`, { paymentMethod, paidAmount }).then((res) => res.data)
 }

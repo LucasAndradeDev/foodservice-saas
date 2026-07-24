@@ -850,7 +850,7 @@ class TabControllerIntegrationTest {
                         .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("MERGED"))
-                .andExpect(jsonPath("$.tables").isEmpty());
+                .andExpect(jsonPath("$.tables.length()").value(1));
 
         mockMvc.perform(get("/api/v1/tables/" + table2)
                         .header("Authorization", "Bearer " + ownerToken))
@@ -889,6 +889,93 @@ class TabControllerIntegrationTest {
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mergeTabRequestBody(sourceTabId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void unmergeTab_shouldRestoreSourceAndMoveTablesAndOrdersBack() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String table1 = createTableAndGetId(ownerToken);
+        String table2 = createTableAndGetId(ownerToken);
+        String targetTabId = openTabAndGetId(ownerToken, table1);
+        String sourceTabId = openTabAndGetId(ownerToken, table2);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+        createOrderAndGetFirstItemId(ownerToken, targetTabId, productId);
+        createOrderAndGetFirstItemId(ownerToken, sourceTabId, productId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + targetTabId + "/merge")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mergeTabRequestBody(sourceTabId)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + targetTabId + "/unmerge")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mergeTabRequestBody(sourceTabId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(targetTabId))
+                .andExpect(jsonPath("$.tables.length()").value(1));
+
+        mockMvc.perform(get("/api/v1/tabs/" + targetTabId + "/orders")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.length()").value(1));
+
+        mockMvc.perform(get("/api/v1/tabs/" + sourceTabId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.closedAt").doesNotExist())
+                .andExpect(jsonPath("$.tables.length()").value(1));
+
+        mockMvc.perform(get("/api/v1/tabs/" + sourceTabId + "/orders")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.length()").value(1));
+
+        mockMvc.perform(get("/api/v1/tables/" + table2)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.status").value("OCCUPIED"));
+    }
+
+    @Test
+    void unmergeTab_whenTargetNotOpen_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String table1 = createTableAndGetId(ownerToken);
+        String table2 = createTableAndGetId(ownerToken);
+        String targetTabId = openTabAndGetId(ownerToken, table1);
+        String sourceTabId = openTabAndGetId(ownerToken, table2);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + targetTabId + "/merge")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mergeTabRequestBody(sourceTabId)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + targetTabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "0")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + targetTabId + "/unmerge")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mergeTabRequestBody(sourceTabId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void unmergeTab_whenSourceWasNeverMerged_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String table1 = createTableAndGetId(ownerToken);
+        String table2 = createTableAndGetId(ownerToken);
+        String targetTabId = openTabAndGetId(ownerToken, table1);
+        String otherTabId = openTabAndGetId(ownerToken, table2);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + targetTabId + "/unmerge")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mergeTabRequestBody(otherTabId)))
                 .andExpect(status().isBadRequest());
     }
 }

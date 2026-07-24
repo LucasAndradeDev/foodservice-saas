@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { createOrder, listOrders, type ItemStatus, type Order } from '../api/orders'
 import { listProducts } from '../api/products'
 import { getMyRestaurant } from '../api/restaurant'
 import { listTables } from '../api/tables'
-import { addTableToTab, cancelTab, getTab, listTabs, mergeTabs, type Tab } from '../api/tabs'
+import { addTableToTab, cancelTab, getTab, listTabs, mergeTabs, unmergeTabs, type Tab } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
 import { formatTableLabel } from '../utils/tableLabel'
+
+const UNDO_MERGE_WINDOW_MS = 20000
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -72,6 +74,8 @@ export function TabDetailPage() {
   const [observation, setObservation] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isMerging, setIsMerging] = useState(false)
+  const [pendingUndo, setPendingUndo] = useState<{ sourceTabId: string; label: string } | null>(null)
+  const pendingUndoTimeoutRef = useRef<number | null>(null)
 
   const { data: freeTables } = useQuery({
     queryKey: ['tables', 'FREE'],
@@ -108,24 +112,45 @@ export function TabDetailPage() {
     onError: () => setError('Não foi possível cancelar a comanda.'),
   })
 
-  function invalidateAfterMerge() {
+  function invalidateTabQueries() {
     queryClient.invalidateQueries({ queryKey: ['tabs', tabId] })
     queryClient.invalidateQueries({ queryKey: ['tabs', tabId, 'orders'] })
     queryClient.invalidateQueries({ queryKey: ['tables'] })
     queryClient.invalidateQueries({ queryKey: ['tabs', 'OPEN'] })
-    setIsMerging(false)
   }
 
   const addTableMutation = useMutation({
     mutationFn: (tableId: string) => addTableToTab(tabId!, tableId),
-    onSuccess: invalidateAfterMerge,
+    onSuccess: () => {
+      invalidateTabQueries()
+      setIsMerging(false)
+    },
     onError: () => setError('Não foi possível adicionar essa mesa à comanda.'),
   })
 
   const mergeMutation = useMutation({
     mutationFn: (sourceTabId: string) => mergeTabs(tabId!, sourceTabId),
-    onSuccess: invalidateAfterMerge,
+    onSuccess: (_data, sourceTabId) => {
+      invalidateTabQueries()
+      setIsMerging(false)
+
+      const sourceTab = otherOpenTabs?.find((t) => t.id === sourceTabId)
+      const label = sourceTab ? formatTableLabel(sourceTab.tables.map((t) => t.number)) : 'a comanda'
+      if (pendingUndoTimeoutRef.current) window.clearTimeout(pendingUndoTimeoutRef.current)
+      setPendingUndo({ sourceTabId, label })
+      pendingUndoTimeoutRef.current = window.setTimeout(() => setPendingUndo(null), UNDO_MERGE_WINDOW_MS)
+    },
     onError: () => setError('Não foi possível mesclar essa comanda.'),
+  })
+
+  const undoMergeMutation = useMutation({
+    mutationFn: (sourceTabId: string) => unmergeTabs(tabId!, sourceTabId),
+    onSuccess: () => {
+      invalidateTabQueries()
+      if (pendingUndoTimeoutRef.current) window.clearTimeout(pendingUndoTimeoutRef.current)
+      setPendingUndo(null)
+    },
+    onError: () => setError('Não foi possível desfazer a mesclagem.'),
   })
 
   function openAddItemForm() {
@@ -264,6 +289,20 @@ export function TabDetailPage() {
           </div>
         )}
       </div>
+
+      {pendingUndo && (
+        <div className="mb-4 flex items-center justify-between rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">
+          <span>Mesclado com {pendingUndo.label}.</span>
+          <button
+            type="button"
+            onClick={() => undoMergeMutation.mutate(pendingUndo.sourceTabId)}
+            disabled={undoMergeMutation.isPending}
+            className="font-medium text-blue-700 underline hover:text-blue-900 disabled:opacity-50"
+          >
+            Desfazer
+          </button>
+        </div>
+      )}
 
       {error && draftItems.length === 0 && <p className="mb-4 text-sm text-red-600">{error}</p>}
 

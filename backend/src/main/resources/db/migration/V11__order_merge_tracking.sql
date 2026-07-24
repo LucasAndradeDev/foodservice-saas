@@ -1,0 +1,1 @@
+ALTER TABLE orders ADD COLUMN merged_from_tab_id UUID REFERENCES tabs(id) ON DELETE SET NULL;
