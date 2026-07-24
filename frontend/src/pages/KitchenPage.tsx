@@ -68,7 +68,7 @@ export function KitchenPage() {
             return (
               <div
                 key={item.id}
-                className={`flex items-center justify-between rounded-lg border-2 bg-white p-4 shadow-sm ${
+                className={`flex flex-col gap-3 rounded-lg border-2 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between ${
                   isStale ? 'border-red-400' : 'border-gray-200'
                 }`}
               >
@@ -84,7 +84,7 @@ export function KitchenPage() {
                   {item.observation && <div className="text-sm text-gray-500">{item.observation}</div>}
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLES[item.status]}`}>
                     {STATUS_LABELS[item.status]}
                   </span>
@@ -93,7 +93,7 @@ export function KitchenPage() {
                     <button
                       type="button"
                       onClick={() => statusMutation.mutate({ id: item.id, status: 'PREPARING' })}
-                      className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800"
+                      className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
                     >
                       Iniciar preparo
                     </button>
@@ -102,7 +102,7 @@ export function KitchenPage() {
                     <button
                       type="button"
                       onClick={() => statusMutation.mutate({ id: item.id, status: 'READY' })}
-                      className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800"
+                      className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
                     >
                       Marcar pronto
                     </button>
@@ -111,7 +111,7 @@ export function KitchenPage() {
                     <button
                       type="button"
                       onClick={() => statusMutation.mutate({ id: item.id, status: 'DELIVERED' })}
-                      className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800"
+                      className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
                     >
                       Marcar entregue
                     </button>

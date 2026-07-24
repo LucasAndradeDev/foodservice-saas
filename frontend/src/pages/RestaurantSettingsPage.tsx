@@ -83,7 +83,7 @@ export function RestaurantSettingsPage() {
           maxLength={20}
           value={cnpj}
           onChange={(e) => setCnpj(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
         />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="tradeName">
@@ -96,7 +96,7 @@ export function RestaurantSettingsPage() {
           maxLength={100}
           value={tradeName}
           onChange={(e) => setTradeName(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
         />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="logo">
@@ -109,7 +109,7 @@ export function RestaurantSettingsPage() {
           maxLength={255}
           value={logo}
           onChange={(e) => setLogo(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
         />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="primaryColor">
@@ -123,7 +123,7 @@ export function RestaurantSettingsPage() {
           placeholder="#000000"
           value={primaryColor}
           onChange={(e) => setPrimaryColor(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
         />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="phone">
@@ -136,7 +136,7 @@ export function RestaurantSettingsPage() {
           maxLength={20}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
         />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="address">
@@ -149,7 +149,7 @@ export function RestaurantSettingsPage() {
           maxLength={255}
           value={address}
           onChange={(e) => setAddress(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
         />
 
         {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
@@ -159,7 +159,7 @@ export function RestaurantSettingsPage() {
           <button
             type="submit"
             disabled={updateMutation.isPending}
-            className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
           >
             Salvar
           </button>

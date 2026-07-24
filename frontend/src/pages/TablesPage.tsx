@@ -228,9 +228,9 @@ export function TablesPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold text-gray-800">Mesas</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {canOpenTab && !isSelectingTables && (
             <button
               type="button"
@@ -252,7 +252,7 @@ export function TablesPage() {
               <button
                 type="button"
                 onClick={openCreateForm}
-                className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800"
+                className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Nova mesa
               </button>
@@ -262,7 +262,7 @@ export function TablesPage() {
       </div>
 
       {isSelectingTables && (
-        <div className="mb-4 flex items-center justify-between rounded-md border border-gray-300 bg-gray-50 px-4 py-2 text-sm">
+        <div className="mb-4 flex flex-col gap-2 rounded-md border border-gray-300 bg-gray-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
           <span>
             Selecione uma ou mais mesas livres ({selectedTableIds.size} selecionada
             {selectedTableIds.size === 1 ? '' : 's'})
@@ -279,7 +279,7 @@ export function TablesPage() {
               type="button"
               onClick={confirmOpenTab}
               disabled={selectedTableIds.size === 0 || openTabMutation.isPending}
-              className="rounded-md bg-gray-900 px-3 py-1.5 font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              className="rounded-md bg-brand-600 px-3 py-1.5 font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
               Abrir comanda
             </button>
@@ -306,7 +306,7 @@ export function TablesPage() {
                 type="button"
                 disabled={(!canChangeStatus && !canManage && !canOpenTab) || !isSelectableNow}
                 onClick={() => handleTableClick(table)}
-                className={`rounded-lg border-2 p-4 text-center shadow-sm transition disabled:cursor-default disabled:opacity-40 ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-40' : ''} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
+                className={`rounded-lg border-2 p-4 text-center shadow-sm transition disabled:cursor-default disabled:opacity-40 ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-40' : ''} ${isSelected ? 'ring-2 ring-brand-500' : ''}`}
               >
                 <div className="text-lg font-semibold">Mesa {table.number}</div>
                 <div className="text-xs">{STATUS_LABELS[table.status]}</div>
@@ -329,7 +329,7 @@ export function TablesPage() {
               min="1"
               value={numberInput}
               onChange={(e) => setNumberInput(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
 
             {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
@@ -337,7 +337,7 @@ export function TablesPage() {
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
               Salvar
             </button>
@@ -359,7 +359,7 @@ export function TablesPage() {
               max="200"
               value={quantityInput}
               onChange={(e) => setQuantityInput(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
             <p className="mb-4 text-xs text-gray-500">
               As mesas serão numeradas em sequência, a partir do próximo número disponível.
@@ -370,7 +370,7 @@ export function TablesPage() {
             <button
               type="submit"
               disabled={bulkMutation.isPending}
-              className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
               Criar
             </button>
@@ -391,7 +391,7 @@ export function TablesPage() {
               disabled={!canManage}
               value={editNumber}
               onChange={(e) => setEditNumber(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
             />
 
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="editStatus">
@@ -402,7 +402,7 @@ export function TablesPage() {
               disabled={!canChangeStatus}
               value={editStatus}
               onChange={(e) => setEditStatus(e.target.value as TableStatus)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
             >
               {(Object.keys(STATUS_LABELS) as TableStatus[]).map((status) => (
                 <option key={status} value={status}>
@@ -428,7 +428,7 @@ export function TablesPage() {
               <button
                 type="submit"
                 disabled={updateMutation.isPending || statusMutation.isPending}
-                className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+                className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
               >
                 Salvar
               </button>

@@ -35,7 +35,7 @@ export function DashboardPage() {
 
       <div className="mb-6 rounded-lg border border-gray-200 bg-white p-6">
         <div className="text-sm text-gray-500">Faturamento hoje</div>
-        <div className="mt-1 text-5xl font-semibold text-gray-900">
+        <div className="mt-1 text-4xl font-semibold text-brand-700 sm:text-5xl">
           {currencyFormatter.format(data.revenueToday)}
         </div>
       </div>

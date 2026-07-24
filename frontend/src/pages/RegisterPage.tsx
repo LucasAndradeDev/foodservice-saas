@@ -43,10 +43,10 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-lg bg-white p-8 shadow-sm"
+        className="w-full max-w-sm rounded-lg bg-white p-6 shadow-sm sm:p-8"
       >
         <img src={moraLogo} alt="Morá" className="mx-auto mb-4 h-12 w-auto" />
         <h1 className="mb-6 text-center text-sm font-medium text-gray-500">
@@ -62,7 +62,7 @@ export function RegisterPage() {
           required
           value={restaurantName}
           onChange={(e) => setRestaurantName(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
         />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="cnpj">
@@ -73,7 +73,7 @@ export function RegisterPage() {
           type="text"
           value={cnpj}
           onChange={(e) => setCnpj(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
         />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="phone">
@@ -84,7 +84,7 @@ export function RegisterPage() {
           type="text"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
         />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="address">
@@ -95,7 +95,7 @@ export function RegisterPage() {
           type="text"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
         />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="ownerName">
@@ -107,7 +107,7 @@ export function RegisterPage() {
           required
           value={ownerName}
           onChange={(e) => setOwnerName(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
         />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="ownerEmail">
@@ -119,7 +119,7 @@ export function RegisterPage() {
           required
           value={ownerEmail}
           onChange={(e) => setOwnerEmail(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
         />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="ownerPassword">
@@ -132,7 +132,7 @@ export function RegisterPage() {
           minLength={6}
           value={ownerPassword}
           onChange={(e) => setOwnerPassword(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
         />
 
         {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
@@ -140,14 +140,14 @@ export function RegisterPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
         >
           {isSubmitting ? 'Cadastrando...' : 'Cadastrar'}
         </button>
 
         <p className="mt-4 text-center text-sm text-gray-600">
           Já tem uma conta?{' '}
-          <Link to="/login" className="font-medium text-gray-900 hover:underline">
+          <Link to="/login" className="font-medium text-brand-700 hover:underline">
             Entrar
           </Link>
         </p>

@@ -9,11 +9,11 @@ interface ModalProps {
 export function Modal({ title, onClose, children }: ModalProps) {
   return (
     <div
-      className="fixed inset-0 z-10 flex items-center justify-center bg-black/30 p-4"
+      className="fixed inset-0 z-20 flex items-end justify-center bg-black/30 sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg"
+        className="max-h-[85vh] w-full overflow-y-auto rounded-t-xl bg-white p-6 shadow-lg sm:max-w-md sm:rounded-lg"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">

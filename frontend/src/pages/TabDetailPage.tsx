@@ -162,7 +162,7 @@ export function TabDetailPage() {
         ← Voltar para Mesas
       </button>
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-gray-800">
             Mesa{tab.tables.length > 1 ? 's' : ''} {tab.tables.map((t) => t.number).join(', ')}
@@ -201,7 +201,7 @@ export function TabDetailPage() {
           <h2 className="mb-2 text-sm font-semibold text-gray-800">Novo pedido (ainda não enviado)</h2>
           <ul className="mb-3 divide-y divide-gray-100">
             {draftItems.map((item, index) => (
-              <li key={index} className="flex items-center justify-between py-2 text-sm">
+              <li key={index} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                 <div>
                   <span className="font-medium text-gray-800">
                     {item.quantity}x {item.productName}
@@ -230,7 +230,7 @@ export function TabDetailPage() {
             type="button"
             onClick={handleSendToKitchen}
             disabled={createOrderMutation.isPending}
-            className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
           >
             Enviar para Cozinha
           </button>
@@ -250,7 +250,7 @@ export function TabDetailPage() {
             </div>
             <ul className="divide-y divide-gray-100">
               {order.items.map((item) => (
-                <li key={item.id} className="flex items-center justify-between py-2 text-sm">
+                <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                   <div>
                     <span className="font-medium text-gray-800">
                       {item.quantity}x {item.productName}
@@ -289,7 +289,7 @@ export function TabDetailPage() {
               required
               value={productId}
               onChange={(e) => setProductId(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             >
               <option value="" disabled>
                 Selecione um produto
@@ -311,7 +311,7 @@ export function TabDetailPage() {
               min="1"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
 
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="observation">
@@ -323,13 +323,13 @@ export function TabDetailPage() {
               maxLength={255}
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
 
             <button
               type="submit"
               disabled={!productId}
-              className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
               Adicionar à comanda
             </button>

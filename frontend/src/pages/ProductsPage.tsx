@@ -124,7 +124,7 @@ export function ProductsPage() {
           <button
             type="button"
             onClick={openCreateForm}
-            className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800"
+            className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
           >
             Novo produto
           </button>
@@ -132,7 +132,7 @@ export function ProductsPage() {
       </div>
 
       {showNoCategoryNotice && categories?.length === 0 && (
-        <div className="mb-4 flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+        <div className="mb-4 flex flex-col gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
           <span>Crie uma categoria antes de cadastrar produtos.</span>
           <Link to="/categories" className="font-medium underline">
             Ir para Categorias
@@ -140,18 +140,18 @@ export function ProductsPage() {
         </div>
       )}
 
-      <div className="mb-4 flex gap-3">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <input
           type="text"
           placeholder="Buscar por nome..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          className="w-64 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none sm:w-64"
         />
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none sm:w-auto"
         >
           <option value="">Todas as categorias</option>
           {categories?.map((category) => (
@@ -164,63 +164,92 @@ export function ProductsPage() {
 
       {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
 
-      {products && (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left text-gray-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Nome</th>
-                <th className="px-4 py-2 font-medium">Categoria</th>
-                <th className="px-4 py-2 font-medium">Preço</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                {canManage && <th className="px-4 py-2" />}
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((product) => (
-                <tr key={product.id} className="border-t border-gray-100">
-                  <td className="px-4 py-2 text-gray-800">{product.name}</td>
-                  <td className="px-4 py-2 text-gray-600">{categoryName(product.categoryId)}</td>
-                  <td className="px-4 py-2 text-gray-600">{currencyFormatter.format(product.price)}</td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {product.active ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </td>
-                  {canManage && (
-                    <td className="px-4 py-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() => openEditForm(product)}
-                        className="mr-3 text-gray-600 hover:underline"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => toggleActive(product)}
-                        className="text-gray-600 hover:underline"
-                      >
-                        {product.active ? 'Desativar' : 'Ativar'}
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-              {products.length === 0 && (
+      {products && products.length === 0 && <p className="text-sm text-gray-500">Nenhum produto encontrado.</p>}
+
+      {products && products.length > 0 && (
+        <>
+          {/* Mobile: stacked cards */}
+          <div className="space-y-2 sm:hidden">
+            {products.map((product) => (
+              <div key={product.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="font-medium text-gray-800">{product.name}</span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${
+                      product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {product.active ? 'Ativo' : 'Inativo'}
+                  </span>
+                </div>
+                <div className="mb-2 text-sm text-gray-500">
+                  {categoryName(product.categoryId)} · {currencyFormatter.format(product.price)}
+                </div>
+                {canManage && (
+                  <div className="flex gap-4 text-sm">
+                    <button type="button" onClick={() => openEditForm(product)} className="text-brand-700 hover:underline">
+                      Editar
+                    </button>
+                    <button type="button" onClick={() => toggleActive(product)} className="text-gray-600 hover:underline">
+                      {product.active ? 'Desativar' : 'Ativar'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden overflow-hidden rounded-lg border border-gray-200 bg-white sm:block">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-gray-500">
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
-                    Nenhum produto encontrado.
-                  </td>
+                  <th className="px-4 py-2 font-medium">Nome</th>
+                  <th className="px-4 py-2 font-medium">Categoria</th>
+                  <th className="px-4 py-2 font-medium">Preço</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                  {canManage && <th className="px-4 py-2" />}
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {products.map((product) => (
+                  <tr key={product.id} className="border-t border-gray-100">
+                    <td className="px-4 py-2 text-gray-800">{product.name}</td>
+                    <td className="px-4 py-2 text-gray-600">{categoryName(product.categoryId)}</td>
+                    <td className="px-4 py-2 text-gray-600">{currencyFormatter.format(product.price)}</td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${
+                          product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {product.active ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </td>
+                    {canManage && (
+                      <td className="px-4 py-2 text-right">
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(product)}
+                          className="mr-3 text-brand-700 hover:underline"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleActive(product)}
+                          className="text-gray-600 hover:underline"
+                        >
+                          {product.active ? 'Desativar' : 'Ativar'}
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {isFormOpen && (
@@ -236,7 +265,7 @@ export function ProductsPage() {
               maxLength={100}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
 
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productDescription">
@@ -247,7 +276,7 @@ export function ProductsPage() {
               maxLength={255}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
               rows={2}
             />
 
@@ -262,7 +291,7 @@ export function ProductsPage() {
               step="0.01"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
 
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productCategory">
@@ -273,7 +302,7 @@ export function ProductsPage() {
               required
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             >
               <option value="" disabled>
                 Selecione uma categoria
@@ -290,7 +319,7 @@ export function ProductsPage() {
             <button
               type="submit"
               disabled={createMutation.isPending || updateMutation.isPending}
-              className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
               Salvar
             </button>

@@ -30,10 +30,10 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-lg bg-white p-8 shadow-sm"
+        className="w-full max-w-sm rounded-lg bg-white p-6 shadow-sm sm:p-8"
       >
         <img src={moraLogo} alt="Morá" className="mx-auto mb-6 h-12 w-auto" />
 
@@ -46,7 +46,7 @@ export function LoginPage() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
         />
 
         <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="password">
@@ -58,7 +58,7 @@ export function LoginPage() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
         />
 
         {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
@@ -66,14 +66,14 @@ export function LoginPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
         >
           {isSubmitting ? 'Entrando...' : 'Entrar'}
         </button>
 
         <p className="mt-4 text-center text-sm text-gray-600">
           Ainda não tem uma conta?{' '}
-          <Link to="/register" className="font-medium text-gray-900 hover:underline">
+          <Link to="/register" className="font-medium text-brand-700 hover:underline">
             Cadastre seu restaurante
           </Link>
         </p>

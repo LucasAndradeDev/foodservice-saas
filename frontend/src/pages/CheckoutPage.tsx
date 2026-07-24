@@ -160,7 +160,7 @@ export function CheckoutPage() {
             id="paymentMethod"
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-            className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+            className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
           >
             {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => (
               <option key={method} value={method}>
@@ -176,7 +176,7 @@ export function CheckoutPage() {
               type="button"
               onClick={handleConfirmPayment}
               disabled={payMutation.isPending}
-              className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
               Confirmar pagamento
             </button>

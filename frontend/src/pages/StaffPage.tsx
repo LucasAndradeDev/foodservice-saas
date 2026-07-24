@@ -105,7 +105,7 @@ export function StaffPage() {
         <button
           type="button"
           onClick={openCreateForm}
-          className="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800"
+          className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
         >
           Novo funcionário
         </button>
@@ -113,58 +113,84 @@ export function StaffPage() {
 
       {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
 
-      {staff && (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left text-gray-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Nome</th>
-                <th className="px-4 py-2 font-medium">Email</th>
-                <th className="px-4 py-2 font-medium">Papel</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {staff.map((row) => (
-                <tr key={row.id} className="border-t border-gray-100">
-                  <td className="px-4 py-2 text-gray-800">
+      {staff && staff.length === 0 && <p className="text-sm text-gray-500">Nenhum funcionário cadastrado.</p>}
+
+      {staff && staff.length > 0 && (
+        <>
+          {/* Mobile: stacked cards */}
+          <div className="space-y-2 sm:hidden">
+            {staff.map((row) => (
+              <div key={row.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="font-medium text-gray-800">
                     {row.name} {row.id === user?.id && <span className="text-gray-400">(você)</span>}
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">{row.email}</td>
-                  <td className="px-4 py-2 text-gray-600">{ROLE_LABELS[row.role]}</td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        row.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {row.active ? 'Ativo' : 'Inativo'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {canEditRow(row) && (
-                      <button
-                        type="button"
-                        onClick={() => openEditForm(row)}
-                        className="text-gray-600 hover:underline"
-                      >
-                        Editar
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {staff.length === 0 && (
+                  </span>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${
+                      row.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}
+                  >
+                    {row.active ? 'Ativo' : 'Inativo'}
+                  </span>
+                </div>
+                <div className="mb-2 text-sm text-gray-500">
+                  {row.email} · {ROLE_LABELS[row.role]}
+                </div>
+                {canEditRow(row) && (
+                  <button type="button" onClick={() => openEditForm(row)} className="text-sm text-brand-700 hover:underline">
+                    Editar
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden overflow-hidden rounded-lg border border-gray-200 bg-white sm:block">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-gray-500">
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-gray-500">
-                    Nenhum funcionário cadastrado.
-                  </td>
+                  <th className="px-4 py-2 font-medium">Nome</th>
+                  <th className="px-4 py-2 font-medium">Email</th>
+                  <th className="px-4 py-2 font-medium">Papel</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2" />
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {staff.map((row) => (
+                  <tr key={row.id} className="border-t border-gray-100">
+                    <td className="px-4 py-2 text-gray-800">
+                      {row.name} {row.id === user?.id && <span className="text-gray-400">(você)</span>}
+                    </td>
+                    <td className="px-4 py-2 text-gray-600">{row.email}</td>
+                    <td className="px-4 py-2 text-gray-600">{ROLE_LABELS[row.role]}</td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${
+                          row.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                        }`}
+                      >
+                        {row.active ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {canEditRow(row) && (
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(row)}
+                          className="text-brand-700 hover:underline"
+                        >
+                          Editar
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {isCreating && (
@@ -180,7 +206,7 @@ export function StaffPage() {
               maxLength={100}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
 
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="staffEmail">
@@ -192,7 +218,7 @@ export function StaffPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
 
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="staffPassword">
@@ -205,7 +231,7 @@ export function StaffPage() {
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
 
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="staffRole">
@@ -215,7 +241,7 @@ export function StaffPage() {
               id="staffRole"
               value={role}
               onChange={(e) => setRole(e.target.value as UserRole)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             >
               {assignableRoles.map((option) => (
                 <option key={option} value={option}>
@@ -229,7 +255,7 @@ export function StaffPage() {
             <button
               type="submit"
               disabled={createMutation.isPending}
-              className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
               Cadastrar
             </button>
@@ -250,7 +276,7 @@ export function StaffPage() {
               maxLength={100}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
 
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="editStaffRole">
@@ -260,7 +286,7 @@ export function StaffPage() {
               id="editStaffRole"
               value={role}
               onChange={(e) => setRole(e.target.value as UserRole)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             >
               {assignableRoles.map((option) => (
                 <option key={option} value={option}>
@@ -279,7 +305,7 @@ export function StaffPage() {
             <button
               type="submit"
               disabled={updateMutation.isPending}
-              className="w-full rounded-md bg-gray-900 px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
               Salvar
             </button>
