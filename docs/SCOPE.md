@@ -245,6 +245,12 @@ Backend (Sprints 1–8) concluído primeiro; frontend retomado a partir da Sprin
 
 Sprints 16 e 17 ficam por último por serem telas de configuração/administração, não do fluxo operacional do salão — mesmo critério de priorização usado para deixar o Dashboard na Sprint 15.
 
+Com o roadmap original (Sprints 1–17) concluído, o desenvolvimento passou a puxar itens do backlog abaixo:
+
+- **Sprint 18:** Impressão de comandas/cozinha (backend) — `printed_at`/`receipt_printed_at`/`auto_print_kitchen_tickets`, endpoints de marcação (ver `docs/SPRINT18.md`).
+- **Sprint 19:** Impressão de comandas/cozinha (frontend) — telas de impressão via `window.print()`, botão manual, disparo automático, checkbox de configuração (ver `docs/SPRINT19.md`). **Feature concluída ponta a ponta.**
+- **Sprint 20:** Relatórios financeiros — `GET /reports/summary` (faturamento, ticket médio, quebra por forma de pagamento, produtos mais vendidos) por período, restrito a `OWNER`/`MANAGER`, e tela `/reports` com presets de período (ver `docs/SPRINT20.md`). **Feature concluída ponta a ponta.**
+
 ---
 
 ### Funcionalidades Futuras (Backlog)
@@ -254,8 +260,8 @@ Após validar o produto com clientes reais, considerar:
 - Pedidos pelo celular
 - Delivery
 - Balcão
-- Impressão de comandas
-- Impressão de cozinha
+- ~~Impressão de comandas~~ ✅ Sprint 19
+- ~~Impressão de cozinha~~ ✅ Sprint 19
 - Impressão fiscal (NFC-e)
 - Controle de estoque
 - Ficha técnica
@@ -263,7 +269,7 @@ Após validar o produto com clientes reais, considerar:
 - Programa de fidelidade
 - Integração com iFood
 - Integração com WhatsApp
-- Relatórios financeiros
+- ~~Relatórios financeiros~~ ✅ Sprint 20
 - Dashboard analítico
 - Aplicativo para garçons
 - Aplicativo para clientes

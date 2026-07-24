@@ -10,6 +10,7 @@ import { LoginPage } from './pages/LoginPage'
 import { OrderTicketPrintPage } from './pages/OrderTicketPrintPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { RegisterPage } from './pages/RegisterPage'
+import { ReportsPage } from './pages/ReportsPage'
 import { RestaurantSettingsPage } from './pages/RestaurantSettingsPage'
 import { StaffPage } from './pages/StaffPage'
 import { TabDetailPage } from './pages/TabDetailPage'
@@ -34,6 +35,7 @@ function App() {
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/products" element={<ProductsPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings" element={<RestaurantSettingsPage />} />
               <Route path="/staff" element={<StaffPage />} />
             </Route>

@@ -2,12 +2,14 @@ package com.example.restaurant_saas.repository;
 
 import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,4 +24,11 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     @Query("SELECT COALESCE(SUM(oi.quantity * oi.unitPrice), 0) FROM OrderItem oi " +
             "WHERE oi.order.tab.id = :tabId AND oi.order.restaurant.id = :restaurantId AND oi.status = 'DELIVERED'")
     BigDecimal sumDeliveredTotalByTabAndRestaurant(@Param("tabId") UUID tabId, @Param("restaurantId") UUID restaurantId);
+
+    @Query("SELECT oi.product.id, oi.product.name, SUM(oi.quantity), SUM(oi.quantity * oi.unitPrice) FROM OrderItem oi " +
+            "WHERE oi.order.restaurant.id = :restaurantId AND oi.order.tab.status = 'CLOSED' " +
+            "AND oi.order.tab.paidAt >= :start AND oi.order.tab.paidAt < :end " +
+            "GROUP BY oi.product.id, oi.product.name ORDER BY SUM(oi.quantity) DESC")
+    List<Object[]> findTopSellingProducts(
+            @Param("restaurantId") UUID restaurantId, @Param("start") OffsetDateTime start, @Param("end") OffsetDateTime end, Pageable pageable);
 }

@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   ChefHat,
   LayoutDashboard,
   LogOut,
@@ -44,6 +45,7 @@ const PRIMARY_NAV_ITEMS: NavItem[] = [
 const MORE_NAV_ITEMS: NavItem[] = [
   { to: '/categories', label: 'Categorias', icon: Tag },
   { to: '/products', label: 'Produtos', icon: Package },
+  { to: '/reports', label: 'Relatórios', icon: BarChart3, roles: ['OWNER', 'MANAGER'] },
   { to: '/settings', label: 'Configurações', icon: SettingsIcon, roles: ['OWNER', 'MANAGER'] },
   { to: '/staff', label: 'Funcionários', icon: Users, roles: ['OWNER', 'MANAGER'] },
 ]

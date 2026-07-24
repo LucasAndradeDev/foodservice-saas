@@ -21,4 +21,10 @@ public interface TabRepository extends JpaRepository<Tab, UUID> {
             "WHERE t.restaurant.id = :restaurantId AND t.paidAt >= :start AND t.paidAt < :end")
     BigDecimal sumPaidAmountByRestaurantIdAndPaidAtBetween(
             @Param("restaurantId") UUID restaurantId, @Param("start") OffsetDateTime start, @Param("end") OffsetDateTime end);
+
+    @Query("SELECT t.paymentMethod, COALESCE(SUM(t.paidAmount), 0), COUNT(t) FROM Tab t " +
+            "WHERE t.restaurant.id = :restaurantId AND t.status = 'CLOSED' AND t.paidAt >= :start AND t.paidAt < :end " +
+            "GROUP BY t.paymentMethod")
+    List<Object[]> sumPaidAmountByRestaurantIdAndPaidAtBetweenGroupedByPaymentMethod(
+            @Param("restaurantId") UUID restaurantId, @Param("start") OffsetDateTime start, @Param("end") OffsetDateTime end);
 }
