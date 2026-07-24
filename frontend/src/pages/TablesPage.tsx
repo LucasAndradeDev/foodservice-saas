@@ -55,6 +55,8 @@ const STATUS_PILL_STYLES: Record<TableStatus, string> = {
   CLOSING: 'border-amber-200 bg-amber-50 text-amber-800',
 }
 
+const POLL_INTERVAL_MS = 4000
+
 interface StatPillProps {
   icon: LucideIcon
   label: string
@@ -83,12 +85,16 @@ export function TablesPage() {
   const { data: tables, isLoading } = useQuery({
     queryKey: ['tables'],
     queryFn: () => listTables(),
+    refetchInterval: POLL_INTERVAL_MS,
+    refetchIntervalInBackground: true,
   })
 
   const { data: openTabs } = useQuery({
     queryKey: ['tabs', 'OPEN'],
     queryFn: () => listTabs('OPEN'),
     enabled: canOpenTab,
+    refetchInterval: POLL_INTERVAL_MS,
+    refetchIntervalInBackground: true,
   })
 
   const { data: restaurant } = useQuery({

@@ -57,6 +57,7 @@ export function KitchenPage() {
     queryKey: ['kitchen-queue'],
     queryFn: () => listKitchenQueue(),
     refetchInterval: POLL_INTERVAL_MS,
+    refetchIntervalInBackground: true,
   })
 
   const statusMutation = useMutation({
