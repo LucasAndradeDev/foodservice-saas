@@ -19,6 +19,7 @@ export function RestaurantSettingsPage() {
   const [primaryColor, setPrimaryColor] = useState('')
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
+  const [autoPrintKitchenTickets, setAutoPrintKitchenTickets] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
@@ -30,6 +31,7 @@ export function RestaurantSettingsPage() {
     setPrimaryColor(restaurant.primaryColor ?? '')
     setPhone(restaurant.phone ?? '')
     setAddress(restaurant.address ?? '')
+    setAutoPrintKitchenTickets(restaurant.autoPrintKitchenTickets)
   }, [restaurant])
 
   const updateMutation = useMutation({
@@ -53,6 +55,7 @@ export function RestaurantSettingsPage() {
       primaryColor: primaryColor || undefined,
       phone: phone || undefined,
       address: address || undefined,
+      autoPrintKitchenTickets,
     })
   }
 
@@ -151,6 +154,16 @@ export function RestaurantSettingsPage() {
           onChange={(e) => setAddress(e.target.value)}
           className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
         />
+
+        <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            disabled={!canManage}
+            checked={autoPrintKitchenTickets}
+            onChange={(e) => setAutoPrintKitchenTickets(e.target.checked)}
+          />
+          Imprimir comandas de cozinha automaticamente ao enviar pedido
+        </label>
 
         {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
         {success && <p className="mb-4 text-sm text-green-600">Configurações salvas.</p>}

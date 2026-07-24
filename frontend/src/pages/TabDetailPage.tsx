@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { createOrder, listOrders, type ItemStatus, type Order } from '../api/orders'
 import { listProducts } from '../api/products'
+import { getMyRestaurant } from '../api/restaurant'
 import { cancelTab, getTab } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
@@ -55,6 +56,11 @@ export function TabDetailPage() {
   const { data: products } = useQuery({
     queryKey: ['products', 'active'],
     queryFn: () => listProducts({ active: true }),
+  })
+
+  const { data: restaurant } = useQuery({
+    queryKey: ['restaurant'],
+    queryFn: getMyRestaurant,
   })
 
   const [isAddingItem, setIsAddingItem] = useState(false)
@@ -132,7 +138,14 @@ export function TabDetailPage() {
 
   function handleSendToKitchen() {
     setError(null)
-    createOrderMutation.mutate(draftItems)
+    const printWindow = restaurant?.autoPrintKitchenTickets ? window.open('about:blank', '_blank') : null
+    createOrderMutation.mutate(draftItems, {
+      onSuccess: (createdOrder) => {
+        if (printWindow) {
+          printWindow.location.href = `/orders/${createdOrder.id}/print?auto=1`
+        }
+      },
+    })
   }
 
   function handleCancelTab() {
@@ -246,7 +259,13 @@ export function TabDetailPage() {
           <div key={order.id} className="rounded-lg border border-gray-200 bg-white p-4">
             <div className="mb-2 flex items-center justify-between text-sm text-gray-500">
               <span>Pedido às {new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-              <span>{currencyFormatter.format(order.total)}</span>
+              <div className="flex items-center gap-3">
+                {order.printedAt && <span className="text-xs text-gray-400">Impresso</span>}
+                <Link to={`/orders/${order.id}/print`} target="_blank" className="text-brand-600 hover:underline">
+                  Imprimir
+                </Link>
+                <span>{currencyFormatter.format(order.total)}</span>
+              </div>
             </div>
             <ul className="divide-y divide-gray-100">
               {order.items.map((item) => (

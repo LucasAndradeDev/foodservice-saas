@@ -18,6 +18,7 @@ export interface Tab {
   paidAmount: number | null
   paidAt: string | null
   tables: TabTableSummary[]
+  receiptPrintedAt: string | null
 }
 
 export function listTabs(status?: TabStatus) {
@@ -38,4 +39,8 @@ export function cancelTab(id: string) {
 
 export function payTab(id: string, paymentMethod: PaymentMethod, paidAmount: number) {
   return http.patch<Tab>(`/tabs/${id}/pay`, { paymentMethod, paidAmount }).then((res) => res.data)
+}
+
+export function markTabReceiptPrinted(id: string) {
+  return http.patch<Tab>(`/tabs/${id}/print`).then((res) => res.data)
 }

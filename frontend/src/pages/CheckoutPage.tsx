@@ -1,6 +1,6 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { listOrders, type OrderItem } from '../api/orders'
 import { listTabs, payTab, type PaymentMethod, type Tab } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
@@ -61,14 +61,15 @@ export function CheckoutPage() {
   const [selectedSummary, setSelectedSummary] = useState<TabSummary | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PIX')
   const [error, setError] = useState<string | null>(null)
+  const [justPaidTabId, setJustPaidTabId] = useState<string | null>(null)
 
   const payMutation = useMutation({
     mutationFn: ({ id, method, amount }: { id: string; method: PaymentMethod; amount: number }) =>
       payTab(id, method, amount),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tabs'] })
       queryClient.invalidateQueries({ queryKey: ['tables'] })
-      setSelectedSummary(null)
+      setJustPaidTabId(variables.id)
     },
     onError: () => setError('Não foi possível fechar a conta. Tente novamente.'),
   })
@@ -81,6 +82,11 @@ export function CheckoutPage() {
     } else {
       navigate(`/tabs/${summary.tab.id}`)
     }
+  }
+
+  function handleCloseModal() {
+    setSelectedSummary(null)
+    setJustPaidTabId(null)
   }
 
   function handleConfirmPayment() {
@@ -134,52 +140,74 @@ export function CheckoutPage() {
       )}
 
       {selectedSummary && (
-        <Modal title={`Fechar conta — Mesa${selectedSummary.tab.tables.length > 1 ? 's' : ''} ${selectedSummary.tab.tables.map((t) => t.number).join(', ')}`} onClose={() => setSelectedSummary(null)}>
-          <ul className="mb-4 divide-y divide-gray-100">
-            {selectedSummary.items.map((item) => (
-              <li key={item.id} className="flex items-center justify-between py-2 text-sm">
-                <span className={item.status === 'CANCELLED' ? 'text-gray-400 line-through' : 'text-gray-800'}>
-                  {item.quantity}x {item.productName}
-                </span>
-                <span className={item.status === 'CANCELLED' ? 'text-gray-400 line-through' : 'text-gray-600'}>
-                  {currencyFormatter.format(item.subtotal)}
-                </span>
-              </li>
-            ))}
-          </ul>
+        <Modal title={`Fechar conta — Mesa${selectedSummary.tab.tables.length > 1 ? 's' : ''} ${selectedSummary.tab.tables.map((t) => t.number).join(', ')}`} onClose={handleCloseModal}>
+          {justPaidTabId === selectedSummary.tab.id ? (
+            <>
+              <p className="mb-4 text-sm font-medium text-green-700">Pagamento confirmado.</p>
+              <Link
+                to={`/tabs/${selectedSummary.tab.id}/print`}
+                target="_blank"
+                className="mb-2 block w-full rounded-md bg-brand-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-brand-700"
+              >
+                Imprimir recibo
+              </Link>
+              <button
+                type="button"
+                onClick={handleCloseModal}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                Fechar
+              </button>
+            </>
+          ) : (
+            <>
+              <ul className="mb-4 divide-y divide-gray-100">
+                {selectedSummary.items.map((item) => (
+                  <li key={item.id} className="flex items-center justify-between py-2 text-sm">
+                    <span className={item.status === 'CANCELLED' ? 'text-gray-400 line-through' : 'text-gray-800'}>
+                      {item.quantity}x {item.productName}
+                    </span>
+                    <span className={item.status === 'CANCELLED' ? 'text-gray-400 line-through' : 'text-gray-600'}>
+                      {currencyFormatter.format(item.subtotal)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
 
-          <div className="mb-4 flex items-center justify-between border-t border-gray-200 pt-3 text-base font-semibold text-gray-800">
-            <span>Total</span>
-            <span>{currencyFormatter.format(selectedSummary.total)}</span>
-          </div>
+              <div className="mb-4 flex items-center justify-between border-t border-gray-200 pt-3 text-base font-semibold text-gray-800">
+                <span>Total</span>
+                <span>{currencyFormatter.format(selectedSummary.total)}</span>
+              </div>
 
-          <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="paymentMethod">
-            Forma de pagamento
-          </label>
-          <select
-            id="paymentMethod"
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-            className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-          >
-            {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => (
-              <option key={method} value={method}>
-                {PAYMENT_METHOD_LABELS[method]}
-              </option>
-            ))}
-          </select>
+              <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="paymentMethod">
+                Forma de pagamento
+              </label>
+              <select
+                id="paymentMethod"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              >
+                {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => (
+                  <option key={method} value={method}>
+                    {PAYMENT_METHOD_LABELS[method]}
+                  </option>
+                ))}
+              </select>
 
-          {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+              {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
-          {canPay && (
-            <button
-              type="button"
-              onClick={handleConfirmPayment}
-              disabled={payMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
-              Confirmar pagamento
-            </button>
+              {canPay && (
+                <button
+                  type="button"
+                  onClick={handleConfirmPayment}
+                  disabled={payMutation.isPending}
+                  className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                >
+                  Confirmar pagamento
+                </button>
+              )}
+            </>
           )}
         </Modal>
       )}

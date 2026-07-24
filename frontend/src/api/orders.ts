@@ -20,6 +20,7 @@ export interface Order {
   createdAt: string
   items: OrderItem[]
   total: number
+  printedAt: string | null
 }
 
 export interface CreateOrderItemPayload {
@@ -34,4 +35,12 @@ export function listOrders(tabId: string) {
 
 export function createOrder(tabId: string, items: CreateOrderItemPayload[]) {
   return http.post<Order>(`/tabs/${tabId}/orders`, { items }).then((res) => res.data)
+}
+
+export function getOrder(id: string) {
+  return http.get<Order>(`/orders/${id}`).then((res) => res.data)
+}
+
+export function markOrderPrinted(id: string) {
+  return http.patch<Order>(`/orders/${id}/print`).then((res) => res.data)
 }

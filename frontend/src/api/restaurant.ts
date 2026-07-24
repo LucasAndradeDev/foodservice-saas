@@ -11,6 +11,7 @@ export interface Restaurant {
   primaryColor: string | null
   tableCount: number | null
   active: boolean
+  autoPrintKitchenTickets: boolean
 }
 
 export interface UpdateRestaurantPayload {
@@ -20,6 +21,7 @@ export interface UpdateRestaurantPayload {
   phone?: string
   address?: string
   cnpj?: string
+  autoPrintKitchenTickets?: boolean
 }
 
 export function getMyRestaurant() {

@@ -7,12 +7,14 @@ import { CheckoutPage } from './pages/CheckoutPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { KitchenPage } from './pages/KitchenPage'
 import { LoginPage } from './pages/LoginPage'
+import { OrderTicketPrintPage } from './pages/OrderTicketPrintPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { RestaurantSettingsPage } from './pages/RestaurantSettingsPage'
 import { StaffPage } from './pages/StaffPage'
 import { TabDetailPage } from './pages/TabDetailPage'
 import { TablesPage } from './pages/TablesPage'
+import { TabReceiptPrintPage } from './pages/TabReceiptPrintPage'
 
 function App() {
   return (
@@ -22,6 +24,8 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route element={<ProtectedRoute />}>
+            <Route path="/orders/:orderId/print" element={<OrderTicketPrintPage />} />
+            <Route path="/tabs/:tabId/print" element={<TabReceiptPrintPage />} />
             <Route element={<AppLayout />}>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/tables" element={<TablesPage />} />
