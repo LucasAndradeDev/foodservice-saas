@@ -85,6 +85,7 @@ export function TablesPage() {
   const { data: tables, isLoading } = useQuery({
     queryKey: ['tables'],
     queryFn: () => listTables(),
+    select: (data) => [...data].sort((a, b) => a.number - b.number),
     refetchInterval: POLL_INTERVAL_MS,
     refetchIntervalInBackground: true,
   })

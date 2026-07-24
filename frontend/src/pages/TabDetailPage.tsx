@@ -1,4 +1,24 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  ArrowLeft,
+  Ban,
+  Check,
+  Clock,
+  ClipboardList,
+  Combine,
+  Flame,
+  GitMerge,
+  Lock,
+  PackageCheck,
+  Plus,
+  Printer,
+  Receipt,
+  ShoppingCart,
+  Table2,
+  Undo2,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react'
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { createOrder, listOrders, type ItemStatus, type Order } from '../api/orders'
@@ -9,6 +29,7 @@ import { addTableToTab, cancelTab, getTab, listTabs, mergeTabs, unmergeTabs, typ
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
 import { formatTableLabel } from '../utils/tableLabel'
+import { minutesSince } from '../utils/time'
 
 const UNDO_MERGE_WINDOW_MS = 20000
 
@@ -28,6 +49,14 @@ const ITEM_STATUS_STYLES: Record<ItemStatus, string> = {
   READY: 'bg-amber-100 text-amber-700',
   DELIVERED: 'bg-green-100 text-green-700',
   CANCELLED: 'bg-red-100 text-red-700 line-through',
+}
+
+const ITEM_STATUS_ICONS: Record<ItemStatus, LucideIcon> = {
+  PENDING: Clock,
+  PREPARING: Flame,
+  READY: PackageCheck,
+  DELIVERED: Check,
+  CANCELLED: Ban,
 }
 
 interface DraftItem {
@@ -80,6 +109,7 @@ export function TabDetailPage() {
   const { data: freeTables } = useQuery({
     queryKey: ['tables', 'FREE'],
     queryFn: () => listTables({ status: 'FREE', active: true }),
+    select: (data) => [...data].sort((a, b) => a.number - b.number),
     enabled: isMerging,
   })
 
@@ -240,50 +270,71 @@ export function TabDetailPage() {
   const grandTotal = allItems
     .filter((item) => item.status !== 'CANCELLED')
     .reduce((sum, item) => sum + item.subtotal, 0)
+  const isOpen = tab.status === 'OPEN'
 
   return (
     <div>
       <button
         type="button"
         onClick={() => navigate('/tables')}
-        className="mb-4 text-sm text-gray-500 hover:underline"
+        className="mb-4 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 hover:underline"
       >
-        ← Voltar para Mesas
+        <ArrowLeft className="h-4 w-4" />
+        Voltar para Mesas
       </button>
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-gray-800">
-            {formatTableLabel(tab.tables.map((t) => t.number))}
-          </h1>
-          <p className="text-sm text-gray-500">
-            {tab.status === 'OPEN' ? 'Comanda aberta' : 'Comanda fechada'}
-          </p>
+      <div className="mb-6 flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+            <Receipt className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold text-gray-800">
+              {formatTableLabel(tab.tables.map((t) => t.number))}
+            </h1>
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+              <span
+                className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${
+                  isOpen ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {isOpen ? <Clock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
+                {isOpen ? 'Aberta' : 'Fechada'}
+              </span>
+              {isOpen && (
+                <span className="flex items-center gap-1 text-gray-400">há {minutesSince(tab.openedAt)} min</span>
+              )}
+            </div>
+          </div>
         </div>
-        {tab.status === 'OPEN' && canOrder && (
-          <div className="flex gap-2">
+
+        {isOpen && canOrder && (
+          <div className="flex flex-wrap gap-2">
             {orders?.length === 0 && (
               <button
                 type="button"
                 onClick={handleCancelTab}
                 disabled={cancelMutation.isPending}
-                className="rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
               >
+                <Ban className="h-4 w-4" />
                 Cancelar comanda
               </button>
             )}
             <button
               type="button"
               onClick={openMergeModal}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+              className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
             >
+              <GitMerge className="h-4 w-4" />
               Mesclar comanda
             </button>
             <button
               type="button"
               onClick={openAddItemForm}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+              className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
             >
+              <Plus className="h-4 w-4" />
               Adicionar item
             </button>
           </div>
@@ -291,8 +342,11 @@ export function TabDetailPage() {
       </div>
 
       {pendingUndo && (
-        <div className="mb-4 flex items-center justify-between rounded-md border border-blue-200 bg-blue-50 px-4 py-2 text-sm text-blue-800">
-          <span>Mesclado com {pendingUndo.label}.</span>
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <span className="flex items-center gap-2">
+            <Undo2 className="h-4 w-4" />
+            Mesclado com {pendingUndo.label}.
+          </span>
           <button
             type="button"
             onClick={() => undoMergeMutation.mutate(pendingUndo.sourceTabId)}
@@ -307,8 +361,11 @@ export function TabDetailPage() {
       {error && draftItems.length === 0 && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {draftItems.length > 0 && (
-        <div className="mb-6 rounded-lg border border-gray-200 bg-white p-4">
-          <h2 className="mb-2 text-sm font-semibold text-gray-800">Novo pedido (ainda não enviado)</h2>
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
+            <ShoppingCart className="h-4 w-4 text-brand-600" />
+            Novo pedido (ainda não enviado)
+          </h2>
           <ul className="mb-3 divide-y divide-gray-100">
             {draftItems.map((item, index) => (
               <li key={index} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
@@ -347,50 +404,69 @@ export function TabDetailPage() {
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {orders && orders.length === 0 && draftItems.length === 0 && (
-          <p className="text-sm text-gray-500">Nenhum pedido enviado ainda.</p>
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 py-12 text-center">
+            <ClipboardList className="h-8 w-8 text-gray-300" />
+            <p className="text-sm text-gray-500">Nenhum pedido enviado ainda.</p>
+          </div>
         )}
 
         {orders?.map((order: Order) => (
-          <div key={order.id} className="rounded-lg border border-gray-200 bg-white p-4">
-            <div className="mb-2 flex items-center justify-between text-sm text-gray-500">
-              <span>Pedido às {new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+          <div key={order.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-3 text-sm text-gray-500">
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" />
+                Pedido às {new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </span>
               <div className="flex items-center gap-3">
                 {order.printedAt && <span className="text-xs text-gray-400">Impresso</span>}
-                <Link to={`/orders/${order.id}/print`} target="_blank" className="text-brand-600 hover:underline">
+                <Link
+                  to={`/orders/${order.id}/print`}
+                  target="_blank"
+                  className="flex items-center gap-1 text-brand-600 hover:underline"
+                >
+                  <Printer className="h-3.5 w-3.5" />
                   Imprimir
                 </Link>
-                <span>{currencyFormatter.format(order.total)}</span>
+                <span className="font-medium text-gray-700">{currencyFormatter.format(order.total)}</span>
               </div>
             </div>
             <ul className="divide-y divide-gray-100">
-              {order.items.map((item) => (
-                <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                  <div>
-                    <span className="font-medium text-gray-800">
-                      {item.quantity}x {item.productName}
-                    </span>
-                    {item.observation && <span className="ml-2 text-gray-500">({item.observation})</span>}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${ITEM_STATUS_STYLES[item.status]}`}
-                    >
-                      {ITEM_STATUS_LABELS[item.status]}
-                    </span>
-                    <span className="text-gray-600">{currencyFormatter.format(item.subtotal)}</span>
-                  </div>
-                </li>
-              ))}
+              {order.items.map((item) => {
+                const ItemStatusIcon = ITEM_STATUS_ICONS[item.status]
+                return (
+                  <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-800">
+                        {item.quantity}x {item.productName}
+                      </span>
+                      {item.observation && <span className="ml-2 text-gray-500">({item.observation})</span>}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${ITEM_STATUS_STYLES[item.status]}`}
+                      >
+                        <ItemStatusIcon className="h-3 w-3" />
+                        {ITEM_STATUS_LABELS[item.status]}
+                      </span>
+                      <span className="text-gray-600">{currencyFormatter.format(item.subtotal)}</span>
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           </div>
         ))}
       </div>
 
       {allItems.length > 0 && (
-        <div className="mt-4 flex justify-end text-sm font-semibold text-gray-800">
-          Total da comanda: {currencyFormatter.format(grandTotal)}
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+          <span className="flex items-center gap-2 text-sm font-medium text-gray-500">
+            <Wallet className="h-4 w-4" />
+            Total da comanda
+          </span>
+          <span className="text-xl font-semibold text-brand-700">{currencyFormatter.format(grandTotal)}</span>
         </div>
       )}
 
@@ -457,7 +533,10 @@ export function TabDetailPage() {
         <Modal title="Mesclar comanda" onClose={() => setIsMerging(false)}>
           {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
-          <p className="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">Mesas livres</p>
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+            <Table2 className="h-3.5 w-3.5" />
+            Mesas livres
+          </p>
           {freeTables?.length === 0 && (
             <p className="mb-4 text-sm text-gray-500">Nenhuma mesa livre no momento.</p>
           )}
@@ -477,7 +556,10 @@ export function TabDetailPage() {
             ))}
           </ul>
 
-          <p className="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">Outras comandas abertas</p>
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+            <Combine className="h-3.5 w-3.5" />
+            Outras comandas abertas
+          </p>
           {otherOpenTabs?.filter((t) => t.id !== tabId).length === 0 && (
             <p className="text-sm text-gray-500">Nenhuma outra comanda aberta.</p>
           )}
