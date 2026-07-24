@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -76,6 +77,37 @@ public class TabService {
         tableRepository.saveAll(tables);
 
         return toResponse(tab);
+    }
+
+    @Transactional
+    public Tab openOrGetTabForTable(UUID restaurantId, UUID tableId) {
+        RestaurantTable table = tableRepository.findByIdAndRestaurantIdForUpdate(tableId, restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Table not found."));
+        if (!Boolean.TRUE.equals(table.getActive())) {
+            throw new IllegalStateException("Table is not active.");
+        }
+
+        Optional<Tab> openTab = tabRepository.findOpenTabByRestaurantIdAndTableId(restaurantId, tableId);
+        if (openTab.isPresent()) {
+            return openTab.get();
+        }
+
+        if (table.getStatus() != TableStatus.FREE) {
+            throw new IllegalStateException("Table is not available for self-ordering right now. Please call a waiter.");
+        }
+
+        Tab tab = Tab.builder()
+                .restaurant(restaurantRepository.getReferenceById(restaurantId))
+                .status(TabStatus.OPEN)
+                .openedAt(OffsetDateTime.now())
+                .tables(List.of(table))
+                .build();
+        tab = tabRepository.save(tab);
+
+        table.setStatus(TableStatus.OCCUPIED);
+        tableRepository.save(table);
+
+        return tab;
     }
 
     @Transactional

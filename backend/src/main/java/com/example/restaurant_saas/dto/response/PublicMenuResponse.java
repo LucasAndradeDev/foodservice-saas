@@ -12,4 +12,5 @@ public class PublicMenuResponse {
     private String logo;
     private String primaryColor;
     private List<PublicMenuCategoryResponse> categories;
+    private PublicMenuTableResponse table;
 }

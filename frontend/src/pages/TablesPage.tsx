@@ -12,8 +12,11 @@ import {
   type TableStatus,
 } from '../api/tables'
 import { listTabs, openTab } from '../api/tabs'
+import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
+import { QrCodeCard } from '../components/QrCodeCard'
+import { publicMenuUrl } from '../utils/publicMenuUrl'
 
 const STATUS_LABELS: Record<TableStatus, string> = {
   FREE: 'Livre',
@@ -44,6 +47,11 @@ export function TablesPage() {
     queryKey: ['tabs', 'OPEN'],
     queryFn: () => listTabs('OPEN'),
     enabled: canOpenTab,
+  })
+
+  const { data: restaurant } = useQuery({
+    queryKey: ['restaurant'],
+    queryFn: getMyRestaurant,
   })
 
   const tableTabMap = useMemo(() => {
@@ -483,6 +491,16 @@ export function TablesPage() {
               </button>
             )}
           </form>
+
+          {restaurant?.slug && (
+            <div className="mt-6 border-t border-gray-100 pt-6">
+              <QrCodeCard
+                title={`Autoatendimento · Mesa ${selectedTable.number}`}
+                url={publicMenuUrl(restaurant.slug, selectedTable.id)}
+                helperText="Clique com o botão direito pra salvar e imprimir nessa mesa"
+              />
+            </div>
+          )}
         </Modal>
       )}
     </div>

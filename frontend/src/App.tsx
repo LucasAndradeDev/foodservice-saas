@@ -26,6 +26,7 @@ function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/menu/:slug" element={<PublicMenuPage />} />
+          <Route path="/menu/:slug/:tableId" element={<PublicMenuPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/orders/:orderId/print" element={<OrderTicketPrintPage />} />
             <Route path="/tabs/:tabId/print" element={<TabReceiptPrintPage />} />

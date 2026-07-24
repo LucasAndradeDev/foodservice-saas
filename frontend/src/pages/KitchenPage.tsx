@@ -1,4 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  AlertTriangle,
+  Ban,
+  ChefHat,
+  Check,
+  Clock,
+  Flame,
+  PackageCheck,
+  PlayCircle,
+  Send,
+  UtensilsCrossed,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
 import { listKitchenQueue, updateItemStatus, type KitchenItem } from '../api/kitchen'
 import type { ItemStatus } from '../api/orders'
 import { useAuth } from '../auth/AuthContext'
@@ -18,6 +32,14 @@ const STATUS_STYLES: Record<ItemStatus, string> = {
   READY: 'bg-amber-100 text-amber-700',
   DELIVERED: 'bg-green-100 text-green-700',
   CANCELLED: 'bg-red-100 text-red-700',
+}
+
+const STATUS_ICONS: Record<ItemStatus, LucideIcon> = {
+  PENDING: Clock,
+  PREPARING: Flame,
+  READY: PackageCheck,
+  DELIVERED: Check,
+  CANCELLED: Ban,
 }
 
 const STALE_MINUTES = 10
@@ -54,7 +76,10 @@ export function KitchenPage() {
 
   return (
     <div>
-      <h1 className="mb-4 text-lg font-semibold text-gray-800">Cozinha</h1>
+      <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800">
+        <ChefHat className="h-5 w-5 text-brand-600" />
+        Cozinha
+      </h1>
 
       {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
 
@@ -65,6 +90,7 @@ export function KitchenPage() {
           {items.map((item) => {
             const minutes = minutesSince(item.createdAt)
             const isStale = minutes >= STALE_MINUTES
+            const StatusIcon = STATUS_ICONS[item.status]
 
             return (
               <div
@@ -74,10 +100,13 @@ export function KitchenPage() {
                 }`}
               >
                 <div>
-                  <div className="text-sm text-gray-500">
+                  <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                    <UtensilsCrossed className="h-3.5 w-3.5" />
                     {formatTableLabel(item.tableNumbers)}
                     {' · '}
+                    <Clock className="h-3.5 w-3.5" />
                     <span className={isStale ? 'font-semibold text-red-600' : ''}>há {minutes} min</span>
+                    {isStale && <AlertTriangle className="h-3.5 w-3.5 text-red-600" />}
                   </div>
                   <div className="text-base font-medium text-gray-800">
                     {item.quantity}x {item.productName}
@@ -86,7 +115,10 @@ export function KitchenPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLES[item.status]}`}>
+                  <span
+                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${STATUS_STYLES[item.status]}`}
+                  >
+                    <StatusIcon className="h-3 w-3" />
                     {STATUS_LABELS[item.status]}
                   </span>
 
@@ -94,8 +126,9 @@ export function KitchenPage() {
                     <button
                       type="button"
                       onClick={() => statusMutation.mutate({ id: item.id, status: 'PREPARING' })}
-                      className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+                      className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
                     >
+                      <PlayCircle className="h-4 w-4" />
                       Iniciar preparo
                     </button>
                   )}
@@ -103,8 +136,9 @@ export function KitchenPage() {
                     <button
                       type="button"
                       onClick={() => statusMutation.mutate({ id: item.id, status: 'READY' })}
-                      className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+                      className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
                     >
+                      <PackageCheck className="h-4 w-4" />
                       Marcar pronto
                     </button>
                   )}
@@ -112,12 +146,18 @@ export function KitchenPage() {
                     <button
                       type="button"
                       onClick={() => statusMutation.mutate({ id: item.id, status: 'DELIVERED' })}
-                      className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+                      className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
                     >
+                      <Send className="h-4 w-4" />
                       Marcar entregue
                     </button>
                   )}
-                  <button type="button" onClick={() => handleCancel(item)} className="text-sm text-red-600 hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => handleCancel(item)}
+                    className="flex items-center gap-1 text-sm text-red-600 hover:underline"
+                  >
+                    <X className="h-3.5 w-3.5" />
                     Cancelar
                   </button>
                 </div>

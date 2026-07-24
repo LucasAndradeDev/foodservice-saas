@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, ExternalLink, QrCode } from 'lucide-react'
-import { QRCodeCanvas } from 'qrcode.react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { getMyRestaurant, updateMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
+import { QrCodeCard } from '../components/QrCodeCard'
+import { publicMenuUrl } from '../utils/publicMenuUrl'
 
 export function RestaurantSettingsPage() {
   const { user, updateRestaurant } = useAuth()
@@ -18,7 +18,6 @@ export function RestaurantSettingsPage() {
   const [cnpj, setCnpj] = useState('')
   const [tradeName, setTradeName] = useState('')
   const [slug, setSlug] = useState('')
-  const [linkCopied, setLinkCopied] = useState(false)
   const [logo, setLogo] = useState('')
   const [primaryColor, setPrimaryColor] = useState('')
   const [phone, setPhone] = useState('')
@@ -204,58 +203,13 @@ export function RestaurantSettingsPage() {
         </form>
 
         {restaurant.slug && (
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="flex items-center gap-2 border-b border-gray-100 bg-gradient-to-r from-brand-50 to-white px-6 py-4">
-              <QrCode className="h-5 w-5 text-brand-600" />
-              <h2 className="text-sm font-semibold text-gray-800">Cardápio digital</h2>
-            </div>
-
-            <div className="flex flex-col items-center gap-4 p-6">
-              <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-md">
-                <QRCodeCanvas value={publicMenuUrl(restaurant.slug)} size={168} />
-              </div>
-              <p className="max-w-[220px] text-center text-xs text-gray-400">
-                Clique com o botão direito pra salvar e imprimir nas mesas
-              </p>
-
-              <div className="w-full">
-                <p className="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">Link público</p>
-                <p className="truncate rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                  {publicMenuUrl(restaurant.slug)}
-                </p>
-              </div>
-
-              <div className="flex w-full gap-2">
-                <a
-                  href={publicMenuUrl(restaurant.slug)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Abrir cardápio
-                </a>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(publicMenuUrl(restaurant.slug!))
-                    setLinkCopied(true)
-                    setTimeout(() => setLinkCopied(false), 2000)
-                  }}
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  {linkCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                  {linkCopied ? 'Copiado!' : 'Copiar link'}
-                </button>
-              </div>
-            </div>
-          </div>
+          <QrCodeCard
+            title="Cardápio digital"
+            url={publicMenuUrl(restaurant.slug)}
+            helperText="Clique com o botão direito pra salvar e imprimir nas mesas"
+          />
         )}
       </div>
     </div>
   )
-}
-
-function publicMenuUrl(slug: string) {
-  return `${window.location.origin}/menu/${slug}`
 }

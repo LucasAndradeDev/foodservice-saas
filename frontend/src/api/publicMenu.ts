@@ -14,13 +14,33 @@ export interface PublicMenuCategory {
   products: PublicMenuProduct[]
 }
 
+export interface PublicMenuTable {
+  id: string
+  number: number
+}
+
 export interface PublicMenu {
   restaurantName: string
   logo: string | null
   primaryColor: string | null
   categories: PublicMenuCategory[]
+  table: PublicMenuTable | null
 }
 
-export function getPublicMenu(slug: string) {
-  return http.get<PublicMenu>(`/public/menu/${slug}`).then((res) => res.data)
+export interface PublicOrderItemPayload {
+  productId: string
+  quantity: number
+  observation?: string
+}
+
+export function getPublicMenu(slug: string, tableId?: string) {
+  return http
+    .get<PublicMenu>(`/public/menu/${slug}`, { params: tableId ? { tableId } : undefined })
+    .then((res) => res.data)
+}
+
+export function submitPublicOrder(slug: string, tableId: string, items: PublicOrderItemPayload[]) {
+  return http
+    .post(`/public/menu/${slug}/tables/${tableId}/orders`, { items })
+    .then((res) => res.data)
 }

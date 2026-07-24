@@ -11,7 +11,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/public/menu")
@@ -22,12 +25,15 @@ public class MenuController {
     private final MenuService menuService;
 
     @GetMapping("/{slug}")
-    @Operation(summary = "Get public menu", description = "Returns the restaurant's branding plus its active categories and active products for the given slug. No authentication required.")
+    @Operation(summary = "Get public menu", description = "Returns the restaurant's branding plus its active categories and active products for the given slug. Optionally validates a tableId and echoes back its number, for self-ordering flows. No authentication required.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Menu returned"),
-            @ApiResponse(responseCode = "400", description = "No restaurant found for this slug")
+            @ApiResponse(responseCode = "400", description = "No restaurant found for this slug, or tableId does not match an active table in this restaurant")
     })
-    public ResponseEntity<PublicMenuResponse> getPublicMenu(@PathVariable String slug) {
-        return ResponseEntity.ok(menuService.getPublicMenu(slug));
+    public ResponseEntity<PublicMenuResponse> getPublicMenu(
+            @PathVariable String slug,
+            @RequestParam(required = false) UUID tableId
+    ) {
+        return ResponseEntity.ok(menuService.getPublicMenu(slug, tableId));
     }
 }

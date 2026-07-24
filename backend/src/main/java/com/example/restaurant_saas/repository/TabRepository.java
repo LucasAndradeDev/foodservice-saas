@@ -27,4 +27,7 @@ public interface TabRepository extends JpaRepository<Tab, UUID> {
             "GROUP BY t.paymentMethod")
     List<Object[]> sumPaidAmountByRestaurantIdAndPaidAtBetweenGroupedByPaymentMethod(
             @Param("restaurantId") UUID restaurantId, @Param("start") OffsetDateTime start, @Param("end") OffsetDateTime end);
+
+    @Query("SELECT t FROM Tab t JOIN t.tables rt WHERE rt.id = :tableId AND t.restaurant.id = :restaurantId AND t.status = 'OPEN'")
+    Optional<Tab> findOpenTabByRestaurantIdAndTableId(@Param("restaurantId") UUID restaurantId, @Param("tableId") UUID tableId);
 }

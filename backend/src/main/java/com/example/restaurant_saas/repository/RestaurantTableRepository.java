@@ -2,7 +2,9 @@ package com.example.restaurant_saas.repository;
 
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.enums.TableStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -22,4 +24,8 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
 
     @Query("SELECT t.number FROM RestaurantTable t WHERE t.restaurant.id = :restaurantId ORDER BY t.number ASC")
     List<Integer> findAllNumbersByRestaurantId(@Param("restaurantId") UUID restaurantId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM RestaurantTable t WHERE t.id = :id AND t.restaurant.id = :restaurantId")
+    Optional<RestaurantTable> findByIdAndRestaurantIdForUpdate(@Param("id") UUID id, @Param("restaurantId") UUID restaurantId);
 }
