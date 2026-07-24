@@ -36,3 +36,13 @@ export function createProduct(payload: ProductPayload) {
 export function updateProduct(id: string, payload: Partial<ProductPayload & { active: boolean }>) {
   return http.put<Product>(`/products/${id}`, payload).then((res) => res.data)
 }
+
+export function deleteProduct(id: string) {
+  return http.delete<void>(`/products/${id}`).then((res) => res.data)
+}
+
+export function uploadProductImage(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return http.post<{ url: string }>('/products/upload-image', formData).then((res) => res.data.url)
+}

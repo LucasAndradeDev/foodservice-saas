@@ -1,10 +1,16 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.entity.User;
+import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
+import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
+import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
+import com.example.restaurant_saas.dto.request.CreateTableRequest;
+import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
+import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.security.JwtService;
@@ -17,11 +23,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -546,5 +555,153 @@ class ProductControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateRequest)))
                 .andExpect(status().isBadRequest());
+    }
+
+    private String createTableAndGetId(String token) throws Exception {
+        CreateTableRequest request = new CreateTableRequest();
+        MvcResult result = mockMvc.perform(post("/api/v1/tables")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private String openTabAndGetId(String token, String tableId) throws Exception {
+        OpenTabRequest request = new OpenTabRequest();
+        request.setTableIds(List.of(UUID.fromString(tableId)));
+        MvcResult result = mockMvc.perform(post("/api/v1/tabs")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private void orderProductOnce(String token, String tabId, String productId) throws Exception {
+        CreateOrderItemRequest item = new CreateOrderItemRequest();
+        item.setProductId(UUID.fromString(productId));
+        item.setQuantity(1);
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setItems(List.of(item));
+
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/orders")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void deleteProduct_neverOrdered_shouldSucceed() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(UUID.fromString(categoryId));
+        MvcResult result = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String productId = JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(delete("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteProduct_alreadyOrdered_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(UUID.fromString(categoryId));
+        MvcResult result = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String productId = JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        orderProductOnce(ownerToken, tabId, productId);
+
+        mockMvc.perform(delete("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteProduct_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(UUID.fromString(categoryId));
+        MvcResult result = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String productId = JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(delete("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + waiterToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void uploadImage_withValidJpeg_shouldReturnUrl() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", "fake-image-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/products/upload-image")
+                        .file(file)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value(org.hamcrest.Matchers.startsWith("/api/v1/public/uploads/products/")))
+                .andExpect(jsonPath("$.url").value(org.hamcrest.Matchers.endsWith(".jpg")));
+    }
+
+    @Test
+    void uploadImage_withInvalidContentType_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "fake-pdf-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/products/upload-image")
+                        .file(file)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void uploadImage_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+        MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", "fake-image-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/products/upload-image")
+                        .file(file)
+                        .header("Authorization", "Bearer " + waiterToken))
+                .andExpect(status().isForbidden());
     }
 }

@@ -6,6 +6,7 @@ import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.dto.response.ProductResponse;
 import com.example.restaurant_saas.repository.CategoryRepository;
+import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.ProductRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final RestaurantRepository restaurantRepository;
+    private final OrderItemRepository orderItemRepository;
 
     @Transactional(readOnly = true)
     public List<ProductResponse> listProducts(UUID restaurantId, UUID categoryId, String search, Boolean activeFilter) {
@@ -87,6 +89,15 @@ public class ProductService {
         }
 
         return toResponse(productRepository.save(product));
+    }
+
+    @Transactional
+    public void deleteProduct(UUID restaurantId, UUID productId) {
+        Product product = findByIdAndRestaurant(restaurantId, productId);
+        if (orderItemRepository.existsByProductId(productId)) {
+            throw new IllegalStateException("Cannot delete a product that has already been ordered. Deactivate it instead.");
+        }
+        productRepository.delete(product);
     }
 
     private Category findCategory(UUID restaurantId, UUID categoryId) {

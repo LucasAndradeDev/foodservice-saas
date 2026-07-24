@@ -4,6 +4,7 @@ import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.dto.response.ProductResponse;
 import com.example.restaurant_saas.security.UserDetailsImpl;
+import com.example.restaurant_saas.service.FileStorageService;
 import com.example.restaurant_saas.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -17,8 +18,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -28,6 +31,7 @@ import java.util.UUID;
 public class ProductController {
 
     private final ProductService productService;
+    private final FileStorageService fileStorageService;
 
     @GetMapping
     @Operation(summary = "List products", description = "Lists the restaurant's products, optionally filtered by category, name search and active status.")
@@ -83,5 +87,34 @@ public class ProductController {
             @Valid @RequestBody UpdateProductRequest request
     ) {
         return ResponseEntity.ok(productService.updateProduct(currentUser.getRestaurantId(), id, request));
+    }
+
+    @PostMapping("/upload-image")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @Operation(summary = "Upload product image", description = "Uploads a JPEG/PNG/WEBP image (max 5MB) and returns its public URL, to be used as a product's imageUrl.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Image uploaded"),
+            @ApiResponse(responseCode = "400", description = "Invalid or missing file"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
+    })
+    public ResponseEntity<Map<String, String>> uploadImage(@RequestParam("file") MultipartFile file) {
+        String url = fileStorageService.storeProductImage(file);
+        return ResponseEntity.ok(Map.of("url", url));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @Operation(summary = "Delete product", description = "Permanently deletes a product. Only allowed if the product has never been ordered; otherwise deactivate it instead.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Product deleted"),
+            @ApiResponse(responseCode = "400", description = "Product not found in this restaurant"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER, or product has already been ordered")
+    })
+    public ResponseEntity<Void> deleteProduct(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id
+    ) {
+        productService.deleteProduct(currentUser.getRestaurantId(), id);
+        return ResponseEntity.noContent().build();
     }
 }

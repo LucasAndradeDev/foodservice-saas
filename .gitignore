@@ -36,3 +36,6 @@ build/
 
 ### Local sprint notes (not versioned) ###
 docs/SPRINT*.md
+
+### Uploaded files (local disk storage, not versioned) ###
+backend/uploads/

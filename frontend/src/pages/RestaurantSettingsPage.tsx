@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, Copy, ExternalLink, QrCode } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { getMyRestaurant, updateMyRestaurant } from '../api/restaurant'
@@ -202,34 +203,71 @@ export function RestaurantSettingsPage() {
       </form>
 
       {restaurant.slug && (
-        <div className="mt-6 max-w-lg rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="mb-3 text-sm font-medium text-gray-700">Cardápio digital</h2>
-          <QRCodeCanvas value={publicMenuUrl(restaurant.slug)} size={160} />
-          <p className="mt-3 break-all text-sm text-gray-600">{publicMenuUrl(restaurant.slug)}</p>
-          <div className="mt-3 flex gap-2">
-            <a
-              href={publicMenuUrl(restaurant.slug)}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-            >
-              Abrir cardápio
-            </a>
-            <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard.writeText(publicMenuUrl(restaurant.slug!))
-                setLinkCopied(true)
-                setTimeout(() => setLinkCopied(false), 2000)
-              }}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-            >
-              {linkCopied ? 'Copiado!' : 'Copiar link'}
-            </button>
+        <div className="mt-6 max-w-3xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-center gap-2 border-b border-gray-100 bg-gradient-to-r from-brand-50 to-white px-6 py-4">
+            <QrCode className="h-5 w-5 text-brand-600" />
+            <h2 className="text-sm font-semibold text-gray-800">Cardápio digital</h2>
           </div>
-          <p className="mt-3 text-xs text-gray-500">
-            Clique com o botão direito no QR Code pra salvar a imagem e imprimir nas mesas.
-          </p>
+
+          <div className="grid gap-6 p-6 sm:grid-cols-[auto_1fr]">
+            <div className="flex flex-col items-center gap-2">
+              <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-md">
+                <QRCodeCanvas value={publicMenuUrl(restaurant.slug)} size={168} />
+              </div>
+              <p className="max-w-[180px] text-center text-xs text-gray-400">
+                Clique com o botão direito pra salvar e imprimir nas mesas
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div>
+                <p className="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">Link público</p>
+                <p className="truncate rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  {publicMenuUrl(restaurant.slug)}
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <a
+                  href={publicMenuUrl(restaurant.slug)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Abrir cardápio
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(publicMenuUrl(restaurant.slug!))
+                    setLinkCopied(true)
+                    setTimeout(() => setLinkCopied(false), 2000)
+                  }}
+                  className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  {linkCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                  {linkCopied ? 'Copiado!' : 'Copiar link'}
+                </button>
+              </div>
+
+              <div>
+                <p className="mb-2 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+                  Pré-visualização ao vivo
+                </p>
+                <div className="mx-auto w-[280px] overflow-hidden rounded-[1.75rem] border-[6px] border-gray-800 bg-gray-800 shadow-lg">
+                  <div className="flex h-4 items-center justify-center bg-gray-800">
+                    <div className="h-1 w-10 rounded-full bg-gray-600" />
+                  </div>
+                  <iframe
+                    src={publicMenuUrl(restaurant.slug)}
+                    title="Pré-visualização do cardápio"
+                    className="h-[420px] w-full border-0 bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,8 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState, type FormEvent } from 'react'
+import { isAxiosError } from 'axios'
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { listCategories } from '../api/categories'
-import { createProduct, listProducts, updateProduct, type Product } from '../api/products'
+import {
+  createProduct,
+  deleteProduct,
+  listProducts,
+  updateProduct,
+  uploadProductImage,
+  type Product,
+} from '../api/products'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
 
@@ -44,7 +52,9 @@ export function ProductsPage() {
   const [price, setPrice] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [listError, setListError] = useState<string | null>(null)
   const [showNoCategoryNotice, setShowNoCategoryNotice] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
 
   const createMutation = useMutation({
     mutationFn: createProduct,
@@ -59,6 +69,21 @@ export function ProductsPage() {
     mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof updateProduct>[1] }) =>
       updateProduct(id, payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['products'] }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteProduct,
+    onSuccess: () => {
+      setListError(null)
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+    onError: (err) => {
+      if (isAxiosError(err) && err.response?.status === 403) {
+        setListError('Não é possível excluir: já foi usado em pedidos. Desative-o.')
+      } else {
+        setListError('Não foi possível excluir o produto.')
+      }
+    },
   })
 
   function categoryName(id: string) {
@@ -118,6 +143,31 @@ export function ProductsPage() {
     updateMutation.mutate({ id: product.id, payload: { active: !product.active } })
   }
 
+  function handleDelete(product: Product) {
+    const confirmed = window.confirm(`Excluir o produto "${product.name}"? Essa ação não pode ser desfeita.`)
+    if (confirmed) {
+      setListError(null)
+      deleteMutation.mutate(product.id)
+    }
+  }
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setIsUploading(true)
+    setError(null)
+    try {
+      const url = await uploadProductImage(file)
+      setPhotoUrl(url)
+    } catch {
+      setError('Não foi possível enviar a imagem. Tente novamente.')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   const isFormOpen = isCreating || editingProduct !== null
 
   return (
@@ -166,6 +216,8 @@ export function ProductsPage() {
         </select>
       </div>
 
+      {listError && <p className="mb-4 text-sm text-red-600">{listError}</p>}
+
       {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
 
       {products && products.length === 0 && <p className="text-sm text-gray-500">Nenhum produto encontrado.</p>}
@@ -201,6 +253,9 @@ export function ProductsPage() {
                     </button>
                     <button type="button" onClick={() => toggleActive(product)} className="text-gray-600 hover:underline">
                       {product.active ? 'Desativar' : 'Ativar'}
+                    </button>
+                    <button type="button" onClick={() => handleDelete(product)} className="text-red-600 hover:underline">
+                      Excluir
                     </button>
                   </div>
                 )}
@@ -254,9 +309,16 @@ export function ProductsPage() {
                         <button
                           type="button"
                           onClick={() => toggleActive(product)}
-                          className="text-gray-600 hover:underline"
+                          className="mr-3 text-gray-600 hover:underline"
                         >
                           {product.active ? 'Desativar' : 'Ativar'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(product)}
+                          className="text-red-600 hover:underline"
+                        >
+                          Excluir
                         </button>
                       </td>
                     )}
@@ -297,16 +359,27 @@ export function ProductsPage() {
             />
 
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productPhotoUrl">
-              URL da foto <span className="font-normal text-gray-400">(opcional)</span>
+              Foto do produto <span className="font-normal text-gray-400">(opcional)</span>
             </label>
-            <input
-              id="productPhotoUrl"
-              type="text"
-              maxLength={500}
-              value={photoUrl}
-              onChange={(e) => setPhotoUrl(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            />
+            <div className="mb-1 flex flex-col gap-2 sm:flex-row">
+              <input
+                id="productPhotoUrl"
+                type="text"
+                placeholder="Cole uma URL..."
+                maxLength={500}
+                value={photoUrl}
+                onChange={(e) => setPhotoUrl(e.target.value)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              />
+              <label className="flex shrink-0 cursor-pointer items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                {isUploading ? 'Enviando...' : 'Enviar do dispositivo'}
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} disabled={isUploading} />
+              </label>
+            </div>
+            {photoUrl && (
+              <img src={photoUrl} alt="" className="mb-4 h-16 w-16 rounded object-cover" />
+            )}
+            {!photoUrl && <div className="mb-4" />}
 
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productPrice">
               Preço

@@ -77,8 +77,8 @@ export function AppLayout() {
     <div className="min-h-screen bg-gray-50 sm:flex">
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-200 bg-white sm:flex">
-        <div className="border-b border-gray-200 p-4">
-          <img src={moraLogo} alt="Morá" className="h-8 w-auto" />
+        <div className="flex items-center justify-center border-b border-gray-200 p-4">
+          <img src={moraLogo} alt="Morá" className="h-9 w-auto" />
         </div>
 
         <div className="flex-1 overflow-y-auto p-3">

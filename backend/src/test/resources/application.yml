@@ -13,3 +13,6 @@ api:
     secret: fVAc+Q0nBv0H5okURqwD6VgUpF/sj+1QOoweA0Ph6npDHm6HkwAAxmjx4ZLF8NGdS/rCnZVtMzv/Y/Zv+z4CdQ==
     expiration-ms: 3600000
     refresh-expiration-ms: 604800000
+
+app:
+  upload-dir: ./target/test-uploads
