@@ -206,7 +206,7 @@ export function RestaurantSettingsPage() {
           <QrCodeCard
             title="Cardápio digital"
             url={publicMenuUrl(restaurant.slug)}
-            helperText="Clique com o botão direito pra salvar e imprimir nas mesas"
+            helperText="Use pra divulgar o cardápio nas redes sociais, WhatsApp ou no site. Pra autoatendimento nas mesas, gere o QR de cada mesa em Mesas."
           />
         )}
       </div>

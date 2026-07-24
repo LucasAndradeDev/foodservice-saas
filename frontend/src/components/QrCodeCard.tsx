@@ -22,7 +22,7 @@ export function QrCodeCard({ title, url, helperText }: QrCodeCardProps) {
         <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-md">
           <QRCodeCanvas value={url} size={168} />
         </div>
-        <p className="max-w-[220px] text-center text-xs text-gray-400">
+        <p className="max-w-xs text-center text-xs text-gray-400">
           {helperText ?? 'Clique com o botão direito pra salvar e imprimir'}
         </p>
 
