@@ -7,6 +7,7 @@ import { CheckoutPage } from './pages/CheckoutPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { KitchenPage } from './pages/KitchenPage'
 import { LoginPage } from './pages/LoginPage'
+import { MenuImportPage } from './pages/MenuImportPage'
 import { OrderTicketPrintPage } from './pages/OrderTicketPrintPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { PublicMenuPage } from './pages/PublicMenuPage'
@@ -38,6 +39,7 @@ function App() {
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/products" element={<ProductsPage />} />
+              <Route path="/products/import" element={<MenuImportPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings" element={<RestaurantSettingsPage />} />
               <Route path="/staff" element={<StaffPage />} />

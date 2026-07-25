@@ -13,6 +13,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     List<Product> findByRestaurantId(UUID restaurantId);
     List<Product> findByRestaurantIdAndActiveTrue(UUID restaurantId);
     Optional<Product> findByIdAndRestaurantId(UUID id, UUID restaurantId);
+    Optional<Product> findByRestaurantIdAndNameIgnoreCase(UUID restaurantId, String name);
     boolean existsByCategoryIdAndActiveTrue(UUID categoryId);
     boolean existsByRestaurantIdAndNameIgnoreCase(UUID restaurantId, String name);
     boolean existsByRestaurantIdAndNameIgnoreCaseAndIdNot(UUID restaurantId, String name, UUID id);

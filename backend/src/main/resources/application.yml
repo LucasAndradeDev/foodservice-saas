@@ -23,8 +23,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 5MB
-      max-request-size: 5MB
+      max-file-size: 10MB
+      max-request-size: 10MB
 
 api:
   jwt:
@@ -34,6 +34,11 @@ api:
 
 app:
   upload-dir: ${UPLOAD_DIR:./uploads}
+
+gemini:
+  api-key: ${GEMINI_API_KEY}
+  model: ${GEMINI_MODEL:gemini-flash-latest}
+  base-url: https://generativelanguage.googleapis.com
 
 server:
   port: 8080

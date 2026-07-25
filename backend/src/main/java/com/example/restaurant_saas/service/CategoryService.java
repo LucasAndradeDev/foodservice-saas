@@ -51,6 +51,16 @@ public class CategoryService {
     }
 
     @Transactional
+    public Category findOrCreateCategory(UUID restaurantId, String name) {
+        return categoryRepository.findByRestaurantIdAndNameIgnoreCase(restaurantId, name)
+                .orElseGet(() -> categoryRepository.save(Category.builder()
+                        .restaurant(restaurantRepository.getReferenceById(restaurantId))
+                        .name(name)
+                        .active(true)
+                        .build()));
+    }
+
+    @Transactional
     public CategoryResponse updateCategory(UUID restaurantId, UUID categoryId, UpdateCategoryRequest request) {
         Category category = findByIdAndRestaurant(restaurantId, categoryId);
 
