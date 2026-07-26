@@ -16,6 +16,7 @@ import {
 import { listKitchenQueue, updateItemStatus, type KitchenItem } from '../api/kitchen'
 import type { ItemStatus } from '../api/orders'
 import { useAuth } from '../auth/AuthContext'
+import { EmptyState } from '../components/EmptyState'
 import { formatTableLabel } from '../utils/tableLabel'
 import { minutesSince } from '../utils/time'
 
@@ -81,7 +82,7 @@ export function KitchenPage() {
 
       {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
 
-      {items && items.length === 0 && <p className="text-sm text-gray-500">Nenhum item na fila.</p>}
+      {items && items.length === 0 && <EmptyState icon={ChefHat} message="Nenhum item na fila." />}
 
       {items && items.length > 0 && (
         <div className="space-y-2">

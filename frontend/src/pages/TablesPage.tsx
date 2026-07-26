@@ -486,12 +486,12 @@ export function TablesPage() {
             const StatusIcon = STATUS_ICONS[table.status]
             const pendingRequest = pendingRequestByTable.get(table.id)
             return (
-              <div key={table.id} className="relative">
+              <div key={table.id} className="relative h-full">
                 <button
                   type="button"
                   disabled={(!canChangeStatus && !canManage && !canOpenTab) || !isSelectableNow}
                   onClick={() => handleTableClick(table)}
-                  className={`flex w-full flex-col items-center gap-1 rounded-xl border-2 p-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}
+                  className={`flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border-2 p-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}
                 >
                   <StatusIcon className="h-5 w-5" />
                   <div className="text-xl font-bold leading-none">{table.number}</div>

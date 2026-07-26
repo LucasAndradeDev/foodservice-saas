@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { listOrders, type OrderItem } from '../api/orders'
 import { listTabs, payTab, type PaymentMethod, type Tab } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
+import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
 import { formatTableLabel } from '../utils/tableLabel'
 
@@ -106,7 +107,7 @@ export function CheckoutPage() {
 
       {isTabsLoading && <p className="text-sm text-gray-500">Carregando...</p>}
 
-      {openTabs && openTabs.length === 0 && <p className="text-sm text-gray-500">Nenhuma comanda aberta.</p>}
+      {openTabs && openTabs.length === 0 && <EmptyState icon={Wallet} message="Nenhuma comanda aberta." />}
 
       {tabSummaries.length > 0 && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
