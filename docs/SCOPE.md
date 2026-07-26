@@ -256,23 +256,54 @@ Com o roadmap original (Sprints 1–17) concluído, o desenvolvimento passou a p
 ---
 
 ### Funcionalidades Futuras (Backlog)
-Após validar o produto com clientes reais, considerar:
-- Comanda por QR Code
+
+Itens já entregues fora do roadmap original, puxados do backlog conforme o produto evoluiu:
 - ~~Cardápio digital~~ ✅ Sprint 22
-- Pedidos pelo celular
-- Delivery
 - ~~Balcão~~ ✅ Sprint 21
 - ~~Impressão de comandas~~ ✅ Sprint 19
 - ~~Impressão de cozinha~~ ✅ Sprint 19
-- Impressão fiscal (NFC-e)
-- Controle de estoque
-- Ficha técnica
-- Promoções e cupons
-- Programa de fidelidade
-- Integração com iFood
-- Integração com WhatsApp
 - ~~Relatórios financeiros~~ ✅ Sprint 20
-- Dashboard analítico
-- Aplicativo para garçons
-- Aplicativo para clientes
-- Multiunidade (redes de restaurantes)
+- ~~Comanda por QR Code / Pedidos pelo celular~~ ✅ Sprint 23 (autoatendimento)
+- ~~Fusão de comandas mid-service~~ ✅ Sprint 24 (não estava no backlog original; fechou lacuna do autoatendimento)
+- ~~Importação de cardápio via Excel + IA~~ ✅ Sprint A (não estava no backlog original)
+
+O que falta, organizado por prioridade (discutido em 2026-07-25, foco em praticidade real pro restaurante; cobrança do próprio SaaS fica de fora por ora — produto ainda em desenvolvimento):
+
+#### Prioridade 1 — ganho rápido, resolve dor imediata do dia a dia
+1. **Produto "esgotou hoje"** — indisponibilidade diária sem desativar o produto permanentemente (hoje só existe `active`, que é definitivo).
+2. **"Chamar garçom" pelo celular** — fecha lacuna do autoatendimento (Sprint 23): cliente sem garçom por perto não tem como pedir algo fora do pedido.
+3. **"Pedir a conta" pelo celular** — mesma lógica: cliente sinaliza que quer fechar, caixa recebe o aviso.
+4. **Modificadores padronizados** (sem cebola, ponto da carne, tamanho) em vez de observação em texto livre.
+5. **Alerta de demora na cozinha** — item que passa de X minutos em `PENDING`/`PREPARING` muda de cor na fila.
+6. **Desconto pontual** em item ou comanda (reclamação, promoção de última hora) — hoje não existe forma de abater valor sem mexer no preço do produto.
+
+#### Prioridade 2 — fecha lacunas do fluxo de pagamento/comanda
+7. **Divisão de conta** — hoje `paidAmount` precisa bater exatamente com o total (decisão explícita da Sprint 8); sem suporte a pagamento parcial/dividido.
+8. **Gorjeta / taxa de serviço (10%)** — não existe no modelo de pagamento.
+9. **Cancelamento de pagamento / reabertura de comanda** — não existe undo pra pagamento (só existe pra merge de mesas, Sprint 24).
+10. **Transferir item entre comandas** — inverso do merge (Sprint 24): tira um item de uma comanda e joga em outra, sem mexer nas mesas.
+11. **Abertura/fechamento de caixa com sangria** — hoje "faturamento do dia" é só soma de pagamentos; não existe abertura de turno com valor inicial, conferência de dinheiro físico no fechamento, nem sangria.
+
+#### Prioridade 3 — gestão e visibilidade
+12. **Ficha técnica / custo de produto** — complementa os Relatórios (Sprint 20) com margem real, não só faturamento. Versão enxuta: campo `costPrice` no Produto, sem módulo de estoque completo.
+13. **Log de auditoria** — quem cancelou item, quem deu desconto.
+14. **Desempenho por garçom** — vendas e tempo médio de atendimento por funcionário.
+15. **Metas e comparativos no dashboard** (mês a mês) — parte do "Dashboard analítico".
+
+#### Prioridade 4 — integrações externas (maior esforço, dependem de terceiros)
+16. **Impressora térmica (ESC/POS)** via rede/USB — hoje a impressão é `window.print()` (Sprint 19), depende de driver do sistema.
+17. **Maquininha de cartão (TEF)** — hoje "cartão" é só um registro manual da forma de pagamento.
+18. **Integração com WhatsApp** — compartilhar link do cardápio digital / notificações.
+19. **Integração com iFood**.
+20. **Impressão fiscal (NFC-e)** — bloqueador legal real pra operação formal, mas integração pesada (SEFAZ, certificado digital, homologação).
+
+#### Prioridade 5 — escopo maior, só depois de validar com clientes reais
+21. **Controle de estoque**.
+22. **Promoções e cupons**.
+23. **Programa de fidelidade**.
+24. **Aplicativo para garçons / Aplicativo para clientes**.
+25. **Multiunidade (redes de restaurantes)**.
+
+#### Fora de escopo por enquanto (decisão explícita do usuário, 2026-07-25)
+- **Cobrança/assinatura do próprio SaaS** (planos, trial, gateway de pagamento) — o produto ainda está em desenvolvimento, não é hora de vender.
+- **Onboarding self-service** — depende do item acima.
