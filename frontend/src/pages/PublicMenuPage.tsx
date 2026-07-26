@@ -1,12 +1,12 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Bell, Check } from 'lucide-react'
+import { Bell, Check, Wallet } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getPublicMenu, submitPublicOrder, type PublicMenuProduct } from '../api/publicMenu'
-import { createTableRequest } from '../api/tableRequests'
+import { createTableRequest, type TableRequestType } from '../api/tableRequests'
 import { Modal } from '../components/Modal'
 
-const WAITER_CALL_COOLDOWN_MS = 60000
+const TABLE_REQUEST_COOLDOWN_MS = 60000
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -31,8 +31,8 @@ export function PublicMenuPage() {
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [justAddedId, setJustAddedId] = useState<string | null>(null)
   const justAddedTimeoutRef = useRef<number | null>(null)
-  const [waiterCalled, setWaiterCalled] = useState(false)
-  const waiterCalledTimeoutRef = useRef<number | null>(null)
+  const [requestedTypes, setRequestedTypes] = useState<Set<TableRequestType>>(new Set())
+  const requestTimeoutsRef = useRef<Partial<Record<TableRequestType, number>>>({})
 
   const { data: menu, isLoading, isError } = useQuery({
     queryKey: ['publicMenu', slug, tableId],
@@ -79,12 +79,18 @@ export function PublicMenuPage() {
     onError: () => setOrderError('Não foi possível enviar o pedido. Tente novamente.'),
   })
 
-  const callWaiterMutation = useMutation({
-    mutationFn: () => createTableRequest(slug!, tableId!, 'CALL_WAITER'),
-    onSuccess: () => {
-      setWaiterCalled(true)
-      if (waiterCalledTimeoutRef.current) window.clearTimeout(waiterCalledTimeoutRef.current)
-      waiterCalledTimeoutRef.current = window.setTimeout(() => setWaiterCalled(false), WAITER_CALL_COOLDOWN_MS)
+  const tableRequestMutation = useMutation({
+    mutationFn: (type: TableRequestType) => createTableRequest(slug!, tableId!, type),
+    onSuccess: (_, type) => {
+      setRequestedTypes((prev) => new Set(prev).add(type))
+      if (requestTimeoutsRef.current[type]) window.clearTimeout(requestTimeoutsRef.current[type])
+      requestTimeoutsRef.current[type] = window.setTimeout(() => {
+        setRequestedTypes((prev) => {
+          const next = new Set(prev)
+          next.delete(type)
+          return next
+        })
+      }, TABLE_REQUEST_COOLDOWN_MS)
     },
   })
 
@@ -257,27 +263,60 @@ export function PublicMenuPage() {
       )}
 
       {canOrder && (
-        <button
-          type="button"
-          onClick={() => callWaiterMutation.mutate()}
-          disabled={callWaiterMutation.isPending || waiterCalled}
-          style={waiterCalled ? undefined : { borderColor: accentColor, color: accentColor }}
-          className={`fixed right-4 z-20 flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-sm font-medium shadow-lg transition-colors duration-150 ${
+        <div
+          className={`fixed right-4 z-20 flex flex-col items-end gap-2 ${
             cartCount > 0 && !isCartOpen ? 'bottom-20' : 'bottom-4'
-          } ${waiterCalled ? 'border-green-600 bg-green-50 text-green-700' : 'hover:bg-gray-50'}`}
+          }`}
         >
-          {waiterCalled ? (
-            <>
-              <Check className="h-4 w-4" />
-              Chamado!
-            </>
-          ) : (
-            <>
-              <Bell className="h-4 w-4" />
-              Chamar garçom
-            </>
-          )}
-        </button>
+          <button
+            type="button"
+            onClick={() => tableRequestMutation.mutate('REQUEST_BILL')}
+            disabled={
+              (tableRequestMutation.isPending && tableRequestMutation.variables === 'REQUEST_BILL') ||
+              requestedTypes.has('REQUEST_BILL')
+            }
+            style={requestedTypes.has('REQUEST_BILL') ? undefined : { borderColor: accentColor, color: accentColor }}
+            className={`flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-sm font-medium shadow-lg transition-colors duration-150 ${
+              requestedTypes.has('REQUEST_BILL') ? 'border-green-600 bg-green-50 text-green-700' : 'hover:bg-gray-50'
+            }`}
+          >
+            {requestedTypes.has('REQUEST_BILL') ? (
+              <>
+                <Check className="h-4 w-4" />
+                Pedido!
+              </>
+            ) : (
+              <>
+                <Wallet className="h-4 w-4" />
+                Pedir a conta
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => tableRequestMutation.mutate('CALL_WAITER')}
+            disabled={
+              (tableRequestMutation.isPending && tableRequestMutation.variables === 'CALL_WAITER') ||
+              requestedTypes.has('CALL_WAITER')
+            }
+            style={requestedTypes.has('CALL_WAITER') ? undefined : { borderColor: accentColor, color: accentColor }}
+            className={`flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-sm font-medium shadow-lg transition-colors duration-150 ${
+              requestedTypes.has('CALL_WAITER') ? 'border-green-600 bg-green-50 text-green-700' : 'hover:bg-gray-50'
+            }`}
+          >
+            {requestedTypes.has('CALL_WAITER') ? (
+              <>
+                <Check className="h-4 w-4" />
+                Chamado!
+              </>
+            ) : (
+              <>
+                <Bell className="h-4 w-4" />
+                Chamar garçom
+              </>
+            )}
+          </button>
+        </div>
       )}
 
       {canOrder && cartCount > 0 && !isCartOpen && (

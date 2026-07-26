@@ -10,11 +10,17 @@ import {
   Plus,
   Users,
   UtensilsCrossed,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { acknowledgeTableRequest, listPendingTableRequests, type TableRequest } from '../api/tableRequests'
+import {
+  acknowledgeTableRequest,
+  listPendingTableRequests,
+  type TableRequest,
+  type TableRequestType,
+} from '../api/tableRequests'
 import {
   createTable,
   createTablesBulk,
@@ -58,6 +64,16 @@ const STATUS_PILL_STYLES: Record<TableStatus, string> = {
 }
 
 const POLL_INTERVAL_MS = 4000
+
+const TABLE_REQUEST_ICONS: Record<TableRequestType, LucideIcon> = {
+  CALL_WAITER: Bell,
+  REQUEST_BILL: Wallet,
+}
+
+const TABLE_REQUEST_LABELS: Record<TableRequestType, string> = {
+  CALL_WAITER: 'Chamando',
+  REQUEST_BILL: 'Conta',
+}
 
 function playCallAlert() {
   try {
@@ -138,9 +154,13 @@ export function TablesPage() {
     seenRequestIdsRef.current = new Set(pendingRequests.map((request) => request.id))
   }, [pendingRequests])
 
-  const pendingRequestByTable = useMemo(() => {
-    const map = new Map<string, TableRequest>()
-    pendingRequests?.forEach((request) => map.set(request.tableId, request))
+  const pendingRequestsByTable = useMemo(() => {
+    const map = new Map<string, TableRequest[]>()
+    pendingRequests?.forEach((request) => {
+      const list = map.get(request.tableId) ?? []
+      list.push(request)
+      map.set(request.tableId, list)
+    })
     return map
   }, [pendingRequests])
 
@@ -484,7 +504,7 @@ export function TablesPage() {
             const isSelectableNow = !isSelectingTables || table.status === 'FREE'
             const tab = tableTabMap.get(table.id)
             const StatusIcon = STATUS_ICONS[table.status]
-            const pendingRequest = pendingRequestByTable.get(table.id)
+            const tableRequests = pendingRequestsByTable.get(table.id) ?? []
             return (
               <div key={table.id} className="relative h-full">
                 <button
@@ -501,19 +521,27 @@ export function TablesPage() {
                   )}
                   {!table.active && <div className="text-[11px]">Inativa</div>}
                 </button>
-                {pendingRequest && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      acknowledgeMutation.mutate(pendingRequest.id)
-                    }}
-                    title="Marcar como atendido"
-                    className="absolute -right-2 -top-2 z-10 flex animate-pulse items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-800 shadow hover:bg-amber-200"
-                  >
-                    <Bell className="h-3 w-3" />
-                    Atendido
-                  </button>
+                {tableRequests.length > 0 && (
+                  <div className="absolute -right-2 -top-2 z-10 flex flex-col items-end gap-1">
+                    {tableRequests.map((request) => {
+                      const RequestIcon = TABLE_REQUEST_ICONS[request.type]
+                      return (
+                        <button
+                          key={request.id}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            acknowledgeMutation.mutate(request.id)
+                          }}
+                          title="Marcar como atendido"
+                          className="flex animate-pulse items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-800 shadow hover:bg-amber-200"
+                        >
+                          <RequestIcon className="h-3 w-3" />
+                          {TABLE_REQUEST_LABELS[request.type]}
+                        </button>
+                      )
+                    })}
+                  </div>
                 )}
               </div>
             )

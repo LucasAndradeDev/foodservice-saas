@@ -209,6 +209,34 @@ class TableRequestControllerIntegrationTest {
     }
 
     @Test
+    void createRequest_forDifferentTypesOnSameTable_shouldCreateBothAsSeparatePendingRequests() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String slug = getSlug(ownerToken);
+        String tableId = createTable(ownerToken, 1);
+
+        CreateTableRequestRequest callWaiter = new CreateTableRequestRequest();
+        callWaiter.setType(TableRequestType.CALL_WAITER);
+        mockMvc.perform(post("/api/v1/public/menu/" + slug + "/tables/" + tableId + "/requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(callWaiter)))
+                .andExpect(status().isCreated());
+
+        CreateTableRequestRequest requestBill = new CreateTableRequestRequest();
+        requestBill.setType(TableRequestType.REQUEST_BILL);
+        mockMvc.perform(post("/api/v1/public/menu/" + slug + "/tables/" + tableId + "/requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBill)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.type").value("REQUEST_BILL"));
+
+        String waiterToken = tokenFor(createUserDirectly(userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow(), UserRole.WAITER));
+        mockMvc.perform(get("/api/v1/table-requests")
+                        .header("Authorization", "Bearer " + waiterToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(2)));
+    }
+
+    @Test
     void listPending_asKitchen_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
