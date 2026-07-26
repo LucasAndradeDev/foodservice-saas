@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -87,6 +89,9 @@ public class ProductService {
         if (request.getActive() != null) {
             product.setActive(request.getActive());
         }
+        if (request.getSoldOut() != null) {
+            product.setSoldOutAt(request.getSoldOut() ? OffsetDateTime.now() : null);
+        }
 
         return toResponse(productRepository.save(product));
     }
@@ -120,6 +125,13 @@ public class ProductService {
                 .imageUrl(product.getImageUrl())
                 .price(product.getPrice())
                 .active(product.getActive())
+                .soldOutToday(isSoldOutToday(product))
                 .build();
+    }
+
+    private boolean isSoldOutToday(Product product) {
+        return product.getSoldOutAt() != null
+                && product.getSoldOutAt().atZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
+                    .equals(OffsetDateTime.now().atZoneSameInstant(ZoneId.systemDefault()).toLocalDate());
     }
 }

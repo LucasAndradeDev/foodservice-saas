@@ -180,7 +180,10 @@ export function PublicMenuPage() {
             </h2>
             <div className="space-y-3">
               {category.products.map((product) => (
-                <div key={product.id} className="flex gap-3 rounded-lg border border-gray-200 bg-white p-3">
+                <div
+                  key={product.id}
+                  className={`flex gap-3 rounded-lg border border-gray-200 bg-white p-3 ${product.soldOut ? 'opacity-60' : ''}`}
+                >
                   {product.imageUrl && (
                     <img
                       src={product.imageUrl}
@@ -198,26 +201,32 @@ export function PublicMenuPage() {
                     {product.description && (
                       <p className="mt-1 text-sm text-gray-500">{product.description}</p>
                     )}
-                    {canOrder && (
-                      <button
-                        type="button"
-                        onClick={() => addToCart(product)}
-                        style={justAddedId === product.id ? undefined : { borderColor: accentColor, color: accentColor }}
-                        className={`mt-2 flex items-center gap-1 rounded-md border px-3 py-1 text-xs font-medium transition-colors duration-150 ${
-                          justAddedId === product.id
-                            ? 'border-green-600 bg-green-50 text-green-700'
-                            : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        {justAddedId === product.id ? (
-                          <>
-                            <Check className="h-3.5 w-3.5" />
-                            Adicionado!
-                          </>
-                        ) : (
-                          'Adicionar'
-                        )}
-                      </button>
+                    {product.soldOut ? (
+                      <span className="mt-2 inline-block rounded-md bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                        Esgotado hoje
+                      </span>
+                    ) : (
+                      canOrder && (
+                        <button
+                          type="button"
+                          onClick={() => addToCart(product)}
+                          style={justAddedId === product.id ? undefined : { borderColor: accentColor, color: accentColor }}
+                          className={`mt-2 flex items-center gap-1 rounded-md border px-3 py-1 text-xs font-medium transition-colors duration-150 ${
+                            justAddedId === product.id
+                              ? 'border-green-600 bg-green-50 text-green-700'
+                              : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          {justAddedId === product.id ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              Adicionado!
+                            </>
+                          ) : (
+                            'Adicionar'
+                          )}
+                        </button>
+                      )
                     )}
                   </div>
                 </div>

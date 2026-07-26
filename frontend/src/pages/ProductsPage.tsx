@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
-import { CheckCircle2, Circle, Package, Pencil, Power, Trash2 } from 'lucide-react'
+import { Ban, CheckCircle2, Circle, Package, Pencil, Power, Trash2 } from 'lucide-react'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { listCategories } from '../api/categories'
@@ -127,8 +127,8 @@ export function ProductsPage() {
     setError(null)
     const payload = {
       name,
-      description: description || undefined,
-      imageUrl: photoUrl || undefined,
+      description,
+      imageUrl: photoUrl,
       price: Number(price),
       categoryId,
     }
@@ -144,6 +144,10 @@ export function ProductsPage() {
 
   function toggleActive(product: Product) {
     updateMutation.mutate({ id: product.id, payload: { active: !product.active } })
+  }
+
+  function toggleSoldOut(product: Product) {
+    updateMutation.mutate({ id: product.id, payload: { soldOut: !product.soldOutToday } })
   }
 
   function handleDelete(product: Product) {
@@ -257,13 +261,21 @@ export function ProductsPage() {
                       </span>
                     </span>
                   </span>
-                  <span
-                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                      product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                    }`}
-                  >
-                    {product.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
-                    {product.active ? 'Ativo' : 'Inativo'}
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    <span
+                      className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
+                        product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {product.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
+                      {product.active ? 'Ativo' : 'Inativo'}
+                    </span>
+                    {product.soldOutToday && (
+                      <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                        <Ban className="h-3 w-3" />
+                        Esgotado hoje
+                      </span>
+                    )}
                   </span>
                 </div>
                 {canManage && (
@@ -271,6 +283,7 @@ export function ProductsPage() {
                     product={product}
                     onEdit={() => openEditForm(product)}
                     onToggleActive={() => toggleActive(product)}
+                    onToggleSoldOut={() => toggleSoldOut(product)}
                     onDelete={() => handleDelete(product)}
                   />
                 )}
@@ -306,13 +319,21 @@ export function ProductsPage() {
                     <td className="px-4 py-2 text-gray-600">{categoryName(product.categoryId)}</td>
                     <td className="px-4 py-2 text-gray-600">{currencyFormatter.format(product.price)}</td>
                     <td className="px-4 py-2">
-                      <span
-                        className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                          product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
-                        {product.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
-                        {product.active ? 'Ativo' : 'Inativo'}
+                      <span className="flex w-fit flex-col items-start gap-1">
+                        <span
+                          className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
+                            product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                          }`}
+                        >
+                          {product.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
+                          {product.active ? 'Ativo' : 'Inativo'}
+                        </span>
+                        {product.soldOutToday && (
+                          <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                            <Ban className="h-3 w-3" />
+                            Esgotado hoje
+                          </span>
+                        )}
                       </span>
                     </td>
                     {canManage && (
@@ -321,6 +342,7 @@ export function ProductsPage() {
                           product={product}
                           onEdit={() => openEditForm(product)}
                           onToggleActive={() => toggleActive(product)}
+                          onToggleSoldOut={() => toggleSoldOut(product)}
                           onDelete={() => handleDelete(product)}
                           align="end"
                         />
@@ -439,11 +461,12 @@ interface ProductActionButtonsProps {
   product: Product
   onEdit: () => void
   onToggleActive: () => void
+  onToggleSoldOut: () => void
   onDelete: () => void
   align?: 'start' | 'end'
 }
 
-function ProductActionButtons({ product, onEdit, onToggleActive, onDelete, align = 'start' }: ProductActionButtonsProps) {
+function ProductActionButtons({ product, onEdit, onToggleActive, onToggleSoldOut, onDelete, align = 'start' }: ProductActionButtonsProps) {
   return (
     <div className={`flex items-center gap-1 ${align === 'end' ? 'justify-end' : ''}`}>
       <button
@@ -463,6 +486,15 @@ function ProductActionButtons({ product, onEdit, onToggleActive, onDelete, align
         className={`rounded-md p-1.5 hover:bg-gray-100 ${product.active ? 'text-gray-500 hover:text-amber-700' : 'text-gray-400 hover:text-green-700'}`}
       >
         <Power className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onToggleSoldOut}
+        title={product.soldOutToday ? 'Remover "esgotado hoje"' : 'Marcar como esgotado hoje'}
+        aria-label={product.soldOutToday ? 'Remover "esgotado hoje"' : 'Marcar como esgotado hoje'}
+        className={`rounded-md p-1.5 hover:bg-gray-100 ${product.soldOutToday ? 'text-amber-600 hover:text-amber-700' : 'text-gray-400 hover:text-amber-700'}`}
+      >
+        <Ban className="h-4 w-4" />
       </button>
       <button
         type="button"

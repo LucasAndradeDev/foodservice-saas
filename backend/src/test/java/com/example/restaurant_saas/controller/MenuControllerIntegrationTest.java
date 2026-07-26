@@ -128,6 +128,27 @@ class MenuControllerIntegrationTest {
     }
 
     @Test
+    void getPublicMenu_withSoldOutProduct_shouldStillListItButFlagged() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String categoryId = createCategory(token, "Burgers");
+        String productId = createProduct(token, categoryId, "Cheeseburger", "25.90", null);
+
+        UpdateProductRequest markSoldOut = new UpdateProductRequest();
+        markSoldOut.setSoldOut(true);
+        mockMvc.perform(put("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(markSoldOut)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/public/menu/" + slug))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories[0].products", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.categories[0].products[0].soldOut").value(true));
+    }
+
+    @Test
     void getPublicMenu_withEmptyCategory_shouldExcludeIt() throws Exception {
         String token = registerOwnerAndGetToken();
         String slug = getSlug(token);

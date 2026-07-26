@@ -25,4 +25,6 @@ public class UpdateProductRequest {
     private UUID categoryId;
 
     private Boolean active;
+
+    private Boolean soldOut;
 }

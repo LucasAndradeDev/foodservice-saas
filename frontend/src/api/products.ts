@@ -9,6 +9,7 @@ export interface Product {
   imageUrl: string | null
   price: number
   active: boolean
+  soldOutToday: boolean
 }
 
 export interface ProductFilters {
@@ -33,7 +34,7 @@ export function createProduct(payload: ProductPayload) {
   return http.post<Product>('/products', payload).then((res) => res.data)
 }
 
-export function updateProduct(id: string, payload: Partial<ProductPayload & { active: boolean }>) {
+export function updateProduct(id: string, payload: Partial<ProductPayload & { active: boolean; soldOut: boolean }>) {
   return http.put<Product>(`/products/${id}`, payload).then((res) => res.data)
 }
 
