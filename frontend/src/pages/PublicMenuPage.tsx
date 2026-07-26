@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell, Check, Wallet } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
@@ -7,6 +7,7 @@ import { createTableRequest, type TableRequestType } from '../api/tableRequests'
 import { Modal } from '../components/Modal'
 
 const TABLE_REQUEST_COOLDOWN_MS = 60000
+const POLL_INTERVAL_MS = 4000
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -24,6 +25,7 @@ interface CartItem {
 
 export function PublicMenuPage() {
   const { slug, tableId } = useParams<{ slug: string; tableId?: string }>()
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [cart, setCart] = useState<CartItem[]>([])
   const [isCartOpen, setIsCartOpen] = useState(false)
@@ -39,6 +41,8 @@ export function PublicMenuPage() {
     queryFn: () => getPublicMenu(slug!, tableId),
     enabled: !!slug,
     retry: false,
+    refetchInterval: POLL_INTERVAL_MS,
+    refetchIntervalInBackground: true,
   })
 
   const filteredCategories = useMemo(() => {
@@ -75,6 +79,7 @@ export function PublicMenuPage() {
       setOrderError(null)
       setOrderSuccess(true)
       setTimeout(() => setOrderSuccess(false), 4000)
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', slug, tableId] })
     },
     onError: () => setOrderError('Não foi possível enviar o pedido. Tente novamente.'),
   })
@@ -148,6 +153,7 @@ export function PublicMenuPage() {
 
   const accentColor = menu.primaryColor || undefined
   const canOrder = !!tableId && !!menu.table
+  const canRequestBill = canOrder && !!menu.table?.hasDeliveredItems
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
   const cartTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
 
@@ -268,30 +274,32 @@ export function PublicMenuPage() {
             cartCount > 0 && !isCartOpen ? 'bottom-20' : 'bottom-4'
           }`}
         >
-          <button
-            type="button"
-            onClick={() => tableRequestMutation.mutate('REQUEST_BILL')}
-            disabled={
-              (tableRequestMutation.isPending && tableRequestMutation.variables === 'REQUEST_BILL') ||
-              requestedTypes.has('REQUEST_BILL')
-            }
-            style={requestedTypes.has('REQUEST_BILL') ? undefined : { borderColor: accentColor, color: accentColor }}
-            className={`flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-sm font-medium shadow-lg transition-colors duration-150 ${
-              requestedTypes.has('REQUEST_BILL') ? 'border-green-600 bg-green-50 text-green-700' : 'hover:bg-gray-50'
-            }`}
-          >
-            {requestedTypes.has('REQUEST_BILL') ? (
-              <>
-                <Check className="h-4 w-4" />
-                Pedido!
-              </>
-            ) : (
-              <>
-                <Wallet className="h-4 w-4" />
-                Pedir a conta
-              </>
-            )}
-          </button>
+          {canRequestBill && (
+            <button
+              type="button"
+              onClick={() => tableRequestMutation.mutate('REQUEST_BILL')}
+              disabled={
+                (tableRequestMutation.isPending && tableRequestMutation.variables === 'REQUEST_BILL') ||
+                requestedTypes.has('REQUEST_BILL')
+              }
+              style={requestedTypes.has('REQUEST_BILL') ? undefined : { borderColor: accentColor, color: accentColor }}
+              className={`flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-sm font-medium shadow-lg transition-colors duration-150 ${
+                requestedTypes.has('REQUEST_BILL') ? 'border-green-600 bg-green-50 text-green-700' : 'hover:bg-gray-50'
+              }`}
+            >
+              {requestedTypes.has('REQUEST_BILL') ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Pedido!
+                </>
+              ) : (
+                <>
+                  <Wallet className="h-4 w-4" />
+                  Pedir a conta
+                </>
+              )}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => tableRequestMutation.mutate('CALL_WAITER')}

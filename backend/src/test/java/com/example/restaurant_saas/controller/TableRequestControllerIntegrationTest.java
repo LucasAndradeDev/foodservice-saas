@@ -2,6 +2,10 @@ package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.UserRole;
+import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
+import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
+import com.example.restaurant_saas.dto.request.CreateOrderRequest;
+import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequestRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
@@ -20,6 +24,10 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -83,6 +91,55 @@ class TableRequestControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private String createProduct(String token) throws Exception {
+        CreateCategoryRequest category = new CreateCategoryRequest();
+        category.setName("Burgers");
+        MvcResult categoryResult = mockMvc.perform(post("/api/v1/categories")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(category)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String categoryId = JsonPath.read(categoryResult.getResponse().getContentAsString(), "$.id");
+
+        CreateProductRequest product = new CreateProductRequest();
+        product.setName("Cheeseburger");
+        product.setPrice(new BigDecimal("25.90"));
+        product.setCategoryId(UUID.fromString(categoryId));
+        MvcResult productResult = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(product)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(productResult.getResponse().getContentAsString(), "$.id");
+    }
+
+    private String placeOrder(String slug, String tableId, String productId) throws Exception {
+        CreateOrderItemRequest item = new CreateOrderItemRequest();
+        item.setProductId(UUID.fromString(productId));
+        item.setQuantity(1);
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setItems(List.of(item));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/public/menu/" + slug + "/tables/" + tableId + "/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.items[0].id");
+    }
+
+    private void deliverItem(String token, String itemId) throws Exception {
+        for (String status : new String[] {"PREPARING", "READY", "DELIVERED"}) {
+            mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\":\"" + status + "\"}"))
+                    .andExpect(status().isOk());
+        }
     }
 
     private User createUserDirectly(User owner, UserRole role) {
@@ -209,10 +266,43 @@ class TableRequestControllerIntegrationTest {
     }
 
     @Test
+    void createRequest_withTypeRequestBill_whenTableHasNoOrders_shouldFail() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String slug = getSlug(ownerToken);
+        String tableId = createTable(ownerToken, 1);
+
+        CreateTableRequestRequest requestBill = new CreateTableRequestRequest();
+        requestBill.setType(TableRequestType.REQUEST_BILL);
+        mockMvc.perform(post("/api/v1/public/menu/" + slug + "/tables/" + tableId + "/requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBill)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createRequest_withTypeRequestBill_whenOrderStillInKitchen_shouldFail() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String slug = getSlug(ownerToken);
+        String tableId = createTable(ownerToken, 1);
+        String productId = createProduct(ownerToken);
+        placeOrder(slug, tableId, productId);
+
+        CreateTableRequestRequest requestBill = new CreateTableRequestRequest();
+        requestBill.setType(TableRequestType.REQUEST_BILL);
+        mockMvc.perform(post("/api/v1/public/menu/" + slug + "/tables/" + tableId + "/requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestBill)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void createRequest_forDifferentTypesOnSameTable_shouldCreateBothAsSeparatePendingRequests() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String slug = getSlug(ownerToken);
         String tableId = createTable(ownerToken, 1);
+        String productId = createProduct(ownerToken);
+        String itemId = placeOrder(slug, tableId, productId);
+        deliverItem(ownerToken, itemId);
 
         CreateTableRequestRequest callWaiter = new CreateTableRequestRequest();
         callWaiter.setType(TableRequestType.CALL_WAITER);

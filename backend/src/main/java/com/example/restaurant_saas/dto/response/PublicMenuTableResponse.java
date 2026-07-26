@@ -10,4 +10,5 @@ import java.util.UUID;
 public class PublicMenuTableResponse {
     private UUID id;
     private Integer number;
+    private boolean hasDeliveredItems;
 }

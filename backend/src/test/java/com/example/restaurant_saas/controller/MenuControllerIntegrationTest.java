@@ -1,7 +1,10 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
+import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
+import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
+import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -86,6 +89,43 @@ class MenuControllerIntegrationTest {
         return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
     }
 
+    private String createTable(String token, int number) throws Exception {
+        CreateTableRequest request = new CreateTableRequest();
+        request.setNumber(number);
+        MvcResult result = mockMvc.perform(post("/api/v1/tables")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private String placeOrder(String slug, String tableId, String productId) throws Exception {
+        CreateOrderItemRequest item = new CreateOrderItemRequest();
+        item.setProductId(UUID.fromString(productId));
+        item.setQuantity(1);
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setItems(java.util.List.of(item));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/public/menu/" + slug + "/tables/" + tableId + "/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.items[0].id");
+    }
+
+    private void deliverItem(String token, String itemId) throws Exception {
+        for (String status : new String[] {"PREPARING", "READY", "DELIVERED"}) {
+            mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\":\"" + status + "\"}"))
+                    .andExpect(status().isOk());
+        }
+    }
+
     private void deactivateProduct(String token, String productId) throws Exception {
         UpdateProductRequest request = new UpdateProductRequest();
         request.setActive(false);
@@ -160,6 +200,48 @@ class MenuControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.categories", org.hamcrest.Matchers.hasSize(1)))
                 .andExpect(jsonPath("$.categories[0].name").value("Burgers"));
+    }
+
+    @Test
+    void getPublicMenu_withTableAndNoOrders_shouldReportHasDeliveredItemsFalse() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String tableId = createTable(token, 1);
+
+        mockMvc.perform(get("/api/v1/public/menu/" + slug).param("tableId", tableId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.table.hasDeliveredItems").value(false));
+    }
+
+    @Test
+    void getPublicMenu_withOrderStillInKitchen_shouldReportHasDeliveredItemsFalse() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String tableId = createTable(token, 1);
+        String categoryId = createCategory(token, "Burgers");
+        String productId = createProduct(token, categoryId, "Cheeseburger", "25.90", null);
+
+        placeOrder(slug, tableId, productId);
+
+        mockMvc.perform(get("/api/v1/public/menu/" + slug).param("tableId", tableId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.table.hasDeliveredItems").value(false));
+    }
+
+    @Test
+    void getPublicMenu_withDeliveredItem_shouldReportHasDeliveredItemsTrue() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String tableId = createTable(token, 1);
+        String categoryId = createCategory(token, "Burgers");
+        String productId = createProduct(token, categoryId, "Cheeseburger", "25.90", null);
+
+        String itemId = placeOrder(slug, tableId, productId);
+        deliverItem(token, itemId);
+
+        mockMvc.perform(get("/api/v1/public/menu/" + slug).param("tableId", tableId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.table.hasDeliveredItems").value(true));
     }
 
     @Test

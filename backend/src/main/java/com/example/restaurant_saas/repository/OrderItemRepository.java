@@ -19,6 +19,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     Optional<OrderItem> findByIdAndOrder_Restaurant_Id(UUID id, UUID restaurantId);
     List<OrderItem> findByOrder_Restaurant_IdAndStatusInOrderByCreatedAtAsc(UUID restaurantId, List<ItemStatus> statuses);
     boolean existsByOrder_Tab_IdAndStatusNotIn(UUID tabId, List<ItemStatus> statuses);
+    boolean existsByOrder_Tab_IdAndStatus(UUID tabId, ItemStatus status);
     boolean existsByProductId(UUID productId);
     long countByOrder_Restaurant_IdAndStatusIn(UUID restaurantId, List<ItemStatus> statuses);
 

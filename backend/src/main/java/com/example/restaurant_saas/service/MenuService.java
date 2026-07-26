@@ -8,10 +8,13 @@ import com.example.restaurant_saas.dto.response.PublicMenuCategoryResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuProductResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuTableResponse;
+import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.repository.CategoryRepository;
+import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.ProductRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.RestaurantTableRepository;
+import com.example.restaurant_saas.repository.TabRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +32,8 @@ public class MenuService {
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
     private final RestaurantTableRepository tableRepository;
+    private final TabRepository tabRepository;
+    private final OrderItemRepository orderItemRepository;
 
     @Transactional(readOnly = true)
     public PublicMenuResponse getPublicMenu(String slug, UUID tableId) {
@@ -51,9 +56,14 @@ public class MenuService {
             RestaurantTable table = tableRepository.findByIdAndRestaurantId(tableId, restaurant.getId())
                     .filter(t -> Boolean.TRUE.equals(t.getActive()))
                     .orElseThrow(() -> new IllegalArgumentException("Table not found."));
+            boolean hasDeliveredItems = tabRepository.findOpenTabByRestaurantIdAndTableId(restaurant.getId(), table.getId())
+                    .map(tab -> orderItemRepository.existsByOrder_Tab_IdAndStatus(tab.getId(), ItemStatus.DELIVERED))
+                    .orElse(false);
+
             tableResponse = PublicMenuTableResponse.builder()
                     .id(table.getId())
                     .number(table.getNumber())
+                    .hasDeliveredItems(hasDeliveredItems)
                     .build();
         }
 

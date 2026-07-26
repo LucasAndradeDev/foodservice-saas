@@ -18,6 +18,7 @@ export interface PublicMenuCategory {
 export interface PublicMenuTable {
   id: string
   number: number
+  hasDeliveredItems: boolean
 }
 
 export interface PublicMenu {
