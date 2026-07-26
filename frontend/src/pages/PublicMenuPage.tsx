@@ -1,9 +1,12 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Check } from 'lucide-react'
+import { Bell, Check } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getPublicMenu, submitPublicOrder, type PublicMenuProduct } from '../api/publicMenu'
+import { createTableRequest } from '../api/tableRequests'
 import { Modal } from '../components/Modal'
+
+const WAITER_CALL_COOLDOWN_MS = 60000
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -28,6 +31,8 @@ export function PublicMenuPage() {
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [justAddedId, setJustAddedId] = useState<string | null>(null)
   const justAddedTimeoutRef = useRef<number | null>(null)
+  const [waiterCalled, setWaiterCalled] = useState(false)
+  const waiterCalledTimeoutRef = useRef<number | null>(null)
 
   const { data: menu, isLoading, isError } = useQuery({
     queryKey: ['publicMenu', slug, tableId],
@@ -72,6 +77,15 @@ export function PublicMenuPage() {
       setTimeout(() => setOrderSuccess(false), 4000)
     },
     onError: () => setOrderError('Não foi possível enviar o pedido. Tente novamente.'),
+  })
+
+  const callWaiterMutation = useMutation({
+    mutationFn: () => createTableRequest(slug!, tableId!, 'CALL_WAITER'),
+    onSuccess: () => {
+      setWaiterCalled(true)
+      if (waiterCalledTimeoutRef.current) window.clearTimeout(waiterCalledTimeoutRef.current)
+      waiterCalledTimeoutRef.current = window.setTimeout(() => setWaiterCalled(false), WAITER_CALL_COOLDOWN_MS)
+    },
   })
 
   function addToCart(product: PublicMenuProduct) {
@@ -240,6 +254,30 @@ export function PublicMenuPage() {
         <div className="fixed inset-x-0 top-4 z-30 mx-auto w-fit rounded-full bg-green-600 px-4 py-2 text-sm text-white shadow-lg">
           Pedido enviado! Já foi pra cozinha.
         </div>
+      )}
+
+      {canOrder && (
+        <button
+          type="button"
+          onClick={() => callWaiterMutation.mutate()}
+          disabled={callWaiterMutation.isPending || waiterCalled}
+          style={waiterCalled ? undefined : { borderColor: accentColor, color: accentColor }}
+          className={`fixed right-4 z-20 flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-sm font-medium shadow-lg transition-colors duration-150 ${
+            cartCount > 0 && !isCartOpen ? 'bottom-20' : 'bottom-4'
+          } ${waiterCalled ? 'border-green-600 bg-green-50 text-green-700' : 'hover:bg-gray-50'}`}
+        >
+          {waiterCalled ? (
+            <>
+              <Check className="h-4 w-4" />
+              Chamado!
+            </>
+          ) : (
+            <>
+              <Bell className="h-4 w-4" />
+              Chamar garçom
+            </>
+          )}
+        </button>
       )}
 
       {canOrder && cartCount > 0 && !isCartOpen && (

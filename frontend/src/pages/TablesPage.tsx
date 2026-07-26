@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  Bell,
   CheckCircle2,
   Clock,
   Coffee,
@@ -11,8 +12,9 @@ import {
   UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react'
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { acknowledgeTableRequest, listPendingTableRequests, type TableRequest } from '../api/tableRequests'
 import {
   createTable,
   createTablesBulk,
@@ -56,6 +58,23 @@ const STATUS_PILL_STYLES: Record<TableStatus, string> = {
 }
 
 const POLL_INTERVAL_MS = 4000
+
+function playCallAlert() {
+  try {
+    const ctx = new AudioContext()
+    const oscillator = ctx.createOscillator()
+    const gain = ctx.createGain()
+    oscillator.type = 'sine'
+    oscillator.frequency.value = 880
+    gain.gain.setValueAtTime(0.15, ctx.currentTime)
+    oscillator.connect(gain)
+    gain.connect(ctx.destination)
+    oscillator.start()
+    oscillator.stop(ctx.currentTime + 0.2)
+  } catch {
+    // Audio isn't critical to the feature; ignore if the browser blocks it.
+  }
+}
 
 interface StatPillProps {
   icon: LucideIcon
@@ -101,6 +120,33 @@ export function TablesPage() {
   const { data: restaurant } = useQuery({
     queryKey: ['restaurant'],
     queryFn: getMyRestaurant,
+  })
+
+  const { data: pendingRequests } = useQuery({
+    queryKey: ['tableRequests', 'pending'],
+    queryFn: listPendingTableRequests,
+    enabled: canChangeStatus,
+    refetchInterval: POLL_INTERVAL_MS,
+    refetchIntervalInBackground: true,
+  })
+
+  const seenRequestIdsRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (!pendingRequests) return
+    const hasNewRequest = pendingRequests.some((request) => !seenRequestIdsRef.current.has(request.id))
+    if (hasNewRequest) playCallAlert()
+    seenRequestIdsRef.current = new Set(pendingRequests.map((request) => request.id))
+  }, [pendingRequests])
+
+  const pendingRequestByTable = useMemo(() => {
+    const map = new Map<string, TableRequest>()
+    pendingRequests?.forEach((request) => map.set(request.tableId, request))
+    return map
+  }, [pendingRequests])
+
+  const acknowledgeMutation = useMutation({
+    mutationFn: acknowledgeTableRequest,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tableRequests'] }),
   })
 
   const tableTabMap = useMemo(() => {
@@ -438,22 +484,38 @@ export function TablesPage() {
             const isSelectableNow = !isSelectingTables || table.status === 'FREE'
             const tab = tableTabMap.get(table.id)
             const StatusIcon = STATUS_ICONS[table.status]
+            const pendingRequest = pendingRequestByTable.get(table.id)
             return (
-              <button
-                key={table.id}
-                type="button"
-                disabled={(!canChangeStatus && !canManage && !canOpenTab) || !isSelectableNow}
-                onClick={() => handleTableClick(table)}
-                className={`flex flex-col items-center gap-1 rounded-xl border-2 p-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}
-              >
-                <StatusIcon className="h-5 w-5" />
-                <div className="text-xl font-bold leading-none">{table.number}</div>
-                <div className="text-[11px] font-semibold tracking-wide uppercase">{STATUS_LABELS[table.status]}</div>
-                {tab && table.status === 'OCCUPIED' && (
-                  <div className="text-[11px] opacity-75">há {minutesSince(tab.openedAt)} min</div>
+              <div key={table.id} className="relative">
+                <button
+                  type="button"
+                  disabled={(!canChangeStatus && !canManage && !canOpenTab) || !isSelectableNow}
+                  onClick={() => handleTableClick(table)}
+                  className={`flex w-full flex-col items-center gap-1 rounded-xl border-2 p-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}
+                >
+                  <StatusIcon className="h-5 w-5" />
+                  <div className="text-xl font-bold leading-none">{table.number}</div>
+                  <div className="text-[11px] font-semibold tracking-wide uppercase">{STATUS_LABELS[table.status]}</div>
+                  {tab && table.status === 'OCCUPIED' && (
+                    <div className="text-[11px] opacity-75">há {minutesSince(tab.openedAt)} min</div>
+                  )}
+                  {!table.active && <div className="text-[11px]">Inativa</div>}
+                </button>
+                {pendingRequest && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      acknowledgeMutation.mutate(pendingRequest.id)
+                    }}
+                    title="Marcar como atendido"
+                    className="absolute -right-2 -top-2 z-10 flex animate-pulse items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-800 shadow hover:bg-amber-200"
+                  >
+                    <Bell className="h-3 w-3" />
+                    Atendido
+                  </button>
                 )}
-                {!table.active && <div className="text-[11px]">Inativa</div>}
-              </button>
+              </div>
             )
           })}
         </div>
