@@ -4,6 +4,13 @@ import type { ApplyDiscountPayload, DiscountType } from './orders'
 export type TabStatus = 'OPEN' | 'CLOSED' | 'MERGED'
 export type PaymentMethod = 'PIX' | 'CASH' | 'DEBIT_CARD' | 'CREDIT_CARD'
 
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  PIX: 'Pix',
+  CASH: 'Dinheiro',
+  DEBIT_CARD: 'Cartão de débito',
+  CREDIT_CARD: 'Cartão de crédito',
+}
+
 export interface TabTableSummary {
   id: string
   number: number
@@ -27,6 +34,9 @@ export interface Tab {
   discountAppliedAt: string | null
   serviceChargePercentage: number | null
   serviceChargeAmount: number | null
+  paymentCancelledBy: string | null
+  paymentCancelledAt: string | null
+  paymentCancelReason: string | null
 }
 
 /** Rounds to cents, avoiding binary floating-point artifacts (e.g. 51.3 + 38.9 === 90.19999999999999 in JS). */
@@ -71,6 +81,18 @@ export function unmergeTabs(targetTabId: string, sourceTabId: string) {
 
 export function payTab(id: string, paymentMethod: PaymentMethod, paidAmount: number, serviceChargePercentage?: number) {
   return http.patch<Tab>(`/tabs/${id}/pay`, { paymentMethod, paidAmount, serviceChargePercentage }).then((res) => res.data)
+}
+
+export function cancelTabPayment(
+  id: string,
+  reason: string,
+  paymentMethod: PaymentMethod,
+  paidAmount: number,
+  serviceChargePercentage?: number,
+) {
+  return http
+    .patch<Tab>(`/tabs/${id}/cancel-payment`, { reason, paymentMethod, paidAmount, serviceChargePercentage })
+    .then((res) => res.data)
 }
 
 export function markTabReceiptPrinted(id: string) {

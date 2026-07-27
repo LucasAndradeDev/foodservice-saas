@@ -77,6 +77,15 @@ public class Tab {
     @Column(name = "service_charge_amount", precision = 10, scale = 2)
     private BigDecimal serviceChargeAmount;
 
+    @Column(name = "payment_cancelled_by", length = 255)
+    private String paymentCancelledBy;
+
+    @Column(name = "payment_cancelled_at")
+    private OffsetDateTime paymentCancelledAt;
+
+    @Column(name = "payment_cancel_reason", length = 255)
+    private String paymentCancelReason;
+
     @ManyToMany
     @JoinTable(
             name = "tab_tables",

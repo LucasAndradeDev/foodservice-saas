@@ -5,6 +5,7 @@ import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
 import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
+import com.example.restaurant_saas.dto.request.CancelPaymentRequest;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
@@ -188,6 +189,25 @@ class TabControllerIntegrationTest {
         PayTabRequest request = new PayTabRequest();
         request.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
         request.setPaidAmount(new BigDecimal(paidAmount));
+        if (serviceChargePercentage != null) {
+            request.setServiceChargePercentage(new BigDecimal(serviceChargePercentage));
+        }
+        return objectMapper.writeValueAsString(request);
+    }
+
+    private String cancelPaymentRequestBody(String reason, String paymentMethod, String paidAmount) throws Exception {
+        return cancelPaymentRequestBody(reason, paymentMethod, paidAmount, null);
+    }
+
+    private String cancelPaymentRequestBody(String reason, String paymentMethod, String paidAmount, String serviceChargePercentage) throws Exception {
+        CancelPaymentRequest request = new CancelPaymentRequest();
+        request.setReason(reason);
+        if (paymentMethod != null) {
+            request.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
+        }
+        if (paidAmount != null) {
+            request.setPaidAmount(new BigDecimal(paidAmount));
+        }
         if (serviceChargePercentage != null) {
             request.setServiceChargePercentage(new BigDecimal(serviceChargePercentage));
         }
@@ -1229,6 +1249,147 @@ class TabControllerIntegrationTest {
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payTabRequestBody("CASH", "100.00", "10")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cancelPayment_asOwner_shouldCorrectPaymentAndStayClosed() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "0")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"));
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel-payment")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelPaymentRequestBody("Registrei a forma errada", "PIX", "0")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.closedAt").exists())
+                .andExpect(jsonPath("$.paymentMethod").value("PIX"))
+                .andExpect(jsonPath("$.paidAmount").value(0))
+                .andExpect(jsonPath("$.paidAt").exists())
+                .andExpect(jsonPath("$.paymentCancelledBy").value("Owner"))
+                .andExpect(jsonPath("$.paymentCancelledAt").exists())
+                .andExpect(jsonPath("$.paymentCancelReason").value("Registrei a forma errada"));
+
+        // The table was already freed by the original payment; correcting the payment record
+        // doesn't touch it either way.
+        mockMvc.perform(get("/api/v1/tables/" + tableId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.status").value("FREE"));
+    }
+
+    @Test
+    void cancelPayment_worksEvenWhenTableIsNowOccupiedByAnotherTab() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "0")))
+                .andExpect(status().isOk());
+
+        // A new group sits down at the same table before the mistake is noticed.
+        openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel-payment")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelPaymentRequestBody("Registrei a forma errada", "PIX", "0")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.paymentMethod").value("PIX"));
+
+        // Untouched: still belongs to the new group's tab.
+        mockMvc.perform(get("/api/v1/tables/" + tableId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.status").value("OCCUPIED"));
+    }
+
+    @Test
+    void cancelPayment_withAmountNotMatchingTotal_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "25.90")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel-payment")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelPaymentRequestBody("Valor errado", "PIX", "10.00")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cancelPayment_onOpenTab_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel-payment")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelPaymentRequestBody("Motivo qualquer", "PIX", "0")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cancelPayment_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "0")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel-payment")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelPaymentRequestBody("Motivo qualquer", "PIX", "0")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void cancelPayment_withoutReason_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "0")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel-payment")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(cancelPaymentRequestBody(null, "PIX", "0")))
                 .andExpect(status().isBadRequest());
     }
 }

@@ -12,6 +12,7 @@ import com.example.restaurant_saas.domain.enums.TableStatus;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
 import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
+import com.example.restaurant_saas.dto.request.CancelPaymentRequest;
 import com.example.restaurant_saas.dto.request.MergeTabRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PayTabRequest;
@@ -254,10 +255,57 @@ public class TabService {
         tab.setPaidAt(now);
         tab.setServiceChargePercentage(serviceChargePercentage);
         tab.setServiceChargeAmount(serviceChargePercentage != null ? serviceChargeAmount : null);
+        tab.setPaymentCancelledBy(null);
+        tab.setPaymentCancelledAt(null);
+        tab.setPaymentCancelReason(null);
         tab = tabRepository.save(tab);
 
         tab.getTables().forEach(table -> table.setStatus(TableStatus.FREE));
         tableRepository.saveAll(tab.getTables());
+
+        return toResponse(tab);
+    }
+
+    @Transactional
+    public TabResponse cancelPayment(UUID restaurantId, UUID tabId, String actingUserName, CancelPaymentRequest request) {
+        Tab tab = findByIdAndRestaurant(restaurantId, tabId);
+        if (tab.getStatus() != TabStatus.CLOSED) {
+            throw new IllegalArgumentException("Tab is not closed.");
+        }
+
+        // This corrects a payment recorded by mistake (wrong method, wrong amount) rather than
+        // reopening the tab for service: the tab never leaves CLOSED, and its tables are never
+        // touched. By the time someone reaches this action the table may already be free or serving
+        // someone else entirely, so there's nothing about the floor to reconcile.
+        BigDecimal itemsTotal = computeItemsTotal(restaurantId, tabId);
+        BigDecimal afterDiscount = itemsTotal.subtract(tab.getDiscountAmount(itemsTotal));
+
+        // No role branching needed here (unlike payTab): this endpoint is already OWNER/MANAGER-only.
+        BigDecimal serviceChargePercentage = request.getServiceChargePercentage();
+        BigDecimal serviceChargeAmount = BigDecimal.ZERO;
+        if (serviceChargePercentage != null) {
+            if (serviceChargePercentage.signum() < 0 || serviceChargePercentage.compareTo(BigDecimal.valueOf(100)) > 0) {
+                throw new IllegalArgumentException("Service charge percentage must be between 0 and 100.");
+            }
+            serviceChargeAmount = afterDiscount.multiply(serviceChargePercentage).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal total = afterDiscount.add(serviceChargeAmount);
+        if (total.compareTo(request.getPaidAmount()) != 0) {
+            throw new IllegalArgumentException("Paid amount does not match the tab total.");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        tab.setClosedAt(now);
+        tab.setPaymentMethod(request.getPaymentMethod());
+        tab.setPaidAmount(request.getPaidAmount());
+        tab.setPaidAt(now);
+        tab.setServiceChargePercentage(serviceChargePercentage);
+        tab.setServiceChargeAmount(serviceChargePercentage != null ? serviceChargeAmount : null);
+        tab.setPaymentCancelledBy(actingUserName);
+        tab.setPaymentCancelledAt(now);
+        tab.setPaymentCancelReason(request.getReason());
+        tab = tabRepository.save(tab);
 
         return toResponse(tab);
     }
@@ -357,6 +405,9 @@ public class TabService {
                 .discountAppliedAt(tab.getDiscountAppliedAt())
                 .serviceChargePercentage(tab.getServiceChargePercentage())
                 .serviceChargeAmount(tab.getServiceChargeAmount())
+                .paymentCancelledBy(tab.getPaymentCancelledBy())
+                .paymentCancelledAt(tab.getPaymentCancelledAt())
+                .paymentCancelReason(tab.getPaymentCancelReason())
                 .tables(tab.getTables().stream()
                         .map(table -> TabTableSummary.builder()
                                 .id(table.getId())

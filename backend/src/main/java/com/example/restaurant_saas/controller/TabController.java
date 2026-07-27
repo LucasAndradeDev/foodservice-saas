@@ -3,6 +3,7 @@ package com.example.restaurant_saas.controller;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
 import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
+import com.example.restaurant_saas.dto.request.CancelPaymentRequest;
 import com.example.restaurant_saas.dto.request.MergeTabRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PayTabRequest;
@@ -57,11 +58,11 @@ public class TabController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
-    @Operation(summary = "Open tab", description = "Opens a new tab linked to zero or more tables. An empty tableIds list opens a counter (Balcão) tab, not linked to any table. Otherwise, all tables must exist in the restaurant, be active and FREE; on success, all linked tables become OCCUPIED. The whole operation is atomic: if any table is unavailable, nothing changes.")
+    @Operation(summary = "Open tab", description = "Opens a new tab linked to zero or more tables. An empty tableIds list opens a counter (Balcão) tab, not linked to any table. Otherwise, all tables must exist in the restaurant, be active, FREE, and not already linked to another open tab (can happen right after a payment cancellation, which leaves the table's status untouched); on success, all linked tables become OCCUPIED. The whole operation is atomic: if any table is unavailable, nothing changes.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Tab opened"),
             @ApiResponse(responseCode = "400", description = "Validation error or one or more tables not found in this restaurant"),
-            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission, or one or more tables are inactive or not FREE")
+            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission, or one or more tables are inactive, not FREE, or already linked to an open tab")
     })
     public ResponseEntity<TabResponse> openTab(
             @AuthenticationPrincipal UserDetailsImpl currentUser,
@@ -133,6 +134,22 @@ public class TabController {
             @Valid @RequestBody PayTabRequest request
     ) {
         return ResponseEntity.ok(tabService.payTab(currentUser.getRestaurantId(), id, currentUser.getRole(), request));
+    }
+
+    @PatchMapping("/{id}/cancel-payment")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @Operation(summary = "Correct a payment recorded by mistake", description = "Replaces a closed tab's payment record (method, amount, service charge) with a corrected one in a single step — e.g. the wrong method was picked, or the amount didn't match. The tab stays CLOSED throughout and its tables are never touched: unlike unmerge, this isn't meant to resume service, and by the time someone reaches this action the table may already be free or serving someone else entirely. serviceChargePercentage is honored as sent, since this endpoint is already OWNER/MANAGER-only. Restricted to OWNER and MANAGER; a reason is required for audit.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Payment corrected"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, tab is not closed, reason missing, or corrected amount does not match the tab total"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
+    })
+    public ResponseEntity<TabResponse> cancelPayment(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id,
+            @Valid @RequestBody CancelPaymentRequest request
+    ) {
+        return ResponseEntity.ok(tabService.cancelPayment(currentUser.getRestaurantId(), id, currentUser.getName(), request));
     }
 
     @PatchMapping("/{id}/cancel")

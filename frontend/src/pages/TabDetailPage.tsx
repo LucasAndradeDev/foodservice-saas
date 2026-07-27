@@ -11,6 +11,7 @@ import {
   GitMerge,
   Lock,
   PackageCheck,
+  Pencil,
   Percent,
   Plus,
   Printer,
@@ -30,7 +31,20 @@ import { listModifierGroups } from '../api/productModifiers'
 import { listProducts } from '../api/products'
 import { getMyRestaurant } from '../api/restaurant'
 import { listTables } from '../api/tables'
-import { addTableToTab, cancelTab, getTab, listTabs, mergeTabs, unmergeTabs, type Tab } from '../api/tabs'
+import {
+  addTableToTab,
+  cancelTab,
+  cancelTabPayment,
+  computeDiscountAmount,
+  getTab,
+  listTabs,
+  mergeTabs,
+  PAYMENT_METHOD_LABELS,
+  roundCurrency,
+  unmergeTabs,
+  type PaymentMethod,
+  type Tab,
+} from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
 import { getCategoryIcon } from './publicMenu/categoryIcons'
@@ -142,6 +156,10 @@ export function TabDetailPage() {
   const [discountKind, setDiscountKind] = useState<DiscountType>('FIXED')
   const [discountValue, setDiscountValue] = useState('')
   const [discountReason, setDiscountReason] = useState('')
+  const [isCancellingPayment, setIsCancellingPayment] = useState(false)
+  const [cancelPaymentReason, setCancelPaymentReason] = useState('')
+  const [cancelPaymentMethod, setCancelPaymentMethod] = useState<PaymentMethod>('PIX')
+  const [cancelServiceChargeInput, setCancelServiceChargeInput] = useState('')
 
   const { data: freeTables } = useQuery({
     queryKey: ['tables', 'FREE'],
@@ -189,6 +207,42 @@ export function TabDetailPage() {
     onSuccess: () => navigate('/tables'),
     onError: () => setError('Não foi possível cancelar a comanda.'),
   })
+
+  const cancelPaymentMutation = useMutation({
+    mutationFn: ({
+      reason,
+      method,
+      amount,
+      chargePercentage,
+    }: {
+      reason: string
+      method: PaymentMethod
+      amount: number
+      chargePercentage: number | null
+    }) => cancelTabPayment(tabId!, reason, method, amount, chargePercentage ?? undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tabs', tabId] })
+      setIsCancellingPayment(false)
+    },
+    onError: () => setError('Não foi possível corrigir o pagamento desta comanda. Confira se o valor bate com o total.'),
+  })
+
+  function openCancelPaymentModal() {
+    if (!tab) return
+    setError(null)
+    setCancelPaymentReason('')
+    setCancelPaymentMethod(tab.paymentMethod ?? 'PIX')
+    setCancelServiceChargeInput(tab.serviceChargePercentage != null ? String(tab.serviceChargePercentage) : '')
+    setIsCancellingPayment(true)
+  }
+
+  function handleCancelPayment(event: FormEvent) {
+    event.preventDefault()
+    const reason = cancelPaymentReason.trim()
+    if (!reason) return
+    const chargePercentage = cancelServiceChargeInput.trim() ? Number(cancelServiceChargeInput) : null
+    cancelPaymentMutation.mutate({ reason, method: cancelPaymentMethod, amount: cancelPaymentTotal, chargePercentage })
+  }
 
   function invalidateTabQueries() {
     queryClient.invalidateQueries({ queryKey: ['tabs', tabId] })
@@ -394,6 +448,11 @@ export function TabDetailPage() {
     .reduce((sum, item) => sum + item.netSubtotal, 0)
   const isOpen = tab.status === 'OPEN'
 
+  const cancelServiceChargePercentage = cancelServiceChargeInput.trim() ? Number(cancelServiceChargeInput) : null
+  const cancelAfterDiscount = roundCurrency(grandTotal - computeDiscountAmount(tab.discountType, tab.discountValue, grandTotal))
+  const cancelServiceChargeAmount = roundCurrency((cancelAfterDiscount * (cancelServiceChargePercentage ?? 0)) / 100)
+  const cancelPaymentTotal = roundCurrency(cancelAfterDiscount + cancelServiceChargeAmount)
+
   return (
     <div>
       <button
@@ -458,6 +517,19 @@ export function TabDetailPage() {
             >
               <Plus className="h-4 w-4" />
               Adicionar item
+            </button>
+          </div>
+        )}
+
+        {tab.status === 'CLOSED' && canDiscount && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={openCancelPaymentModal}
+              className="flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+            >
+              <Pencil className="h-4 w-4" />
+              Corrigir pagamento
             </button>
           </div>
         )}
@@ -896,6 +968,85 @@ export function TabDetailPage() {
                 Aplicar
               </button>
             </div>
+          </form>
+        </Modal>
+      )}
+
+      {isCancellingPayment && (
+        <Modal title="Corrigir pagamento" onClose={() => setIsCancellingPayment(false)}>
+          <form onSubmit={handleCancelPayment}>
+            <p className="mb-3 text-sm text-gray-500">
+              Substitui o pagamento registrado por um corrigido. A comanda continua fechada e a mesa não é mexida —
+              use isso pra corrigir forma ou valor errados, não pra retomar o atendimento.
+            </p>
+
+            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="cancel-payment-reason">
+              Motivo
+            </label>
+            <input
+              id="cancel-payment-reason"
+              type="text"
+              required
+              maxLength={255}
+              value={cancelPaymentReason}
+              onChange={(e) => setCancelPaymentReason(e.target.value)}
+              placeholder="Ex.: registrei a forma de pagamento errada"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            />
+
+            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="cancel-payment-method">
+              Forma de pagamento correta
+            </label>
+            <select
+              id="cancel-payment-method"
+              value={cancelPaymentMethod}
+              onChange={(e) => setCancelPaymentMethod(e.target.value as PaymentMethod)}
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            >
+              {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => (
+                <option key={method} value={method}>
+                  {PAYMENT_METHOD_LABELS[method]}
+                </option>
+              ))}
+            </select>
+
+            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="cancel-service-charge">
+              Taxa de serviço (%) <span className="font-normal text-gray-400">(opcional)</span>
+            </label>
+            <input
+              id="cancel-service-charge"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={cancelServiceChargeInput}
+              onChange={(e) => setCancelServiceChargeInput(e.target.value)}
+              placeholder="Sem taxa de serviço"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            />
+
+            <div className="mb-4 space-y-1 border-t border-gray-200 pt-3">
+              {cancelServiceChargePercentage != null && (
+                <div className="flex items-center justify-between text-sm text-gray-500">
+                  <span>Subtotal</span>
+                  <span>{currencyFormatter.format(cancelAfterDiscount)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between text-base font-semibold text-gray-800">
+                <span>Total corrigido</span>
+                <span>{currencyFormatter.format(cancelPaymentTotal)}</span>
+              </div>
+            </div>
+
+            {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={cancelPaymentMutation.isPending}
+              className="w-full rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              Confirmar correção
+            </button>
           </form>
         </Modal>
       )}

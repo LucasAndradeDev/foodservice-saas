@@ -31,4 +31,7 @@ public class TabResponse {
     private OffsetDateTime discountAppliedAt;
     private BigDecimal serviceChargePercentage;
     private BigDecimal serviceChargeAmount;
+    private String paymentCancelledBy;
+    private OffsetDateTime paymentCancelledAt;
+    private String paymentCancelReason;
 }
