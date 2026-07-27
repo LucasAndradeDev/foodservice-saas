@@ -110,6 +110,18 @@ export function KitchenPage() {
                   <div className="text-base font-medium text-gray-800">
                     {item.quantity}x {item.productName}
                   </div>
+                  {item.modifiers.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {item.modifiers.map((modifier, index) => (
+                        <span
+                          key={index}
+                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                        >
+                          {modifier.optionName}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {item.observation && <div className="text-sm text-gray-500">{item.observation}</div>}
                 </div>
 

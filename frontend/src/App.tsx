@@ -9,6 +9,7 @@ import { KitchenPage } from './pages/KitchenPage'
 import { LoginPage } from './pages/LoginPage'
 import { MenuImportPage } from './pages/MenuImportPage'
 import { OrderTicketPrintPage } from './pages/OrderTicketPrintPage'
+import { ProductModifiersPage } from './pages/ProductModifiersPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { PublicMenuPage } from './pages/PublicMenuPage'
 import { RegisterPage } from './pages/RegisterPage'
@@ -40,6 +41,7 @@ function App() {
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/products/import" element={<MenuImportPage />} />
+              <Route path="/products/:productId/modifiers" element={<ProductModifiersPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings" element={<RestaurantSettingsPage />} />
               <Route path="/staff" element={<StaffPage />} />

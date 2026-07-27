@@ -8,6 +8,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -44,6 +46,10 @@ public class OrderItem {
     @Column(nullable = false, length = 20)
     private ItemStatus status;
 
+    @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<OrderItemModifier> modifiers = new ArrayList<>();
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
@@ -51,4 +57,14 @@ public class OrderItem {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
+
+    public BigDecimal getModifiersTotal() {
+        return modifiers.stream()
+                .map(OrderItemModifier::getPriceDelta)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    public BigDecimal getSubtotal() {
+        return unitPrice.add(getModifiersTotal()).multiply(BigDecimal.valueOf(quantity));
+    }
 }

@@ -22,10 +22,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     boolean existsByOrder_Tab_IdAndStatus(UUID tabId, ItemStatus status);
     boolean existsByProductId(UUID productId);
     long countByOrder_Restaurant_IdAndStatusIn(UUID restaurantId, List<ItemStatus> statuses);
-
-    @Query("SELECT COALESCE(SUM(oi.quantity * oi.unitPrice), 0) FROM OrderItem oi " +
-            "WHERE oi.order.tab.id = :tabId AND oi.order.restaurant.id = :restaurantId AND oi.status = 'DELIVERED'")
-    BigDecimal sumDeliveredTotalByTabAndRestaurant(@Param("tabId") UUID tabId, @Param("restaurantId") UUID restaurantId);
+    List<OrderItem> findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatus(UUID tabId, UUID restaurantId, ItemStatus status);
 
     @Query("SELECT oi.product.id, oi.product.name, SUM(oi.quantity), SUM(oi.quantity * oi.unitPrice) FROM OrderItem oi " +
             "WHERE oi.order.restaurant.id = :restaurantId AND oi.order.tab.status = 'CLOSED' " +

@@ -74,6 +74,9 @@ export function OrderTicketPrintPage() {
             <div className="font-medium text-gray-800">
               {item.quantity}x {item.productName}
             </div>
+            {item.modifiers.length > 0 && (
+              <div className="text-gray-600">{item.modifiers.map((modifier) => modifier.optionName).join(', ')}</div>
+            )}
             {item.observation && <div className="text-gray-500">Obs: {item.observation}</div>}
           </li>
         ))}

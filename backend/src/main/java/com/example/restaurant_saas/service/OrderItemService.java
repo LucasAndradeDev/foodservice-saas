@@ -7,13 +7,13 @@ import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.dto.response.KitchenItemResponse;
+import com.example.restaurant_saas.dto.response.OrderItemModifierResponse;
 import com.example.restaurant_saas.dto.response.OrderItemResponse;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -87,6 +87,7 @@ public class OrderItemService {
                 .productName(item.getProduct().getName())
                 .quantity(item.getQuantity())
                 .observation(item.getObservation())
+                .modifiers(toModifierResponses(item))
                 .status(item.getStatus())
                 .createdAt(item.getCreatedAt())
                 .build();
@@ -101,7 +102,18 @@ public class OrderItemService {
                 .unitPrice(item.getUnitPrice())
                 .observation(item.getObservation())
                 .status(item.getStatus())
-                .subtotal(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .modifiers(toModifierResponses(item))
+                .subtotal(item.getSubtotal())
                 .build();
+    }
+
+    private List<OrderItemModifierResponse> toModifierResponses(OrderItem item) {
+        return item.getModifiers().stream()
+                .map(modifier -> OrderItemModifierResponse.builder()
+                        .groupName(modifier.getGroupName())
+                        .optionName(modifier.getOptionName())
+                        .priceDelta(modifier.getPriceDelta())
+                        .build())
+                .toList();
     }
 }

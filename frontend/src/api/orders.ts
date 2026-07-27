@@ -2,6 +2,12 @@ import { http } from './http'
 
 export type ItemStatus = 'PENDING' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
 
+export interface OrderItemModifier {
+  groupName: string
+  optionName: string
+  priceDelta: number
+}
+
 export interface OrderItem {
   id: string
   productId: string
@@ -10,6 +16,7 @@ export interface OrderItem {
   unitPrice: number
   observation: string | null
   status: ItemStatus
+  modifiers: OrderItemModifier[]
   subtotal: number
 }
 

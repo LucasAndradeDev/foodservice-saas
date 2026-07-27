@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -17,5 +18,6 @@ public class OrderItemResponse {
     private BigDecimal unitPrice;
     private String observation;
     private ItemStatus status;
+    private List<OrderItemModifierResponse> modifiers;
     private BigDecimal subtotal;
 }

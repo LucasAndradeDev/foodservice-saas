@@ -189,6 +189,43 @@ class MenuControllerIntegrationTest {
     }
 
     @Test
+    void getPublicMenu_withModifierGroups_shouldExposeThemNestedOnTheProduct() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String categoryId = createCategory(token, "Pizzas");
+        String productId = createProduct(token, categoryId, "Pizza Calabresa", "40.00", null);
+
+        com.example.restaurant_saas.dto.request.ModifierOptionInput small =
+                new com.example.restaurant_saas.dto.request.ModifierOptionInput();
+        small.setName("P");
+        small.setPriceDelta(BigDecimal.ZERO);
+        com.example.restaurant_saas.dto.request.ModifierOptionInput large =
+                new com.example.restaurant_saas.dto.request.ModifierOptionInput();
+        large.setName("G");
+        large.setPriceDelta(new BigDecimal("10.00"));
+
+        com.example.restaurant_saas.dto.request.CreateModifierGroupRequest groupRequest =
+                new com.example.restaurant_saas.dto.request.CreateModifierGroupRequest();
+        groupRequest.setName("Tamanho");
+        groupRequest.setSelectionType(com.example.restaurant_saas.domain.enums.ModifierSelectionType.SINGLE);
+        groupRequest.setRequired(true);
+        groupRequest.setOptions(java.util.List.of(small, large));
+
+        mockMvc.perform(post("/api/v1/products/" + productId + "/modifier-groups")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(groupRequest)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/public/menu/" + slug))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories[0].products[0].modifierGroups", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.categories[0].products[0].modifierGroups[0].name").value("Tamanho"))
+                .andExpect(jsonPath("$.categories[0].products[0].modifierGroups[0].options", org.hamcrest.Matchers.hasSize(2)))
+                .andExpect(jsonPath("$.categories[0].products[0].modifierGroups[0].options[1].priceDelta").value(10.00));
+    }
+
+    @Test
     void getPublicMenu_withEmptyCategory_shouldExcludeIt() throws Exception {
         String token = registerOwnerAndGetToken();
         String slug = getSlug(token);

@@ -1,5 +1,5 @@
 import { http } from './http'
-import type { ItemStatus, OrderItem } from './orders'
+import type { ItemStatus, OrderItem, OrderItemModifier } from './orders'
 
 export interface KitchenItem {
   id: string
@@ -8,6 +8,7 @@ export interface KitchenItem {
   productName: string
   quantity: number
   observation: string | null
+  modifiers: OrderItemModifier[]
   status: ItemStatus
   createdAt: string
 }

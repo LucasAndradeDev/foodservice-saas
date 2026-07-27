@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import type { CartItem } from './utils'
-import { currencyFormatter } from './utils'
+import { currencyFormatter, modifiersTotal } from './utils'
 
 interface CartDrawerProps {
   isOpen: boolean
@@ -73,9 +73,21 @@ export function CartDrawer({
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-medium text-gray-800 dark:text-white">{item.productName}</span>
                         <span className="text-sm text-gray-600 dark:text-stone-400">
-                          {currencyFormatter.format(item.unitPrice * item.quantity)}
+                          {currencyFormatter.format((item.unitPrice + modifiersTotal(item.selectedModifiers)) * item.quantity)}
                         </span>
                       </div>
+                      {item.selectedModifiers.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {item.selectedModifiers.map((modifier) => (
+                            <span
+                              key={modifier.optionId}
+                              className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-stone-300"
+                            >
+                              {modifier.optionName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <div className="mt-2 flex items-center gap-2">
                         <button
                           type="button"

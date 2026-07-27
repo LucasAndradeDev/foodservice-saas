@@ -442,6 +442,15 @@ export function TabDetailPage() {
                         {item.quantity}x {item.productName}
                       </span>
                       {item.observation && <span className="ml-2 text-gray-500">({item.observation})</span>}
+                      {item.modifiers.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {item.modifiers.map((modifier, index) => (
+                            <span key={index} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                              {modifier.optionName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
                       <span

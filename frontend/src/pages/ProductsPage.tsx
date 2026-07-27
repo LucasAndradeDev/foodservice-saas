@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
-import { Ban, CheckCircle2, Circle, Package, Pencil, Power, Trash2 } from 'lucide-react'
+import { Ban, CheckCircle2, Circle, ListChecks, Package, Pencil, Power, Trash2 } from 'lucide-react'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { listCategories } from '../api/categories'
@@ -478,6 +478,14 @@ function ProductActionButtons({ product, onEdit, onToggleActive, onToggleSoldOut
       >
         <Pencil className="h-4 w-4" />
       </button>
+      <Link
+        to={`/products/${product.id}/modifiers`}
+        title="Modificadores"
+        aria-label="Modificadores"
+        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
+      >
+        <ListChecks className="h-4 w-4" />
+      </Link>
       <button
         type="button"
         onClick={onToggleActive}

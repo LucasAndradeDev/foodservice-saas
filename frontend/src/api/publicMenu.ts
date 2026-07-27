@@ -1,3 +1,4 @@
+import type { ModifierGroup } from './productModifiers'
 import { http } from './http'
 
 export interface PublicMenuProduct {
@@ -7,6 +8,7 @@ export interface PublicMenuProduct {
   imageUrl: string | null
   price: number
   soldOut: boolean
+  modifierGroups: ModifierGroup[]
 }
 
 export interface PublicMenuCategory {
@@ -33,6 +35,7 @@ export interface PublicOrderItemPayload {
   productId: string
   quantity: number
   observation?: string
+  selectedOptionIds?: string[]
 }
 
 export function getPublicMenu(slug: string, tableId?: string) {

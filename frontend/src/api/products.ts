@@ -30,6 +30,10 @@ export function listProducts(filters: ProductFilters = {}) {
   return http.get<Product[]>('/products', { params: filters }).then((res) => res.data)
 }
 
+export function getProduct(id: string) {
+  return http.get<Product>(`/products/${id}`).then((res) => res.data)
+}
+
 export function createProduct(payload: ProductPayload) {
   return http.post<Product>('/products', payload).then((res) => res.data)
 }

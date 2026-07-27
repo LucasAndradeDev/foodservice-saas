@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -15,4 +16,5 @@ public class PublicMenuProductResponse {
     private String imageUrl;
     private BigDecimal price;
     private Boolean soldOut;
+    private List<ModifierGroupResponse> modifierGroups;
 }

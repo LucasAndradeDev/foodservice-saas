@@ -75,6 +75,7 @@ export function TabReceiptPrintPage() {
           >
             <span>
               {item.quantity}x {item.productName}
+              {item.modifiers.length > 0 && ` (${item.modifiers.map((modifier) => modifier.optionName).join(', ')})`}
             </span>
             <span>{currencyFormatter.format(item.subtotal)}</span>
           </li>

@@ -9,10 +9,11 @@ import { CartDrawer } from './publicMenu/CartDrawer'
 import { CategoryNav } from './publicMenu/CategoryNav'
 import { getCategoryIcon } from './publicMenu/categoryIcons'
 import { MenuHero } from './publicMenu/MenuHero'
+import { ModifierSheet } from './publicMenu/ModifierSheet'
 import { ProductCard } from './publicMenu/ProductCard'
 import { TableRequestButtons } from './publicMenu/TableRequestButtons'
 import { usePublicMenuTheme } from './publicMenu/usePublicMenuTheme'
-import { currencyFormatter, type CartItem } from './publicMenu/utils'
+import { currencyFormatter, modifiersTotal, sameModifiers, type CartItem, type SelectedModifier } from './publicMenu/utils'
 
 const TABLE_REQUEST_COOLDOWN_MS = 60000
 const POLL_INTERVAL_MS = 4000
@@ -36,6 +37,7 @@ export function PublicMenuPage() {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [orderError, setOrderError] = useState<string | null>(null)
   const [orderSuccess, setOrderSuccess] = useState(false)
+  const [activeModifierProduct, setActiveModifierProduct] = useState<PublicMenuProduct | null>(null)
   const [requestedTypes, setRequestedTypes] = useState<Set<TableRequestType>>(new Set())
   const requestTimeoutsRef = useRef<Partial<Record<TableRequestType, number>>>({})
 
@@ -84,6 +86,7 @@ export function PublicMenuPage() {
           productId: item.productId,
           quantity: item.quantity,
           observation: item.observation.trim() || undefined,
+          selectedOptionIds: item.selectedModifiers.map((modifier) => modifier.optionId),
         })),
       ),
     onSuccess: () => {
@@ -112,10 +115,15 @@ export function PublicMenuPage() {
     },
   })
 
-  function addToCart(product: PublicMenuProduct) {
+  function addToCart(product: PublicMenuProduct, selectedModifiers: SelectedModifier[] = []) {
     setOrderError(null)
     setCart((prev) => {
-      const existingIndex = prev.findIndex((item) => item.productId === product.id && item.observation === '')
+      const existingIndex = prev.findIndex(
+        (item) =>
+          item.productId === product.id &&
+          item.observation === '' &&
+          sameModifiers(item.selectedModifiers, selectedModifiers),
+      )
       if (existingIndex !== -1) {
         return prev.map((item, index) =>
           index === existingIndex ? { ...item, quantity: item.quantity + 1 } : item,
@@ -123,9 +131,31 @@ export function PublicMenuPage() {
       }
       return [
         ...prev,
-        { productId: product.id, productName: product.name, unitPrice: product.price, quantity: 1, observation: '' },
+        {
+          productId: product.id,
+          productName: product.name,
+          unitPrice: product.price,
+          quantity: 1,
+          observation: '',
+          selectedModifiers,
+        },
       ]
     })
+  }
+
+  function handleAddClick(product: PublicMenuProduct) {
+    if (product.modifierGroups.length > 0) {
+      setActiveModifierProduct(product)
+    } else {
+      addToCart(product)
+    }
+  }
+
+  function handleConfirmModifiers(selectedModifiers: SelectedModifier[]) {
+    if (activeModifierProduct) {
+      addToCart(activeModifierProduct, selectedModifiers)
+    }
+    setActiveModifierProduct(null)
   }
 
   function updateQuantity(index: number, delta: number) {
@@ -171,7 +201,10 @@ export function PublicMenuPage() {
   const canOrder = !!tableId && !!menu.table
   const canRequestBill = canOrder && !!menu.table?.hasDeliveredItems
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
-  const cartTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
+  const cartTotal = cart.reduce(
+    (sum, item) => sum + (item.unitPrice + modifiersTotal(item.selectedModifiers)) * item.quantity,
+    0,
+  )
 
   return (
     <div className={`${themeClass} min-h-screen bg-gray-50 pb-24 dark:bg-stone-950`}>
@@ -212,10 +245,10 @@ export function PublicMenuPage() {
                 <motion.div key={product.id} variants={itemVariants} transition={{ duration: 0.3 }}>
                   <ProductCard
                     product={product}
-                    quantity={cartQuantities.get(product.id) ?? 0}
+                    quantity={product.modifierGroups.length > 0 ? 0 : (cartQuantities.get(product.id) ?? 0)}
                     accentColor={accentColor}
                     canOrder={canOrder}
-                    onAdd={addToCart}
+                    onAdd={handleAddClick}
                     onIncrement={(productId) => updateQuantityByProductId(productId, 1)}
                     onDecrement={(productId) => updateQuantityByProductId(productId, -1)}
                   />
@@ -281,6 +314,13 @@ export function PublicMenuPage() {
         onUpdateObservation={updateObservation}
         onRemove={removeFromCart}
         onSubmit={() => submitOrderMutation.mutate()}
+      />
+
+      <ModifierSheet
+        product={activeModifierProduct}
+        accentColor={accentColor}
+        onClose={() => setActiveModifierProduct(null)}
+        onConfirm={handleConfirmModifiers}
       />
     </div>
   )

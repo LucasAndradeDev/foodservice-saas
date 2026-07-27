@@ -1,6 +1,7 @@
 package com.example.restaurant_saas.service;
 
 import com.example.restaurant_saas.domain.entity.Order;
+import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
@@ -212,7 +213,10 @@ public class TabService {
             throw new IllegalStateException("Tab has order items that are not DELIVERED or CANCELLED yet.");
         }
 
-        BigDecimal total = orderItemRepository.sumDeliveredTotalByTabAndRestaurant(tabId, restaurantId);
+        BigDecimal total = orderItemRepository
+                .findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatus(tabId, restaurantId, ItemStatus.DELIVERED).stream()
+                .map(OrderItem::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         if (total.compareTo(request.getPaidAmount()) != 0) {
             throw new IllegalArgumentException("Paid amount does not match the tab total.");
         }

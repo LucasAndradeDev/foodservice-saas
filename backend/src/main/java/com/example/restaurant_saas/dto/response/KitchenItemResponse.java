@@ -17,6 +17,7 @@ public class KitchenItemResponse {
     private String productName;
     private Integer quantity;
     private String observation;
+    private List<OrderItemModifierResponse> modifiers;
     private ItemStatus status;
     private OffsetDateTime createdAt;
 }

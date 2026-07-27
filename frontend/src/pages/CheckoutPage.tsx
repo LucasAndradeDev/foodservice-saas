@@ -174,11 +174,23 @@ export function CheckoutPage() {
             <>
               <ul className="mb-4 divide-y divide-gray-100">
                 {selectedSummary.items.map((item) => (
-                  <li key={item.id} className="flex items-center justify-between py-2 text-sm">
-                    <span className={item.status === 'CANCELLED' ? 'text-gray-400 line-through' : 'text-gray-800'}>
-                      {item.quantity}x {item.productName}
-                    </span>
-                    <span className={item.status === 'CANCELLED' ? 'text-gray-400 line-through' : 'text-gray-600'}>
+                  <li key={item.id} className="flex items-start justify-between gap-2 py-2 text-sm">
+                    <div>
+                      <span className={item.status === 'CANCELLED' ? 'text-gray-400 line-through' : 'text-gray-800'}>
+                        {item.quantity}x {item.productName}
+                      </span>
+                      {item.modifiers.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {item.modifiers.map((modifier, index) => (
+                            <span key={index} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                              {modifier.optionName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {item.observation && <div className="mt-1 text-xs text-gray-500">{item.observation}</div>}
+                    </div>
+                    <span className={item.status === 'CANCELLED' ? 'shrink-0 text-gray-400 line-through' : 'shrink-0 text-gray-600'}>
                       {currencyFormatter.format(item.subtotal)}
                     </span>
                   </li>
