@@ -34,6 +34,7 @@ export interface CreateOrderItemPayload {
   productId: string
   quantity: number
   observation?: string
+  selectedOptionIds?: string[]
 }
 
 export function listOrders(tabId: string) {

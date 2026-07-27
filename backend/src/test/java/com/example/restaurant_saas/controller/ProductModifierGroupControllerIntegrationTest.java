@@ -251,6 +251,35 @@ class ProductModifierGroupControllerIntegrationTest {
     }
 
     @Test
+    void updateGroup_withEmptyOptions_shouldReturn400() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(token);
+        String productId = createProductAndGetId(token, categoryId, "Pizza Calabresa", "40.00");
+
+        MvcResult created = mockMvc.perform(post("/api/v1/products/" + productId + "/modifier-groups")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(sizeGroupRequest())))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String groupId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+
+        UpdateModifierGroupRequest update = new UpdateModifierGroupRequest();
+        update.setOptions(List.of());
+
+        mockMvc.perform(put("/api/v1/products/" + productId + "/modifier-groups/" + groupId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/v1/products/" + productId + "/modifier-groups")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].options.length()").value(2));
+    }
+
+    @Test
     void deleteGroup_shouldRemoveIt() throws Exception {
         String token = registerOwnerAndGetToken();
         String categoryId = createCategoryAndGetId(token);

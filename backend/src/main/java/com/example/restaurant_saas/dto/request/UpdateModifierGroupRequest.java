@@ -18,5 +18,6 @@ public class UpdateModifierGroupRequest {
     private Boolean required;
 
     @Valid
+    @Size(min = 1, message = "At least one option is required")
     private List<ModifierOptionInput> options;
 }

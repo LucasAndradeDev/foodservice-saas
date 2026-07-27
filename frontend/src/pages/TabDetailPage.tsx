@@ -19,9 +19,10 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { createOrder, listOrders, type ItemStatus, type Order } from '../api/orders'
+import { listModifierGroups } from '../api/productModifiers'
 import { listProducts } from '../api/products'
 import { getMyRestaurant } from '../api/restaurant'
 import { listTables } from '../api/tables'
@@ -30,6 +31,7 @@ import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
 import { formatTableLabel } from '../utils/tableLabel'
 import { minutesSince } from '../utils/time'
+import { modifiersTotal, sameModifiers, type SelectedModifier } from '../utils/modifiers'
 
 const UNDO_MERGE_WINDOW_MS = 20000
 
@@ -65,6 +67,7 @@ interface DraftItem {
   unitPrice: number
   quantity: number
   observation: string
+  selectedModifiers: SelectedModifier[]
 }
 
 export function TabDetailPage() {
@@ -101,6 +104,7 @@ export function TabDetailPage() {
   const [productId, setProductId] = useState('')
   const [quantity, setQuantity] = useState('1')
   const [observation, setObservation] = useState('')
+  const [modifierSelections, setModifierSelections] = useState<Record<string, string[]>>({})
   const [error, setError] = useState<string | null>(null)
   const [isMerging, setIsMerging] = useState(false)
   const [pendingUndo, setPendingUndo] = useState<{ sourceTabId: string; label: string } | null>(null)
@@ -119,6 +123,16 @@ export function TabDetailPage() {
     enabled: isMerging,
   })
 
+  const { data: modifierGroups } = useQuery({
+    queryKey: ['products', productId, 'modifier-groups'],
+    queryFn: () => listModifierGroups(productId),
+    enabled: isAddingItem && !!productId,
+  })
+
+  useEffect(() => {
+    setModifierSelections({})
+  }, [productId])
+
   const createOrderMutation = useMutation({
     mutationFn: (items: DraftItem[]) =>
       createOrder(
@@ -127,6 +141,7 @@ export function TabDetailPage() {
           productId: item.productId,
           quantity: item.quantity,
           observation: item.observation || undefined,
+          selectedOptionIds: item.selectedModifiers.map((m) => m.optionId),
         })),
       ),
     onSuccess: () => {
@@ -187,20 +202,55 @@ export function TabDetailPage() {
     setProductId(products?.[0]?.id ?? '')
     setQuantity('1')
     setObservation('')
+    setModifierSelections({})
     setError(null)
     setIsAddingItem(true)
   }
 
+  function toggleModifierOption(groupId: string, optionId: string, isSingle: boolean) {
+    setModifierSelections((prev) => {
+      const current = prev[groupId] ?? []
+      if (isSingle) {
+        return { ...prev, [groupId]: current.includes(optionId) ? [] : [optionId] }
+      }
+      const next = current.includes(optionId) ? current.filter((id) => id !== optionId) : [...current, optionId]
+      return { ...prev, [groupId]: next }
+    })
+  }
+
+  const selectedModifiers: SelectedModifier[] = (modifierGroups ?? []).flatMap((group) =>
+    (modifierSelections[group.id] ?? []).flatMap((optionId) => {
+      const option = group.options.find((o) => o.id === optionId)
+      if (!option) return []
+      return [
+        {
+          groupId: group.id,
+          groupName: group.name,
+          optionId: option.id,
+          optionName: option.name,
+          priceDelta: option.priceDelta,
+        },
+      ]
+    }),
+  )
+
+  const areModifiersValid = (modifierGroups ?? []).every(
+    (group) => !group.required || (modifierSelections[group.id]?.length ?? 0) > 0,
+  )
+
   function handleAddDraftItem(event: FormEvent) {
     event.preventDefault()
     const product = products?.find((p) => p.id === productId)
-    if (!product) return
+    if (!product || !areModifiersValid) return
     const trimmedObservation = observation.trim()
     const addedQuantity = Number(quantity)
 
     setDraftItems((prev) => {
       const existingIndex = prev.findIndex(
-        (item) => item.productId === product.id && item.observation === trimmedObservation,
+        (item) =>
+          item.productId === product.id &&
+          item.observation === trimmedObservation &&
+          sameModifiers(item.selectedModifiers, selectedModifiers),
       )
       if (existingIndex !== -1) {
         return prev.map((item, index) =>
@@ -215,11 +265,13 @@ export function TabDetailPage() {
           unitPrice: product.price,
           quantity: addedQuantity,
           observation: trimmedObservation,
+          selectedModifiers,
         },
       ]
     })
     setQuantity('1')
     setObservation('')
+    setModifierSelections({})
   }
 
   function removeDraftItem(index: number) {
@@ -374,10 +426,22 @@ export function TabDetailPage() {
                     {item.quantity}x {item.productName}
                   </span>
                   {item.observation && <span className="ml-2 text-gray-500">({item.observation})</span>}
+                  {item.selectedModifiers.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {item.selectedModifiers.map((modifier) => (
+                        <span
+                          key={modifier.optionId}
+                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                        >
+                          {modifier.optionName}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-gray-600">
-                    {currencyFormatter.format(item.unitPrice * item.quantity)}
+                    {currencyFormatter.format((item.unitPrice + modifiersTotal(item.selectedModifiers)) * item.quantity)}
                   </span>
                   <button
                     type="button"
@@ -515,6 +579,45 @@ export function TabDetailPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
 
+            {modifierGroups && modifierGroups.length > 0 && (
+              <div className="mb-4 space-y-4">
+                {modifierGroups.map((group) => (
+                  <div key={group.id}>
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">{group.name}</span>
+                      {group.required && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                          Obrigatório
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      {group.options.map((option) => {
+                        const isSelected = (modifierSelections[group.id] ?? []).includes(option.id)
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => toggleModifierOption(group.id, option.id, group.selectionType === 'SINGLE')}
+                            className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
+                              isSelected
+                                ? 'border-brand-600 bg-brand-50'
+                                : 'border-gray-200 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className="text-gray-800">{option.name}</span>
+                            <span className="text-gray-500">
+                              {option.priceDelta > 0 ? `+${currencyFormatter.format(option.priceDelta)}` : 'Grátis'}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="observation">
               Observação <span className="font-normal text-gray-400">(opcional)</span>
             </label>
@@ -529,7 +632,7 @@ export function TabDetailPage() {
 
             <button
               type="submit"
-              disabled={!productId}
+              disabled={!productId || !areModifiersValid}
               className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
               Adicionar à comanda
