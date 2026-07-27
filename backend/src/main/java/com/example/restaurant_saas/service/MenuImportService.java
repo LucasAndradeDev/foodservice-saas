@@ -45,7 +45,7 @@ public class MenuImportService {
     // connection/transaction open. Each repository lookup below gets its own short-lived one.
     public MenuImportPreviewResponse extract(UUID restaurantId, MultipartFile file) {
         String flattenedText = spreadsheetExtractionService.extractFlattenedText(file);
-        List<String> existingCategoryNames = categoryRepository.findByRestaurantIdAndActiveTrue(restaurantId).stream()
+        List<String> existingCategoryNames = categoryRepository.findByRestaurantIdAndActiveTrueOrderByNameAsc(restaurantId).stream()
                 .map(Category::getName)
                 .toList();
         GeminiExtractionResult aiResult = geminiService.extractMenu(flattenedText, existingCategoryNames);

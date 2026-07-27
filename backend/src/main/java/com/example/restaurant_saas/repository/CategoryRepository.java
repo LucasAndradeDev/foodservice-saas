@@ -10,8 +10,8 @@ import java.util.UUID;
 
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, UUID> {
-    List<Category> findByRestaurantId(UUID restaurantId);
-    List<Category> findByRestaurantIdAndActiveTrue(UUID restaurantId);
+    List<Category> findByRestaurantIdOrderByNameAsc(UUID restaurantId);
+    List<Category> findByRestaurantIdAndActiveTrueOrderByNameAsc(UUID restaurantId);
     Optional<Category> findByIdAndRestaurantId(UUID id, UUID restaurantId);
     Optional<Category> findByRestaurantIdAndNameIgnoreCase(UUID restaurantId, String name);
     boolean existsByRestaurantIdAndNameIgnoreCase(UUID restaurantId, String name);

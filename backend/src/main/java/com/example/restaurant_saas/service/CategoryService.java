@@ -24,7 +24,7 @@ public class CategoryService {
 
     @Transactional(readOnly = true)
     public List<CategoryResponse> listCategories(UUID restaurantId, Boolean activeFilter) {
-        return categoryRepository.findByRestaurantId(restaurantId).stream()
+        return categoryRepository.findByRestaurantIdOrderByNameAsc(restaurantId).stream()
                 .filter(category -> activeFilter == null || activeFilter.equals(category.getActive()))
                 .map(this::toResponse)
                 .toList();

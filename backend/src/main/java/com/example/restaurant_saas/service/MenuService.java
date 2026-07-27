@@ -50,12 +50,12 @@ public class MenuService {
         Restaurant restaurant = restaurantRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException("Menu not found."));
 
-        List<Product> activeProducts = productRepository.findByRestaurantIdAndActiveTrue(restaurant.getId());
+        List<Product> activeProducts = productRepository.findByRestaurantIdAndActiveTrueOrderByCategoryNameAscNameAsc(restaurant.getId());
         Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct =
                 fetchModifierGroupsByProduct(restaurant.getId(), activeProducts);
 
         List<PublicMenuCategoryResponse> categories = categoryRepository
-                .findByRestaurantIdAndActiveTrue(restaurant.getId())
+                .findByRestaurantIdAndActiveTrueOrderByNameAsc(restaurant.getId())
                 .stream()
                 .map(category -> toCategoryResponse(category, activeProducts, modifierGroupsByProduct))
                 .filter(category -> !category.getProducts().isEmpty())

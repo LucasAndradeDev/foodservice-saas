@@ -29,7 +29,7 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public List<ProductResponse> listProducts(UUID restaurantId, UUID categoryId, String search, Boolean activeFilter) {
-        return productRepository.findByRestaurantId(restaurantId).stream()
+        return productRepository.findByRestaurantIdOrderByCategoryNameAscNameAsc(restaurantId).stream()
                 .filter(product -> categoryId == null || product.getCategory().getId().equals(categoryId))
                 .filter(product -> search == null || search.isBlank()
                         || product.getName().toLowerCase().contains(search.toLowerCase()))
