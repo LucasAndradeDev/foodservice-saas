@@ -1,6 +1,7 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.enums.ItemStatus;
+import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.dto.response.KitchenItemResponse;
 import com.example.restaurant_saas.dto.response.OrderItemResponse;
@@ -52,6 +53,23 @@ public class OrderItemController {
             @Valid @RequestBody UpdateOrderItemStatusRequest request
     ) {
         OrderItemResponse response = orderItemService.updateStatus(currentUser.getRestaurantId(), id, currentUser.getRole(), request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/{id}/discount")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @Operation(summary = "Apply or clear a one-off discount on an order item", description = "Sets a fixed-amount or percentage discount on this item, capped at its subtotal. Send discountType as null to clear an existing discount. Restricted to OWNER and MANAGER; only allowed while the item is not CANCELLED and its tab is still OPEN.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Discount applied or cleared"),
+            @ApiResponse(responseCode = "400", description = "Item not found in this restaurant, item is cancelled, tab is not open, or discount value is invalid"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
+    })
+    public ResponseEntity<OrderItemResponse> applyDiscount(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id,
+            @Valid @RequestBody ApplyDiscountRequest request
+    ) {
+        OrderItemResponse response = orderItemService.applyDiscount(currentUser.getRestaurantId(), id, currentUser.getName(), request);
         return ResponseEntity.ok(response);
     }
 }

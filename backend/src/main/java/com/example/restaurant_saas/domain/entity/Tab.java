@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.domain.entity;
 
+import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import jakarta.persistence.*;
@@ -8,6 +9,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -53,6 +55,22 @@ public class Tab {
     @Column(name = "receipt_printed_at")
     private OffsetDateTime receiptPrintedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "discount_type", length = 20)
+    private DiscountType discountType;
+
+    @Column(name = "discount_value", precision = 10, scale = 2)
+    private BigDecimal discountValue;
+
+    @Column(name = "discount_reason", length = 255)
+    private String discountReason;
+
+    @Column(name = "discount_applied_by", length = 255)
+    private String discountAppliedBy;
+
+    @Column(name = "discount_applied_at")
+    private OffsetDateTime discountAppliedAt;
+
     @ManyToMany
     @JoinTable(
             name = "tab_tables",
@@ -69,4 +87,14 @@ public class Tab {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
+
+    public BigDecimal getDiscountAmount(BigDecimal itemsTotal) {
+        if (discountType == null || discountValue == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal amount = discountType == DiscountType.PERCENTAGE
+                ? itemsTotal.multiply(discountValue).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                : discountValue;
+        return amount.min(itemsTotal);
+    }
 }

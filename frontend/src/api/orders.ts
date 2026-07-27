@@ -1,11 +1,18 @@
 import { http } from './http'
 
 export type ItemStatus = 'PENDING' | 'PREPARING' | 'READY' | 'DELIVERED' | 'CANCELLED'
+export type DiscountType = 'FIXED' | 'PERCENTAGE'
 
 export interface OrderItemModifier {
   groupName: string
   optionName: string
   priceDelta: number
+}
+
+export interface ApplyDiscountPayload {
+  discountType: DiscountType | null
+  discountValue?: number
+  reason?: string
 }
 
 export interface OrderItem {
@@ -18,6 +25,13 @@ export interface OrderItem {
   status: ItemStatus
   modifiers: OrderItemModifier[]
   subtotal: number
+  discountType: DiscountType | null
+  discountValue: number | null
+  discountAmount: number
+  discountReason: string | null
+  discountAppliedBy: string | null
+  discountAppliedAt: string | null
+  netSubtotal: number
 }
 
 export interface Order {
@@ -51,4 +65,8 @@ export function getOrder(id: string) {
 
 export function markOrderPrinted(id: string) {
   return http.patch<Order>(`/orders/${id}/print`).then((res) => res.data)
+}
+
+export function applyItemDiscount(itemId: string, payload: ApplyDiscountPayload) {
+  return http.patch<OrderItem>(`/order-items/${itemId}/discount`, payload).then((res) => res.data)
 }

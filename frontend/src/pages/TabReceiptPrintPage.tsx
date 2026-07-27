@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { listOrders } from '../api/orders'
-import { getTab, markTabReceiptPrinted, type PaymentMethod } from '../api/tabs'
+import { computeDiscountAmount, getTab, markTabReceiptPrinted, type PaymentMethod } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
 import { formatTableLabel } from '../utils/tableLabel'
 
@@ -48,9 +48,11 @@ export function TabReceiptPrintPage() {
   }
 
   const items = (orders ?? []).flatMap((order) => order.items)
-  const total = items
+  const itemsTotal = items
     .filter((item) => item.status !== 'CANCELLED')
-    .reduce((sum, item) => sum + item.subtotal, 0)
+    .reduce((sum, item) => sum + item.netSubtotal, 0)
+  const tabDiscountAmount = computeDiscountAmount(tab.discountType, tab.discountValue, itemsTotal)
+  const total = tab.paidAmount ?? itemsTotal - tabDiscountAmount
 
   return (
     <div className="mx-auto max-w-sm p-6">
@@ -76,11 +78,27 @@ export function TabReceiptPrintPage() {
             <span>
               {item.quantity}x {item.productName}
               {item.modifiers.length > 0 && ` (${item.modifiers.map((modifier) => modifier.optionName).join(', ')})`}
+              {item.discountType && item.status !== 'CANCELLED' && (
+                <span className="block text-xs text-gray-500">
+                  Desconto: -{currencyFormatter.format(item.discountAmount)}
+                  {item.discountReason && ` (${item.discountReason})`}
+                </span>
+              )}
             </span>
-            <span>{currencyFormatter.format(item.subtotal)}</span>
+            <span>{currencyFormatter.format(item.status === 'CANCELLED' ? item.subtotal : item.netSubtotal)}</span>
           </li>
         ))}
       </ul>
+
+      {tab.discountType && (
+        <div className="mt-2 flex items-center justify-between text-sm text-gray-600">
+          <span>
+            Desconto na comanda
+            {tab.discountReason && ` (${tab.discountReason})`}
+          </span>
+          <span>-{currencyFormatter.format(tabDiscountAmount)}</span>
+        </div>
+      )}
 
       <div className="mt-3 flex items-center justify-between border-t border-gray-300 pt-3 text-base font-semibold text-gray-800">
         <span>Total</span>

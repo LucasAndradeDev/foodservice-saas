@@ -2,6 +2,7 @@ package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
+import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
 import com.example.restaurant_saas.dto.request.MergeTabRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PayTabRequest;
@@ -147,6 +148,22 @@ public class TabController {
             @PathVariable UUID id
     ) {
         return ResponseEntity.ok(tabService.cancelTab(currentUser.getRestaurantId(), id));
+    }
+
+    @PatchMapping("/{id}/discount")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @Operation(summary = "Apply or clear a one-off discount on the whole tab", description = "Sets a fixed-amount or percentage discount applied on top of the tab's item total (after any per-item discounts), capped at that total. Send discountType as null to clear an existing discount. Restricted to OWNER and MANAGER; only allowed while the tab is OPEN.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Discount applied or cleared"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, tab is not open, or discount value is invalid"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
+    })
+    public ResponseEntity<TabResponse> applyDiscount(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id,
+            @Valid @RequestBody ApplyDiscountRequest request
+    ) {
+        return ResponseEntity.ok(tabService.applyDiscount(currentUser.getRestaurantId(), id, currentUser.getName(), request));
     }
 
     @PatchMapping("/{id}/print")

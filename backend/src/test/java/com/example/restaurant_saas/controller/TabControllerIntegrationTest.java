@@ -1,8 +1,10 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.entity.User;
+import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
+import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
@@ -182,6 +184,16 @@ class TabControllerIntegrationTest {
         PayTabRequest request = new PayTabRequest();
         request.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
         request.setPaidAmount(new BigDecimal(paidAmount));
+        return objectMapper.writeValueAsString(request);
+    }
+
+    private String discountRequestBody(DiscountType type, String value, String reason) throws Exception {
+        ApplyDiscountRequest request = new ApplyDiscountRequest();
+        request.setDiscountType(type);
+        if (value != null) {
+            request.setDiscountValue(new BigDecimal(value));
+        }
+        request.setReason(reason);
         return objectMapper.writeValueAsString(request);
     }
 
@@ -976,6 +988,106 @@ class TabControllerIntegrationTest {
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mergeTabRequestBody(otherTabId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void applyDiscount_fixedAmount_shouldReduceAmountDueAtPayment() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/discount")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.FIXED, "10.90", "Cortesia do dono")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.discountType").value("FIXED"))
+                .andExpect(jsonPath("$.discountReason").value("Cortesia do dono"))
+                .andExpect(jsonPath("$.discountAppliedBy").value("Owner"));
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "15.00")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paidAmount").value(15.00));
+    }
+
+    @Test
+    void applyDiscount_withNullType_shouldClearExistingDiscount() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/discount")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.PERCENTAGE, "10", "Promo")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/discount")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(null, null, null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.discountType").doesNotExist())
+                .andExpect(jsonPath("$.discountReason").doesNotExist());
+    }
+
+    @Test
+    void applyDiscount_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/discount")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.FIXED, "5.00", null)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void applyDiscount_onClosedTab_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/discount")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.FIXED, "5.00", null)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void applyDiscount_fixedAboveItemsTotal_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/discount")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.FIXED, "999.00", null)))
                 .andExpect(status().isBadRequest());
     }
 }

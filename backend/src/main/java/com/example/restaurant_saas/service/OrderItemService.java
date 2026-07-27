@@ -3,8 +3,11 @@ package com.example.restaurant_saas.service;
 import com.example.restaurant_saas.domain.entity.Order;
 import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
+import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
+import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.domain.enums.UserRole;
+import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.dto.response.KitchenItemResponse;
 import com.example.restaurant_saas.dto.response.OrderItemModifierResponse;
@@ -14,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -52,6 +57,48 @@ public class OrderItemService {
 
         item.setStatus(to);
         return toOrderItemResponse(orderItemRepository.save(item));
+    }
+
+    @Transactional
+    public OrderItemResponse applyDiscount(UUID restaurantId, UUID itemId, String actingUserName, ApplyDiscountRequest request) {
+        OrderItem item = orderItemRepository.findByIdAndOrder_Restaurant_Id(itemId, restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Order item not found."));
+
+        if (item.getStatus() == ItemStatus.CANCELLED) {
+            throw new IllegalArgumentException("Cannot discount a cancelled item.");
+        }
+        if (item.getOrder().getTab().getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Tab is not open.");
+        }
+
+        if (request.getDiscountType() == null) {
+            item.setDiscountType(null);
+            item.setDiscountValue(null);
+            item.setDiscountReason(null);
+            item.setDiscountAppliedBy(null);
+            item.setDiscountAppliedAt(null);
+        } else {
+            validateDiscountValue(request.getDiscountType(), request.getDiscountValue(), item.getSubtotal());
+            item.setDiscountType(request.getDiscountType());
+            item.setDiscountValue(request.getDiscountValue());
+            item.setDiscountReason(request.getReason());
+            item.setDiscountAppliedBy(actingUserName);
+            item.setDiscountAppliedAt(OffsetDateTime.now());
+        }
+
+        return toOrderItemResponse(orderItemRepository.save(item));
+    }
+
+    private void validateDiscountValue(DiscountType type, BigDecimal value, BigDecimal baseAmount) {
+        if (value == null || value.signum() <= 0) {
+            throw new IllegalArgumentException("Discount value must be greater than zero.");
+        }
+        if (type == DiscountType.PERCENTAGE && value.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new IllegalArgumentException("Percentage discount cannot exceed 100.");
+        }
+        if (type == DiscountType.FIXED && value.compareTo(baseAmount) > 0) {
+            throw new IllegalArgumentException("Discount amount cannot exceed the amount being discounted.");
+        }
     }
 
     private boolean isValidTransition(ItemStatus from, ItemStatus to) {
@@ -104,6 +151,13 @@ public class OrderItemService {
                 .status(item.getStatus())
                 .modifiers(toModifierResponses(item))
                 .subtotal(item.getSubtotal())
+                .discountType(item.getDiscountType())
+                .discountValue(item.getDiscountValue())
+                .discountAmount(item.getDiscountAmount())
+                .discountReason(item.getDiscountReason())
+                .discountAppliedBy(item.getDiscountAppliedBy())
+                .discountAppliedAt(item.getDiscountAppliedAt())
+                .netSubtotal(item.getNetSubtotal())
                 .build();
     }
 

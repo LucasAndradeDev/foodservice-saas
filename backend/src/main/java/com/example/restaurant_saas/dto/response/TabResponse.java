@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.dto.response;
 
+import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import lombok.Builder;
@@ -23,4 +24,9 @@ public class TabResponse {
     private OffsetDateTime paidAt;
     private List<TabTableSummary> tables;
     private OffsetDateTime receiptPrintedAt;
+    private DiscountType discountType;
+    private BigDecimal discountValue;
+    private String discountReason;
+    private String discountAppliedBy;
+    private OffsetDateTime discountAppliedAt;
 }

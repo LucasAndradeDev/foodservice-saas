@@ -4,10 +4,12 @@ import com.example.restaurant_saas.domain.entity.Order;
 import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
+import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.domain.enums.TableStatus;
 import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
+import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
 import com.example.restaurant_saas.dto.request.MergeTabRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PayTabRequest;
@@ -213,10 +215,8 @@ public class TabService {
             throw new IllegalStateException("Tab has order items that are not DELIVERED or CANCELLED yet.");
         }
 
-        BigDecimal total = orderItemRepository
-                .findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatus(tabId, restaurantId, ItemStatus.DELIVERED).stream()
-                .map(OrderItem::getSubtotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal itemsTotal = computeItemsTotal(restaurantId, tabId);
+        BigDecimal total = itemsTotal.subtract(tab.getDiscountAmount(itemsTotal));
         if (total.compareTo(request.getPaidAmount()) != 0) {
             throw new IllegalArgumentException("Paid amount does not match the tab total.");
         }
@@ -262,6 +262,51 @@ public class TabService {
         return toResponse(tabRepository.save(tab));
     }
 
+    @Transactional
+    public TabResponse applyDiscount(UUID restaurantId, UUID tabId, String actingUserName, ApplyDiscountRequest request) {
+        Tab tab = findByIdAndRestaurant(restaurantId, tabId);
+        if (tab.getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Tab is not open.");
+        }
+
+        if (request.getDiscountType() == null) {
+            tab.setDiscountType(null);
+            tab.setDiscountValue(null);
+            tab.setDiscountReason(null);
+            tab.setDiscountAppliedBy(null);
+            tab.setDiscountAppliedAt(null);
+        } else {
+            BigDecimal itemsTotal = computeItemsTotal(restaurantId, tabId);
+            validateDiscountValue(request.getDiscountType(), request.getDiscountValue(), itemsTotal);
+            tab.setDiscountType(request.getDiscountType());
+            tab.setDiscountValue(request.getDiscountValue());
+            tab.setDiscountReason(request.getReason());
+            tab.setDiscountAppliedBy(actingUserName);
+            tab.setDiscountAppliedAt(OffsetDateTime.now());
+        }
+
+        return toResponse(tabRepository.save(tab));
+    }
+
+    private void validateDiscountValue(DiscountType type, BigDecimal value, BigDecimal baseAmount) {
+        if (value == null || value.signum() <= 0) {
+            throw new IllegalArgumentException("Discount value must be greater than zero.");
+        }
+        if (type == DiscountType.PERCENTAGE && value.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new IllegalArgumentException("Percentage discount cannot exceed 100.");
+        }
+        if (type == DiscountType.FIXED && value.compareTo(baseAmount) > 0) {
+            throw new IllegalArgumentException("Discount amount cannot exceed the amount being discounted.");
+        }
+    }
+
+    private BigDecimal computeItemsTotal(UUID restaurantId, UUID tabId) {
+        return orderItemRepository
+                .findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatus(tabId, restaurantId, ItemStatus.DELIVERED).stream()
+                .map(OrderItem::getNetSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     private Tab findByIdAndRestaurant(UUID restaurantId, UUID tabId) {
         return tabRepository.findByIdAndRestaurantId(tabId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tab not found."));
@@ -278,6 +323,11 @@ public class TabService {
                 .paidAmount(tab.getPaidAmount())
                 .paidAt(tab.getPaidAt())
                 .receiptPrintedAt(tab.getReceiptPrintedAt())
+                .discountType(tab.getDiscountType())
+                .discountValue(tab.getDiscountValue())
+                .discountReason(tab.getDiscountReason())
+                .discountAppliedBy(tab.getDiscountAppliedBy())
+                .discountAppliedAt(tab.getDiscountAppliedAt())
                 .tables(tab.getTables().stream()
                         .map(table -> TabTableSummary.builder()
                                 .id(table.getId())

@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.domain.entity;
 
+import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -7,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +52,22 @@ public class OrderItem {
     @Builder.Default
     private List<OrderItemModifier> modifiers = new ArrayList<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "discount_type", length = 20)
+    private DiscountType discountType;
+
+    @Column(name = "discount_value", precision = 10, scale = 2)
+    private BigDecimal discountValue;
+
+    @Column(name = "discount_reason", length = 255)
+    private String discountReason;
+
+    @Column(name = "discount_applied_by", length = 255)
+    private String discountAppliedBy;
+
+    @Column(name = "discount_applied_at")
+    private OffsetDateTime discountAppliedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
@@ -66,5 +84,20 @@ public class OrderItem {
 
     public BigDecimal getSubtotal() {
         return unitPrice.add(getModifiersTotal()).multiply(BigDecimal.valueOf(quantity));
+    }
+
+    public BigDecimal getDiscountAmount() {
+        BigDecimal subtotal = getSubtotal();
+        if (discountType == null || discountValue == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal amount = discountType == DiscountType.PERCENTAGE
+                ? subtotal.multiply(discountValue).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                : discountValue;
+        return amount.min(subtotal);
+    }
+
+    public BigDecimal getNetSubtotal() {
+        return getSubtotal().subtract(getDiscountAmount());
     }
 }

@@ -11,6 +11,7 @@ import {
   GitMerge,
   Lock,
   PackageCheck,
+  Percent,
   Plus,
   Printer,
   Receipt,
@@ -24,7 +25,7 @@ import {
 import { useEffect, useState, useRef, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { listCategories } from '../api/categories'
-import { createOrder, listOrders, type ItemStatus, type Order } from '../api/orders'
+import { applyItemDiscount, createOrder, listOrders, type DiscountType, type ItemStatus, type Order, type OrderItem } from '../api/orders'
 import { listModifierGroups } from '../api/productModifiers'
 import { listProducts } from '../api/products'
 import { getMyRestaurant } from '../api/restaurant'
@@ -79,6 +80,7 @@ export function TabDetailPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const canOrder = user?.role === 'OWNER' || user?.role === 'MANAGER' || user?.role === 'WAITER' || user?.role === 'CASHIER'
+  const canDiscount = user?.role === 'OWNER' || user?.role === 'MANAGER'
   const queryClient = useQueryClient()
 
   const { data: tab, isLoading: isTabLoading } = useQuery({
@@ -136,6 +138,10 @@ export function TabDetailPage() {
   const [isMerging, setIsMerging] = useState(false)
   const [pendingUndo, setPendingUndo] = useState<{ sourceTabId: string; label: string } | null>(null)
   const pendingUndoTimeoutRef = useRef<number | null>(null)
+  const [discountingItem, setDiscountingItem] = useState<OrderItem | null>(null)
+  const [discountKind, setDiscountKind] = useState<DiscountType>('FIXED')
+  const [discountValue, setDiscountValue] = useState('')
+  const [discountReason, setDiscountReason] = useState('')
 
   const { data: freeTables } = useQuery({
     queryKey: ['tables', 'FREE'],
@@ -224,6 +230,42 @@ export function TabDetailPage() {
     },
     onError: () => setError('Não foi possível desfazer a mesclagem.'),
   })
+
+  const itemDiscountMutation = useMutation({
+    mutationFn: ({ itemId, discountType, value, reason }: { itemId: string; discountType: DiscountType | null; value?: number; reason?: string }) =>
+      applyItemDiscount(itemId, { discountType, discountValue: value, reason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tabs', tabId, 'orders'] })
+      setDiscountingItem(null)
+    },
+    onError: () => setError('Não foi possível aplicar o desconto neste item.'),
+  })
+
+  function openDiscountModal(item: OrderItem) {
+    setError(null)
+    setDiscountingItem(item)
+    setDiscountKind(item.discountType ?? 'FIXED')
+    setDiscountValue(item.discountValue ? String(item.discountValue) : '')
+    setDiscountReason(item.discountReason ?? '')
+  }
+
+  function handleApplyItemDiscount(event: FormEvent) {
+    event.preventDefault()
+    if (!discountingItem) return
+    const value = Number(discountValue)
+    if (!value || value <= 0) return
+    itemDiscountMutation.mutate({
+      itemId: discountingItem.id,
+      discountType: discountKind,
+      value,
+      reason: discountReason.trim() || undefined,
+    })
+  }
+
+  function handleRemoveItemDiscount() {
+    if (!discountingItem) return
+    itemDiscountMutation.mutate({ itemId: discountingItem.id, discountType: null })
+  }
 
   function openAddItemForm() {
     setProductId(productsByCategory[0]?.products[0]?.id ?? '')
@@ -349,7 +391,7 @@ export function TabDetailPage() {
   const allItems = orders?.flatMap((order) => order.items) ?? []
   const grandTotal = allItems
     .filter((item) => item.status !== 'CANCELLED')
-    .reduce((sum, item) => sum + item.subtotal, 0)
+    .reduce((sum, item) => sum + item.netSubtotal, 0)
   const isOpen = tab.status === 'OPEN'
 
   return (
@@ -543,6 +585,13 @@ export function TabDetailPage() {
                           ))}
                         </div>
                       )}
+                      {item.discountType && (
+                        <div className="mt-1 flex items-center gap-1 text-xs text-orange-600">
+                          <Percent className="h-3 w-3" />
+                          -{currencyFormatter.format(item.discountAmount)}
+                          {item.discountReason && <span className="text-gray-400">({item.discountReason})</span>}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
                       <span
@@ -551,7 +600,23 @@ export function TabDetailPage() {
                         <ItemStatusIcon className="h-3 w-3" />
                         {ITEM_STATUS_LABELS[item.status]}
                       </span>
-                      <span className="text-gray-600">{currencyFormatter.format(item.subtotal)}</span>
+                      <span className="text-gray-600">
+                        {item.discountType && (
+                          <span className="mr-1 text-xs text-gray-400 line-through">
+                            {currencyFormatter.format(item.subtotal)}
+                          </span>
+                        )}
+                        {currencyFormatter.format(item.netSubtotal)}
+                      </span>
+                      {isOpen && canDiscount && item.status !== 'CANCELLED' && (
+                        <button
+                          type="button"
+                          onClick={() => openDiscountModal(item)}
+                          className="text-xs text-brand-600 hover:underline"
+                        >
+                          Desconto
+                        </button>
+                      )}
                     </div>
                   </li>
                 )
@@ -752,6 +817,86 @@ export function TabDetailPage() {
                 </li>
               ))}
           </ul>
+        </Modal>
+      )}
+
+      {discountingItem && (
+        <Modal title={`Desconto em ${discountingItem.productName}`} onClose={() => setDiscountingItem(null)}>
+          <form onSubmit={handleApplyItemDiscount}>
+            <p className="mb-3 text-sm text-gray-500">
+              Valor do item: {currencyFormatter.format(discountingItem.subtotal)}
+            </p>
+
+            <div className="mb-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setDiscountKind('FIXED')}
+                className={`flex-1 rounded-md border px-3 py-2 text-sm ${
+                  discountKind === 'FIXED' ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-gray-300 text-gray-600'
+                }`}
+              >
+                Valor em R$
+              </button>
+              <button
+                type="button"
+                onClick={() => setDiscountKind('PERCENTAGE')}
+                className={`flex-1 rounded-md border px-3 py-2 text-sm ${
+                  discountKind === 'PERCENTAGE' ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-gray-300 text-gray-600'
+                }`}
+              >
+                Percentual (%)
+              </button>
+            </div>
+
+            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="discount-value">
+              {discountKind === 'FIXED' ? 'Valor do desconto (R$)' : 'Percentual de desconto (%)'}
+            </label>
+            <input
+              id="discount-value"
+              type="number"
+              required
+              min="0.01"
+              step="0.01"
+              max={discountKind === 'PERCENTAGE' ? 100 : undefined}
+              value={discountValue}
+              onChange={(e) => setDiscountValue(e.target.value)}
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            />
+
+            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="discount-reason">
+              Motivo <span className="font-normal text-gray-400">(opcional)</span>
+            </label>
+            <input
+              id="discount-reason"
+              type="text"
+              maxLength={255}
+              value={discountReason}
+              onChange={(e) => setDiscountReason(e.target.value)}
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            />
+
+            {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+
+            <div className="flex gap-2">
+              {discountingItem.discountType && (
+                <button
+                  type="button"
+                  onClick={handleRemoveItemDiscount}
+                  disabled={itemDiscountMutation.isPending}
+                  className="flex-1 rounded-md border border-red-300 px-3 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                >
+                  Remover desconto
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={itemDiscountMutation.isPending}
+                className="flex-1 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+              >
+                Aplicar
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
     </div>

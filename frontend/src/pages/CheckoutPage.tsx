@@ -1,9 +1,9 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Clock, Printer, Wallet } from 'lucide-react'
-import { useState } from 'react'
+import { CheckCircle2, Clock, Percent, Printer, Wallet } from 'lucide-react'
+import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { listOrders, type OrderItem } from '../api/orders'
-import { listTabs, payTab, type PaymentMethod, type Tab } from '../api/tabs'
+import { listOrders, type DiscountType, type OrderItem } from '../api/orders'
+import { applyTabDiscount, computeDiscountAmount, listTabs, payTab, roundCurrency, type PaymentMethod, type Tab } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
 import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
@@ -23,12 +23,14 @@ interface TabSummary {
   items: OrderItem[]
   isLoading: boolean
   isReady: boolean
+  itemsTotal: number
   total: number
 }
 
 export function CheckoutPage() {
   const { user } = useAuth()
   const canPay = user?.role === 'OWNER' || user?.role === 'MANAGER' || user?.role === 'WAITER' || user?.role === 'CASHIER'
+  const canDiscount = user?.role === 'OWNER' || user?.role === 'MANAGER'
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -49,14 +51,16 @@ export function CheckoutPage() {
     const isLoading = orderQueries[index]?.isLoading ?? true
     const items = orders?.flatMap((order) => order.items) ?? []
     const pendingCount = items.filter((item) => item.status !== 'DELIVERED' && item.status !== 'CANCELLED').length
-    const total = items
-      .filter((item) => item.status !== 'CANCELLED')
-      .reduce((sum, item) => sum + item.subtotal, 0)
+    const itemsTotal = roundCurrency(
+      items.filter((item) => item.status !== 'CANCELLED').reduce((sum, item) => sum + item.netSubtotal, 0),
+    )
+    const total = roundCurrency(itemsTotal - computeDiscountAmount(tab.discountType, tab.discountValue, itemsTotal))
     return {
       tab,
       items,
       isLoading,
       isReady: !isLoading && items.length > 0 && pendingCount === 0,
+      itemsTotal,
       total,
     }
   })
@@ -65,6 +69,10 @@ export function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PIX')
   const [error, setError] = useState<string | null>(null)
   const [justPaidTabId, setJustPaidTabId] = useState<string | null>(null)
+  const [isEditingDiscount, setIsEditingDiscount] = useState(false)
+  const [discountKind, setDiscountKind] = useState<DiscountType>('FIXED')
+  const [discountValue, setDiscountValue] = useState('')
+  const [discountReason, setDiscountReason] = useState('')
 
   const payMutation = useMutation({
     mutationFn: ({ id, method, amount }: { id: string; method: PaymentMethod; amount: number }) =>
@@ -77,11 +85,27 @@ export function CheckoutPage() {
     onError: () => setError('Não foi possível fechar a conta. Tente novamente.'),
   })
 
+  const tabDiscountMutation = useMutation({
+    mutationFn: ({ id, discountType, value, reason }: { id: string; discountType: DiscountType | null; value?: number; reason?: string }) =>
+      applyTabDiscount(id, { discountType, discountValue: value, reason }),
+    onSuccess: (updatedTab) => {
+      queryClient.invalidateQueries({ queryKey: ['tabs', 'OPEN'] })
+      setSelectedSummary((prev) => {
+        if (!prev) return prev
+        const total = roundCurrency(prev.itemsTotal - computeDiscountAmount(updatedTab.discountType, updatedTab.discountValue, prev.itemsTotal))
+        return { ...prev, tab: updatedTab, total }
+      })
+      setIsEditingDiscount(false)
+    },
+    onError: () => setError('Não foi possível aplicar o desconto nesta comanda.'),
+  })
+
   function handleCardClick(summary: TabSummary) {
     if (summary.isReady) {
       setSelectedSummary(summary)
       setPaymentMethod('PIX')
       setError(null)
+      setIsEditingDiscount(false)
     } else {
       navigate(`/tabs/${summary.tab.id}`)
     }
@@ -96,6 +120,28 @@ export function CheckoutPage() {
     if (!selectedSummary) return
     setError(null)
     payMutation.mutate({ id: selectedSummary.tab.id, method: paymentMethod, amount: selectedSummary.total })
+  }
+
+  function openDiscountForm() {
+    if (!selectedSummary) return
+    setError(null)
+    setDiscountKind(selectedSummary.tab.discountType ?? 'FIXED')
+    setDiscountValue(selectedSummary.tab.discountValue ? String(selectedSummary.tab.discountValue) : '')
+    setDiscountReason(selectedSummary.tab.discountReason ?? '')
+    setIsEditingDiscount(true)
+  }
+
+  function handleApplyTabDiscount(event: FormEvent) {
+    event.preventDefault()
+    if (!selectedSummary) return
+    const value = Number(discountValue)
+    if (!value || value <= 0) return
+    tabDiscountMutation.mutate({ id: selectedSummary.tab.id, discountType: discountKind, value, reason: discountReason.trim() || undefined })
+  }
+
+  function handleRemoveTabDiscount() {
+    if (!selectedSummary) return
+    tabDiscountMutation.mutate({ id: selectedSummary.tab.id, discountType: null })
   }
 
   return (
@@ -189,13 +235,119 @@ export function CheckoutPage() {
                         </div>
                       )}
                       {item.observation && <div className="mt-1 text-xs text-gray-500">{item.observation}</div>}
+                      {item.discountType && item.status !== 'CANCELLED' && (
+                        <div className="mt-1 flex items-center gap-1 text-xs text-orange-600">
+                          <Percent className="h-3 w-3" />
+                          -{currencyFormatter.format(item.discountAmount)}
+                          {item.discountReason && <span className="text-gray-400">({item.discountReason})</span>}
+                        </div>
+                      )}
                     </div>
                     <span className={item.status === 'CANCELLED' ? 'shrink-0 text-gray-400 line-through' : 'shrink-0 text-gray-600'}>
-                      {currencyFormatter.format(item.subtotal)}
+                      {item.discountType && item.status !== 'CANCELLED' && (
+                        <span className="mr-1 text-xs text-gray-400 line-through">
+                          {currencyFormatter.format(item.subtotal)}
+                        </span>
+                      )}
+                      {currencyFormatter.format(item.status === 'CANCELLED' ? item.subtotal : item.netSubtotal)}
                     </span>
                   </li>
                 ))}
               </ul>
+
+              {canDiscount && (
+                <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  {!isEditingDiscount ? (
+                    <div className="flex items-center justify-between">
+                      {selectedSummary.tab.discountType ? (
+                        <div className="text-sm text-orange-700">
+                          <span className="flex items-center gap-1 font-medium">
+                            <Percent className="h-3.5 w-3.5" />
+                            Desconto na comanda: -
+                            {currencyFormatter.format(computeDiscountAmount(selectedSummary.tab.discountType, selectedSummary.tab.discountValue, selectedSummary.itemsTotal))}
+                          </span>
+                          {selectedSummary.tab.discountReason && (
+                            <span className="text-xs text-gray-500">{selectedSummary.tab.discountReason}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-500">Nenhum desconto na comanda.</span>
+                      )}
+                      <button type="button" onClick={openDiscountForm} className="text-sm text-brand-600 hover:underline">
+                        {selectedSummary.tab.discountType ? 'Editar' : 'Aplicar desconto'}
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleApplyTabDiscount}>
+                      <div className="mb-2 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDiscountKind('FIXED')}
+                          className={`flex-1 rounded-md border px-2 py-1.5 text-xs ${
+                            discountKind === 'FIXED' ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-gray-300 text-gray-600'
+                          }`}
+                        >
+                          Valor em R$
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDiscountKind('PERCENTAGE')}
+                          className={`flex-1 rounded-md border px-2 py-1.5 text-xs ${
+                            discountKind === 'PERCENTAGE' ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-gray-300 text-gray-600'
+                          }`}
+                        >
+                          Percentual (%)
+                        </button>
+                      </div>
+                      <input
+                        type="number"
+                        required
+                        min="0.01"
+                        step="0.01"
+                        max={discountKind === 'PERCENTAGE' ? 100 : undefined}
+                        value={discountValue}
+                        onChange={(e) => setDiscountValue(e.target.value)}
+                        placeholder={discountKind === 'FIXED' ? 'Valor do desconto (R$)' : 'Percentual (%)'}
+                        className="mb-2 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        maxLength={255}
+                        value={discountReason}
+                        onChange={(e) => setDiscountReason(e.target.value)}
+                        placeholder="Motivo (opcional)"
+                        className="mb-2 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+                      />
+                      <div className="flex gap-2">
+                        {selectedSummary.tab.discountType && (
+                          <button
+                            type="button"
+                            onClick={handleRemoveTabDiscount}
+                            disabled={tabDiscountMutation.isPending}
+                            className="flex-1 rounded-md border border-red-300 px-2 py-1.5 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            Remover
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingDiscount(false)}
+                          className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={tabDiscountMutation.isPending}
+                          className="flex-1 rounded-md bg-brand-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                        >
+                          Aplicar
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
 
               <div className="mb-4 flex items-center justify-between border-t border-gray-200 pt-3 text-base font-semibold text-gray-800">
                 <span>Total</span>

@@ -1,7 +1,9 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.entity.User;
+import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.UserRole;
+import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
@@ -166,6 +168,16 @@ class OrderItemControllerIntegrationTest {
     private String updateStatusRequestBody(String status) throws Exception {
         UpdateOrderItemStatusRequest request = new UpdateOrderItemStatusRequest();
         request.setStatus(com.example.restaurant_saas.domain.enums.ItemStatus.valueOf(status));
+        return objectMapper.writeValueAsString(request);
+    }
+
+    private String discountRequestBody(DiscountType type, String value, String reason) throws Exception {
+        ApplyDiscountRequest request = new ApplyDiscountRequest();
+        request.setDiscountType(type);
+        if (value != null) {
+            request.setDiscountValue(new BigDecimal(value));
+        }
+        request.setReason(reason);
         return objectMapper.writeValueAsString(request);
     }
 
@@ -467,5 +479,111 @@ class OrderItemControllerIntegrationTest {
     void listKitchenQueue_withoutToken_shouldBeRejected() throws Exception {
         mockMvc.perform(get("/api/v1/order-items"))
                 .andExpect(status().is4xxClientError());
+    }
+
+    @Test
+    void applyDiscount_fixedAmount_shouldReduceNetSubtotal() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/discount")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.FIXED, "5.00", "Prato atrasou")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.discountType").value("FIXED"))
+                .andExpect(jsonPath("$.discountAmount").value(5.00))
+                .andExpect(jsonPath("$.discountReason").value("Prato atrasou"))
+                .andExpect(jsonPath("$.discountAppliedBy").value("Owner"))
+                .andExpect(jsonPath("$.netSubtotal").value(20.90));
+    }
+
+    @Test
+    void applyDiscount_percentage_shouldReduceNetSubtotalProportionally() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/discount")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.PERCENTAGE, "10", null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.discountAmount").value(2.59))
+                .andExpect(jsonPath("$.netSubtotal").value(23.31));
+    }
+
+    @Test
+    void applyDiscount_withNullType_shouldClearExistingDiscount() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/discount")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.FIXED, "5.00", "Reclamação")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/discount")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(null, null, null)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.discountType").doesNotExist())
+                .andExpect(jsonPath("$.discountReason").doesNotExist())
+                .andExpect(jsonPath("$.netSubtotal").value(25.90));
+    }
+
+    @Test
+    void applyDiscount_asWaiter_shouldBeForbidden() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/discount")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.FIXED, "5.00", null)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void applyDiscount_percentageOver100_shouldReturn400() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/discount")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.PERCENTAGE, "150", null)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void applyDiscount_fixedAboveSubtotal_shouldReturn400() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/discount")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.FIXED, "999.00", null)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void applyDiscount_onCancelledItem_shouldReturn400() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateStatusRequestBody("CANCELLED")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/discount")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.FIXED, "5.00", null)))
+                .andExpect(status().isBadRequest());
     }
 }

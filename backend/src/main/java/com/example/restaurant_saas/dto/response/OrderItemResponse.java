@@ -1,10 +1,12 @@
 package com.example.restaurant_saas.dto.response;
 
+import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import lombok.Builder;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,4 +22,11 @@ public class OrderItemResponse {
     private ItemStatus status;
     private List<OrderItemModifierResponse> modifiers;
     private BigDecimal subtotal;
+    private DiscountType discountType;
+    private BigDecimal discountValue;
+    private BigDecimal discountAmount;
+    private String discountReason;
+    private String discountAppliedBy;
+    private OffsetDateTime discountAppliedAt;
+    private BigDecimal netSubtotal;
 }

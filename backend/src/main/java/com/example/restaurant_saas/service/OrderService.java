@@ -166,7 +166,7 @@ public class OrderService {
                 .toList();
 
         BigDecimal total = itemResponses.stream()
-                .map(OrderItemResponse::getSubtotal)
+                .map(OrderItemResponse::getNetSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return OrderResponse.builder()
@@ -191,6 +191,13 @@ public class OrderService {
                 .status(item.getStatus())
                 .modifiers(toModifierResponses(item))
                 .subtotal(item.getSubtotal())
+                .discountType(item.getDiscountType())
+                .discountValue(item.getDiscountValue())
+                .discountAmount(item.getDiscountAmount())
+                .discountReason(item.getDiscountReason())
+                .discountAppliedBy(item.getDiscountAppliedBy())
+                .discountAppliedAt(item.getDiscountAppliedAt())
+                .netSubtotal(item.getNetSubtotal())
                 .build();
     }
 
