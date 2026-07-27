@@ -25,6 +25,8 @@ export interface Tab {
   discountReason: string | null
   discountAppliedBy: string | null
   discountAppliedAt: string | null
+  serviceChargePercentage: number | null
+  serviceChargeAmount: number | null
 }
 
 /** Rounds to cents, avoiding binary floating-point artifacts (e.g. 51.3 + 38.9 === 90.19999999999999 in JS). */
@@ -67,8 +69,8 @@ export function unmergeTabs(targetTabId: string, sourceTabId: string) {
   return http.patch<Tab>(`/tabs/${targetTabId}/unmerge`, { sourceTabId }).then((res) => res.data)
 }
 
-export function payTab(id: string, paymentMethod: PaymentMethod, paidAmount: number) {
-  return http.patch<Tab>(`/tabs/${id}/pay`, { paymentMethod, paidAmount }).then((res) => res.data)
+export function payTab(id: string, paymentMethod: PaymentMethod, paidAmount: number, serviceChargePercentage?: number) {
+  return http.patch<Tab>(`/tabs/${id}/pay`, { paymentMethod, paidAmount, serviceChargePercentage }).then((res) => res.data)
 }
 
 export function markTabReceiptPrinted(id: string) {

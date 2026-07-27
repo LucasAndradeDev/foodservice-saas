@@ -71,6 +71,12 @@ public class Tab {
     @Column(name = "discount_applied_at")
     private OffsetDateTime discountAppliedAt;
 
+    @Column(name = "service_charge_percentage", precision = 5, scale = 2)
+    private BigDecimal serviceChargePercentage;
+
+    @Column(name = "service_charge_amount", precision = 10, scale = 2)
+    private BigDecimal serviceChargeAmount;
+
     @ManyToMany
     @JoinTable(
             name = "tab_tables",

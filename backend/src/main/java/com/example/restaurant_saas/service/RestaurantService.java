@@ -65,6 +65,12 @@ public class RestaurantService {
         if (restaurant.getKitchenCriticalThresholdMinutes() <= restaurant.getKitchenWarningThresholdMinutes()) {
             throw new IllegalArgumentException("Critical threshold must be greater than the warning threshold.");
         }
+        if (request.getServiceChargeEnabled() != null) {
+            restaurant.setServiceChargeEnabled(request.getServiceChargeEnabled());
+        }
+        if (request.getServiceChargePercentage() != null) {
+            restaurant.setServiceChargePercentage(request.getServiceChargePercentage());
+        }
 
         restaurant = restaurantRepository.save(restaurant);
         return toResponse(restaurant);
@@ -90,6 +96,8 @@ public class RestaurantService {
                 .autoPrintKitchenTickets(restaurant.getAutoPrintKitchenTickets())
                 .kitchenWarningThresholdMinutes(restaurant.getKitchenWarningThresholdMinutes())
                 .kitchenCriticalThresholdMinutes(restaurant.getKitchenCriticalThresholdMinutes())
+                .serviceChargeEnabled(restaurant.getServiceChargeEnabled())
+                .serviceChargePercentage(restaurant.getServiceChargePercentage())
                 .build();
     }
 }

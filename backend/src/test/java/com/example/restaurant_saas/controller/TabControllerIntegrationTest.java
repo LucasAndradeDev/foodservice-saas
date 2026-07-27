@@ -181,9 +181,16 @@ class TabControllerIntegrationTest {
     }
 
     private String payTabRequestBody(String paymentMethod, String paidAmount) throws Exception {
+        return payTabRequestBody(paymentMethod, paidAmount, null);
+    }
+
+    private String payTabRequestBody(String paymentMethod, String paidAmount, String serviceChargePercentage) throws Exception {
         PayTabRequest request = new PayTabRequest();
         request.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
         request.setPaidAmount(new BigDecimal(paidAmount));
+        if (serviceChargePercentage != null) {
+            request.setServiceChargePercentage(new BigDecimal(serviceChargePercentage));
+        }
         return objectMapper.writeValueAsString(request);
     }
 
@@ -1088,6 +1095,140 @@ class TabControllerIntegrationTest {
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(discountRequestBody(DiscountType.FIXED, "999.00", null)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void payTab_withServiceCharge_shouldAddPercentageOnTopOfTotal() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "100.00");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "110.00", "10")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paidAmount").value(110.00))
+                .andExpect(jsonPath("$.serviceChargePercentage").value(10))
+                .andExpect(jsonPath("$.serviceChargeAmount").value(10.00));
+    }
+
+    @Test
+    void payTab_withServiceChargeOnDiscountedTotal_shouldComputeOverPostDiscountAmount() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "100.00");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        // 20% tab discount -> 80.00, then 10% service charge on top -> 88.00
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/discount")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.PERCENTAGE, "20", null)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "88.00", "10")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paidAmount").value(88.00))
+                .andExpect(jsonPath("$.serviceChargeAmount").value(8.00));
+    }
+
+    @Test
+    void payTab_withoutServiceCharge_shouldLeaveFieldsAbsent() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "0")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serviceChargePercentage").doesNotExist())
+                .andExpect(jsonPath("$.serviceChargeAmount").doesNotExist());
+    }
+
+    @Test
+    void payTab_withServiceChargeOver100_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "100.00");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "200.00", "150")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void payTab_asWaiter_cannotWaiveOrOverrideServiceCharge_alwaysUsesRestaurantDefault() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "100.00");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        // Restaurant default is 10% (enabled). Waiter tries to waive it by sending 0 and paying only the items total.
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "100.00", "0")))
+                .andExpect(status().isBadRequest());
+
+        // Paying the amount that includes the forced 10% default succeeds, regardless of what was requested.
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "110.00", "0")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serviceChargePercentage").value(10))
+                .andExpect(jsonPath("$.serviceChargeAmount").value(10.00));
+    }
+
+    @Test
+    void payTab_withServiceChargeAmountMismatch_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "100.00");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payTabRequestBody("CASH", "100.00", "10")))
                 .andExpect(status().isBadRequest());
     }
 }

@@ -143,9 +143,16 @@ class DashboardControllerIntegrationTest {
     }
 
     private void payTab(String token, String tabId, String paymentMethod, String paidAmount) throws Exception {
+        payTab(token, tabId, paymentMethod, paidAmount, null);
+    }
+
+    private void payTab(String token, String tabId, String paymentMethod, String paidAmount, String serviceChargePercentage) throws Exception {
         PayTabRequest request = new PayTabRequest();
         request.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
         request.setPaidAmount(new BigDecimal(paidAmount));
+        if (serviceChargePercentage != null) {
+            request.setServiceChargePercentage(new BigDecimal(serviceChargePercentage));
+        }
         mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -213,6 +220,27 @@ class DashboardControllerIntegrationTest {
                 .andExpect(jsonPath("$.freeTables").value(1))
                 .andExpect(jsonPath("$.ordersInPreparation").value(0))
                 .andExpect(jsonPath("$.revenueToday").value(25.90));
+    }
+
+    @Test
+    void getDashboard_withServiceCharge_shouldExcludeItFromRevenueToday() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "100.00");
+
+        List<String> itemIds = createOrderAndGetItemIds(ownerToken, tabId, productId, 1);
+        String itemId = itemIds.get(0);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+        payTab(ownerToken, tabId, "PIX", "110.00", "10");
+
+        mockMvc.perform(get("/api/v1/dashboard")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.revenueToday").value(100.00));
     }
 
     @Test

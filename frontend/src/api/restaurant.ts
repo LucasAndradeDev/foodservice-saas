@@ -14,6 +14,8 @@ export interface Restaurant {
   autoPrintKitchenTickets: boolean
   kitchenWarningThresholdMinutes: number
   kitchenCriticalThresholdMinutes: number
+  serviceChargeEnabled: boolean
+  serviceChargePercentage: number
 }
 
 export interface UpdateRestaurantPayload {
@@ -26,6 +28,8 @@ export interface UpdateRestaurantPayload {
   autoPrintKitchenTickets?: boolean
   kitchenWarningThresholdMinutes?: number
   kitchenCriticalThresholdMinutes?: number
+  serviceChargeEnabled?: boolean
+  serviceChargePercentage?: number
 }
 
 export function getMyRestaurant() {

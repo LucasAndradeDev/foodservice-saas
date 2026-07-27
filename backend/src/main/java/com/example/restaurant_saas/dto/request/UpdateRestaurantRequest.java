@@ -1,10 +1,14 @@
 package com.example.restaurant_saas.dto.request;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+
+import java.math.BigDecimal;
 
 @Data
 public class UpdateRestaurantRequest {
@@ -38,4 +42,10 @@ public class UpdateRestaurantRequest {
 
     @Positive(message = "Critical threshold must be greater than zero")
     private Integer kitchenCriticalThresholdMinutes;
+
+    private Boolean serviceChargeEnabled;
+
+    @DecimalMin(value = "0.0", message = "Service charge percentage cannot be negative")
+    @DecimalMax(value = "100.0", message = "Service charge percentage cannot exceed 100")
+    private BigDecimal serviceChargePercentage;
 }

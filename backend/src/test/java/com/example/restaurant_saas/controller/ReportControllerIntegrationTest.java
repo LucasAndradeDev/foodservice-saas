@@ -173,9 +173,16 @@ class ReportControllerIntegrationTest {
     }
 
     private void payTab(String token, String tabId, String paymentMethod, String paidAmount) throws Exception {
+        payTab(token, tabId, paymentMethod, paidAmount, null);
+    }
+
+    private void payTab(String token, String tabId, String paymentMethod, String paidAmount, String serviceChargePercentage) throws Exception {
         PayTabRequest request = new PayTabRequest();
         request.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
         request.setPaidAmount(new BigDecimal(paidAmount));
+        if (serviceChargePercentage != null) {
+            request.setServiceChargePercentage(new BigDecimal(serviceChargePercentage));
+        }
         mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -224,6 +231,31 @@ class ReportControllerIntegrationTest {
                 .andExpect(jsonPath("$.topProducts[1].productName").value("Soda"))
                 .andExpect(jsonPath("$.topProducts[1].quantitySold").value(1))
                 .andExpect(jsonPath("$.topProducts[1].revenue").value(5.00));
+    }
+
+    @Test
+    void getSummary_withServiceCharge_shouldExcludeItFromRevenue() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String burgerId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "100.00");
+
+        String table1 = createTableAndGetId(ownerToken);
+        String tab1 = openTabAndGetId(ownerToken, table1);
+        String burgerItem1 = createOrderAndGetItemIds(ownerToken, tab1, burgerId, 1).get(0);
+        deliverItem(ownerToken, burgerItem1);
+        // 100.00 + 10% service charge = 110.00 paid, but only 100.00 is restaurant revenue
+        payTab(ownerToken, tab1, "PIX", "110.00", "10");
+
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/summary")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalRevenue").value(100.00))
+                .andExpect(jsonPath("$.closedTabsCount").value(1))
+                .andExpect(jsonPath("$.byPaymentMethod[0].total").value(100.00));
     }
 
     @Test

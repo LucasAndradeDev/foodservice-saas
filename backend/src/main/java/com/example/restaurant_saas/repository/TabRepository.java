@@ -17,12 +17,12 @@ public interface TabRepository extends JpaRepository<Tab, UUID> {
     List<Tab> findByRestaurantId(UUID restaurantId);
     Optional<Tab> findByIdAndRestaurantId(UUID id, UUID restaurantId);
 
-    @Query("SELECT COALESCE(SUM(t.paidAmount), 0) FROM Tab t " +
+    @Query("SELECT COALESCE(SUM(t.paidAmount - COALESCE(t.serviceChargeAmount, 0)), 0) FROM Tab t " +
             "WHERE t.restaurant.id = :restaurantId AND t.paidAt >= :start AND t.paidAt < :end")
     BigDecimal sumPaidAmountByRestaurantIdAndPaidAtBetween(
             @Param("restaurantId") UUID restaurantId, @Param("start") OffsetDateTime start, @Param("end") OffsetDateTime end);
 
-    @Query("SELECT t.paymentMethod, COALESCE(SUM(t.paidAmount), 0), COUNT(t) FROM Tab t " +
+    @Query("SELECT t.paymentMethod, COALESCE(SUM(t.paidAmount - COALESCE(t.serviceChargeAmount, 0)), 0), COUNT(t) FROM Tab t " +
             "WHERE t.restaurant.id = :restaurantId AND t.status = 'CLOSED' AND t.paidAt >= :start AND t.paidAt < :end " +
             "GROUP BY t.paymentMethod")
     List<Object[]> sumPaidAmountByRestaurantIdAndPaidAtBetweenGroupedByPaymentMethod(

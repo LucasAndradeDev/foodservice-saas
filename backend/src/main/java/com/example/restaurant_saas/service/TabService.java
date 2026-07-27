@@ -2,12 +2,14 @@ package com.example.restaurant_saas.service;
 
 import com.example.restaurant_saas.domain.entity.Order;
 import com.example.restaurant_saas.domain.entity.OrderItem;
+import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.domain.enums.TableStatus;
+import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
 import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
 import com.example.restaurant_saas.dto.request.MergeTabRequest;
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -206,7 +209,7 @@ public class TabService {
     }
 
     @Transactional
-    public TabResponse payTab(UUID restaurantId, UUID tabId, PayTabRequest request) {
+    public TabResponse payTab(UUID restaurantId, UUID tabId, UserRole currentUserRole, PayTabRequest request) {
         Tab tab = findByIdAndRestaurant(restaurantId, tabId);
         if (tab.getStatus() != TabStatus.OPEN) {
             throw new IllegalArgumentException("Tab is not open.");
@@ -216,7 +219,29 @@ public class TabService {
         }
 
         BigDecimal itemsTotal = computeItemsTotal(restaurantId, tabId);
-        BigDecimal total = itemsTotal.subtract(tab.getDiscountAmount(itemsTotal));
+        BigDecimal afterDiscount = itemsTotal.subtract(tab.getDiscountAmount(itemsTotal));
+
+        // Only OWNER/MANAGER may override or waive the service charge; other roles always get the
+        // restaurant's configured default, so a waiter/cashier can't quietly pocket or inflate it.
+        BigDecimal serviceChargePercentage;
+        if (currentUserRole == UserRole.OWNER || currentUserRole == UserRole.MANAGER) {
+            serviceChargePercentage = request.getServiceChargePercentage();
+        } else {
+            Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                    .orElseThrow(() -> new IllegalArgumentException("Restaurant not found."));
+            serviceChargePercentage = Boolean.TRUE.equals(restaurant.getServiceChargeEnabled())
+                    ? restaurant.getServiceChargePercentage()
+                    : null;
+        }
+        BigDecimal serviceChargeAmount = BigDecimal.ZERO;
+        if (serviceChargePercentage != null) {
+            if (serviceChargePercentage.signum() < 0 || serviceChargePercentage.compareTo(BigDecimal.valueOf(100)) > 0) {
+                throw new IllegalArgumentException("Service charge percentage must be between 0 and 100.");
+            }
+            serviceChargeAmount = afterDiscount.multiply(serviceChargePercentage).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal total = afterDiscount.add(serviceChargeAmount);
         if (total.compareTo(request.getPaidAmount()) != 0) {
             throw new IllegalArgumentException("Paid amount does not match the tab total.");
         }
@@ -227,6 +252,8 @@ public class TabService {
         tab.setPaymentMethod(request.getPaymentMethod());
         tab.setPaidAmount(request.getPaidAmount());
         tab.setPaidAt(now);
+        tab.setServiceChargePercentage(serviceChargePercentage);
+        tab.setServiceChargeAmount(serviceChargePercentage != null ? serviceChargeAmount : null);
         tab = tabRepository.save(tab);
 
         tab.getTables().forEach(table -> table.setStatus(TableStatus.FREE));
@@ -328,6 +355,8 @@ public class TabService {
                 .discountReason(tab.getDiscountReason())
                 .discountAppliedBy(tab.getDiscountAppliedBy())
                 .discountAppliedAt(tab.getDiscountAppliedAt())
+                .serviceChargePercentage(tab.getServiceChargePercentage())
+                .serviceChargeAmount(tab.getServiceChargeAmount())
                 .tables(tab.getTables().stream()
                         .map(table -> TabTableSummary.builder()
                                 .id(table.getId())

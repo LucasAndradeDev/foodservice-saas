@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listOrders, type DiscountType, type OrderItem } from '../api/orders'
 import { applyTabDiscount, computeDiscountAmount, listTabs, payTab, roundCurrency, type PaymentMethod, type Tab } from '../api/tabs'
+import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
@@ -37,6 +38,11 @@ export function CheckoutPage() {
   const { data: openTabs, isLoading: isTabsLoading } = useQuery({
     queryKey: ['tabs', 'OPEN'],
     queryFn: () => listTabs('OPEN'),
+  })
+
+  const { data: restaurant } = useQuery({
+    queryKey: ['restaurant'],
+    queryFn: getMyRestaurant,
   })
 
   const orderQueries = useQueries({
@@ -73,10 +79,13 @@ export function CheckoutPage() {
   const [discountKind, setDiscountKind] = useState<DiscountType>('FIXED')
   const [discountValue, setDiscountValue] = useState('')
   const [discountReason, setDiscountReason] = useState('')
+  const [serviceChargePercentage, setServiceChargePercentage] = useState<number | null>(null)
+  const [isEditingServiceCharge, setIsEditingServiceCharge] = useState(false)
+  const [serviceChargeInput, setServiceChargeInput] = useState('')
 
   const payMutation = useMutation({
-    mutationFn: ({ id, method, amount }: { id: string; method: PaymentMethod; amount: number }) =>
-      payTab(id, method, amount),
+    mutationFn: ({ id, method, amount, chargePercentage }: { id: string; method: PaymentMethod; amount: number; chargePercentage: number | null }) =>
+      payTab(id, method, amount, chargePercentage ?? undefined),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tabs'] })
       queryClient.invalidateQueries({ queryKey: ['tables'] })
@@ -106,6 +115,10 @@ export function CheckoutPage() {
       setPaymentMethod('PIX')
       setError(null)
       setIsEditingDiscount(false)
+      const defaultCharge = restaurant?.serviceChargeEnabled ? restaurant.serviceChargePercentage : null
+      setServiceChargePercentage(defaultCharge)
+      setServiceChargeInput(String(restaurant?.serviceChargePercentage ?? 10))
+      setIsEditingServiceCharge(false)
     } else {
       navigate(`/tabs/${summary.tab.id}`)
     }
@@ -116,10 +129,28 @@ export function CheckoutPage() {
     setJustPaidTabId(null)
   }
 
+  const serviceChargeAmount = selectedSummary
+    ? roundCurrency((selectedSummary.total * (serviceChargePercentage ?? 0)) / 100)
+    : 0
+  const finalTotal = selectedSummary ? roundCurrency(selectedSummary.total + serviceChargeAmount) : 0
+
   function handleConfirmPayment() {
     if (!selectedSummary) return
     setError(null)
-    payMutation.mutate({ id: selectedSummary.tab.id, method: paymentMethod, amount: selectedSummary.total })
+    payMutation.mutate({ id: selectedSummary.tab.id, method: paymentMethod, amount: finalTotal, chargePercentage: serviceChargePercentage })
+  }
+
+  function handleApplyServiceCharge(event: FormEvent) {
+    event.preventDefault()
+    const value = Number(serviceChargeInput)
+    if (!value || value < 0 || value > 100) return
+    setServiceChargePercentage(value)
+    setIsEditingServiceCharge(false)
+  }
+
+  function handleRemoveServiceCharge() {
+    setServiceChargePercentage(null)
+    setIsEditingServiceCharge(false)
   }
 
   function openDiscountForm() {
@@ -349,9 +380,80 @@ export function CheckoutPage() {
                 </div>
               )}
 
-              <div className="mb-4 flex items-center justify-between border-t border-gray-200 pt-3 text-base font-semibold text-gray-800">
-                <span>Total</span>
-                <span>{currencyFormatter.format(selectedSummary.total)}</span>
+              {canPay && (
+                <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  {!isEditingServiceCharge || !canDiscount ? (
+                    <div className="flex items-center justify-between">
+                      {serviceChargePercentage != null ? (
+                        <span className="text-sm text-gray-700">
+                          Taxa de serviço ({serviceChargePercentage}%): {currencyFormatter.format(serviceChargeAmount)}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-500">Sem taxa de serviço.</span>
+                      )}
+                      {canDiscount && (
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingServiceCharge(true)}
+                          className="text-sm text-brand-600 hover:underline"
+                        >
+                          {serviceChargePercentage != null ? 'Editar' : 'Adicionar'}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <form onSubmit={handleApplyServiceCharge}>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={serviceChargeInput}
+                        onChange={(e) => setServiceChargeInput(e.target.value)}
+                        placeholder="Percentual (%)"
+                        className="mb-2 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+                      />
+                      <div className="flex gap-2">
+                        {serviceChargePercentage != null && (
+                          <button
+                            type="button"
+                            onClick={handleRemoveServiceCharge}
+                            className="flex-1 rounded-md border border-red-300 px-2 py-1.5 text-xs text-red-700 hover:bg-red-50"
+                          >
+                            Remover
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingServiceCharge(false)}
+                          className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          className="flex-1 rounded-md bg-brand-600 px-2 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                        >
+                          Aplicar
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              <div className="mb-4 space-y-1 border-t border-gray-200 pt-3">
+                {serviceChargePercentage != null && (
+                  <div className="flex items-center justify-between text-sm text-gray-500">
+                    <span>Subtotal</span>
+                    <span>{currencyFormatter.format(selectedSummary.total)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-base font-semibold text-gray-800">
+                  <span>Total</span>
+                  <span>{currencyFormatter.format(finalTotal)}</span>
+                </div>
               </div>
 
               <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="paymentMethod">

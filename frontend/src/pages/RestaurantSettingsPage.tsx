@@ -26,6 +26,8 @@ export function RestaurantSettingsPage() {
   const [autoPrintKitchenTickets, setAutoPrintKitchenTickets] = useState(false)
   const [kitchenWarningThresholdMinutes, setKitchenWarningThresholdMinutes] = useState('10')
   const [kitchenCriticalThresholdMinutes, setKitchenCriticalThresholdMinutes] = useState('20')
+  const [serviceChargeEnabled, setServiceChargeEnabled] = useState(true)
+  const [serviceChargePercentage, setServiceChargePercentage] = useState('10')
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -42,6 +44,8 @@ export function RestaurantSettingsPage() {
     setAutoPrintKitchenTickets(restaurant.autoPrintKitchenTickets)
     setKitchenWarningThresholdMinutes(String(restaurant.kitchenWarningThresholdMinutes))
     setKitchenCriticalThresholdMinutes(String(restaurant.kitchenCriticalThresholdMinutes))
+    setServiceChargeEnabled(restaurant.serviceChargeEnabled)
+    setServiceChargePercentage(String(restaurant.serviceChargePercentage))
   }, [restaurant])
 
   const updateMutation = useMutation({
@@ -76,6 +80,8 @@ export function RestaurantSettingsPage() {
       autoPrintKitchenTickets,
       kitchenWarningThresholdMinutes: warningMinutes,
       kitchenCriticalThresholdMinutes: criticalMinutes,
+      serviceChargeEnabled,
+      serviceChargePercentage: Number(serviceChargePercentage),
     })
   }
 
@@ -305,6 +311,38 @@ export function RestaurantSettingsPage() {
                           className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
                         />
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-gray-200 p-3">
+                    <label className="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700">
+                      <input
+                        type="checkbox"
+                        disabled={!canManage}
+                        checked={serviceChargeEnabled}
+                        onChange={(e) => setServiceChargeEnabled(e.target.checked)}
+                      />
+                      Cobrar taxa de serviço por padrão
+                    </label>
+                    <p className="mb-3 text-xs text-gray-500">
+                      Some automaticamente no fechamento da conta; pode ser removida ou ajustada pelo caixa em cada
+                      comanda (o cliente pode recusar).
+                    </p>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-600" htmlFor="serviceChargePercentage">
+                        Percentual (%)
+                      </label>
+                      <input
+                        id="serviceChargePercentage"
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="0.01"
+                        disabled={!canManage}
+                        value={serviceChargePercentage}
+                        onChange={(e) => setServiceChargePercentage(e.target.value)}
+                        className="w-full max-w-[140px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+                      />
                     </div>
                   </div>
                 </div>

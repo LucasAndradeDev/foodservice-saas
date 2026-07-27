@@ -393,6 +393,55 @@ class RestaurantControllerIntegrationTest {
     }
 
     @Test
+    void getMyRestaurant_shouldDefaultServiceCharge() throws Exception {
+        String token = registerAndGetToken();
+
+        mockMvc.perform(get("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serviceChargeEnabled").value(true))
+                .andExpect(jsonPath("$.serviceChargePercentage").value(10.00));
+    }
+
+    @Test
+    void updateMyRestaurant_withServiceCharge_shouldPersistAndSurviveOmittedUpdate() throws Exception {
+        String token = registerAndGetToken();
+
+        UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
+        updateRequest.setServiceChargeEnabled(false);
+        updateRequest.setServiceChargePercentage(new java.math.BigDecimal("12.50"));
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.serviceChargeEnabled").value(false))
+                .andExpect(jsonPath("$.serviceChargePercentage").value(12.50));
+
+        UpdateRestaurantRequest partialUpdate = new UpdateRestaurantRequest();
+        partialUpdate.setTableCount(5);
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(partialUpdate)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tableCount").value(5))
+                .andExpect(jsonPath("$.serviceChargeEnabled").value(false))
+                .andExpect(jsonPath("$.serviceChargePercentage").value(12.50));
+    }
+
+    @Test
+    void updateMyRestaurant_withServiceChargeOver100_shouldReturn400() throws Exception {
+        String token = registerAndGetToken();
+
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"serviceChargePercentage\": 150}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void updateMyRestaurant_asWaiter_shouldBeForbidden() throws Exception {
         registerAndGetToken();
         User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();

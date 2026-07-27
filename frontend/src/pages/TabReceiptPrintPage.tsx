@@ -100,6 +100,13 @@ export function TabReceiptPrintPage() {
         </div>
       )}
 
+      {tab.serviceChargePercentage != null && (
+        <div className="mt-2 flex items-center justify-between text-sm text-gray-600">
+          <span>Taxa de serviço ({tab.serviceChargePercentage}%)</span>
+          <span>{currencyFormatter.format(tab.serviceChargeAmount ?? 0)}</span>
+        </div>
+      )}
+
       <div className="mt-3 flex items-center justify-between border-t border-gray-300 pt-3 text-base font-semibold text-gray-800">
         <span>Total</span>
         <span>{currencyFormatter.format(total)}</span>

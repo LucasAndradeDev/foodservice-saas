@@ -16,4 +16,7 @@ public class PayTabRequest {
     @NotNull(message = "Paid amount is required")
     @DecimalMin(value = "0.0", inclusive = true, message = "Paid amount must not be negative")
     private BigDecimal paidAmount;
+
+    /** Percentage (0-100) of the post-discount total to add as service charge. Null/omitted means none. */
+    private BigDecimal serviceChargePercentage;
 }

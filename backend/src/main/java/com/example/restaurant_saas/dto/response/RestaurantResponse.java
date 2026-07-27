@@ -3,6 +3,7 @@ package com.example.restaurant_saas.dto.response;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Data
@@ -21,4 +22,6 @@ public class RestaurantResponse {
     private Boolean autoPrintKitchenTickets;
     private Integer kitchenWarningThresholdMinutes;
     private Integer kitchenCriticalThresholdMinutes;
+    private Boolean serviceChargeEnabled;
+    private BigDecimal serviceChargePercentage;
 }

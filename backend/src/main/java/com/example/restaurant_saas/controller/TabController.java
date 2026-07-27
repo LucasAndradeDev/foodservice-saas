@@ -121,7 +121,7 @@ public class TabController {
 
     @PatchMapping("/{id}/pay")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
-    @Operation(summary = "Pay and close tab", description = "Registers the payment and closes an open tab in the same step, freeing all tables linked to it (OCCUPIED to FREE). The paid amount must match the tab's total exactly, and all order items must already be DELIVERED or CANCELLED.")
+    @Operation(summary = "Pay and close tab", description = "Registers the payment and closes an open tab in the same step, freeing all tables linked to it (OCCUPIED to FREE). The paid amount must match the tab's total exactly, and all order items must already be DELIVERED or CANCELLED. serviceChargePercentage is only honored for OWNER/MANAGER; other roles always get the restaurant's configured default (or none, if disabled).")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Tab paid and closed"),
             @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, already closed, or paid amount does not match the total"),
@@ -132,7 +132,7 @@ public class TabController {
             @PathVariable UUID id,
             @Valid @RequestBody PayTabRequest request
     ) {
-        return ResponseEntity.ok(tabService.payTab(currentUser.getRestaurantId(), id, request));
+        return ResponseEntity.ok(tabService.payTab(currentUser.getRestaurantId(), id, currentUser.getRole(), request));
     }
 
     @PatchMapping("/{id}/cancel")

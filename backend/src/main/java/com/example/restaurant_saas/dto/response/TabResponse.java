@@ -29,4 +29,6 @@ public class TabResponse {
     private String discountReason;
     private String discountAppliedBy;
     private OffsetDateTime discountAppliedAt;
+    private BigDecimal serviceChargePercentage;
+    private BigDecimal serviceChargeAmount;
 }

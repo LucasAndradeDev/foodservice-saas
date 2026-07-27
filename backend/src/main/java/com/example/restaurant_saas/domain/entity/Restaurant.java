@@ -5,6 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -58,6 +59,14 @@ public class Restaurant {
     @Column(name = "kitchen_critical_threshold_minutes", nullable = false)
     @Builder.Default
     private Integer kitchenCriticalThresholdMinutes = 20;
+
+    @Column(name = "service_charge_enabled", nullable = false)
+    @Builder.Default
+    private Boolean serviceChargeEnabled = true;
+
+    @Column(name = "service_charge_percentage", nullable = false, precision = 5, scale = 2)
+    @Builder.Default
+    private BigDecimal serviceChargePercentage = BigDecimal.valueOf(10.00);
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
