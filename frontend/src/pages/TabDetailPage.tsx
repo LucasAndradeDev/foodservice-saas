@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { motion } from 'framer-motion'
 import {
   ArrowLeft,
   Ban,
@@ -13,14 +14,16 @@ import {
   Plus,
   Printer,
   Receipt,
+  Search,
   ShoppingCart,
   Table2,
   Undo2,
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useState, useRef, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { listCategories } from '../api/categories'
 import { createOrder, listOrders, type ItemStatus, type Order } from '../api/orders'
 import { listModifierGroups } from '../api/productModifiers'
 import { listProducts } from '../api/products'
@@ -29,6 +32,7 @@ import { listTables } from '../api/tables'
 import { addTableToTab, cancelTab, getTab, listTabs, mergeTabs, unmergeTabs, type Tab } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
+import { getCategoryIcon } from './publicMenu/categoryIcons'
 import { formatTableLabel } from '../utils/tableLabel'
 import { minutesSince } from '../utils/time'
 import { modifiersTotal, sameModifiers, type SelectedModifier } from '../utils/modifiers'
@@ -93,6 +97,29 @@ export function TabDetailPage() {
     queryKey: ['products', 'active'],
     queryFn: () => listProducts({ active: true }),
   })
+
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => listCategories(),
+  })
+
+  const productsByCategory = (categories ?? [])
+    .map((category) => ({
+      category,
+      products: (products ?? []).filter((product) => product.categoryId === category.id),
+    }))
+    .filter((group) => group.products.length > 0)
+
+  const [productSearch, setProductSearch] = useState('')
+  const normalizedSearch = productSearch.trim().toLowerCase()
+  const filteredProductsByCategory = normalizedSearch
+    ? productsByCategory
+        .map((group) => ({
+          ...group,
+          products: group.products.filter((product) => product.name.toLowerCase().includes(normalizedSearch)),
+        }))
+        .filter((group) => group.products.length > 0)
+    : productsByCategory
 
   const { data: restaurant } = useQuery({
     queryKey: ['restaurant'],
@@ -199,7 +226,8 @@ export function TabDetailPage() {
   })
 
   function openAddItemForm() {
-    setProductId(products?.[0]?.id ?? '')
+    setProductId(productsByCategory[0]?.products[0]?.id ?? '')
+    setProductSearch('')
     setQuantity('1')
     setObservation('')
     setModifierSelections({})
@@ -549,22 +577,54 @@ export function TabDetailPage() {
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="product">
               Produto
             </label>
-            <select
-              id="product"
-              required
-              value={productId}
-              onChange={(e) => setProductId(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-            >
-              <option value="" disabled>
-                Selecione um produto
-              </option>
-              {products?.map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.name} — {currencyFormatter.format(product.price)}
-                </option>
-              ))}
-            </select>
+            <div className="relative mb-2">
+              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar produto..."
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                className="w-full rounded-md border border-gray-300 py-2 pr-3 pl-9 text-sm focus:border-brand-500 focus:outline-none"
+              />
+            </div>
+            <div className="mb-4 max-h-56 space-y-3 overflow-y-auto rounded-md border border-gray-200 p-2">
+              {filteredProductsByCategory.length === 0 && (
+                <p className="py-4 text-center text-sm text-gray-400">Nenhum produto encontrado.</p>
+              )}
+              {filteredProductsByCategory.map(({ category, products: categoryProducts }) => {
+                const CategoryIcon = getCategoryIcon(category.name)
+                return (
+                  <div key={category.id}>
+                    <div className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+                      <CategoryIcon className="h-3.5 w-3.5" />
+                      {category.name}
+                    </div>
+                    <div className="space-y-1">
+                      {categoryProducts.map((product) => {
+                        const isSelected = product.id === productId
+                        return (
+                          <motion.button
+                            key={product.id}
+                            type="button"
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setProductId(product.id)}
+                            className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors ${
+                              isSelected ? 'border-brand-600 bg-brand-50' : 'border-gray-200 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className="flex items-center gap-2 text-gray-800">
+                              {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-brand-600" />}
+                              {product.name}
+                            </span>
+                            <span className="shrink-0 text-gray-500">{currencyFormatter.format(product.price)}</span>
+                          </motion.button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
 
             <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="quantity">
               Quantidade
