@@ -13,6 +13,8 @@ export interface Restaurant {
   tableCount: number | null
   active: boolean
   autoPrintKitchenTickets: boolean
+  kitchenWarningThresholdMinutes: number
+  kitchenCriticalThresholdMinutes: number
 }
 
 export interface UpdateRestaurantPayload {
@@ -24,6 +26,8 @@ export interface UpdateRestaurantPayload {
   address?: string
   cnpj?: string
   autoPrintKitchenTickets?: boolean
+  kitchenWarningThresholdMinutes?: number
+  kitchenCriticalThresholdMinutes?: number
 }
 
 export function getMyRestaurant() {

@@ -329,6 +329,70 @@ class RestaurantControllerIntegrationTest {
     }
 
     @Test
+    void getMyRestaurant_shouldDefaultKitchenDelayThresholds() throws Exception {
+        String token = registerAndGetToken();
+
+        mockMvc.perform(get("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.kitchenWarningThresholdMinutes").value(10))
+                .andExpect(jsonPath("$.kitchenCriticalThresholdMinutes").value(20));
+    }
+
+    @Test
+    void updateMyRestaurant_withKitchenDelayThresholds_shouldPersistAndSurviveOmittedUpdate() throws Exception {
+        String token = registerAndGetToken();
+
+        UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
+        updateRequest.setKitchenWarningThresholdMinutes(5);
+        updateRequest.setKitchenCriticalThresholdMinutes(15);
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.kitchenWarningThresholdMinutes").value(5))
+                .andExpect(jsonPath("$.kitchenCriticalThresholdMinutes").value(15));
+
+        UpdateRestaurantRequest partialUpdate = new UpdateRestaurantRequest();
+        partialUpdate.setTableCount(5);
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(partialUpdate)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tableCount").value(5))
+                .andExpect(jsonPath("$.kitchenWarningThresholdMinutes").value(5))
+                .andExpect(jsonPath("$.kitchenCriticalThresholdMinutes").value(15));
+    }
+
+    @Test
+    void updateMyRestaurant_withCriticalThresholdNotGreaterThanWarning_shouldReturn400() throws Exception {
+        String token = registerAndGetToken();
+
+        UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
+        updateRequest.setKitchenWarningThresholdMinutes(20);
+        updateRequest.setKitchenCriticalThresholdMinutes(10);
+
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateMyRestaurant_withZeroWarningThreshold_shouldReturn400() throws Exception {
+        String token = registerAndGetToken();
+
+        mockMvc.perform(put("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"kitchenWarningThresholdMinutes\": 0}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void updateMyRestaurant_asWaiter_shouldBeForbidden() throws Exception {
         registerAndGetToken();
         User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();

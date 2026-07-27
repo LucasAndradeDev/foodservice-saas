@@ -1,6 +1,7 @@
 package com.example.restaurant_saas.dto.request;
 
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -34,4 +35,10 @@ public class UpdateRestaurantRequest {
     private String cnpj;
 
     private Boolean autoPrintKitchenTickets;
+
+    @Positive(message = "Warning threshold must be greater than zero")
+    private Integer kitchenWarningThresholdMinutes;
+
+    @Positive(message = "Critical threshold must be greater than zero")
+    private Integer kitchenCriticalThresholdMinutes;
 }

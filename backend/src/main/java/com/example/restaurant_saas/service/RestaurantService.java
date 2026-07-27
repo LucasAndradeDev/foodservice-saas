@@ -59,6 +59,15 @@ public class RestaurantService {
         if (request.getAutoPrintKitchenTickets() != null) {
             restaurant.setAutoPrintKitchenTickets(request.getAutoPrintKitchenTickets());
         }
+        if (request.getKitchenWarningThresholdMinutes() != null) {
+            restaurant.setKitchenWarningThresholdMinutes(request.getKitchenWarningThresholdMinutes());
+        }
+        if (request.getKitchenCriticalThresholdMinutes() != null) {
+            restaurant.setKitchenCriticalThresholdMinutes(request.getKitchenCriticalThresholdMinutes());
+        }
+        if (restaurant.getKitchenCriticalThresholdMinutes() <= restaurant.getKitchenWarningThresholdMinutes()) {
+            throw new IllegalArgumentException("Critical threshold must be greater than the warning threshold.");
+        }
 
         restaurant = restaurantRepository.save(restaurant);
         return toResponse(restaurant);
@@ -83,6 +92,8 @@ public class RestaurantService {
                 .tableCount(restaurant.getTableCount())
                 .active(restaurant.getActive())
                 .autoPrintKitchenTickets(restaurant.getAutoPrintKitchenTickets())
+                .kitchenWarningThresholdMinutes(restaurant.getKitchenWarningThresholdMinutes())
+                .kitchenCriticalThresholdMinutes(restaurant.getKitchenCriticalThresholdMinutes())
                 .build();
     }
 }

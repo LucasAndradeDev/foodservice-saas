@@ -54,6 +54,14 @@ public class Restaurant {
     @Builder.Default
     private Boolean autoPrintKitchenTickets = false;
 
+    @Column(name = "kitchen_warning_threshold_minutes", nullable = false)
+    @Builder.Default
+    private Integer kitchenWarningThresholdMinutes = 10;
+
+    @Column(name = "kitchen_critical_threshold_minutes", nullable = false)
+    @Builder.Default
+    private Integer kitchenCriticalThresholdMinutes = 20;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

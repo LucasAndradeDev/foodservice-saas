@@ -20,4 +20,6 @@ public class RestaurantResponse {
     private Integer tableCount;
     private Boolean active;
     private Boolean autoPrintKitchenTickets;
+    private Integer kitchenWarningThresholdMinutes;
+    private Integer kitchenCriticalThresholdMinutes;
 }

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { listKitchenQueue, updateItemStatus, type KitchenItem } from '../api/kitchen'
 import type { ItemStatus } from '../api/orders'
+import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { EmptyState } from '../components/EmptyState'
 import { formatTableLabel } from '../utils/tableLabel'
@@ -44,7 +45,6 @@ const STATUS_ICONS: Record<ItemStatus, LucideIcon> = {
   CANCELLED: Ban,
 }
 
-const STALE_MINUTES = 10
 const POLL_INTERVAL_MS = 4000
 
 export function KitchenPage() {
@@ -60,6 +60,14 @@ export function KitchenPage() {
     refetchInterval: POLL_INTERVAL_MS,
     refetchIntervalInBackground: true,
   })
+
+  const { data: restaurant } = useQuery({
+    queryKey: ['restaurant'],
+    queryFn: getMyRestaurant,
+  })
+
+  const warningThresholdMinutes = restaurant?.kitchenWarningThresholdMinutes ?? 10
+  const criticalThresholdMinutes = restaurant?.kitchenCriticalThresholdMinutes ?? 20
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: ItemStatus }) => updateItemStatus(id, status),
@@ -88,14 +96,25 @@ export function KitchenPage() {
         <div className="space-y-2">
           {items.map((item) => {
             const minutes = minutesSince(item.createdAt)
-            const isStale = minutes >= STALE_MINUTES
+            const isWaiting = item.status === 'PENDING' || item.status === 'PREPARING'
+            const delayLevel = !isWaiting
+              ? 'none'
+              : minutes >= criticalThresholdMinutes
+                ? 'critical'
+                : minutes >= warningThresholdMinutes
+                  ? 'warning'
+                  : 'none'
             const StatusIcon = STATUS_ICONS[item.status]
 
             return (
               <div
                 key={item.id}
                 className={`flex flex-col gap-3 rounded-lg border-2 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between ${
-                  isStale ? 'border-red-400' : 'border-gray-200'
+                  delayLevel === 'critical'
+                    ? 'border-red-400'
+                    : delayLevel === 'warning'
+                      ? 'border-amber-400'
+                      : 'border-gray-200'
                 }`}
               >
                 <div>
@@ -104,8 +123,19 @@ export function KitchenPage() {
                     {formatTableLabel(item.tableNumbers)}
                     {' · '}
                     <Clock className="h-3.5 w-3.5" />
-                    <span className={isStale ? 'font-semibold text-red-600' : ''}>há {minutes} min</span>
-                    {isStale && <AlertTriangle className="h-3.5 w-3.5 text-red-600" />}
+                    <span
+                      className={
+                        delayLevel === 'critical'
+                          ? 'font-semibold text-red-600'
+                          : delayLevel === 'warning'
+                            ? 'font-semibold text-amber-600'
+                            : ''
+                      }
+                    >
+                      há {minutes} min
+                    </span>
+                    {delayLevel === 'critical' && <AlertTriangle className="h-3.5 w-3.5 text-red-600" />}
+                    {delayLevel === 'warning' && <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />}
                   </div>
                   <div className="text-base font-medium text-gray-800">
                     {item.quantity}x {item.productName}

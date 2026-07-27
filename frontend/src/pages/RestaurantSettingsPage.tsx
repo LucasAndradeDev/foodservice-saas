@@ -24,6 +24,8 @@ export function RestaurantSettingsPage() {
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [autoPrintKitchenTickets, setAutoPrintKitchenTickets] = useState(false)
+  const [kitchenWarningThresholdMinutes, setKitchenWarningThresholdMinutes] = useState('10')
+  const [kitchenCriticalThresholdMinutes, setKitchenCriticalThresholdMinutes] = useState('20')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
@@ -37,6 +39,8 @@ export function RestaurantSettingsPage() {
     setPhone(restaurant.phone ?? '')
     setAddress(restaurant.address ?? '')
     setAutoPrintKitchenTickets(restaurant.autoPrintKitchenTickets)
+    setKitchenWarningThresholdMinutes(String(restaurant.kitchenWarningThresholdMinutes))
+    setKitchenCriticalThresholdMinutes(String(restaurant.kitchenCriticalThresholdMinutes))
   }, [restaurant])
 
   const updateMutation = useMutation({
@@ -53,6 +57,14 @@ export function RestaurantSettingsPage() {
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
+
+    const warningMinutes = Number(kitchenWarningThresholdMinutes)
+    const criticalMinutes = Number(kitchenCriticalThresholdMinutes)
+    if (criticalMinutes <= warningMinutes) {
+      setError('O tempo crítico precisa ser maior que o tempo de aviso.')
+      return
+    }
+
     updateMutation.mutate({
       cnpj: cnpj || undefined,
       tradeName: tradeName || undefined,
@@ -62,6 +74,8 @@ export function RestaurantSettingsPage() {
       phone: phone || undefined,
       address: address || undefined,
       autoPrintKitchenTickets,
+      kitchenWarningThresholdMinutes: warningMinutes,
+      kitchenCriticalThresholdMinutes: criticalMinutes,
     })
   }
 
@@ -191,6 +205,44 @@ export function RestaurantSettingsPage() {
             />
             Imprimir comandas de cozinha automaticamente ao enviar pedido
           </label>
+
+          <div className="mb-4 rounded-md border border-gray-200 p-3">
+            <p className="mb-1 text-sm font-medium text-gray-700">Alerta de demora na cozinha</p>
+            <p className="mb-3 text-xs text-gray-500">
+              Itens que ficam esperando na cozinha por muito tempo mudam de cor na fila, pra chamar atenção antes que
+              o cliente reclame.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600" htmlFor="warningThreshold">
+                  Aviso (min)
+                </label>
+                <input
+                  id="warningThreshold"
+                  type="number"
+                  min={1}
+                  disabled={!canManage}
+                  value={kitchenWarningThresholdMinutes}
+                  onChange={(e) => setKitchenWarningThresholdMinutes(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-600" htmlFor="criticalThreshold">
+                  Crítico (min)
+                </label>
+                <input
+                  id="criticalThreshold"
+                  type="number"
+                  min={1}
+                  disabled={!canManage}
+                  value={kitchenCriticalThresholdMinutes}
+                  onChange={(e) => setKitchenCriticalThresholdMinutes(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+                />
+              </div>
+            </div>
+          </div>
 
           {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
           {success && <p className="mb-4 text-sm text-green-600">Configurações salvas.</p>}
