@@ -1,3 +1,4 @@
+
 # 🍔 Morá - MVP
 ## Sistema de Gestão de Mesas para Restaurantes
 
@@ -77,7 +78,7 @@ O sistema será **Multi-Tenant**.
 
 #### 2. Restaurante
 - **Cadastro:** Nome, CNPJ, Telefone, Endereço
-- **Configurações:** Nome fantasia, Logo, Cor principal, Quantidade de mesas
+- **Configurações:** Nome fantasia, Logo (upload), Quantidade de mesas, impressão automática de comandas de cozinha, limiares de alerta de demora na cozinha, taxa de serviço padrão (habilitada/percentual)
 
 #### 3. Usuários
 - **Perfis:** `OWNER`, `MANAGER`, `WAITER`, `KITCHEN`, `CASHIER`
@@ -118,11 +119,14 @@ Representa um envio para cozinha. Uma mesma comanda pode possuir vários pedidos
 - **Campos:** `id`, `order_id`, `product_id`, `quantity`, `unit_price`, `observation`, `status`
 - **Status:** `PENDING`, `PREPARING`, `READY`, `DELIVERED`, `CANCELLED`
 - O preço é salvo no momento da venda.
+- **Desconto pontual** *(opcional, só OWNER/MANAGER)*: `discount_type` (`FIXED`/`PERCENTAGE`), `discount_value`, `discount_reason`, `discount_applied_by`, `discount_applied_at`.
 
 #### 10. Pagamento
 Para o MVP, manter simples.
 - **Campos:** `payment_method`, `paid_amount`, `paid_at` *(dentro da própria Comanda/Tab)*
 - **Métodos:** `PIX`, `CASH`, `DEBIT_CARD`, `CREDIT_CARD`
+- **Desconto pontual na comanda** *(opcional, só OWNER/MANAGER)*: mesmos campos do item (`discount_type`, `discount_value`, `discount_reason`, `discount_applied_by`, `discount_applied_at`), aplicado sobre o total já líquido dos descontos de item.
+- **Taxa de serviço**: `service_charge_percentage` e `service_charge_amount`, gravados na Comanda só no momento do pagamento. Percentual padrão configurável por restaurante (`service_charge_enabled`, `service_charge_percentage`); só OWNER/MANAGER podem waivar ou ajustar por comanda — outros papéis sempre recebem o padrão do restaurante, aplicado no servidor. Excluída do faturamento em Dashboard/Relatórios (é repasse à equipe, não receita).
 
 ---
 
@@ -266,43 +270,42 @@ Itens já entregues fora do roadmap original, puxados do backlog conforme o prod
 - ~~Comanda por QR Code / Pedidos pelo celular~~ ✅ Sprint 23 (autoatendimento)
 - ~~Fusão de comandas mid-service~~ ✅ Sprint 24 (não estava no backlog original; fechou lacuna do autoatendimento)
 - ~~Importação de cardápio via Excel + IA~~ ✅ Sprint A (não estava no backlog original)
+- ~~Produto "esgotou hoje"~~ ✅ (indisponibilidade diária sem desativar o produto permanentemente)
+- ~~"Chamar garçom" / "Pedir a conta" pelo celular~~ ✅ (`TableRequest`, fecha lacuna do autoatendimento)
+- ~~Modificadores padronizados~~ ✅ (tamanho, ponto da carne, extras — em vez de observação em texto livre)
+- ~~Alerta de demora na cozinha~~ ✅ (limiares configuráveis de aviso/crítico por restaurante)
+- ~~Desconto pontual~~ ✅ 2026-07-27 (fixo ou percentual, em item ou comanda, restrito a OWNER/MANAGER, com motivo e auditoria de quem aplicou)
+- ~~Gorjeta / taxa de serviço~~ ✅ 2026-07-27 (percentual configurável por restaurante, aplicada automaticamente no fechamento; só OWNER/MANAGER podem waivar/ajustar — outros papéis sempre recebem o padrão do restaurante, mesmo chamando a API direto; excluída do faturamento nos relatórios/dashboard por ser repasse, não receita)
 
-O que falta, organizado por prioridade (discutido em 2026-07-25, foco em praticidade real pro restaurante; cobrança do próprio SaaS fica de fora por ora — produto ainda em desenvolvimento):
+**Prioridade 1 do backlog anterior (discutido em 2026-07-25) concluída inteira** — todos os 6 itens de ganho rápido acima já foram entregues.
 
-#### Prioridade 1 — ganho rápido, resolve dor imediata do dia a dia
-1. **Produto "esgotou hoje"** — indisponibilidade diária sem desativar o produto permanentemente (hoje só existe `active`, que é definitivo).
-2. **"Chamar garçom" pelo celular** — fecha lacuna do autoatendimento (Sprint 23): cliente sem garçom por perto não tem como pedir algo fora do pedido.
-3. **"Pedir a conta" pelo celular** — mesma lógica: cliente sinaliza que quer fechar, caixa recebe o aviso.
-4. **Modificadores padronizados** (sem cebola, ponto da carne, tamanho) em vez de observação em texto livre.
-5. **Alerta de demora na cozinha** — item que passa de X minutos em `PENDING`/`PREPARING` muda de cor na fila.
-6. **Desconto pontual** em item ou comanda (reclamação, promoção de última hora) — hoje não existe forma de abater valor sem mexer no preço do produto.
+O que falta, organizado por prioridade (cobrança do próprio SaaS fica de fora por ora — produto ainda em desenvolvimento):
 
 #### Prioridade 2 — fecha lacunas do fluxo de pagamento/comanda
-7. **Divisão de conta** — hoje `paidAmount` precisa bater exatamente com o total (decisão explícita da Sprint 8); sem suporte a pagamento parcial/dividido.
-8. **Gorjeta / taxa de serviço (10%)** — não existe no modelo de pagamento.
-9. **Cancelamento de pagamento / reabertura de comanda** — não existe undo pra pagamento (só existe pra merge de mesas, Sprint 24).
-10. **Transferir item entre comandas** — inverso do merge (Sprint 24): tira um item de uma comanda e joga em outra, sem mexer nas mesas.
-11. **Abertura/fechamento de caixa com sangria** — hoje "faturamento do dia" é só soma de pagamentos; não existe abertura de turno com valor inicial, conferência de dinheiro físico no fechamento, nem sangria.
+1. **Divisão de conta** — hoje `paidAmount` precisa bater exatamente com o total (decisão explícita da Sprint 8); sem suporte a pagamento parcial/dividido.
+2. **Cancelamento de pagamento / reabertura de comanda** — não existe undo pra pagamento (só existe pra merge de mesas, Sprint 24).
+3. **Transferir item entre comandas** — inverso do merge (Sprint 24): tira um item de uma comanda e joga em outra, sem mexer nas mesas.
+4. **Abertura/fechamento de caixa com sangria** — hoje "faturamento do dia" é só soma de pagamentos; não existe abertura de turno com valor inicial, conferência de dinheiro físico no fechamento, nem sangria.
 
 #### Prioridade 3 — gestão e visibilidade
-12. **Ficha técnica / custo de produto** — complementa os Relatórios (Sprint 20) com margem real, não só faturamento. Versão enxuta: campo `costPrice` no Produto, sem módulo de estoque completo.
-13. **Log de auditoria** — quem cancelou item, quem deu desconto.
-14. **Desempenho por garçom** — vendas e tempo médio de atendimento por funcionário.
-15. **Metas e comparativos no dashboard** (mês a mês) — parte do "Dashboard analítico".
+5. **Ficha técnica / custo de produto** — complementa os Relatórios (Sprint 20) com margem real, não só faturamento. Versão enxuta: campo `costPrice` no Produto, sem módulo de estoque completo.
+6. **Log de auditoria** — quem cancelou item. *(Parcialmente coberto: desconto e taxa de serviço já registram quem aplicou e quando, direto nos campos de `OrderItem`/`Tab`; falta só o cancelamento de item.)*
+7. **Desempenho por garçom** — vendas e tempo médio de atendimento por funcionário.
+8. **Metas e comparativos no dashboard** (mês a mês) — parte do "Dashboard analítico".
 
 #### Prioridade 4 — integrações externas (maior esforço, dependem de terceiros)
-16. **Impressora térmica (ESC/POS)** via rede/USB — hoje a impressão é `window.print()` (Sprint 19), depende de driver do sistema.
-17. **Maquininha de cartão (TEF)** — hoje "cartão" é só um registro manual da forma de pagamento.
-18. **Integração com WhatsApp** — compartilhar link do cardápio digital / notificações.
-19. **Integração com iFood**.
-20. **Impressão fiscal (NFC-e)** — bloqueador legal real pra operação formal, mas integração pesada (SEFAZ, certificado digital, homologação).
+9. **Impressora térmica (ESC/POS)** via rede/USB — hoje a impressão é `window.print()` (Sprint 19), depende de driver do sistema.
+10. **Maquininha de cartão (TEF)** — hoje "cartão" é só um registro manual da forma de pagamento.
+11. **Integração com WhatsApp** — compartilhar link do cardápio digital / notificações.
+12. **Integração com iFood**.
+13. **Impressão fiscal (NFC-e)** — bloqueador legal real pra operação formal, mas integração pesada (SEFAZ, certificado digital, homologação).
 
 #### Prioridade 5 — escopo maior, só depois de validar com clientes reais
-21. **Controle de estoque**.
-22. **Promoções e cupons**.
-23. **Programa de fidelidade**.
-24. **Aplicativo para garçons / Aplicativo para clientes**.
-25. **Multiunidade (redes de restaurantes)**.
+14. **Controle de estoque**.
+15. **Promoções e cupons**.
+16. **Programa de fidelidade**.
+17. **Aplicativo para garçons / Aplicativo para clientes**.
+18. **Multiunidade (redes de restaurantes)**.
 
 #### Fora de escopo por enquanto (decisão explícita do usuário, 2026-07-25)
 - **Cobrança/assinatura do próprio SaaS** (planos, trial, gateway de pagamento) — o produto ainda está em desenvolvimento, não é hora de vender.
