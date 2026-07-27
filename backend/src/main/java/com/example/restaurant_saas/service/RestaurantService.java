@@ -38,9 +38,6 @@ public class RestaurantService {
         if (request.getLogo() != null) {
             restaurant.setLogo(request.getLogo());
         }
-        if (request.getPrimaryColor() != null) {
-            restaurant.setPrimaryColor(request.getPrimaryColor());
-        }
         if (request.getTableCount() != null) {
             restaurant.setTableCount(request.getTableCount());
         }
@@ -88,7 +85,6 @@ public class RestaurantService {
                 .phone(restaurant.getPhone())
                 .address(restaurant.getAddress())
                 .logo(restaurant.getLogo())
-                .primaryColor(restaurant.getPrimaryColor())
                 .tableCount(restaurant.getTableCount())
                 .active(restaurant.getActive())
                 .autoPrintKitchenTickets(restaurant.getAutoPrintKitchenTickets())

@@ -3,6 +3,7 @@ package com.example.restaurant_saas.controller;
 import com.example.restaurant_saas.dto.request.UpdateRestaurantRequest;
 import com.example.restaurant_saas.dto.response.RestaurantResponse;
 import com.example.restaurant_saas.security.UserDetailsImpl;
+import com.example.restaurant_saas.service.FileStorageService;
 import com.example.restaurant_saas.service.RestaurantService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -14,6 +15,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/restaurants")
@@ -22,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 public class RestaurantController {
 
     private final RestaurantService restaurantService;
+    private final FileStorageService fileStorageService;
 
     @GetMapping("/me")
     @Operation(summary = "Get my restaurant", description = "Returns the restaurant data for the authenticated user's tenant. Available to any authenticated staff role.")
@@ -35,7 +40,7 @@ public class RestaurantController {
 
     @PutMapping("/me")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
-    @Operation(summary = "Update my restaurant settings", description = "Updates trade name, logo, primary color, table count, phone, address and/or CNPJ. Fields omitted from the request body are left unchanged. Restricted to OWNER and MANAGER.")
+    @Operation(summary = "Update my restaurant settings", description = "Updates trade name, logo, table count, phone, address and/or CNPJ. Fields omitted from the request body are left unchanged. Restricted to OWNER and MANAGER.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Restaurant updated"),
             @ApiResponse(responseCode = "400", description = "Validation error (e.g. negative table count) or CNPJ already registered to another restaurant"),
@@ -47,5 +52,18 @@ public class RestaurantController {
             @Valid @RequestBody UpdateRestaurantRequest request
     ) {
         return ResponseEntity.ok(restaurantService.updateMyRestaurant(currentUser.getRestaurantId(), request));
+    }
+
+    @PostMapping("/upload-logo")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @Operation(summary = "Upload restaurant logo", description = "Uploads a JPEG/PNG/WEBP image and returns its public URL, to be used as the restaurant's logo.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Image uploaded"),
+            @ApiResponse(responseCode = "400", description = "Invalid or missing file"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
+    })
+    public ResponseEntity<Map<String, String>> uploadLogo(@RequestParam("file") MultipartFile file) {
+        String url = fileStorageService.storeRestaurantLogo(file);
+        return ResponseEntity.ok(Map.of("url", url));
     }
 }

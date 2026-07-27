@@ -182,7 +182,6 @@ public class AuthService {
                 .phone(restaurant.getPhone())
                 .address(restaurant.getAddress())
                 .logo(restaurant.getLogo())
-                .primaryColor(restaurant.getPrimaryColor())
                 .tableCount(restaurant.getTableCount())
                 .active(restaurant.getActive())
                 .build();

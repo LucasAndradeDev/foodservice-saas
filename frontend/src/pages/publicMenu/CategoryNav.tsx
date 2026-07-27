@@ -11,10 +11,9 @@ interface CategoryNavProps {
   categories: PublicMenuCategory[]
   search: string
   onSearchChange: (value: string) => void
-  accentColor?: string
 }
 
-export function CategoryNav({ categories, search, onSearchChange, accentColor }: CategoryNavProps) {
+export function CategoryNav({ categories, search, onSearchChange }: CategoryNavProps) {
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
   const pillRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const suppressSpyRef = useRef(false)
@@ -95,7 +94,6 @@ export function CategoryNav({ categories, search, onSearchChange, accentColor }:
                   }}
                   type="button"
                   onClick={() => handlePillClick(category.id)}
-                  style={isActive ? undefined : { borderColor: accentColor, color: accentColor }}
                   className={`relative flex shrink-0 snap-center items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium active:scale-95 ${
                     isActive
                       ? 'border-transparent text-white'
@@ -106,7 +104,6 @@ export function CategoryNav({ categories, search, onSearchChange, accentColor }:
                     <motion.span
                       layoutId="category-pill-active-bg"
                       transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                      style={{ backgroundColor: accentColor }}
                       className="absolute inset-0 rounded-full bg-brand-600 shadow-md dark:bg-brand-400"
                     />
                   )}

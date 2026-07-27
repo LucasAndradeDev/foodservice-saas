@@ -6,12 +6,11 @@ import { currencyFormatter, type SelectedModifier } from './utils'
 
 interface ModifierSheetProps {
   product: PublicMenuProduct | null
-  accentColor?: string
   onClose: () => void
   onConfirm: (selectedModifiers: SelectedModifier[]) => void
 }
 
-export function ModifierSheet({ product, accentColor, onClose, onConfirm }: ModifierSheetProps) {
+export function ModifierSheet({ product, onClose, onConfirm }: ModifierSheetProps) {
   const [selections, setSelections] = useState<Record<string, string[]>>({})
 
   useEffect(() => {
@@ -107,7 +106,6 @@ export function ModifierSheet({ product, accentColor, onClose, onConfirm }: Modi
                           key={option.id}
                           type="button"
                           onClick={() => toggleOption(group.id, option.id, group.selectionType === 'SINGLE')}
-                          style={isSelected ? { borderColor: accentColor } : undefined}
                           className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors ${
                             isSelected
                               ? 'border-brand-600 bg-brand-50 dark:border-brand-400 dark:bg-brand-400/10'
@@ -116,7 +114,6 @@ export function ModifierSheet({ product, accentColor, onClose, onConfirm }: Modi
                         >
                           <span className="flex items-center gap-2 text-gray-800 dark:text-white">
                             <span
-                              style={isSelected ? { backgroundColor: accentColor, borderColor: accentColor } : undefined}
                               className={`flex h-4 w-4 shrink-0 items-center justify-center border ${
                                 group.selectionType === 'SINGLE' ? 'rounded-full' : 'rounded'
                               } ${
@@ -144,7 +141,6 @@ export function ModifierSheet({ product, accentColor, onClose, onConfirm }: Modi
               type="button"
               onClick={() => onConfirm(selectedModifiers)}
               disabled={!isValid}
-              style={{ backgroundColor: accentColor }}
               className="mt-5 w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
               Adicionar · {currencyFormatter.format(totalPrice)}

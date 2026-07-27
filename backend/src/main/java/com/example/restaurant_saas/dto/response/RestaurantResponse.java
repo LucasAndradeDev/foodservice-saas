@@ -16,7 +16,6 @@ public class RestaurantResponse {
     private String phone;
     private String address;
     private String logo;
-    private String primaryColor;
     private Integer tableCount;
     private Boolean active;
     private Boolean autoPrintKitchenTickets;

@@ -82,7 +82,6 @@ public class MenuService {
         return PublicMenuResponse.builder()
                 .restaurantName(restaurantName)
                 .logo(restaurant.getLogo())
-                .primaryColor(restaurant.getPrimaryColor())
                 .categories(categories)
                 .table(tableResponse)
                 .build();

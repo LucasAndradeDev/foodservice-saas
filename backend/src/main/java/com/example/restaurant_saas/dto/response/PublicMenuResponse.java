@@ -10,7 +10,6 @@ import java.util.List;
 public class PublicMenuResponse {
     private String restaurantName;
     private String logo;
-    private String primaryColor;
     private List<PublicMenuCategoryResponse> categories;
     private PublicMenuTableResponse table;
 }

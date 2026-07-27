@@ -2,18 +2,18 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Moon, Sun } from 'lucide-react'
 import type { CSSProperties } from 'react'
 
+const MENU_ACCENT_COLOR = '#b3421f'
+
 interface MenuHeroProps {
   restaurantName: string
   logo: string | null
   tableNumber?: number
-  accentColor?: string
   theme: 'light' | 'dark'
   onToggleTheme: () => void
 }
 
-export function MenuHero({ restaurantName, logo, tableNumber, accentColor, theme, onToggleTheme }: MenuHeroProps) {
-  const accent = accentColor ?? '#b3421f'
-  const heroStyle = { '--menu-accent': accent } as CSSProperties
+export function MenuHero({ restaurantName, logo, tableNumber, theme, onToggleTheme }: MenuHeroProps) {
+  const heroStyle = { '--menu-accent': MENU_ACCENT_COLOR } as CSSProperties
 
   return (
     <header
@@ -44,12 +44,12 @@ export function MenuHero({ restaurantName, logo, tableNumber, accentColor, theme
         <img
           src={logo}
           alt={restaurantName}
-          style={{ '--tw-ring-color': accent } as CSSProperties}
+          style={{ '--tw-ring-color': MENU_ACCENT_COLOR } as CSSProperties}
           className="mx-auto mb-3 h-16 w-16 rounded-full object-cover ring-2"
         />
       ) : (
         <div
-          style={{ backgroundColor: accent }}
+          style={{ backgroundColor: MENU_ACCENT_COLOR }}
           className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full text-xl font-semibold text-white"
         >
           {restaurantName.charAt(0).toUpperCase()}

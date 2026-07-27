@@ -15,11 +15,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -196,7 +198,6 @@ class RestaurantControllerIntegrationTest {
         UpdateRestaurantRequest updateRequest = new UpdateRestaurantRequest();
         updateRequest.setTradeName("Burger House Downtown");
         updateRequest.setLogo("https://cdn.test.com/logo.png");
-        updateRequest.setPrimaryColor("#FF0000");
         updateRequest.setTableCount(10);
 
         mockMvc.perform(put("/api/v1/restaurants/me")
@@ -206,7 +207,6 @@ class RestaurantControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tradeName").value("Burger House Downtown"))
                 .andExpect(jsonPath("$.logo").value("https://cdn.test.com/logo.png"))
-                .andExpect(jsonPath("$.primaryColor").value("#FF0000"))
                 .andExpect(jsonPath("$.tableCount").value(10));
     }
 
@@ -416,6 +416,54 @@ class RestaurantControllerIntegrationTest {
                         .header("Authorization", "Bearer " + waiterToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void uploadLogo_withValidJpeg_shouldReturnUrl() throws Exception {
+        String ownerToken = registerAndGetToken();
+        MockMultipartFile file = new MockMultipartFile("file", "logo.jpg", "image/jpeg", "fake-image-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/restaurants/upload-logo")
+                        .file(file)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value(org.hamcrest.Matchers.startsWith("/api/v1/public/uploads/logos/")))
+                .andExpect(jsonPath("$.url").value(org.hamcrest.Matchers.endsWith(".jpg")));
+    }
+
+    @Test
+    void uploadLogo_withInvalidContentType_shouldReturn400() throws Exception {
+        String ownerToken = registerAndGetToken();
+        MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "fake-pdf-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/restaurants/upload-logo")
+                        .file(file)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void uploadLogo_asWaiter_shouldBeForbidden() throws Exception {
+        registerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+
+        User waiter = User.builder()
+                .restaurant(owner.getRestaurant())
+                .name("Waiter")
+                .email("waiter+" + System.nanoTime() + "@test.com")
+                .password(passwordEncoder.encode("password123"))
+                .role(UserRole.WAITER)
+                .active(true)
+                .build();
+        waiter = userRepository.save(waiter);
+        String waiterToken = jwtService.generateToken(new UserDetailsImpl(waiter));
+
+        MockMultipartFile file = new MockMultipartFile("file", "logo.jpg", "image/jpeg", "fake-image-bytes".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/restaurants/upload-logo")
+                        .file(file)
+                        .header("Authorization", "Bearer " + waiterToken))
                 .andExpect(status().isForbidden());
     }
 }

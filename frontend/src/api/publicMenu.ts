@@ -26,7 +26,6 @@ export interface PublicMenuTable {
 export interface PublicMenu {
   restaurantName: string
   logo: string | null
-  primaryColor: string | null
   categories: PublicMenuCategory[]
   table: PublicMenuTable | null
 }

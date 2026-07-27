@@ -197,7 +197,6 @@ export function PublicMenuPage() {
     )
   }
 
-  const accentColor = menu.primaryColor || undefined
   const canOrder = !!tableId && !!menu.table
   const canRequestBill = canOrder && !!menu.table?.hasDeliveredItems
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
@@ -212,17 +211,11 @@ export function PublicMenuPage() {
         restaurantName={menu.restaurantName}
         logo={menu.logo}
         tableNumber={menu.table?.number}
-        accentColor={accentColor}
         theme={theme}
         onToggleTheme={toggleTheme}
       />
 
-      <CategoryNav
-        categories={menu.categories}
-        search={search}
-        onSearchChange={setSearch}
-        accentColor={accentColor}
-      />
+      <CategoryNav categories={menu.categories} search={search} onSearchChange={setSearch} />
 
       <main className="mx-auto max-w-2xl px-4 py-4">
         {filteredCategories.length === 0 && (
@@ -233,10 +226,7 @@ export function PublicMenuPage() {
           const CategoryIcon = getCategoryIcon(category.name)
           return (
           <section key={category.id} id={`category-${category.id}`} className="mb-8 scroll-mt-32">
-            <h2
-              className="mb-3 flex items-center gap-2 text-lg font-semibold text-brand-600 dark:text-brand-400"
-              style={{ color: accentColor }}
-            >
+            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-brand-600 dark:text-brand-400">
               <CategoryIcon className="h-5 w-5" />
               {category.name}
             </h2>
@@ -246,7 +236,6 @@ export function PublicMenuPage() {
                   <ProductCard
                     product={product}
                     quantity={product.modifierGroups.length > 0 ? 0 : (cartQuantities.get(product.id) ?? 0)}
-                    accentColor={accentColor}
                     canOrder={canOrder}
                     onAdd={handleAddClick}
                     onIncrement={(productId) => updateQuantityByProductId(productId, 1)}
@@ -280,7 +269,6 @@ export function PublicMenuPage() {
           requestedTypes={requestedTypes}
           isPending={tableRequestMutation.isPending}
           pendingType={tableRequestMutation.variables}
-          accentColor={accentColor}
           cartCount={cartCount}
           isCartOpen={isCartOpen}
           onRequest={(type) => tableRequestMutation.mutate(type)}
@@ -291,7 +279,6 @@ export function PublicMenuPage() {
         <button
           type="button"
           onClick={() => setIsCartOpen(true)}
-          style={{ backgroundColor: accentColor }}
           className="fixed inset-x-4 bottom-4 z-20 flex items-center justify-between gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-medium text-white shadow-lg dark:shadow-black/50"
         >
           <span className="flex items-center gap-2">
@@ -308,7 +295,6 @@ export function PublicMenuPage() {
         cartTotal={cartTotal}
         orderError={orderError}
         isSubmitting={submitOrderMutation.isPending}
-        accentColor={accentColor}
         onClose={() => setIsCartOpen(false)}
         onUpdateQuantity={updateQuantity}
         onUpdateObservation={updateObservation}
@@ -318,7 +304,6 @@ export function PublicMenuPage() {
 
       <ModifierSheet
         product={activeModifierProduct}
-        accentColor={accentColor}
         onClose={() => setActiveModifierProduct(null)}
         onConfirm={handleConfirmModifiers}
       />

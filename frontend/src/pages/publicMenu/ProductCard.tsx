@@ -6,14 +6,13 @@ import { currencyFormatter } from './utils'
 interface ProductCardProps {
   product: PublicMenuProduct
   quantity: number
-  accentColor?: string
   canOrder: boolean
   onAdd: (product: PublicMenuProduct) => void
   onIncrement: (productId: string) => void
   onDecrement: (productId: string) => void
 }
 
-export function ProductCard({ product, quantity, accentColor, canOrder, onAdd, onIncrement, onDecrement }: ProductCardProps) {
+export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, onDecrement }: ProductCardProps) {
   return (
     <motion.div
       whileTap={canOrder && !product.soldOut ? { scale: 0.97 } : undefined}
@@ -35,10 +34,7 @@ export function ProductCard({ product, quantity, accentColor, canOrder, onAdd, o
       <div className="flex-1">
         <div className="flex items-start justify-between gap-2">
           <span className="font-medium text-gray-800 dark:text-white">{product.name}</span>
-          <span
-            className="shrink-0 text-base font-bold text-brand-600 dark:text-brand-400"
-            style={{ color: accentColor }}
-          >
+          <span className="shrink-0 text-base font-bold text-brand-600 dark:text-brand-400">
             {currencyFormatter.format(product.price)}
           </span>
         </div>
@@ -63,7 +59,6 @@ export function ProductCard({ product, quantity, accentColor, canOrder, onAdd, o
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15 }}
                     onClick={() => onAdd(product)}
-                    style={{ borderColor: accentColor, color: accentColor }}
                     className="rounded-full border border-brand-600 px-3 py-1 text-xs font-medium text-brand-600 hover:bg-gray-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-white/5"
                   >
                     Adicionar
@@ -76,13 +71,11 @@ export function ProductCard({ product, quantity, accentColor, canOrder, onAdd, o
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15 }}
-                    style={{ borderColor: accentColor }}
                     className="flex w-fit items-center gap-3 rounded-full border border-brand-600 px-2 py-1 dark:border-brand-400"
                   >
                     <button
                       type="button"
                       onClick={() => onDecrement(product.id)}
-                      style={{ color: accentColor }}
                       className="flex h-5 w-5 items-center justify-center text-brand-600 dark:text-brand-400"
                     >
                       <Minus className="h-3.5 w-3.5" />
@@ -93,7 +86,6 @@ export function ProductCard({ product, quantity, accentColor, canOrder, onAdd, o
                     <button
                       type="button"
                       onClick={() => onIncrement(product.id)}
-                      style={{ color: accentColor }}
                       className="flex h-5 w-5 items-center justify-center text-brand-600 dark:text-brand-400"
                     >
                       <Plus className="h-3.5 w-3.5" />

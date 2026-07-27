@@ -6,7 +6,6 @@ interface TableRequestButtonsProps {
   requestedTypes: Set<TableRequestType>
   isPending: boolean
   pendingType: TableRequestType | undefined
-  accentColor?: string
   cartCount: number
   isCartOpen: boolean
   onRequest: (type: TableRequestType) => void
@@ -17,7 +16,6 @@ export function TableRequestButtons({
   requestedTypes,
   isPending,
   pendingType,
-  accentColor,
   cartCount,
   isCartOpen,
   onRequest,
@@ -33,7 +31,6 @@ export function TableRequestButtons({
           type="button"
           onClick={() => onRequest('REQUEST_BILL')}
           disabled={(isPending && pendingType === 'REQUEST_BILL') || requestedTypes.has('REQUEST_BILL')}
-          style={requestedTypes.has('REQUEST_BILL') ? undefined : { borderColor: accentColor, color: accentColor }}
           className={`flex items-center gap-2 rounded-full border bg-white/90 px-4 py-2 text-sm font-medium shadow-xl backdrop-blur-md transition-colors duration-150 dark:bg-stone-900/90 ${
             requestedTypes.has('REQUEST_BILL')
               ? 'border-green-600 bg-green-50 text-green-700 dark:border-green-500 dark:bg-green-500/10 dark:text-green-400'
@@ -57,7 +54,6 @@ export function TableRequestButtons({
         type="button"
         onClick={() => onRequest('CALL_WAITER')}
         disabled={(isPending && pendingType === 'CALL_WAITER') || requestedTypes.has('CALL_WAITER')}
-        style={requestedTypes.has('CALL_WAITER') ? undefined : { borderColor: accentColor, color: accentColor }}
         className={`flex items-center gap-2 rounded-full border bg-white/90 px-4 py-2 text-sm font-medium shadow-xl backdrop-blur-md transition-colors duration-150 dark:bg-stone-900/90 ${
           requestedTypes.has('CALL_WAITER')
             ? 'border-green-600 bg-green-50 text-green-700 dark:border-green-500 dark:bg-green-500/10 dark:text-green-400'

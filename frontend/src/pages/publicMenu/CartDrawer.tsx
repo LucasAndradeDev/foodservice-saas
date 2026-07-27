@@ -9,7 +9,6 @@ interface CartDrawerProps {
   cartTotal: number
   orderError: string | null
   isSubmitting: boolean
-  accentColor?: string
   onClose: () => void
   onUpdateQuantity: (index: number, delta: number) => void
   onUpdateObservation: (index: number, observation: string) => void
@@ -23,7 +22,6 @@ export function CartDrawer({
   cartTotal,
   orderError,
   isSubmitting,
-  accentColor,
   onClose,
   onUpdateQuantity,
   onUpdateObservation,
@@ -135,7 +133,6 @@ export function CartDrawer({
                   type="button"
                   onClick={onSubmit}
                   disabled={isSubmitting}
-                  style={{ backgroundColor: accentColor }}
                   className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
                   Enviar pedido

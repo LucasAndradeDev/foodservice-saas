@@ -9,7 +9,6 @@ export interface Restaurant {
   phone: string | null
   address: string | null
   logo: string | null
-  primaryColor: string | null
   tableCount: number | null
   active: boolean
   autoPrintKitchenTickets: boolean
@@ -21,7 +20,6 @@ export interface UpdateRestaurantPayload {
   tradeName?: string
   slug?: string
   logo?: string
-  primaryColor?: string
   phone?: string
   address?: string
   cnpj?: string
@@ -36,4 +34,10 @@ export function getMyRestaurant() {
 
 export function updateMyRestaurant(payload: UpdateRestaurantPayload) {
   return http.put<Restaurant>('/restaurants/me', payload).then((res) => res.data)
+}
+
+export function uploadRestaurantLogo(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return http.post<{ url: string }>('/restaurants/upload-logo', formData).then((res) => res.data.url)
 }

@@ -40,9 +40,6 @@ public class Restaurant {
 
     private String logo;
 
-    @Column(name = "primary_color", length = 20)
-    private String primaryColor;
-
     @Column(name = "table_count")
     @Builder.Default
     private Integer tableCount = 0;

@@ -14,7 +14,6 @@ export interface StoredRestaurant {
   name: string
   tradeName: string | null
   logo: string | null
-  primaryColor: string | null
 }
 
 interface StoredAuth {
