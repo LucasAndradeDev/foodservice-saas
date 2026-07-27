@@ -76,7 +76,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 sm:flex">
+    <div className="min-h-screen bg-gray-50 sm:flex sm:h-screen sm:overflow-hidden">
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-200 bg-white sm:flex">
         <div className="flex items-center justify-center border-b border-gray-200 p-4">
@@ -125,7 +125,7 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <div className="flex-1">
+      <div className="flex-1 sm:h-screen sm:overflow-y-auto">
         {/* Mobile top bar */}
         <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:hidden">
           <span className="font-semibold text-gray-800">{restaurant?.tradeName ?? restaurant?.name}</span>
