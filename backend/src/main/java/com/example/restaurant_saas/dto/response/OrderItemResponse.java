@@ -28,5 +28,7 @@ public class OrderItemResponse {
     private String discountReason;
     private String discountAppliedBy;
     private OffsetDateTime discountAppliedAt;
+    private String cancelledBy;
+    private OffsetDateTime cancelledAt;
     private BigDecimal netSubtotal;
 }

@@ -1,0 +1,2 @@
+ALTER TABLE order_items ADD COLUMN cancelled_by VARCHAR(255);
+ALTER TABLE order_items ADD COLUMN cancelled_at TIMESTAMP WITH TIME ZONE;

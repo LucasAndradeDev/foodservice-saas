@@ -49,7 +49,7 @@ public class OrderItemService {
     }
 
     @Transactional
-    public OrderItemResponse updateStatus(UUID restaurantId, UUID itemId, UserRole currentUserRole, UpdateOrderItemStatusRequest request) {
+    public OrderItemResponse updateStatus(UUID restaurantId, UUID itemId, UserRole currentUserRole, String actingUserName, UpdateOrderItemStatusRequest request) {
         OrderItem item = orderItemRepository.findByIdAndOrder_Restaurant_Id(itemId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Order item not found."));
 
@@ -64,6 +64,10 @@ public class OrderItemService {
         }
 
         item.setStatus(to);
+        if (to == ItemStatus.CANCELLED) {
+            item.setCancelledBy(actingUserName);
+            item.setCancelledAt(OffsetDateTime.now());
+        }
         return toOrderItemResponse(orderItemRepository.save(item));
     }
 
@@ -207,6 +211,8 @@ public class OrderItemService {
                 .discountReason(item.getDiscountReason())
                 .discountAppliedBy(item.getDiscountAppliedBy())
                 .discountAppliedAt(item.getDiscountAppliedAt())
+                .cancelledBy(item.getCancelledBy())
+                .cancelledAt(item.getCancelledAt())
                 .netSubtotal(item.getNetSubtotal())
                 .build();
     }

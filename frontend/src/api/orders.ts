@@ -31,6 +31,8 @@ export interface OrderItem {
   discountReason: string | null
   discountAppliedBy: string | null
   discountAppliedAt: string | null
+  cancelledBy: string | null
+  cancelledAt: string | null
   netSubtotal: number
 }
 

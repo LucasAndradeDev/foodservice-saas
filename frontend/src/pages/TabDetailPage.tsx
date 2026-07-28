@@ -782,6 +782,13 @@ export function TabDetailPage() {
                             {item.discountReason && <span className="text-gray-400">({item.discountReason})</span>}
                           </div>
                         )}
+                        {item.status === 'CANCELLED' && item.cancelledBy && (
+                          <div className="mt-1 text-xs text-gray-400">
+                            Cancelado por {item.cancelledBy}
+                            {item.cancelledAt &&
+                              ` às ${new Date(item.cancelledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

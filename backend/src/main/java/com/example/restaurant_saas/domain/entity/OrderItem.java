@@ -68,6 +68,12 @@ public class OrderItem {
     @Column(name = "discount_applied_at")
     private OffsetDateTime discountAppliedAt;
 
+    @Column(name = "cancelled_by", length = 255)
+    private String cancelledBy;
+
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

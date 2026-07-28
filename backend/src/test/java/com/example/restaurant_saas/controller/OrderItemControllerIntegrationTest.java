@@ -356,7 +356,9 @@ class OrderItemControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(updateStatusRequestBody("CANCELLED")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("CANCELLED"));
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.cancelledBy").value("WAITER"))
+                .andExpect(jsonPath("$.cancelledAt").isNotEmpty());
     }
 
     @Test
@@ -382,7 +384,9 @@ class OrderItemControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(updateStatusRequestBody("CANCELLED")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("CANCELLED"));
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.cancelledBy").value("KITCHEN"))
+                .andExpect(jsonPath("$.cancelledAt").isNotEmpty());
     }
 
     @Test

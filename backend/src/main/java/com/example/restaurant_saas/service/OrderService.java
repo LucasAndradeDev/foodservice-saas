@@ -197,6 +197,8 @@ public class OrderService {
                 .discountReason(item.getDiscountReason())
                 .discountAppliedBy(item.getDiscountAppliedBy())
                 .discountAppliedAt(item.getDiscountAppliedAt())
+                .cancelledBy(item.getCancelledBy())
+                .cancelledAt(item.getCancelledAt())
                 .netSubtotal(item.getNetSubtotal())
                 .build();
     }

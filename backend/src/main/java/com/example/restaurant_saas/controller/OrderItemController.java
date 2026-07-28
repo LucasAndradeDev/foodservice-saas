@@ -53,7 +53,7 @@ public class OrderItemController {
             @PathVariable UUID id,
             @Valid @RequestBody UpdateOrderItemStatusRequest request
     ) {
-        OrderItemResponse response = orderItemService.updateStatus(currentUser.getRestaurantId(), id, currentUser.getRole(), request);
+        OrderItemResponse response = orderItemService.updateStatus(currentUser.getRestaurantId(), id, currentUser.getRole(), currentUser.getName(), request);
         return ResponseEntity.ok(response);
     }
 
