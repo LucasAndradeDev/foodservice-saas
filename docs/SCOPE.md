@@ -279,63 +279,63 @@ Itens já entregues fora do roadmap original, puxados do backlog conforme o prod
 - ~~Correção de pagamento em comanda fechada~~ ✅ 2026-07-27 (restrito a OWNER/MANAGER, com motivo obrigatório; **decisão de design**: não reabre a comanda pra atendimento nem mexe na mesa — só substitui forma/valor/taxa de serviço registrados, mantendo a comanda `CLOSED`. Acessível a qualquer momento via lista "Comandas fechadas hoje" no Caixa. Escopo reduzido deliberadamente do item original do backlog: reabrir a comanda de verdade arriscava duas comandas abertas na mesma mesa)
 - ~~Transferir item entre comandas~~ ✅ 2026-07-27 (seleciona um ou mais itens em qualquer status exceto cancelado e move pra outra comanda aberta, mesmos papéis que mesclam mesa; itens movidos entram num pedido novo na comanda de destino, preservando preço/desconto/status/hora original; o pedido de origem nunca é apagado, só fica menor; desfazer reaproveita a mesma ação invertendo origem/destino, com janela curta de ~20s)
 - ~~Log de auditoria — cancelamento de item~~ ✅ 2026-07-28 (`cancelledBy`/`cancelledAt` em `OrderItem`, no mesmo padrão do desconto pontual; exibido na comanda como "Cancelado por {nome} às {hora}")
+- ~~Tempo estimado de espera no cardápio digital~~ ✅ 2026-07-28 (`deliveredAt` em `OrderItem`, mesmo padrão do cancelamento; tempo médio de preparo calculado por produto a partir do histórico `createdAt` → `deliveredAt` e exibido no cardápio público como "Pronto em ~X min")
 
 **Prioridade 1 do backlog anterior (discutido em 2026-07-25) concluída inteira** — todos os 6 itens de ganho rápido acima já foram entregues.
 
 O que falta, organizado por prioridade — da mais fácil/importante até a mais difícil (bônus). Cobrança do próprio SaaS fica de fora por ora, produto ainda em desenvolvimento (ver "Fora de escopo" no fim).
 
 #### Prioridade 2 — ganho rápido, reaproveita o que já existe (baixo esforço, alto valor)
-1. **Tempo estimado de espera no cardápio digital** — tempo médio de preparo por produto, calculado a partir do histórico (`createdAt` → `DELIVERED`) e exibido pro cliente. O dado já existe, é praticamente só cálculo + exibição.
-2. **Status do pedido em tempo real no cardápio digital** — quem já faz autoatendimento por QR Code acompanha "em preparo/pronto" na mesma tela, sem precisar perguntar ao garçom.
-3. **Destaque de produto no cardápio digital** — campo simples ("mais pedido" / "recomendado") pra aumentar o ticket médio sem mexer em preço.
-4. **Alerta de "mesa esquecida"** — mesa aberta há muito tempo sem pedido novo avisa o garçom, reaproveitando os limiares configuráveis que o alerta de demora na cozinha já usa.
-5. **Cupom de desconto avulso** (primeira visita / aniversário) — versão simples de incentivo, sem todo o sistema de fidelidade por pontos.
-6. **"Pedir de novo" rápido** — no cardápio digital, repetir o último pedido da sessão sem precisar procurar o produto de novo.
-7. **Relatório de horário de pico** — quantas mesas ocupadas por hora do dia / dia da semana. O dado já existe (`openedAt`/`closedAt` da comanda), falta só a agregação nos Relatórios.
+1. **Status do pedido em tempo real no cardápio digital** — quem já faz autoatendimento por QR Code acompanha "em preparo/pronto" na mesma tela, sem precisar perguntar ao garçom.
+2. **Destaque de produto no cardápio digital** — campo simples ("mais pedido" / "recomendado") pra aumentar o ticket médio sem mexer em preço.
+3. **Alerta de "mesa esquecida"** — mesa aberta há muito tempo sem pedido novo avisa o garçom, reaproveitando os limiares configuráveis que o alerta de demora na cozinha já usa.
+4. **Cupom de desconto avulso** (primeira visita / aniversário) — versão simples de incentivo, sem todo o sistema de fidelidade por pontos.
+5. **"Pedir de novo" rápido** — no cardápio digital, repetir o último pedido da sessão sem precisar procurar o produto de novo.
+6. **Relatório de horário de pico** — quantas mesas ocupadas por hora do dia / dia da semana. O dado já existe (`openedAt`/`closedAt` da comanda), falta só a agregação nos Relatórios.
 
 #### Prioridade 3 — fecha lacunas do fluxo de pagamento/comanda (esforço médio)
-8. **Pagamento online — Pix e cartão via gateway** — hoje "Pix"/"Cartão" na comanda é só um registro manual de que o cliente pagou por fora (Pix direto pro banco do restaurante, ou maquininha do garçom); aqui é integrar um gateway de verdade (ex: Mercado Pago, PagSeguro, Asaas) que gera cobrança Pix real (QR Code) e cobra cartão online, com confirmação automática batendo na comanda. **Pré-requisito técnico pro delivery** (Prioridade 8) — não dá pra vender delivery sem cobrar o cliente à distância — mas já traz valor agora: cliente do autoatendimento (QR Code na mesa) pode pagar direto pelo celular, sem esperar o garçom.
-9. **Divisão de conta** — hoje `paidAmount` precisa bater exatamente com o total (decisão explícita da Sprint 8); sem suporte a pagamento parcial/dividido.
-10. **Abertura/fechamento de caixa com sangria** — hoje "faturamento do dia" é só soma de pagamentos; não existe abertura de turno com valor inicial, conferência de dinheiro físico no fechamento, nem sangria.
-11. **Split de comanda por pessoa** — diferente da divisão de conta simples: atribui cada item da mesa a uma pessoa específica, pra fechar "cada um paga o que consumiu". Mais complexo que dividir em partes iguais.
+7. **Pagamento online — Pix e cartão via gateway** — hoje "Pix"/"Cartão" na comanda é só um registro manual de que o cliente pagou por fora (Pix direto pro banco do restaurante, ou maquininha do garçom); aqui é integrar um gateway de verdade (ex: Mercado Pago, PagSeguro, Asaas) que gera cobrança Pix real (QR Code) e cobra cartão online, com confirmação automática batendo na comanda. **Pré-requisito técnico pro delivery** (Prioridade 8) — não dá pra vender delivery sem cobrar o cliente à distância — mas já traz valor agora: cliente do autoatendimento (QR Code na mesa) pode pagar direto pelo celular, sem esperar o garçom.
+8. **Divisão de conta** — hoje `paidAmount` precisa bater exatamente com o total (decisão explícita da Sprint 8); sem suporte a pagamento parcial/dividido.
+9. **Abertura/fechamento de caixa com sangria** — hoje "faturamento do dia" é só soma de pagamentos; não existe abertura de turno com valor inicial, conferência de dinheiro físico no fechamento, nem sangria.
+10. **Split de comanda por pessoa** — diferente da divisão de conta simples: atribui cada item da mesa a uma pessoa específica, pra fechar "cada um paga o que consumiu". Mais complexo que dividir em partes iguais.
 
 #### Prioridade 4 — cardápio, engajamento e gestão (esforço médio)
-12. **Ficha técnica / custo de produto** — complementa os Relatórios (Sprint 20) com margem real, não só faturamento. Versão enxuta: campo `costPrice` no Produto, sem módulo de estoque completo.
-13. **Combo/kit de produtos** — preço fixo pra um conjunto de produtos (ex: lanche + bebida + sobremesa), sem depender de desconto manual toda vez.
-14. **Cardápio por horário** — bloquear produto fora de uma janela (ex: cardápio de almoço some à noite, bebida alcoólica só depois de certo horário). Hoje só existe "ativo/inativo" manual e "esgotou hoje".
-15. **"Happy hour" automático** — desconto que liga/desliga sozinho num horário configurado, sem o garçom precisar lembrar de aplicar manualmente.
-16. **Áreas do salão** — agrupar mesas por região (Salão interno, Varanda, Balcão) pra facilitar a visualização em restaurantes grandes. Hoje é só uma grade numerada.
-17. **Avaliação pós-refeição** — tela rápida de feedback ("como foi?") pelo mesmo QR Code, depois do pagamento.
-18. **Cardápio multilíngue** — inglês/espanhol pro cardápio digital, bom pra restaurante com público turista.
-19. **Recibo digital** — enviar o recibo por WhatsApp/e-mail, além (ou em vez) da impressão física.
-20. **Desempenho por garçom** — vendas e tempo médio de atendimento por funcionário.
-21. **Metas e comparativos no dashboard** (mês a mês) — parte do "Dashboard analítico".
+11. **Ficha técnica / custo de produto** — complementa os Relatórios (Sprint 20) com margem real, não só faturamento. Versão enxuta: campo `costPrice` no Produto, sem módulo de estoque completo.
+12. **Combo/kit de produtos** — preço fixo pra um conjunto de produtos (ex: lanche + bebida + sobremesa), sem depender de desconto manual toda vez.
+13. **Cardápio por horário** — bloquear produto fora de uma janela (ex: cardápio de almoço some à noite, bebida alcoólica só depois de certo horário). Hoje só existe "ativo/inativo" manual e "esgotou hoje".
+14. **"Happy hour" automático** — desconto que liga/desliga sozinho num horário configurado, sem o garçom precisar lembrar de aplicar manualmente.
+15. **Áreas do salão** — agrupar mesas por região (Salão interno, Varanda, Balcão) pra facilitar a visualização em restaurantes grandes. Hoje é só uma grade numerada.
+16. **Avaliação pós-refeição** — tela rápida de feedback ("como foi?") pelo mesmo QR Code, depois do pagamento.
+17. **Cardápio multilíngue** — inglês/espanhol pro cardápio digital, bom pra restaurante com público turista.
+18. **Recibo digital** — enviar o recibo por WhatsApp/e-mail, além (ou em vez) da impressão física.
+19. **Desempenho por garçom** — vendas e tempo médio de atendimento por funcionário.
+20. **Metas e comparativos no dashboard** (mês a mês) — parte do "Dashboard analítico".
 
 #### Prioridade 5 — reserva de mesa (escopo maior, fluxo novo)
-22. **Reserva de mesa** — agendamento com horário, evita mesa vazia "travada" ou cliente sem lugar. Fluxo novo inteiro (agendamento, notificação, conflito com mesa já ocupada), maior escopo que os itens acima.
+21. **Reserva de mesa** — agendamento com horário, evita mesa vazia "travada" ou cliente sem lugar. Fluxo novo inteiro (agendamento, notificação, conflito com mesa já ocupada), maior escopo que os itens acima.
 
 #### Prioridade 6 — integrações externas (maior esforço, dependem de terceiros)
-23. **Impressora térmica (ESC/POS)** via rede/USB — hoje a impressão é `window.print()` (Sprint 19), depende de driver do sistema.
-24. **Maquininha de cartão (TEF)** — integração com terminal físico de cartão usado pelo garçom/caixa; diferente do pagamento online da Prioridade 3, que é pro cliente pagar direto pelo celular.
-25. **Integração com WhatsApp** — compartilhamento e notificações mais amplas (além do recibo digital simples da Prioridade 4).
-26. **Integração com iFood**.
-27. **Impressão fiscal (NFC-e)** — bloqueador legal real pra operação formal, mas integração pesada (SEFAZ, certificado digital, homologação).
+22. **Impressora térmica (ESC/POS)** via rede/USB — hoje a impressão é `window.print()` (Sprint 19), depende de driver do sistema.
+23. **Maquininha de cartão (TEF)** — integração com terminal físico de cartão usado pelo garçom/caixa; diferente do pagamento online da Prioridade 3, que é pro cliente pagar direto pelo celular.
+24. **Integração com WhatsApp** — compartilhamento e notificações mais amplas (além do recibo digital simples da Prioridade 4).
+25. **Integração com iFood**.
+26. **Impressão fiscal (NFC-e)** — bloqueador legal real pra operação formal, mas integração pesada (SEFAZ, certificado digital, homologação).
 
 #### Prioridade 7 — bônus: escopo maior, só depois de validar com clientes reais
-28. **Controle de estoque**.
-29. **Promoções e cupons** — sistema completo, além do cupom avulso simples da Prioridade 2.
-30. **Programa de fidelidade**.
-31. **Aplicativo para garçons / Aplicativo para clientes**.
-32. **Multiunidade (redes de restaurantes)**.
+27. **Controle de estoque**.
+28. **Promoções e cupons** — sistema completo, além do cupom avulso simples da Prioridade 2.
+29. **Programa de fidelidade**.
+30. **Aplicativo para garçons / Aplicativo para clientes**.
+31. **Multiunidade (redes de restaurantes)**.
 
 #### Prioridade 8 — Delivery (travado até o presencial estar completo)
 > **Decisão explícita do usuário (2026-07-27): não começar nada de Prioridade 8 enquanto qualquer item das Prioridades 2 a 7 (operação presencial) ainda estiver em aberto.** Delivery só entra depois que o fluxo de pedido presencial estiver todo redondo.
 
-33. **Cadastro de endereço de entrega** — capturado no pedido (cardápio digital em modo delivery, sem mesa associada).
-34. **Cálculo de frete / raio de entrega** — por distância ou bairro atendido.
-35. **Status de entrega** — separando → saiu pra entrega → entregue; extensão do fluxo de status de item que já existe (`PENDING`/`PREPARING`/`READY`/`DELIVERED`).
-36. **Gestão de entregador** — próprio ou terceirizado, atribuição de pedido a entregador.
-37. **Comanda específica pra delivery** — endereço, contato do cliente, forma de pagamento (depende do pagamento online da Prioridade 3, já que não dá pra cobrar na entrega sem risco).
+32. **Cadastro de endereço de entrega** — capturado no pedido (cardápio digital em modo delivery, sem mesa associada).
+33. **Cálculo de frete / raio de entrega** — por distância ou bairro atendido.
+34. **Status de entrega** — separando → saiu pra entrega → entregue; extensão do fluxo de status de item que já existe (`PENDING`/`PREPARING`/`READY`/`DELIVERED`).
+35. **Gestão de entregador** — próprio ou terceirizado, atribuição de pedido a entregador.
+36. **Comanda específica pra delivery** — endereço, contato do cliente, forma de pagamento (depende do pagamento online da Prioridade 3, já que não dá pra cobrar na entrega sem risco).
 
 #### Fora de escopo por enquanto (decisão explícita do usuário, 2026-07-25)
 - **Cobrança/assinatura do próprio SaaS** (planos, trial, gateway de pagamento) — o produto ainda está em desenvolvimento, não é hora de vender.

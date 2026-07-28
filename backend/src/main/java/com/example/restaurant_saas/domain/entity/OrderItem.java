@@ -74,6 +74,9 @@ public class OrderItem {
     @Column(name = "cancelled_at")
     private OffsetDateTime cancelledAt;
 
+    @Column(name = "delivered_at")
+    private OffsetDateTime deliveredAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

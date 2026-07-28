@@ -30,4 +30,8 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
             "GROUP BY oi.product.id, oi.product.name ORDER BY SUM(oi.quantity) DESC")
     List<Object[]> findTopSellingProducts(
             @Param("restaurantId") UUID restaurantId, @Param("start") OffsetDateTime start, @Param("end") OffsetDateTime end, Pageable pageable);
+
+    @Query("SELECT oi.product.id, oi.createdAt, oi.deliveredAt FROM OrderItem oi " +
+            "WHERE oi.order.restaurant.id = :restaurantId AND oi.status = 'DELIVERED' AND oi.deliveredAt IS NOT NULL")
+    List<Object[]> findDeliveredTimingsByRestaurant(@Param("restaurantId") UUID restaurantId);
 }

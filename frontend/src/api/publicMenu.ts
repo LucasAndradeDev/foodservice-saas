@@ -8,6 +8,7 @@ export interface PublicMenuProduct {
   imageUrl: string | null
   price: number
   soldOut: boolean
+  estimatedWaitMinutes: number | null
   modifierGroups: ModifierGroup[]
 }
 

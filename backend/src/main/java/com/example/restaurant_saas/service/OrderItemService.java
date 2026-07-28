@@ -67,6 +67,8 @@ public class OrderItemService {
         if (to == ItemStatus.CANCELLED) {
             item.setCancelledBy(actingUserName);
             item.setCancelledAt(OffsetDateTime.now());
+        } else if (to == ItemStatus.DELIVERED) {
+            item.setDeliveredAt(OffsetDateTime.now());
         }
         return toOrderItemResponse(orderItemRepository.save(item));
     }

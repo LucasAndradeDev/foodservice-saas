@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ImageOff, Minus, Plus } from 'lucide-react'
+import { Clock, ImageOff, Minus, Plus } from 'lucide-react'
 import type { PublicMenuProduct } from '../../api/publicMenu'
 import { currencyFormatter } from './utils'
 
@@ -40,6 +40,12 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
         </div>
         {product.description && (
           <p className="mt-1 text-sm italic text-gray-500 dark:text-stone-400">{product.description}</p>
+        )}
+        {!product.soldOut && product.estimatedWaitMinutes !== null && (
+          <span className="mt-1 flex items-center gap-1 text-xs text-gray-400 dark:text-stone-500">
+            <Clock className="h-3 w-3" />
+            Pronto em {product.estimatedWaitMinutes < 1 ? 'menos de 1 min' : `~${product.estimatedWaitMinutes} min`}
+          </span>
         )}
         {product.soldOut ? (
           <span className="mt-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">

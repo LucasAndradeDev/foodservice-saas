@@ -282,6 +282,34 @@ class MenuControllerIntegrationTest {
     }
 
     @Test
+    void getPublicMenu_withoutDeliveryHistory_shouldReportNullEstimatedWait() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String categoryId = createCategory(token, "Burgers");
+        createProduct(token, categoryId, "Cheeseburger", "25.90", null);
+
+        mockMvc.perform(get("/api/v1/public/menu/" + slug))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories[0].products[0].estimatedWaitMinutes").doesNotExist());
+    }
+
+    @Test
+    void getPublicMenu_withDeliveryHistory_shouldReportEstimatedWaitInMinutes() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String tableId = createTable(token, 1);
+        String categoryId = createCategory(token, "Burgers");
+        String productId = createProduct(token, categoryId, "Cheeseburger", "25.90", null);
+
+        String itemId = placeOrder(slug, tableId, productId);
+        deliverItem(token, itemId);
+
+        mockMvc.perform(get("/api/v1/public/menu/" + slug))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories[0].products[0].estimatedWaitMinutes").value(0));
+    }
+
+    @Test
     void getPublicMenu_withUnknownSlug_shouldReturn400() throws Exception {
         mockMvc.perform(get("/api/v1/public/menu/does-not-exist"))
                 .andExpect(status().isBadRequest());

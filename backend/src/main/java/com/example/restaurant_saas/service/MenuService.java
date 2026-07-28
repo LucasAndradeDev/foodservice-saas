@@ -25,8 +25,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -53,11 +56,12 @@ public class MenuService {
         List<Product> activeProducts = productRepository.findByRestaurantIdAndActiveTrueOrderByCategoryNameAscNameAsc(restaurant.getId());
         Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct =
                 fetchModifierGroupsByProduct(restaurant.getId(), activeProducts);
+        Map<UUID, Integer> estimatedWaitMinutesByProduct = fetchEstimatedWaitMinutesByProduct(restaurant.getId());
 
         List<PublicMenuCategoryResponse> categories = categoryRepository
                 .findByRestaurantIdAndActiveTrueOrderByNameAsc(restaurant.getId())
                 .stream()
-                .map(category -> toCategoryResponse(category, activeProducts, modifierGroupsByProduct))
+                .map(category -> toCategoryResponse(category, activeProducts, modifierGroupsByProduct, estimatedWaitMinutesByProduct))
                 .filter(category -> !category.getProducts().isEmpty())
                 .toList();
 
@@ -88,10 +92,11 @@ public class MenuService {
     }
 
     private PublicMenuCategoryResponse toCategoryResponse(
-            Category category, List<Product> activeProducts, Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct) {
+            Category category, List<Product> activeProducts, Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct,
+            Map<UUID, Integer> estimatedWaitMinutesByProduct) {
         List<PublicMenuProductResponse> products = activeProducts.stream()
                 .filter(product -> product.getCategory().getId().equals(category.getId()))
-                .map(product -> toProductResponse(product, modifierGroupsByProduct))
+                .map(product -> toProductResponse(product, modifierGroupsByProduct, estimatedWaitMinutesByProduct))
                 .toList();
 
         return PublicMenuCategoryResponse.builder()
@@ -101,7 +106,9 @@ public class MenuService {
                 .build();
     }
 
-    private PublicMenuProductResponse toProductResponse(Product product, Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct) {
+    private PublicMenuProductResponse toProductResponse(
+            Product product, Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct,
+            Map<UUID, Integer> estimatedWaitMinutesByProduct) {
         return PublicMenuProductResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
@@ -109,8 +116,24 @@ public class MenuService {
                 .imageUrl(product.getImageUrl())
                 .price(product.getPrice())
                 .soldOut(isSoldOutToday(product))
+                .estimatedWaitMinutes(estimatedWaitMinutesByProduct.get(product.getId()))
                 .modifierGroups(modifierGroupsByProduct.getOrDefault(product.getId(), List.of()))
                 .build();
+    }
+
+    private Map<UUID, Integer> fetchEstimatedWaitMinutesByProduct(UUID restaurantId) {
+        Map<UUID, List<Long>> minutesByProduct = new HashMap<>();
+        for (Object[] row : orderItemRepository.findDeliveredTimingsByRestaurant(restaurantId)) {
+            UUID productId = (UUID) row[0];
+            OffsetDateTime createdAt = (OffsetDateTime) row[1];
+            OffsetDateTime deliveredAt = (OffsetDateTime) row[2];
+            minutesByProduct.computeIfAbsent(productId, key -> new ArrayList<>())
+                    .add(Duration.between(createdAt, deliveredAt).toMinutes());
+        }
+        return minutesByProduct.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> (int) Math.round(entry.getValue().stream().mapToLong(Long::longValue).average().orElse(0))));
     }
 
     private boolean isSoldOutToday(Product product) {

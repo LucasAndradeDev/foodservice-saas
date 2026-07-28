@@ -16,5 +16,6 @@ public class PublicMenuProductResponse {
     private String imageUrl;
     private BigDecimal price;
     private Boolean soldOut;
+    private Integer estimatedWaitMinutes;
     private List<ModifierGroupResponse> modifierGroups;
 }
