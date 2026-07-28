@@ -38,6 +38,7 @@ export function PublicMenuPage() {
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [orderError, setOrderError] = useState<string | null>(null)
   const [orderSuccess, setOrderSuccess] = useState(false)
+  const [reorderNotice, setReorderNotice] = useState<string | null>(null)
   const [activeModifierProduct, setActiveModifierProduct] = useState<PublicMenuProduct | null>(null)
   const [requestedTypes, setRequestedTypes] = useState<Set<TableRequestType>>(new Set())
   const requestTimeoutsRef = useRef<Partial<Record<TableRequestType, number>>>({})
@@ -180,6 +181,59 @@ export function PublicMenuPage() {
     setCart((prev) => prev.filter((_, i) => i !== index))
   }
 
+  function handleReorder() {
+    if (!menu?.table) return
+
+    const productsById = new Map(menu.categories.flatMap((category) => category.products).map((product) => [product.id, product]))
+    const skippedNames: string[] = []
+
+    const items: CartItem[] = []
+    menu.table.lastOrderItems.forEach((historyItem) => {
+      const product = productsById.get(historyItem.productId)
+      if (!product || product.soldOut) {
+        skippedNames.push(historyItem.productName)
+        return
+      }
+
+      const selectedModifiers: SelectedModifier[] = []
+      historyItem.modifiers.forEach((historyModifier) => {
+        const group = product.modifierGroups.find((g) => g.name === historyModifier.groupName)
+        const option = group?.options.find((o) => o.name === historyModifier.optionName)
+        if (group && option) {
+          selectedModifiers.push({
+            groupId: group.id,
+            groupName: group.name,
+            optionId: option.id,
+            optionName: option.name,
+            priceDelta: option.priceDelta,
+          })
+        }
+      })
+
+      items.push({
+        productId: product.id,
+        productName: product.name,
+        unitPrice: product.price,
+        quantity: historyItem.quantity,
+        observation: historyItem.observation ?? '',
+        selectedModifiers,
+      })
+    })
+
+    setCart(items)
+    setIsCartOpen(true)
+    setOrderError(null)
+    if (skippedNames.length > 0) {
+      const names = skippedNames.join(', ')
+      setReorderNotice(
+        skippedNames.length === 1
+          ? `${names} não está mais disponível e ficou de fora do pedido.`
+          : `${names} não estão mais disponíveis e ficaram de fora do pedido.`,
+      )
+      setTimeout(() => setReorderNotice(null), 6000)
+    }
+  }
+
   const themeClass = theme === 'dark' ? 'dark' : ''
 
   if (isLoading) {
@@ -264,6 +318,20 @@ export function PublicMenuPage() {
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {reorderNotice && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-x-4 top-4 z-30 mx-auto w-fit max-w-md rounded-2xl bg-amber-500 px-4 py-2 text-center text-sm text-white shadow-lg"
+          >
+            {reorderNotice}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {canOrder && (
         <TableRequestButtons
           canRequestBill={canRequestBill}
@@ -277,7 +345,12 @@ export function PublicMenuPage() {
       )}
 
       {canOrder && menu.table && (
-        <OrderStatusPanel items={menu.table.orderItems} lifted={cartCount > 0 && !isCartOpen} />
+        <OrderStatusPanel
+          items={menu.table.orderItems}
+          lifted={cartCount > 0 && !isCartOpen}
+          hasLastOrder={menu.table.lastOrderItems.length > 0}
+          onReorder={handleReorder}
+        />
       )}
 
       {canOrder && cartCount > 0 && !isCartOpen && (

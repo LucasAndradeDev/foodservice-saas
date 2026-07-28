@@ -28,11 +28,25 @@ export interface PublicMenuOrderItem {
   status: ItemStatus
 }
 
+export interface PublicMenuReorderModifier {
+  groupName: string
+  optionName: string
+}
+
+export interface PublicMenuReorderItem {
+  productId: string
+  productName: string
+  quantity: number
+  observation: string | null
+  modifiers: PublicMenuReorderModifier[]
+}
+
 export interface PublicMenuTable {
   id: string
   number: number
   hasDeliveredItems: boolean
   orderItems: PublicMenuOrderItem[]
+  lastOrderItems: PublicMenuReorderItem[]
 }
 
 export interface PublicMenu {

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Ban, Check, Clock, Flame, PackageCheck, X } from 'lucide-react'
+import { Ban, Check, Clock, Flame, PackageCheck, RotateCcw, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import type { ItemStatus } from '../../api/orders'
@@ -23,9 +23,11 @@ const STEP_INDEX: Record<ItemStatus, number> = {
 interface OrderStatusPanelProps {
   items: PublicMenuOrderItem[]
   lifted: boolean
+  hasLastOrder: boolean
+  onReorder: () => void
 }
 
-export function OrderStatusPanel({ items, lifted }: OrderStatusPanelProps) {
+export function OrderStatusPanel({ items, lifted, hasLastOrder, onReorder }: OrderStatusPanelProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   if (items.length === 0) return null
@@ -79,6 +81,20 @@ export function OrderStatusPanel({ items, lifted }: OrderStatusPanelProps) {
                   <X className="h-5 w-5" />
                 </button>
               </div>
+
+              {hasLastOrder && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onReorder()
+                    setIsOpen(false)
+                  }}
+                  className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl border border-brand-600 px-3 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-white/5"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Pedir de novo
+                </button>
+              )}
 
               <ul className="divide-y divide-gray-100 dark:divide-white/10">
                 {items.map((item) => (

@@ -13,11 +13,14 @@ import com.example.restaurant_saas.dto.response.ModifierOptionResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuCategoryResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuOrderItemResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuProductResponse;
+import com.example.restaurant_saas.dto.response.PublicMenuReorderItemResponse;
+import com.example.restaurant_saas.dto.response.PublicMenuReorderModifierResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuTableResponse;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.repository.CategoryRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
+import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.ProductModifierGroupRepository;
 import com.example.restaurant_saas.repository.ProductModifierOptionRepository;
 import com.example.restaurant_saas.repository.ProductRepository;
@@ -54,6 +57,7 @@ public class MenuService {
     private final ProductRepository productRepository;
     private final RestaurantTableRepository tableRepository;
     private final TabRepository tabRepository;
+    private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final ProductModifierGroupRepository modifierGroupRepository;
     private final ProductModifierOptionRepository modifierOptionRepository;
@@ -92,12 +96,20 @@ public class MenuService {
                             .map(this::toOrderItemStatusResponse)
                             .toList())
                     .orElse(List.of());
+            List<PublicMenuReorderItemResponse> lastOrderItems = openTab
+                    .flatMap(tab -> orderRepository.findFirstByTabIdAndRestaurantIdOrderByCreatedAtDesc(tab.getId(), restaurant.getId()))
+                    .map(order -> order.getItems().stream()
+                            .filter(item -> item.getStatus() != ItemStatus.CANCELLED)
+                            .map(this::toReorderItemResponse)
+                            .toList())
+                    .orElse(List.of());
 
             tableResponse = PublicMenuTableResponse.builder()
                     .id(table.getId())
                     .number(table.getNumber())
                     .hasDeliveredItems(hasDeliveredItems)
                     .orderItems(orderItems)
+                    .lastOrderItems(lastOrderItems)
                     .build();
         }
 
@@ -172,6 +184,21 @@ public class MenuService {
                 .productName(item.getProduct().getName())
                 .quantity(item.getQuantity())
                 .status(item.getStatus())
+                .build();
+    }
+
+    private PublicMenuReorderItemResponse toReorderItemResponse(OrderItem item) {
+        return PublicMenuReorderItemResponse.builder()
+                .productId(item.getProduct().getId())
+                .productName(item.getProduct().getName())
+                .quantity(item.getQuantity())
+                .observation(item.getObservation())
+                .modifiers(item.getModifiers().stream()
+                        .map(modifier -> PublicMenuReorderModifierResponse.builder()
+                                .groupName(modifier.getGroupName())
+                                .optionName(modifier.getOptionName())
+                                .build())
+                        .toList())
                 .build();
     }
 

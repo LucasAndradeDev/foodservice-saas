@@ -13,4 +13,5 @@ public class PublicMenuTableResponse {
     private Integer number;
     private boolean hasDeliveredItems;
     private List<PublicMenuOrderItemResponse> orderItems;
+    private List<PublicMenuReorderItemResponse> lastOrderItems;
 }
