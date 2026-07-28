@@ -65,6 +65,15 @@ public class RestaurantService {
         if (restaurant.getKitchenCriticalThresholdMinutes() <= restaurant.getKitchenWarningThresholdMinutes()) {
             throw new IllegalArgumentException("Critical threshold must be greater than the warning threshold.");
         }
+        if (request.getTableForgottenWarningThresholdMinutes() != null) {
+            restaurant.setTableForgottenWarningThresholdMinutes(request.getTableForgottenWarningThresholdMinutes());
+        }
+        if (request.getTableForgottenCriticalThresholdMinutes() != null) {
+            restaurant.setTableForgottenCriticalThresholdMinutes(request.getTableForgottenCriticalThresholdMinutes());
+        }
+        if (restaurant.getTableForgottenCriticalThresholdMinutes() <= restaurant.getTableForgottenWarningThresholdMinutes()) {
+            throw new IllegalArgumentException("Critical threshold must be greater than the warning threshold.");
+        }
         if (request.getServiceChargeEnabled() != null) {
             restaurant.setServiceChargeEnabled(request.getServiceChargeEnabled());
         }
@@ -96,6 +105,8 @@ public class RestaurantService {
                 .autoPrintKitchenTickets(restaurant.getAutoPrintKitchenTickets())
                 .kitchenWarningThresholdMinutes(restaurant.getKitchenWarningThresholdMinutes())
                 .kitchenCriticalThresholdMinutes(restaurant.getKitchenCriticalThresholdMinutes())
+                .tableForgottenWarningThresholdMinutes(restaurant.getTableForgottenWarningThresholdMinutes())
+                .tableForgottenCriticalThresholdMinutes(restaurant.getTableForgottenCriticalThresholdMinutes())
                 .serviceChargeEnabled(restaurant.getServiceChargeEnabled())
                 .serviceChargePercentage(restaurant.getServiceChargePercentage())
                 .build();

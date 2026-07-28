@@ -22,6 +22,8 @@ public class RestaurantResponse {
     private Boolean autoPrintKitchenTickets;
     private Integer kitchenWarningThresholdMinutes;
     private Integer kitchenCriticalThresholdMinutes;
+    private Integer tableForgottenWarningThresholdMinutes;
+    private Integer tableForgottenCriticalThresholdMinutes;
     private Boolean serviceChargeEnabled;
     private BigDecimal serviceChargePercentage;
 }

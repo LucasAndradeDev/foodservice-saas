@@ -21,6 +21,7 @@ export interface Tab {
   restaurantId: string
   status: TabStatus
   openedAt: string
+  lastOrderAt: string | null
   closedAt: string | null
   paymentMethod: PaymentMethod | null
   paidAmount: number | null

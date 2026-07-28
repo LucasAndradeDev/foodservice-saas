@@ -60,6 +60,14 @@ public class Restaurant {
     @Builder.Default
     private Integer kitchenCriticalThresholdMinutes = 20;
 
+    @Column(name = "table_forgotten_warning_threshold_minutes", nullable = false)
+    @Builder.Default
+    private Integer tableForgottenWarningThresholdMinutes = 30;
+
+    @Column(name = "table_forgotten_critical_threshold_minutes", nullable = false)
+    @Builder.Default
+    private Integer tableForgottenCriticalThresholdMinutes = 60;
+
     @Column(name = "service_charge_enabled", nullable = false)
     @Builder.Default
     private Boolean serviceChargeEnabled = true;

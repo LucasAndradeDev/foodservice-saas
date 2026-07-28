@@ -393,6 +393,7 @@ public class TabService {
                 .restaurantId(tab.getRestaurant().getId())
                 .status(tab.getStatus())
                 .openedAt(tab.getOpenedAt())
+                .lastOrderAt(tab.getLastOrderAt())
                 .closedAt(tab.getClosedAt())
                 .paymentMethod(tab.getPaymentMethod())
                 .paidAmount(tab.getPaidAmount())

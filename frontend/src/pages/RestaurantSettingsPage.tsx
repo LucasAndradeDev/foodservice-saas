@@ -27,6 +27,8 @@ export function RestaurantSettingsPage() {
   const [autoPrintKitchenTickets, setAutoPrintKitchenTickets] = useState(false)
   const [kitchenWarningThresholdMinutes, setKitchenWarningThresholdMinutes] = useState('10')
   const [kitchenCriticalThresholdMinutes, setKitchenCriticalThresholdMinutes] = useState('20')
+  const [tableForgottenWarningThresholdMinutes, setTableForgottenWarningThresholdMinutes] = useState('30')
+  const [tableForgottenCriticalThresholdMinutes, setTableForgottenCriticalThresholdMinutes] = useState('60')
   const [serviceChargeEnabled, setServiceChargeEnabled] = useState(true)
   const [serviceChargePercentage, setServiceChargePercentage] = useState('10')
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
@@ -45,6 +47,8 @@ export function RestaurantSettingsPage() {
     setAutoPrintKitchenTickets(restaurant.autoPrintKitchenTickets)
     setKitchenWarningThresholdMinutes(String(restaurant.kitchenWarningThresholdMinutes))
     setKitchenCriticalThresholdMinutes(String(restaurant.kitchenCriticalThresholdMinutes))
+    setTableForgottenWarningThresholdMinutes(String(restaurant.tableForgottenWarningThresholdMinutes))
+    setTableForgottenCriticalThresholdMinutes(String(restaurant.tableForgottenCriticalThresholdMinutes))
     setServiceChargeEnabled(restaurant.serviceChargeEnabled)
     setServiceChargePercentage(String(restaurant.serviceChargePercentage))
   }, [restaurant])
@@ -71,6 +75,13 @@ export function RestaurantSettingsPage() {
       return
     }
 
+    const tableForgottenWarningMinutes = Number(tableForgottenWarningThresholdMinutes)
+    const tableForgottenCriticalMinutes = Number(tableForgottenCriticalThresholdMinutes)
+    if (tableForgottenCriticalMinutes <= tableForgottenWarningMinutes) {
+      setError('O tempo crítico do alerta de mesa esquecida precisa ser maior que o tempo de aviso.')
+      return
+    }
+
     updateMutation.mutate({
       cnpj: cnpj || undefined,
       tradeName: tradeName || undefined,
@@ -81,6 +92,8 @@ export function RestaurantSettingsPage() {
       autoPrintKitchenTickets,
       kitchenWarningThresholdMinutes: warningMinutes,
       kitchenCriticalThresholdMinutes: criticalMinutes,
+      tableForgottenWarningThresholdMinutes: tableForgottenWarningMinutes,
+      tableForgottenCriticalThresholdMinutes: tableForgottenCriticalMinutes,
       serviceChargeEnabled,
       serviceChargePercentage: Number(serviceChargePercentage),
     })
@@ -309,6 +322,49 @@ export function RestaurantSettingsPage() {
                           disabled={!canManage}
                           value={kitchenCriticalThresholdMinutes}
                           onChange={(e) => setKitchenCriticalThresholdMinutes(e.target.value)}
+                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-gray-200 p-3">
+                    <p className="mb-1 text-sm font-medium text-gray-700">Alerta de mesa esquecida</p>
+                    <p className="mb-3 text-xs text-gray-500">
+                      Mesa ocupada há muito tempo sem pedido novo avisa o garçom, pra ninguém ficar esquecido.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label
+                          className="mb-1 block text-xs font-medium text-gray-600"
+                          htmlFor="tableForgottenWarningThreshold"
+                        >
+                          Aviso (min)
+                        </label>
+                        <input
+                          id="tableForgottenWarningThreshold"
+                          type="number"
+                          min={1}
+                          disabled={!canManage}
+                          value={tableForgottenWarningThresholdMinutes}
+                          onChange={(e) => setTableForgottenWarningThresholdMinutes(e.target.value)}
+                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+                        />
+                      </div>
+                      <div>
+                        <label
+                          className="mb-1 block text-xs font-medium text-gray-600"
+                          htmlFor="tableForgottenCriticalThreshold"
+                        >
+                          Crítico (min)
+                        </label>
+                        <input
+                          id="tableForgottenCriticalThreshold"
+                          type="number"
+                          min={1}
+                          disabled={!canManage}
+                          value={tableForgottenCriticalThresholdMinutes}
+                          onChange={(e) => setTableForgottenCriticalThresholdMinutes(e.target.value)}
                           className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
                         />
                       </div>

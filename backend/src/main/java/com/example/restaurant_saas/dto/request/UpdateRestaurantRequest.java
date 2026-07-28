@@ -43,6 +43,12 @@ public class UpdateRestaurantRequest {
     @Positive(message = "Critical threshold must be greater than zero")
     private Integer kitchenCriticalThresholdMinutes;
 
+    @Positive(message = "Warning threshold must be greater than zero")
+    private Integer tableForgottenWarningThresholdMinutes;
+
+    @Positive(message = "Critical threshold must be greater than zero")
+    private Integer tableForgottenCriticalThresholdMinutes;
+
     private Boolean serviceChargeEnabled;
 
     @DecimalMin(value = "0.0", message = "Service charge percentage cannot be negative")

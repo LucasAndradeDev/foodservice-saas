@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  AlertTriangle,
   Bell,
   CheckCircle2,
   Clock,
@@ -138,6 +139,21 @@ export function TablesPage() {
     queryKey: ['restaurant'],
     queryFn: getMyRestaurant,
   })
+
+  const tableForgottenWarningThreshold = restaurant?.tableForgottenWarningThresholdMinutes ?? 30
+  const tableForgottenCriticalThreshold = restaurant?.tableForgottenCriticalThresholdMinutes ?? 60
+
+  function getTableDelay(tab: Tab | undefined, status: TableStatus) {
+    if (!tab || status !== 'OCCUPIED') return { level: 'none' as const, minutesWithoutOrder: 0 }
+    const minutesWithoutOrder = minutesSince(tab.lastOrderAt ?? tab.openedAt)
+    const level =
+      minutesWithoutOrder >= tableForgottenCriticalThreshold
+        ? ('critical' as const)
+        : minutesWithoutOrder >= tableForgottenWarningThreshold
+          ? ('warning' as const)
+          : ('none' as const)
+    return { level, minutesWithoutOrder }
+  }
 
   const { data: pendingRequests } = useQuery({
     queryKey: ['tableRequests', 'pending'],
@@ -540,6 +556,7 @@ export function TablesPage() {
             const tab = tableTabMap.get(table.id)
             const StatusIcon = STATUS_ICONS[table.status]
             const tableRequests = pendingRequestsByTable.get(table.id) ?? []
+            const { level: delayLevel, minutesWithoutOrder } = getTableDelay(tab, table.status)
             return (
               <div key={table.id} className="relative h-full">
                 <button
@@ -552,7 +569,18 @@ export function TablesPage() {
                   <div className="text-xl font-bold leading-none">{table.number}</div>
                   <div className="text-[11px] font-semibold tracking-wide uppercase">{STATUS_LABELS[table.status]}</div>
                   {tab && table.status === 'OCCUPIED' && (
-                    <div className="text-[11px] opacity-75">há {minutesSince(tab.openedAt)} min</div>
+                    delayLevel !== 'none' ? (
+                      <div
+                        className={`flex items-center gap-1 text-[11px] font-semibold ${
+                          delayLevel === 'critical' ? 'text-red-900' : 'text-amber-900'
+                        }`}
+                      >
+                        <AlertTriangle className="h-3 w-3" />
+                        sem pedido há {minutesWithoutOrder} min
+                      </div>
+                    ) : (
+                      <div className="text-[11px] opacity-75">há {minutesSince(tab.openedAt)} min</div>
+                    )
                   )}
                   {!table.active && <div className="text-[11px]">Inativa</div>}
                 </button>

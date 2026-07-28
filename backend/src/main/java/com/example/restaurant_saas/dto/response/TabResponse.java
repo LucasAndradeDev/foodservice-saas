@@ -18,6 +18,7 @@ public class TabResponse {
     private UUID restaurantId;
     private TabStatus status;
     private OffsetDateTime openedAt;
+    private OffsetDateTime lastOrderAt;
     private OffsetDateTime closedAt;
     private PaymentMethod paymentMethod;
     private BigDecimal paidAmount;

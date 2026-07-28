@@ -39,6 +39,9 @@ public class Tab {
     @Column(name = "opened_at")
     private OffsetDateTime openedAt;
 
+    @Column(name = "last_order_at")
+    private OffsetDateTime lastOrderAt;
+
     @Column(name = "closed_at")
     private OffsetDateTime closedAt;
 
