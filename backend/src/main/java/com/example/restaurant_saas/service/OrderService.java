@@ -75,7 +75,6 @@ public class OrderService {
         order.setItems(items);
 
         tab.setLastOrderAt(OffsetDateTime.now());
-        tabRepository.save(tab);
 
         return toResponse(orderRepository.save(order));
     }
