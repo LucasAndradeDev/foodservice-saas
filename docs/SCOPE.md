@@ -283,15 +283,15 @@ Itens já entregues fora do roadmap original, puxados do backlog conforme o prod
 - ~~Status do pedido em tempo real no cardápio digital~~ ✅ 2026-07-28 (`GET /public/menu/{slug}` passou a devolver os itens da comanda aberta da mesa com status; cliente acompanha pelo mesmo polling de 4s que o cardápio já usava, via pílula flutuante que abre um painel com stepper de progresso por item)
 - ~~Destaque de produto no cardápio digital~~ ✅ 2026-07-28 (dois selos independentes: `featured` manual em `Product` — o dono liga/desliga pela tela de Produtos — e "Mais pedido" automático, calculado dos top 3 produtos por quantidade vendida nos últimos 30 dias via a mesma query já usada nos Relatórios; os dois podem aparecer juntos no mesmo produto)
 - ~~Alerta de "mesa esquecida"~~ ✅ 2026-07-28 (mesa ocupada há muito tempo sem pedido novo avisa o garçom; limiares próprios — `tableForgottenWarningThresholdMinutes`/`tableForgottenCriticalThresholdMinutes`, default 30/60 min — não os mesmos do alerta de cozinha, já que a semântica é diferente; `lastOrderAt` gravado na comanda a cada pedido novo, com fallback pro `openedAt` da comanda enquanto não há nenhum pedido; vale só pra mesas de verdade, não pra comandas de Balcão)
+- ~~"Pedir de novo" rápido~~ ✅ 2026-07-28 (botão no painel de status do cardápio digital repopula o carrinho com os itens do último pedido enviado — escopo é a mesa toda, não um dispositivo específico, já que não existe sessão por cliente no autoatendimento; modificadores casados por nome contra o cardápio atual, já que o histórico só guarda nome/preço, não o id da opção; produto inativo ou esgotado hoje é descartado do reenvio e nomeado no aviso, pra não confundir o cliente)
 
 **Prioridade 1 do backlog anterior (discutido em 2026-07-25) concluída inteira** — todos os 6 itens de ganho rápido acima já foram entregues.
 
 O que falta, organizado por prioridade — da mais fácil/importante até a mais difícil (bônus). Cobrança do próprio SaaS fica de fora por ora, produto ainda em desenvolvimento (ver "Fora de escopo" no fim).
 
 #### Prioridade 2 — ganho rápido, reaproveita o que já existe (baixo esforço, alto valor)
-1. **"Pedir de novo" rápido** — no cardápio digital, repetir o último pedido da sessão sem precisar procurar o produto de novo.
-2. **Cupom de desconto avulso** (primeira visita / aniversário) — versão simples de incentivo, sem todo o sistema de fidelidade por pontos.
-3. **Relatório de horário de pico** — quantas mesas ocupadas por hora do dia / dia da semana. O dado já existe (`openedAt`/`closedAt` da comanda), falta só a agregação nos Relatórios.
+1. **Cupom de desconto avulso** (primeira visita / aniversário) — versão simples de incentivo, sem todo o sistema de fidelidade por pontos.
+2. **Relatório de horário de pico** — quantas mesas ocupadas por hora do dia / dia da semana. O dado já existe (`openedAt`/`closedAt` da comanda), falta só a agregação nos Relatórios.
 
 #### Prioridade 3 — fecha lacunas do fluxo de pagamento/comanda (esforço médio)
 5. **Pagamento online — Pix e cartão via gateway** — hoje "Pix"/"Cartão" na comanda é só um registro manual de que o cliente pagou por fora (Pix direto pro banco do restaurante, ou maquininha do garçom); aqui é integrar um gateway de verdade (ex: Mercado Pago, PagSeguro, Asaas) que gera cobrança Pix real (QR Code) e cobra cartão online, com confirmação automática batendo na comanda. **Pré-requisito técnico pro delivery** (Prioridade 8) — não dá pra vender delivery sem cobrar o cliente à distância — mas já traz valor agora: cliente do autoatendimento (QR Code na mesa) pode pagar direto pelo celular, sem esperar o garçom.
