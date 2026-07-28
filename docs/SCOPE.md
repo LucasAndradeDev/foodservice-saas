@@ -276,6 +276,7 @@ Itens já entregues fora do roadmap original, puxados do backlog conforme o prod
 - ~~Alerta de demora na cozinha~~ ✅ (limiares configuráveis de aviso/crítico por restaurante)
 - ~~Desconto pontual~~ ✅ 2026-07-27 (fixo ou percentual, em item ou comanda, restrito a OWNER/MANAGER, com motivo e auditoria de quem aplicou)
 - ~~Gorjeta / taxa de serviço~~ ✅ 2026-07-27 (percentual configurável por restaurante, aplicada automaticamente no fechamento; só OWNER/MANAGER podem waivar/ajustar — outros papéis sempre recebem o padrão do restaurante, mesmo chamando a API direto; excluída do faturamento nos relatórios/dashboard por ser repasse, não receita)
+- ~~Correção de pagamento em comanda fechada~~ ✅ 2026-07-27 (restrito a OWNER/MANAGER, com motivo obrigatório; **decisão de design**: não reabre a comanda pra atendimento nem mexe na mesa — só substitui forma/valor/taxa de serviço registrados, mantendo a comanda `CLOSED`. Acessível a qualquer momento via lista "Comandas fechadas hoje" no Caixa. Escopo reduzido deliberadamente do item original do backlog: reabrir a comanda de verdade arriscava duas comandas abertas na mesma mesa)
 
 **Prioridade 1 do backlog anterior (discutido em 2026-07-25) concluída inteira** — todos os 6 itens de ganho rápido acima já foram entregues.
 
@@ -283,29 +284,28 @@ O que falta, organizado por prioridade (cobrança do próprio SaaS fica de fora 
 
 #### Prioridade 2 — fecha lacunas do fluxo de pagamento/comanda
 1. **Divisão de conta** — hoje `paidAmount` precisa bater exatamente com o total (decisão explícita da Sprint 8); sem suporte a pagamento parcial/dividido.
-2. **Cancelamento de pagamento / reabertura de comanda** — não existe undo pra pagamento (só existe pra merge de mesas, Sprint 24).
-3. **Transferir item entre comandas** — inverso do merge (Sprint 24): tira um item de uma comanda e joga em outra, sem mexer nas mesas.
-4. **Abertura/fechamento de caixa com sangria** — hoje "faturamento do dia" é só soma de pagamentos; não existe abertura de turno com valor inicial, conferência de dinheiro físico no fechamento, nem sangria.
+2. **Transferir item entre comandas** — inverso do merge (Sprint 24): tira um item de uma comanda e joga em outra, sem mexer nas mesas.
+3. **Abertura/fechamento de caixa com sangria** — hoje "faturamento do dia" é só soma de pagamentos; não existe abertura de turno com valor inicial, conferência de dinheiro físico no fechamento, nem sangria.
 
 #### Prioridade 3 — gestão e visibilidade
-5. **Ficha técnica / custo de produto** — complementa os Relatórios (Sprint 20) com margem real, não só faturamento. Versão enxuta: campo `costPrice` no Produto, sem módulo de estoque completo.
-6. **Log de auditoria** — quem cancelou item. *(Parcialmente coberto: desconto e taxa de serviço já registram quem aplicou e quando, direto nos campos de `OrderItem`/`Tab`; falta só o cancelamento de item.)*
-7. **Desempenho por garçom** — vendas e tempo médio de atendimento por funcionário.
-8. **Metas e comparativos no dashboard** (mês a mês) — parte do "Dashboard analítico".
+4. **Ficha técnica / custo de produto** — complementa os Relatórios (Sprint 20) com margem real, não só faturamento. Versão enxuta: campo `costPrice` no Produto, sem módulo de estoque completo.
+5. **Log de auditoria** — quem cancelou item. *(Parcialmente coberto: desconto e taxa de serviço já registram quem aplicou e quando, direto nos campos de `OrderItem`/`Tab`; falta só o cancelamento de item.)*
+6. **Desempenho por garçom** — vendas e tempo médio de atendimento por funcionário.
+7. **Metas e comparativos no dashboard** (mês a mês) — parte do "Dashboard analítico".
 
 #### Prioridade 4 — integrações externas (maior esforço, dependem de terceiros)
-9. **Impressora térmica (ESC/POS)** via rede/USB — hoje a impressão é `window.print()` (Sprint 19), depende de driver do sistema.
-10. **Maquininha de cartão (TEF)** — hoje "cartão" é só um registro manual da forma de pagamento.
-11. **Integração com WhatsApp** — compartilhar link do cardápio digital / notificações.
-12. **Integração com iFood**.
-13. **Impressão fiscal (NFC-e)** — bloqueador legal real pra operação formal, mas integração pesada (SEFAZ, certificado digital, homologação).
+8. **Impressora térmica (ESC/POS)** via rede/USB — hoje a impressão é `window.print()` (Sprint 19), depende de driver do sistema.
+9. **Maquininha de cartão (TEF)** — hoje "cartão" é só um registro manual da forma de pagamento.
+10. **Integração com WhatsApp** — compartilhar link do cardápio digital / notificações.
+11. **Integração com iFood**.
+12. **Impressão fiscal (NFC-e)** — bloqueador legal real pra operação formal, mas integração pesada (SEFAZ, certificado digital, homologação).
 
 #### Prioridade 5 — escopo maior, só depois de validar com clientes reais
-14. **Controle de estoque**.
-15. **Promoções e cupons**.
-16. **Programa de fidelidade**.
-17. **Aplicativo para garçons / Aplicativo para clientes**.
-18. **Multiunidade (redes de restaurantes)**.
+13. **Controle de estoque**.
+14. **Promoções e cupons**.
+15. **Programa de fidelidade**.
+16. **Aplicativo para garçons / Aplicativo para clientes**.
+17. **Multiunidade (redes de restaurantes)**.
 
 #### Fora de escopo por enquanto (decisão explícita do usuário, 2026-07-25)
 - **Cobrança/assinatura do próprio SaaS** (planos, trial, gateway de pagamento) — o produto ainda está em desenvolvimento, não é hora de vender.
