@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Circle, Pencil, Power, Tag } from 'lucide-react'
+import { CheckCircle2, Circle, Pencil, Plus, Power, Tag } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { createCategory, listCategories, updateCategory, type Category } from '../api/categories'
 import { useAuth } from '../auth/AuthContext'
@@ -73,7 +73,7 @@ export function CategoriesPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
         <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
           <Tag className="h-5 w-5 text-brand-600" />
           Categorias
@@ -82,8 +82,9 @@ export function CategoriesPage() {
           <button
             type="button"
             onClick={openCreateForm}
-            className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+            className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"
           >
+            <Plus className="h-4 w-4" />
             Nova categoria
           </button>
         )}

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronDown, MapPin, Palette, QrCode, SlidersHorizontal, Store } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileSpreadsheet, MapPin, Palette, QrCode, SlidersHorizontal, Store } from 'lucide-react'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { getMyRestaurant, updateMyRestaurant, uploadRestaurantLogo } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { QrCodeCard } from '../components/QrCodeCard'
@@ -108,7 +109,7 @@ export function RestaurantSettingsPage() {
 
   return (
     <div>
-      <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800">
+      <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs">
         <Store className="h-5 w-5 text-brand-600" />
         Configurações do restaurante
       </h1>
@@ -345,6 +346,24 @@ export function RestaurantSettingsPage() {
                       />
                     </div>
                   </div>
+
+                  {canManage && (
+                    <Link
+                      to="/products/import"
+                      className="flex items-center justify-between rounded-md border border-gray-200 p-3 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <span className="flex items-center gap-2">
+                        <FileSpreadsheet className="h-4 w-4 shrink-0 text-gray-400" />
+                        <span>
+                          <span className="block font-medium">Importar cardápio</span>
+                          <span className="block text-xs text-gray-500">
+                            Cadastre categorias e produtos em lote a partir de uma planilha Excel
+                          </span>
+                        </span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+                    </Link>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -357,7 +376,7 @@ export function RestaurantSettingsPage() {
             <button
               type="submit"
               disabled={updateMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+              className="mt-4 w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
               Salvar
             </button>

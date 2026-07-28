@@ -1,7 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
-import { Ban, CheckCircle2, Circle, ListChecks, Package, Pencil, Power, Star, Trash2 } from 'lucide-react'
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
+import {
+  Ban,
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  ListChecks,
+  MoreVertical,
+  Package,
+  Pencil,
+  Plus,
+  Power,
+  Search,
+  Star,
+  Trash2,
+} from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { listCategories } from '../api/categories'
 import {
@@ -187,20 +201,63 @@ export function ProductsPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-          <Package className="h-5 w-5 text-brand-600" />
-          Produtos
-        </h1>
-        {canManage && (
-          <button
-            type="button"
-            onClick={openCreateForm}
-            className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
-          >
-            Novo produto
-          </button>
-        )}
+      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+            <Package className="h-5 w-5 text-brand-600" />
+            Produtos
+          </h1>
+          {canManage && (
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"
+            >
+              <Plus className="h-4 w-4" />
+              Novo produto
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar por nome..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm focus:border-brand-500 focus:bg-white focus:outline-none"
+            />
+          </div>
+          <div className="relative w-full sm:w-auto">
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm focus:border-brand-500 focus:bg-white focus:outline-none sm:w-auto"
+            >
+              <option value="">Todas as categorias</option>
+              {categories?.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          </div>
+          <div className="relative w-full sm:w-auto">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | 'all')}
+              className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm focus:border-brand-500 focus:bg-white focus:outline-none sm:w-auto"
+            >
+              <option value="active">Ativos</option>
+              <option value="inactive">Inativos</option>
+              <option value="all">Todos</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          </div>
+        </div>
       </div>
 
       {showNoCategoryNotice && categories?.length === 0 && (
@@ -211,37 +268,6 @@ export function ProductsPage() {
           </Link>
         </div>
       )}
-
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
-        <input
-          type="text"
-          placeholder="Buscar por nome..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none sm:w-64"
-        />
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none sm:w-auto"
-        >
-          <option value="">Todas as categorias</option>
-          {categories?.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | 'all')}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none sm:w-auto"
-        >
-          <option value="active">Ativos</option>
-          <option value="inactive">Inativos</option>
-          <option value="all">Todos</option>
-        </select>
-      </div>
 
       {listError && <p className="mb-4 text-sm text-red-600">{listError}</p>}
 
@@ -508,6 +534,25 @@ function ProductActionButtons({
   onDelete,
   align = 'start',
 }: ProductActionButtonsProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isMenuOpen) return
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isMenuOpen])
+
+  function runAndClose(action: () => void) {
+    action()
+    setIsMenuOpen(false)
+  }
+
   return (
     <div className={`flex items-center gap-1 ${align === 'end' ? 'justify-end' : ''}`}>
       <button
@@ -519,50 +564,68 @@ function ProductActionButtons({
       >
         <Pencil className="h-4 w-4" />
       </button>
-      <Link
-        to={`/products/${product.id}/modifiers`}
-        title="Modificadores"
-        aria-label="Modificadores"
-        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
-      >
-        <ListChecks className="h-4 w-4" />
-      </Link>
-      <button
-        type="button"
-        onClick={onToggleActive}
-        title={product.active ? 'Desativar' : 'Ativar'}
-        aria-label={product.active ? 'Desativar' : 'Ativar'}
-        className={`rounded-md p-1.5 hover:bg-gray-100 ${product.active ? 'text-gray-500 hover:text-amber-700' : 'text-gray-400 hover:text-green-700'}`}
-      >
-        <Power className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        onClick={onToggleSoldOut}
-        title={product.soldOutToday ? 'Remover "esgotado hoje"' : 'Marcar como esgotado hoje'}
-        aria-label={product.soldOutToday ? 'Remover "esgotado hoje"' : 'Marcar como esgotado hoje'}
-        className={`rounded-md p-1.5 hover:bg-gray-100 ${product.soldOutToday ? 'text-amber-600 hover:text-amber-700' : 'text-gray-400 hover:text-amber-700'}`}
-      >
-        <Ban className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        onClick={onToggleFeatured}
-        title={product.featured ? 'Remover destaque' : 'Marcar como destaque'}
-        aria-label={product.featured ? 'Remover destaque' : 'Marcar como destaque'}
-        className={`rounded-md p-1.5 hover:bg-gray-100 ${product.featured ? 'text-yellow-500 hover:text-yellow-600' : 'text-gray-400 hover:text-yellow-600'}`}
-      >
-        <Star className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        onClick={onDelete}
-        title="Excluir"
-        aria-label="Excluir"
-        className="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
+
+      <div className="relative" ref={menuRef}>
+        <button
+          type="button"
+          onClick={() => setIsMenuOpen((open) => !open)}
+          title="Mais ações"
+          aria-label="Mais ações"
+          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+        >
+          <MoreVertical className="h-4 w-4" />
+        </button>
+
+        {isMenuOpen && (
+          <div
+            className={`absolute z-10 mt-1 w-52 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg ${
+              align === 'end' ? 'right-0' : 'left-0'
+            }`}
+          >
+            <Link
+              to={`/products/${product.id}/modifiers`}
+              onClick={() => setIsMenuOpen(false)}
+              className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
+            >
+              <ListChecks className="h-4 w-4 text-gray-400" />
+              Modificadores
+            </Link>
+            <button
+              type="button"
+              onClick={() => runAndClose(onToggleActive)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+            >
+              <Power className="h-4 w-4 text-gray-400" />
+              {product.active ? 'Desativar' : 'Ativar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => runAndClose(onToggleSoldOut)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+            >
+              <Ban className="h-4 w-4 text-gray-400" />
+              {product.soldOutToday ? 'Remover "esgotado hoje"' : 'Marcar como esgotado hoje'}
+            </button>
+            <button
+              type="button"
+              onClick={() => runAndClose(onToggleFeatured)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+            >
+              <Star className="h-4 w-4 text-gray-400" />
+              {product.featured ? 'Remover destaque' : 'Marcar como destaque'}
+            </button>
+            <div className="my-1 border-t border-gray-100" />
+            <button
+              type="button"
+              onClick={() => runAndClose(onDelete)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              Excluir
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -7,6 +7,7 @@ import {
   Flame,
   LayoutGrid,
   Layers,
+  MoreVertical,
   Plus,
   Users,
   UtensilsCrossed,
@@ -190,6 +191,8 @@ export function TablesPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [isBulkCreating, setIsBulkCreating] = useState(false)
   const [isSelectingTables, setIsSelectingTables] = useState(false)
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
+  const moreMenuRef = useRef<HTMLDivElement>(null)
   const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(new Set())
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null)
   const [numberInput, setNumberInput] = useState('')
@@ -198,6 +201,17 @@ export function TablesPage() {
   const [editStatus, setEditStatus] = useState<TableStatus>('FREE')
   const [editActive, setEditActive] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isMoreMenuOpen) return
+    function handleClickOutside(event: MouseEvent) {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setIsMoreMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isMoreMenuOpen])
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['tables'] })
@@ -366,54 +380,75 @@ export function TablesPage() {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-          <LayoutGrid className="h-5 w-5 text-brand-600" />
-          Mesas
-        </h1>
-        <div className="flex flex-wrap gap-2">
-          {canOpenTab && !isSelectingTables && (
-            <>
-              <button
-                type="button"
-                onClick={startSelectingTables}
-                className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-              >
-                <Users className="h-4 w-4" />
-                Abrir comanda
-              </button>
-              <button
-                type="button"
-                onClick={openCounterTab}
-                disabled={openTabMutation.isPending}
-                className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-              >
-                <Coffee className="h-4 w-4" />
-                Balcão
-              </button>
-            </>
-          )}
+      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+            <LayoutGrid className="h-5 w-5 text-brand-600" />
+            Mesas
+          </h1>
           {canManage && !isSelectingTables && (
-            <>
+            <div className="relative" ref={moreMenuRef}>
               <button
                 type="button"
-                onClick={openBulkForm}
-                className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+                onClick={() => setIsMoreMenuOpen((open) => !open)}
+                title="Mais ações"
+                aria-label="Mais ações"
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
               >
-                <Layers className="h-4 w-4" />
-                Criar em lote
+                <MoreVertical className="h-5 w-5" />
               </button>
-              <button
-                type="button"
-                onClick={openCreateForm}
-                className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
-              >
-                <Plus className="h-4 w-4" />
-                Nova mesa
-              </button>
-            </>
+
+              {isMoreMenuOpen && (
+                <div className="absolute right-0 z-10 mt-1 w-48 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openBulkForm()
+                      setIsMoreMenuOpen(false)
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+                  >
+                    <Layers className="h-4 w-4 text-gray-400" />
+                    Criar em lote
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openCreateForm()
+                      setIsMoreMenuOpen(false)
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+                  >
+                    <Plus className="h-4 w-4 text-gray-400" />
+                    Nova mesa
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
+
+        {canOpenTab && !isSelectingTables && (
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={startSelectingTables}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-100"
+            >
+              <Users className="h-4 w-4" />
+              Abrir comanda
+            </button>
+            <button
+              type="button"
+              onClick={openCounterTab}
+              disabled={openTabMutation.isPending}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+            >
+              <Coffee className="h-4 w-4" />
+              Balcão
+            </button>
+          </div>
+        )}
       </div>
 
       {tables && tables.length > 0 && (

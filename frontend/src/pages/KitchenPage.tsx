@@ -83,7 +83,7 @@ export function KitchenPage() {
 
   return (
     <div>
-      <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800">
+      <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs">
         <ChefHat className="h-5 w-5 text-brand-600" />
         Cozinha
       </h1>

@@ -67,53 +67,55 @@ export function ReportsPage() {
 
   return (
     <div>
-      <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800">
-        <BarChart3 className="h-5 w-5 text-brand-600" />
-        Relatórios
-      </h1>
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
+        <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800">
+          <BarChart3 className="h-5 w-5 text-brand-600" />
+          Relatórios
+        </h1>
 
-      <div className="mb-6 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => applyPreset('today')}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-          >
-            Hoje
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset('last7days')}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-          >
-            Últimos 7 dias
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset('thisMonth')}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-          >
-            Este mês
-          </button>
-        </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => applyPreset('today')}
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              Hoje
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset('last7days')}
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              Últimos 7 dias
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset('thisMonth')}
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              Este mês
+            </button>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={start}
-            max={end}
-            onChange={(e) => setStart(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
-          />
-          <span className="text-gray-400">até</span>
-          <input
-            type="date"
-            value={end}
-            min={start}
-            max={today}
-            onChange={(e) => setEnd(e.target.value)}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={start}
+              max={end}
+              onChange={(e) => setStart(e.target.value)}
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-brand-500 focus:bg-white focus:outline-none"
+            />
+            <span className="text-gray-400">até</span>
+            <input
+              type="date"
+              value={end}
+              min={start}
+              max={today}
+              onChange={(e) => setEnd(e.target.value)}
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-brand-500 focus:bg-white focus:outline-none"
+            />
+          </div>
         </div>
       </div>
 
