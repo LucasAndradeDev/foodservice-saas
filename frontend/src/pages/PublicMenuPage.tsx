@@ -10,6 +10,7 @@ import { CategoryNav } from './publicMenu/CategoryNav'
 import { getCategoryIcon } from './publicMenu/categoryIcons'
 import { MenuHero } from './publicMenu/MenuHero'
 import { ModifierSheet } from './publicMenu/ModifierSheet'
+import { OrderStatusPanel } from './publicMenu/OrderStatusPanel'
 import { ProductCard } from './publicMenu/ProductCard'
 import { TableRequestButtons } from './publicMenu/TableRequestButtons'
 import { usePublicMenuTheme } from './publicMenu/usePublicMenuTheme'
@@ -273,6 +274,10 @@ export function PublicMenuPage() {
           isCartOpen={isCartOpen}
           onRequest={(type) => tableRequestMutation.mutate(type)}
         />
+      )}
+
+      {canOrder && menu.table && (
+        <OrderStatusPanel items={menu.table.orderItems} lifted={cartCount > 0 && !isCartOpen} />
       )}
 
       {canOrder && cartCount > 0 && !isCartOpen && (

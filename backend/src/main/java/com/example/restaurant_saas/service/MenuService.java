@@ -1,14 +1,17 @@
 package com.example.restaurant_saas.service;
 
 import com.example.restaurant_saas.domain.entity.Category;
+import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.Product;
 import com.example.restaurant_saas.domain.entity.ProductModifierGroup;
 import com.example.restaurant_saas.domain.entity.ProductModifierOption;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
+import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.dto.response.ModifierGroupResponse;
 import com.example.restaurant_saas.dto.response.ModifierOptionResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuCategoryResponse;
+import com.example.restaurant_saas.dto.response.PublicMenuOrderItemResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuProductResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuTableResponse;
@@ -32,6 +35,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -72,14 +76,21 @@ public class MenuService {
             RestaurantTable table = tableRepository.findByIdAndRestaurantId(tableId, restaurant.getId())
                     .filter(t -> Boolean.TRUE.equals(t.getActive()))
                     .orElseThrow(() -> new IllegalArgumentException("Table not found."));
-            boolean hasDeliveredItems = tabRepository.findOpenTabByRestaurantIdAndTableId(restaurant.getId(), table.getId())
+            Optional<Tab> openTab = tabRepository.findOpenTabByRestaurantIdAndTableId(restaurant.getId(), table.getId());
+            boolean hasDeliveredItems = openTab
                     .map(tab -> orderItemRepository.existsByOrder_Tab_IdAndStatus(tab.getId(), ItemStatus.DELIVERED))
                     .orElse(false);
+            List<PublicMenuOrderItemResponse> orderItems = openTab
+                    .map(tab -> orderItemRepository.findByOrder_Tab_IdOrderByCreatedAtAsc(tab.getId()).stream()
+                            .map(this::toOrderItemStatusResponse)
+                            .toList())
+                    .orElse(List.of());
 
             tableResponse = PublicMenuTableResponse.builder()
                     .id(table.getId())
                     .number(table.getNumber())
                     .hasDeliveredItems(hasDeliveredItems)
+                    .orderItems(orderItems)
                     .build();
         }
 
@@ -134,6 +145,15 @@ public class MenuService {
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         entry -> (int) Math.round(entry.getValue().stream().mapToLong(Long::longValue).average().orElse(0))));
+    }
+
+    private PublicMenuOrderItemResponse toOrderItemStatusResponse(OrderItem item) {
+        return PublicMenuOrderItemResponse.builder()
+                .id(item.getId())
+                .productName(item.getProduct().getName())
+                .quantity(item.getQuantity())
+                .status(item.getStatus())
+                .build();
     }
 
     private boolean isSoldOutToday(Product product) {

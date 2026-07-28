@@ -18,53 +18,53 @@ export function MenuHero({ restaurantName, logo, tableNumber, theme, onToggleThe
   return (
     <header
       style={heroStyle}
-      className="relative overflow-hidden px-4 py-10 text-center sm:py-14 bg-[radial-gradient(120%_100%_at_50%_0%,color-mix(in_srgb,var(--menu-accent)_12%,white)_0%,white_65%)] dark:bg-[radial-gradient(120%_100%_at_50%_0%,color-mix(in_srgb,var(--menu-accent)_35%,black)_0%,#0b0b0c_65%)]"
+      className="sticky top-0 z-20 border-b border-black/5 bg-white/80 px-4 py-2.5 backdrop-blur-xl dark:border-white/10 dark:bg-stone-950/80"
     >
-      <button
-        type="button"
-        onClick={onToggleTheme}
-        aria-label="Alternar tema"
-        className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/5 text-gray-700 backdrop-blur-md transition-colors hover:bg-black/10 dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.span
-            key={theme}
-            initial={{ opacity: 0, rotate: -90 }}
-            animate={{ opacity: 1, rotate: 0 }}
-            exit={{ opacity: 0, rotate: 90 }}
-            transition={{ duration: 0.2 }}
-            className="flex items-center justify-center"
+      <div className="mx-auto flex max-w-2xl items-center gap-3">
+        {logo ? (
+          <img
+            src={logo}
+            alt={restaurantName}
+            className="h-10 w-10 shrink-0 rounded-2xl object-cover shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+          />
+        ) : (
+          <div
+            style={{ backgroundImage: `linear-gradient(135deg, ${MENU_ACCENT_COLOR}, color-mix(in srgb, ${MENU_ACCENT_COLOR} 60%, black))` }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-base font-semibold text-white shadow-sm"
           >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </motion.span>
-        </AnimatePresence>
-      </button>
+            {restaurantName.charAt(0).toUpperCase()}
+          </div>
+        )}
 
-      {logo ? (
-        <img
-          src={logo}
-          alt={restaurantName}
-          style={{ '--tw-ring-color': MENU_ACCENT_COLOR } as CSSProperties}
-          className="mx-auto mb-3 h-16 w-16 rounded-full object-cover ring-2"
-        />
-      ) : (
-        <div
-          style={{ backgroundColor: MENU_ACCENT_COLOR }}
-          className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full text-xl font-semibold text-white"
-        >
-          {restaurantName.charAt(0).toUpperCase()}
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-[15px] font-semibold leading-tight tracking-tight text-gray-900 dark:text-white">
+            {restaurantName}
+          </h1>
+          {tableNumber !== undefined && (
+            <p className="truncate text-xs leading-tight text-gray-500 dark:text-stone-400">Mesa {tableNumber}</p>
+          )}
         </div>
-      )}
 
-      <h1 className="text-xl font-semibold tracking-tight text-gray-800 dark:text-white sm:text-2xl">
-        {restaurantName}
-      </h1>
-
-      {tableNumber !== undefined && (
-        <p className="mt-2 inline-block rounded-full bg-black/5 px-3 py-1 text-xs font-medium text-gray-600 backdrop-blur-md dark:bg-white/10 dark:text-white/80">
-          Mesa {tableNumber}
-        </p>
-      )}
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          aria-label="Alternar tema"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-800 dark:text-stone-400 dark:hover:bg-white/10 dark:hover:text-white"
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={theme}
+              initial={{ opacity: 0, rotate: -90 }}
+              animate={{ opacity: 1, rotate: 0 }}
+              exit={{ opacity: 0, rotate: 90 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center justify-center"
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </motion.span>
+          </AnimatePresence>
+        </button>
+      </div>
     </header>
   )
 }

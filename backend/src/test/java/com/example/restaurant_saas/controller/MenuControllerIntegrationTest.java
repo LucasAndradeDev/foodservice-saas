@@ -247,7 +247,8 @@ class MenuControllerIntegrationTest {
 
         mockMvc.perform(get("/api/v1/public/menu/" + slug).param("tableId", tableId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.table.hasDeliveredItems").value(false));
+                .andExpect(jsonPath("$.table.hasDeliveredItems").value(false))
+                .andExpect(jsonPath("$.table.orderItems", org.hamcrest.Matchers.hasSize(0)));
     }
 
     @Test
@@ -262,7 +263,11 @@ class MenuControllerIntegrationTest {
 
         mockMvc.perform(get("/api/v1/public/menu/" + slug).param("tableId", tableId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.table.hasDeliveredItems").value(false));
+                .andExpect(jsonPath("$.table.hasDeliveredItems").value(false))
+                .andExpect(jsonPath("$.table.orderItems", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.table.orderItems[0].productName").value("Cheeseburger"))
+                .andExpect(jsonPath("$.table.orderItems[0].quantity").value(1))
+                .andExpect(jsonPath("$.table.orderItems[0].status").value("PENDING"));
     }
 
     @Test
@@ -278,7 +283,8 @@ class MenuControllerIntegrationTest {
 
         mockMvc.perform(get("/api/v1/public/menu/" + slug).param("tableId", tableId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.table.hasDeliveredItems").value(true));
+                .andExpect(jsonPath("$.table.hasDeliveredItems").value(true))
+                .andExpect(jsonPath("$.table.orderItems[0].status").value("DELIVERED"));
     }
 
     @Test

@@ -23,6 +23,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     boolean existsByProductId(UUID productId);
     long countByOrder_Restaurant_IdAndStatusIn(UUID restaurantId, List<ItemStatus> statuses);
     List<OrderItem> findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatus(UUID tabId, UUID restaurantId, ItemStatus status);
+    List<OrderItem> findByOrder_Tab_IdOrderByCreatedAtAsc(UUID tabId);
 
     @Query("SELECT oi.product.id, oi.product.name, SUM(oi.quantity), SUM(oi.quantity * oi.unitPrice) FROM OrderItem oi " +
             "WHERE oi.order.restaurant.id = :restaurantId AND oi.order.tab.status = 'CLOSED' " +

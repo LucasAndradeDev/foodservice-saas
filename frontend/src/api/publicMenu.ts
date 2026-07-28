@@ -1,3 +1,4 @@
+import type { ItemStatus } from './orders'
 import type { ModifierGroup } from './productModifiers'
 import { http } from './http'
 
@@ -18,10 +19,18 @@ export interface PublicMenuCategory {
   products: PublicMenuProduct[]
 }
 
+export interface PublicMenuOrderItem {
+  id: string
+  productName: string
+  quantity: number
+  status: ItemStatus
+}
+
 export interface PublicMenuTable {
   id: string
   number: number
   hasDeliveredItems: boolean
+  orderItems: PublicMenuOrderItem[]
 }
 
 export interface PublicMenu {

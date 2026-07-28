@@ -69,7 +69,7 @@ export function CategoryNav({ categories, search, onSearchChange }: CategoryNavP
   }
 
   return (
-    <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-stone-950/90">
+    <div className="sticky top-[61px] z-10 border-b border-gray-200 bg-white/90 px-4 py-3 backdrop-blur-md dark:border-white/10 dark:bg-stone-950/90">
       <div className="relative mb-3">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-stone-500" />
         <input
