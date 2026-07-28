@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
-import { Ban, CheckCircle2, Circle, ListChecks, Package, Pencil, Power, Trash2 } from 'lucide-react'
+import { Ban, CheckCircle2, Circle, ListChecks, Package, Pencil, Power, Star, Trash2 } from 'lucide-react'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { listCategories } from '../api/categories'
@@ -54,6 +54,7 @@ export function ProductsPage() {
   const [photoUrl, setPhotoUrl] = useState('')
   const [price, setPrice] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [featured, setFeatured] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [listError, setListError] = useState<string | null>(null)
   const [showNoCategoryNotice, setShowNoCategoryNotice] = useState(false)
@@ -103,6 +104,7 @@ export function ProductsPage() {
     setPhotoUrl('')
     setPrice('')
     setCategoryId(categories[0].id)
+    setFeatured(false)
     setError(null)
     setIsCreating(true)
   }
@@ -114,6 +116,7 @@ export function ProductsPage() {
     setPhotoUrl(product.imageUrl ?? '')
     setPrice(String(product.price))
     setCategoryId(product.categoryId)
+    setFeatured(product.featured)
     setError(null)
   }
 
@@ -131,6 +134,7 @@ export function ProductsPage() {
       imageUrl: photoUrl,
       price: Number(price),
       categoryId,
+      featured,
     }
     if (editingProduct) {
       updateMutation.mutate(
@@ -148,6 +152,10 @@ export function ProductsPage() {
 
   function toggleSoldOut(product: Product) {
     updateMutation.mutate({ id: product.id, payload: { soldOut: !product.soldOutToday } })
+  }
+
+  function toggleFeatured(product: Product) {
+    updateMutation.mutate({ id: product.id, payload: { featured: !product.featured } })
   }
 
   function handleDelete(product: Product) {
@@ -276,6 +284,12 @@ export function ProductsPage() {
                         Esgotado hoje
                       </span>
                     )}
+                    {product.featured && (
+                      <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">
+                        <Star className="h-3 w-3" />
+                        Destaque
+                      </span>
+                    )}
                   </span>
                 </div>
                 {canManage && (
@@ -284,6 +298,7 @@ export function ProductsPage() {
                     onEdit={() => openEditForm(product)}
                     onToggleActive={() => toggleActive(product)}
                     onToggleSoldOut={() => toggleSoldOut(product)}
+                    onToggleFeatured={() => toggleFeatured(product)}
                     onDelete={() => handleDelete(product)}
                   />
                 )}
@@ -334,6 +349,12 @@ export function ProductsPage() {
                             Esgotado hoje
                           </span>
                         )}
+                        {product.featured && (
+                          <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">
+                            <Star className="h-3 w-3" />
+                            Destaque
+                          </span>
+                        )}
                       </span>
                     </td>
                     {canManage && (
@@ -343,6 +364,7 @@ export function ProductsPage() {
                           onEdit={() => openEditForm(product)}
                           onToggleActive={() => toggleActive(product)}
                           onToggleSoldOut={() => toggleSoldOut(product)}
+                          onToggleFeatured={() => toggleFeatured(product)}
                           onDelete={() => handleDelete(product)}
                           align="end"
                         />
@@ -441,6 +463,16 @@ export function ProductsPage() {
               ))}
             </select>
 
+            <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={featured}
+                onChange={(e) => setFeatured(e.target.checked)}
+                className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+              />
+              Marcar como destaque no cardápio digital
+            </label>
+
             {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
             <button
@@ -462,11 +494,20 @@ interface ProductActionButtonsProps {
   onEdit: () => void
   onToggleActive: () => void
   onToggleSoldOut: () => void
+  onToggleFeatured: () => void
   onDelete: () => void
   align?: 'start' | 'end'
 }
 
-function ProductActionButtons({ product, onEdit, onToggleActive, onToggleSoldOut, onDelete, align = 'start' }: ProductActionButtonsProps) {
+function ProductActionButtons({
+  product,
+  onEdit,
+  onToggleActive,
+  onToggleSoldOut,
+  onToggleFeatured,
+  onDelete,
+  align = 'start',
+}: ProductActionButtonsProps) {
   return (
     <div className={`flex items-center gap-1 ${align === 'end' ? 'justify-end' : ''}`}>
       <button
@@ -503,6 +544,15 @@ function ProductActionButtons({ product, onEdit, onToggleActive, onToggleSoldOut
         className={`rounded-md p-1.5 hover:bg-gray-100 ${product.soldOutToday ? 'text-amber-600 hover:text-amber-700' : 'text-gray-400 hover:text-amber-700'}`}
       >
         <Ban className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onToggleFeatured}
+        title={product.featured ? 'Remover destaque' : 'Marcar como destaque'}
+        aria-label={product.featured ? 'Remover destaque' : 'Marcar como destaque'}
+        className={`rounded-md p-1.5 hover:bg-gray-100 ${product.featured ? 'text-yellow-500 hover:text-yellow-600' : 'text-gray-400 hover:text-yellow-600'}`}
+      >
+        <Star className="h-4 w-4" />
       </button>
       <button
         type="button"

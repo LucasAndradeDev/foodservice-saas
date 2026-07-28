@@ -123,7 +123,8 @@ class ProductControllerIntegrationTest {
                 .andExpect(jsonPath("$.name").value("Cheeseburger"))
                 .andExpect(jsonPath("$.price").value(25.90))
                 .andExpect(jsonPath("$.categoryId").value(categoryId))
-                .andExpect(jsonPath("$.active").value(true));
+                .andExpect(jsonPath("$.active").value(true))
+                .andExpect(jsonPath("$.featured").value(false));
     }
 
     @Test
@@ -524,6 +525,44 @@ class ProductControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(unmarkSoldOut)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.soldOutToday").value(false));
+    }
+
+    @Test
+    void updateProduct_markFeatured_shouldSucceed() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+        MvcResult createResult = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String productId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        UpdateProductRequest markFeatured = new UpdateProductRequest();
+        markFeatured.setFeatured(true);
+
+        mockMvc.perform(put("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(markFeatured)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.featured").value(true));
+
+        UpdateProductRequest unmarkFeatured = new UpdateProductRequest();
+        unmarkFeatured.setFeatured(false);
+
+        mockMvc.perform(put("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(unmarkFeatured)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.featured").value(false));
     }
 
     @Test

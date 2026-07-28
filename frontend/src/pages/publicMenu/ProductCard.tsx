@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Clock, ImageOff, Minus, Plus } from 'lucide-react'
+import { Clock, Flame, ImageOff, Minus, Plus, Star } from 'lucide-react'
 import type { PublicMenuProduct } from '../../api/publicMenu'
 import { currencyFormatter } from './utils'
 
@@ -38,6 +38,22 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
             {currencyFormatter.format(product.price)}
           </span>
         </div>
+        {!product.soldOut && (product.bestseller || product.featured) && (
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            {product.bestseller && (
+              <span className="flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-500/10 dark:text-orange-400">
+                <Flame className="h-2.5 w-2.5" />
+                Mais pedido
+              </span>
+            )}
+            {product.featured && (
+              <span className="flex items-center gap-0.5 rounded-full bg-yellow-100 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400">
+                <Star className="h-2.5 w-2.5 fill-current" />
+                Destaque
+              </span>
+            )}
+          </div>
+        )}
         {product.description && (
           <p className="mt-1 text-sm italic text-gray-500 dark:text-stone-400">{product.description}</p>
         )}

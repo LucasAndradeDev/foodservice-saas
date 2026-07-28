@@ -59,6 +59,7 @@ public class ProductService {
                 .imageUrl(request.getImageUrl())
                 .price(request.getPrice())
                 .active(true)
+                .featured(Boolean.TRUE.equals(request.getFeatured()))
                 .build();
 
         return toResponse(productRepository.save(product));
@@ -91,6 +92,9 @@ public class ProductService {
         }
         if (request.getSoldOut() != null) {
             product.setSoldOutAt(request.getSoldOut() ? OffsetDateTime.now() : null);
+        }
+        if (request.getFeatured() != null) {
+            product.setFeatured(request.getFeatured());
         }
 
         return toResponse(productRepository.save(product));
@@ -126,6 +130,7 @@ public class ProductService {
                 .price(product.getPrice())
                 .active(product.getActive())
                 .soldOutToday(isSoldOutToday(product))
+                .featured(product.getFeatured())
                 .build();
     }
 

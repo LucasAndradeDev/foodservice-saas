@@ -48,6 +48,9 @@ public class Product {
     @Column(name = "sold_out_at")
     private OffsetDateTime soldOutAt;
 
+    @Builder.Default
+    private Boolean featured = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

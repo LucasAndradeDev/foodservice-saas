@@ -1,10 +1,12 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
+import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -116,6 +118,33 @@ class MenuControllerIntegrationTest {
         return JsonPath.read(result.getResponse().getContentAsString(), "$.items[0].id");
     }
 
+    private String[] placeOrderAndGetItemIdAndTabId(String slug, String tableId, String productId) throws Exception {
+        CreateOrderItemRequest item = new CreateOrderItemRequest();
+        item.setProductId(UUID.fromString(productId));
+        item.setQuantity(1);
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setItems(java.util.List.of(item));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/public/menu/" + slug + "/tables/" + tableId + "/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+        return new String[] {JsonPath.read(body, "$.items[0].id"), JsonPath.read(body, "$.tabId")};
+    }
+
+    private void payTab(String token, String tabId, String paymentMethod, String paidAmount) throws Exception {
+        PayTabRequest request = new PayTabRequest();
+        request.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
+        request.setPaidAmount(new BigDecimal(paidAmount));
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+    }
+
     private void deliverItem(String token, String itemId) throws Exception {
         for (String status : new String[] {"PREPARING", "READY", "DELIVERED"}) {
             mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
@@ -186,6 +215,55 @@ class MenuControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.categories[0].products", org.hamcrest.Matchers.hasSize(1)))
                 .andExpect(jsonPath("$.categories[0].products[0].soldOut").value(true));
+    }
+
+    @Test
+    void getPublicMenu_withFeaturedProduct_shouldFlagIt() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String categoryId = createCategory(token, "Burgers");
+        String productId = createProduct(token, categoryId, "Cheeseburger", "25.90", null);
+
+        UpdateProductRequest markFeatured = new UpdateProductRequest();
+        markFeatured.setFeatured(true);
+        mockMvc.perform(put("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(markFeatured)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/public/menu/" + slug))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories[0].products[0].featured").value(true));
+    }
+
+    @Test
+    void getPublicMenu_withoutRecentSales_shouldReportBestsellerFalse() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String categoryId = createCategory(token, "Burgers");
+        createProduct(token, categoryId, "Cheeseburger", "25.90", null);
+
+        mockMvc.perform(get("/api/v1/public/menu/" + slug))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories[0].products[0].bestseller").value(false));
+    }
+
+    @Test
+    void getPublicMenu_withRecentPaidSale_shouldFlagBestseller() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String tableId = createTable(token, 1);
+        String categoryId = createCategory(token, "Burgers");
+        String productId = createProduct(token, categoryId, "Cheeseburger", "25.90", null);
+
+        String[] itemAndTab = placeOrderAndGetItemIdAndTabId(slug, tableId, productId);
+        deliverItem(token, itemAndTab[0]);
+        payTab(token, itemAndTab[1], "PIX", "25.90");
+
+        mockMvc.perform(get("/api/v1/public/menu/" + slug))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories[0].products[0].bestseller").value(true));
     }
 
     @Test

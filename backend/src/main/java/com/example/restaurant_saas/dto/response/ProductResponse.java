@@ -18,4 +18,5 @@ public class ProductResponse {
     private BigDecimal price;
     private Boolean active;
     private Boolean soldOutToday;
+    private Boolean featured;
 }

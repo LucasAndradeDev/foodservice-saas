@@ -28,4 +28,6 @@ public class CreateProductRequest {
 
     @NotNull(message = "Category is required")
     private UUID categoryId;
+
+    private Boolean featured;
 }

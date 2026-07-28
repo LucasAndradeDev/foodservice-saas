@@ -10,6 +10,7 @@ export interface Product {
   price: number
   active: boolean
   soldOutToday: boolean
+  featured: boolean
 }
 
 export interface ProductFilters {
@@ -24,6 +25,7 @@ export interface ProductPayload {
   imageUrl?: string
   price: number
   categoryId: string
+  featured?: boolean
 }
 
 export function listProducts(filters: ProductFilters = {}) {

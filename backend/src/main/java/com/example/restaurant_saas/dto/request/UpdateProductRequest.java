@@ -27,4 +27,6 @@ public class UpdateProductRequest {
     private Boolean active;
 
     private Boolean soldOut;
+
+    private Boolean featured;
 }

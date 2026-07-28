@@ -25,6 +25,7 @@ import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.RestaurantTableRepository;
 import com.example.restaurant_saas.repository.TabRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,15 +34,20 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class MenuService {
+
+    private static final int BESTSELLER_LIMIT = 3;
+    private static final int BESTSELLER_WINDOW_DAYS = 30;
 
     private final RestaurantRepository restaurantRepository;
     private final CategoryRepository categoryRepository;
@@ -61,11 +67,12 @@ public class MenuService {
         Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct =
                 fetchModifierGroupsByProduct(restaurant.getId(), activeProducts);
         Map<UUID, Integer> estimatedWaitMinutesByProduct = fetchEstimatedWaitMinutesByProduct(restaurant.getId());
+        Set<UUID> bestsellerProductIds = fetchBestsellerProductIds(restaurant.getId());
 
         List<PublicMenuCategoryResponse> categories = categoryRepository
                 .findByRestaurantIdAndActiveTrueOrderByNameAsc(restaurant.getId())
                 .stream()
-                .map(category -> toCategoryResponse(category, activeProducts, modifierGroupsByProduct, estimatedWaitMinutesByProduct))
+                .map(category -> toCategoryResponse(category, activeProducts, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds))
                 .filter(category -> !category.getProducts().isEmpty())
                 .toList();
 
@@ -104,10 +111,10 @@ public class MenuService {
 
     private PublicMenuCategoryResponse toCategoryResponse(
             Category category, List<Product> activeProducts, Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct,
-            Map<UUID, Integer> estimatedWaitMinutesByProduct) {
+            Map<UUID, Integer> estimatedWaitMinutesByProduct, Set<UUID> bestsellerProductIds) {
         List<PublicMenuProductResponse> products = activeProducts.stream()
                 .filter(product -> product.getCategory().getId().equals(category.getId()))
-                .map(product -> toProductResponse(product, modifierGroupsByProduct, estimatedWaitMinutesByProduct))
+                .map(product -> toProductResponse(product, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds))
                 .toList();
 
         return PublicMenuCategoryResponse.builder()
@@ -119,7 +126,7 @@ public class MenuService {
 
     private PublicMenuProductResponse toProductResponse(
             Product product, Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct,
-            Map<UUID, Integer> estimatedWaitMinutesByProduct) {
+            Map<UUID, Integer> estimatedWaitMinutesByProduct, Set<UUID> bestsellerProductIds) {
         return PublicMenuProductResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
@@ -127,9 +134,21 @@ public class MenuService {
                 .imageUrl(product.getImageUrl())
                 .price(product.getPrice())
                 .soldOut(isSoldOutToday(product))
+                .featured(product.getFeatured())
+                .bestseller(bestsellerProductIds.contains(product.getId()))
                 .estimatedWaitMinutes(estimatedWaitMinutesByProduct.get(product.getId()))
                 .modifierGroups(modifierGroupsByProduct.getOrDefault(product.getId(), List.of()))
                 .build();
+    }
+
+    private Set<UUID> fetchBestsellerProductIds(UUID restaurantId) {
+        OffsetDateTime rangeEnd = OffsetDateTime.now();
+        OffsetDateTime rangeStart = rangeEnd.minusDays(BESTSELLER_WINDOW_DAYS);
+        Set<UUID> productIds = new HashSet<>();
+        for (Object[] row : orderItemRepository.findTopSellingProducts(restaurantId, rangeStart, rangeEnd, PageRequest.of(0, BESTSELLER_LIMIT))) {
+            productIds.add((UUID) row[0]);
+        }
+        return productIds;
     }
 
     private Map<UUID, Integer> fetchEstimatedWaitMinutesByProduct(UUID restaurantId) {
