@@ -43,4 +43,13 @@ public class Order {
 
     @Column(name = "merged_from_tab_id")
     private UUID mergedFromTabId;
+
+    @Column(name = "transferred_from_tab_id")
+    private UUID transferredFromTabId;
+
+    @Column(name = "transferred_by", length = 255)
+    private String transferredBy;
+
+    @Column(name = "transferred_at")
+    private OffsetDateTime transferredAt;
 }

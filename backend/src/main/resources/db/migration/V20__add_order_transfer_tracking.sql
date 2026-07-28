@@ -1,0 +1,3 @@
+ALTER TABLE orders ADD COLUMN transferred_from_tab_id UUID REFERENCES tabs(id) ON DELETE SET NULL;
+ALTER TABLE orders ADD COLUMN transferred_by VARCHAR(255);
+ALTER TABLE orders ADD COLUMN transferred_at TIMESTAMP WITH TIME ZONE;

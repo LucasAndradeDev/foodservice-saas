@@ -2,6 +2,7 @@ package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
+import com.example.restaurant_saas.dto.request.TransferItemsRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.dto.response.KitchenItemResponse;
 import com.example.restaurant_saas.dto.response.OrderItemResponse;
@@ -70,6 +71,22 @@ public class OrderItemController {
             @Valid @RequestBody ApplyDiscountRequest request
     ) {
         OrderItemResponse response = orderItemService.applyDiscount(currentUser.getRestaurantId(), id, currentUser.getName(), request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/transfer")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "Transfer items to another open tab", description = "Moves one or more order items (any status except CANCELLED) out of their current tab into a different open tab, grouped into a new order there. The item's price, discount, status and original order time are preserved; only which tab/order it belongs to changes. The source order is never deleted, even if it ends up empty. Both tabs must be OPEN, and the target must be a different tab.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Items transferred"),
+            @ApiResponse(responseCode = "400", description = "An item or the target tab was not found in this restaurant, items span more than one tab, an item is cancelled, either tab is not open, or source and target are the same tab"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission")
+    })
+    public ResponseEntity<List<OrderItemResponse>> transferItems(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @Valid @RequestBody TransferItemsRequest request
+    ) {
+        List<OrderItemResponse> response = orderItemService.transferItems(currentUser.getRestaurantId(), currentUser.getName(), request);
         return ResponseEntity.ok(response);
     }
 }

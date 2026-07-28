@@ -3,16 +3,21 @@ package com.example.restaurant_saas.service;
 import com.example.restaurant_saas.domain.entity.Order;
 import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
+import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
+import com.example.restaurant_saas.dto.request.TransferItemsRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.dto.response.KitchenItemResponse;
 import com.example.restaurant_saas.dto.response.OrderItemModifierResponse;
 import com.example.restaurant_saas.dto.response.OrderItemResponse;
 import com.example.restaurant_saas.repository.OrderItemRepository;
+import com.example.restaurant_saas.repository.OrderRepository;
+import com.example.restaurant_saas.repository.RestaurantRepository;
+import com.example.restaurant_saas.repository.TabRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +36,9 @@ public class OrderItemService {
     private static final List<ItemStatus> OPEN_STATUSES = List.of(ItemStatus.PENDING, ItemStatus.PREPARING, ItemStatus.READY);
 
     private final OrderItemRepository orderItemRepository;
+    private final OrderRepository orderRepository;
+    private final TabRepository tabRepository;
+    private final RestaurantRepository restaurantRepository;
 
     @Transactional(readOnly = true)
     public List<KitchenItemResponse> listKitchenQueue(UUID restaurantId, List<ItemStatus> statusFilter) {
@@ -87,6 +95,48 @@ public class OrderItemService {
         }
 
         return toOrderItemResponse(orderItemRepository.save(item));
+    }
+
+    @Transactional
+    public List<OrderItemResponse> transferItems(UUID restaurantId, String actingUserName, TransferItemsRequest request) {
+        List<OrderItem> items = request.getItemIds().stream()
+                .map(itemId -> orderItemRepository.findByIdAndOrder_Restaurant_Id(itemId, restaurantId)
+                        .orElseThrow(() -> new IllegalArgumentException("Order item not found.")))
+                .toList();
+
+        Tab sourceTab = items.get(0).getOrder().getTab();
+        if (items.stream().anyMatch(item -> !item.getOrder().getTab().getId().equals(sourceTab.getId()))) {
+            throw new IllegalArgumentException("All items must belong to the same tab.");
+        }
+        if (items.stream().anyMatch(item -> item.getStatus() == ItemStatus.CANCELLED)) {
+            throw new IllegalArgumentException("Cannot transfer a cancelled item.");
+        }
+        if (sourceTab.getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Source tab is not open.");
+        }
+        if (sourceTab.getId().equals(request.getTargetTabId())) {
+            throw new IllegalArgumentException("Cannot transfer items to the same tab.");
+        }
+
+        Tab targetTab = tabRepository.findByIdAndRestaurantId(request.getTargetTabId(), restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Target tab not found."));
+        if (targetTab.getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Target tab is not open.");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        Order transferOrder = orderRepository.save(Order.builder()
+                .restaurant(restaurantRepository.getReferenceById(restaurantId))
+                .tab(targetTab)
+                .transferredFromTabId(sourceTab.getId())
+                .transferredBy(actingUserName)
+                .transferredAt(now)
+                .build());
+
+        items.forEach(item -> item.setOrder(transferOrder));
+        orderItemRepository.saveAll(items);
+
+        return items.stream().map(this::toOrderItemResponse).toList();
     }
 
     private void validateDiscountValue(DiscountType type, BigDecimal value, BigDecimal baseAmount) {

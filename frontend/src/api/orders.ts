@@ -70,3 +70,7 @@ export function markOrderPrinted(id: string) {
 export function applyItemDiscount(itemId: string, payload: ApplyDiscountPayload) {
   return http.patch<OrderItem>(`/order-items/${itemId}/discount`, payload).then((res) => res.data)
 }
+
+export function transferItems(itemIds: string[], targetTabId: string) {
+  return http.post<OrderItem[]>('/order-items/transfer', { itemIds, targetTabId }).then((res) => res.data)
+}

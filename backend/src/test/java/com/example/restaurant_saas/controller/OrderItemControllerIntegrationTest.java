@@ -10,8 +10,11 @@ import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
+import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
+import com.example.restaurant_saas.dto.request.TransferItemsRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
+import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
@@ -178,6 +181,13 @@ class OrderItemControllerIntegrationTest {
             request.setDiscountValue(new BigDecimal(value));
         }
         request.setReason(reason);
+        return objectMapper.writeValueAsString(request);
+    }
+
+    private String transferRequestBody(List<String> itemIds, String targetTabId) throws Exception {
+        TransferItemsRequest request = new TransferItemsRequest();
+        request.setItemIds(itemIds.stream().map(UUID::fromString).toList());
+        request.setTargetTabId(UUID.fromString(targetTabId));
         return objectMapper.writeValueAsString(request);
     }
 
@@ -584,6 +594,236 @@ class OrderItemControllerIntegrationTest {
                         .header("Authorization", "Bearer " + setup.ownerToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(discountRequestBody(DiscountType.FIXED, "5.00", null)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void transferItems_singleItem_shouldMoveToNewOrderInTargetTabAndKeepSourceOrder() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+        String otherTableId = createTableAndGetId(setup.ownerToken());
+        String targetTabId = openTabAndGetId(setup.ownerToken(), otherTableId);
+
+        mockMvc.perform(post("/api/v1/order-items/transfer")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(transferRequestBody(List.of(itemId), targetTabId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(itemId));
+
+        // Item now shows up under a new order on the target tab, with its data intact.
+        mockMvc.perform(get("/api/v1/tabs/" + targetTabId + "/orders")
+                        .header("Authorization", "Bearer " + setup.ownerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].items.length()").value(1))
+                .andExpect(jsonPath("$[0].items[0].id").value(itemId))
+                .andExpect(jsonPath("$[0].items[0].status").value("PENDING"));
+
+        // The source order is never deleted, just left empty (item wasn't orphan-removed by Hibernate).
+        mockMvc.perform(get("/api/v1/tabs/" + setup.tabId() + "/orders")
+                        .header("Authorization", "Bearer " + setup.ownerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].items.length()").value(0));
+    }
+
+    @Test
+    void transferItems_multipleItems_shouldGroupIntoOneNewOrder() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId1 = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+        String itemId2 = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+        String otherTableId = createTableAndGetId(setup.ownerToken());
+        String targetTabId = openTabAndGetId(setup.ownerToken(), otherTableId);
+
+        mockMvc.perform(post("/api/v1/order-items/transfer")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(transferRequestBody(List.of(itemId1, itemId2), targetTabId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+
+        mockMvc.perform(get("/api/v1/tabs/" + targetTabId + "/orders")
+                        .header("Authorization", "Bearer " + setup.ownerToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].items.length()").value(2));
+    }
+
+    @Test
+    void transferItems_preservesDiscountAndDeliveredStatus() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/discount")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.FIXED, "5.00", "Cortesia")))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateStatusRequestBody("PREPARING")))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateStatusRequestBody("READY")))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateStatusRequestBody("DELIVERED")))
+                .andExpect(status().isOk());
+
+        String otherTableId = createTableAndGetId(setup.ownerToken());
+        String targetTabId = openTabAndGetId(setup.ownerToken(), otherTableId);
+
+        mockMvc.perform(post("/api/v1/order-items/transfer")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(transferRequestBody(List.of(itemId), targetTabId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].status").value("DELIVERED"))
+                .andExpect(jsonPath("$[0].discountType").value("FIXED"))
+                .andExpect(jsonPath("$[0].netSubtotal").value(20.90));
+    }
+
+    @Test
+    void transferItems_cancelledItem_shouldReturn400() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateStatusRequestBody("CANCELLED")))
+                .andExpect(status().isOk());
+
+        String otherTableId = createTableAndGetId(setup.ownerToken());
+        String targetTabId = openTabAndGetId(setup.ownerToken(), otherTableId);
+
+        mockMvc.perform(post("/api/v1/order-items/transfer")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(transferRequestBody(List.of(itemId), targetTabId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void transferItems_toSameTab_shouldReturn400() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+
+        mockMvc.perform(post("/api/v1/order-items/transfer")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(transferRequestBody(List.of(itemId), setup.tabId())))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void transferItems_itemsFromDifferentTabs_shouldReturn400() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId1 = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+
+        String otherTableId = createTableAndGetId(setup.ownerToken());
+        String otherTabId = openTabAndGetId(setup.ownerToken(), otherTableId);
+        String itemId2 = createOrderAndGetFirstItemId(setup.ownerToken(), otherTabId, setup.productId());
+
+        String targetTableId = createTableAndGetId(setup.ownerToken());
+        String targetTabId = openTabAndGetId(setup.ownerToken(), targetTableId);
+
+        mockMvc.perform(post("/api/v1/order-items/transfer")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(transferRequestBody(List.of(itemId1, itemId2), targetTabId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void transferItems_sourceTabNotOpen_shouldReturn400() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateStatusRequestBody("PREPARING")))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateStatusRequestBody("READY")))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateStatusRequestBody("DELIVERED")))
+                .andExpect(status().isOk());
+
+        PayTabRequest payRequest = new PayTabRequest();
+        payRequest.setPaymentMethod(PaymentMethod.CASH);
+        payRequest.setPaidAmount(new BigDecimal("25.90"));
+        mockMvc.perform(patch("/api/v1/tabs/" + setup.tabId() + "/pay")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payRequest)))
+                .andExpect(status().isOk());
+
+        String otherTableId = createTableAndGetId(setup.ownerToken());
+        String targetTabId = openTabAndGetId(setup.ownerToken(), otherTableId);
+
+        mockMvc.perform(post("/api/v1/order-items/transfer")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(transferRequestBody(List.of(itemId), targetTabId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void transferItems_targetTabNotOpen_shouldReturn400() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+
+        String otherTableId = createTableAndGetId(setup.ownerToken());
+        String targetTabId = openTabAndGetId(setup.ownerToken(), otherTableId);
+        mockMvc.perform(patch("/api/v1/tabs/" + targetTabId + "/cancel")
+                        .header("Authorization", "Bearer " + setup.ownerToken()))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/order-items/transfer")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(transferRequestBody(List.of(itemId), targetTabId)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void transferItems_asKitchen_shouldBeForbidden() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        String kitchenToken = tokenFor(createUserDirectly(owner, UserRole.KITCHEN));
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+
+        String otherTableId = createTableAndGetId(setup.ownerToken());
+        String targetTabId = openTabAndGetId(setup.ownerToken(), otherTableId);
+
+        mockMvc.perform(post("/api/v1/order-items/transfer")
+                        .header("Authorization", "Bearer " + kitchenToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(transferRequestBody(List.of(itemId), targetTabId)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void transferItems_nonexistentItem_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String targetTabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(post("/api/v1/order-items/transfer")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(transferRequestBody(List.of(UUID.randomUUID().toString()), targetTabId)))
                 .andExpect(status().isBadRequest());
     }
 }

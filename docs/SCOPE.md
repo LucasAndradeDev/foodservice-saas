@@ -277,6 +277,7 @@ Itens já entregues fora do roadmap original, puxados do backlog conforme o prod
 - ~~Desconto pontual~~ ✅ 2026-07-27 (fixo ou percentual, em item ou comanda, restrito a OWNER/MANAGER, com motivo e auditoria de quem aplicou)
 - ~~Gorjeta / taxa de serviço~~ ✅ 2026-07-27 (percentual configurável por restaurante, aplicada automaticamente no fechamento; só OWNER/MANAGER podem waivar/ajustar — outros papéis sempre recebem o padrão do restaurante, mesmo chamando a API direto; excluída do faturamento nos relatórios/dashboard por ser repasse, não receita)
 - ~~Correção de pagamento em comanda fechada~~ ✅ 2026-07-27 (restrito a OWNER/MANAGER, com motivo obrigatório; **decisão de design**: não reabre a comanda pra atendimento nem mexe na mesa — só substitui forma/valor/taxa de serviço registrados, mantendo a comanda `CLOSED`. Acessível a qualquer momento via lista "Comandas fechadas hoje" no Caixa. Escopo reduzido deliberadamente do item original do backlog: reabrir a comanda de verdade arriscava duas comandas abertas na mesma mesa)
+- ~~Transferir item entre comandas~~ ✅ 2026-07-27 (seleciona um ou mais itens em qualquer status exceto cancelado e move pra outra comanda aberta, mesmos papéis que mesclam mesa; itens movidos entram num pedido novo na comanda de destino, preservando preço/desconto/status/hora original; o pedido de origem nunca é apagado, só fica menor; desfazer reaproveita a mesma ação invertendo origem/destino, com janela curta de ~20s)
 
 **Prioridade 1 do backlog anterior (discutido em 2026-07-25) concluída inteira** — todos os 6 itens de ganho rápido acima já foram entregues.
 
@@ -284,8 +285,7 @@ O que falta, organizado por prioridade (cobrança do próprio SaaS fica de fora 
 
 #### Prioridade 2 — fecha lacunas do fluxo de pagamento/comanda
 1. **Divisão de conta** — hoje `paidAmount` precisa bater exatamente com o total (decisão explícita da Sprint 8); sem suporte a pagamento parcial/dividido.
-2. **Transferir item entre comandas** — inverso do merge (Sprint 24): tira um item de uma comanda e joga em outra, sem mexer nas mesas.
-3. **Abertura/fechamento de caixa com sangria** — hoje "faturamento do dia" é só soma de pagamentos; não existe abertura de turno com valor inicial, conferência de dinheiro físico no fechamento, nem sangria.
+2. **Abertura/fechamento de caixa com sangria** — hoje "faturamento do dia" é só soma de pagamentos; não existe abertura de turno com valor inicial, conferência de dinheiro físico no fechamento, nem sangria.
 
 #### Prioridade 3 — gestão e visibilidade
 4. **Ficha técnica / custo de produto** — complementa os Relatórios (Sprint 20) com margem real, não só faturamento. Versão enxuta: campo `costPrice` no Produto, sem módulo de estoque completo.

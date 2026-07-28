@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft,
+  ArrowRightLeft,
   Ban,
   Check,
   Clock,
@@ -26,7 +27,7 @@ import {
 import { useEffect, useState, useRef, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { listCategories } from '../api/categories'
-import { applyItemDiscount, createOrder, listOrders, type DiscountType, type ItemStatus, type Order, type OrderItem } from '../api/orders'
+import { applyItemDiscount, createOrder, listOrders, transferItems, type DiscountType, type ItemStatus, type Order, type OrderItem } from '../api/orders'
 import { listModifierGroups } from '../api/productModifiers'
 import { listProducts } from '../api/products'
 import { getMyRestaurant } from '../api/restaurant'
@@ -160,6 +161,11 @@ export function TabDetailPage() {
   const [cancelPaymentReason, setCancelPaymentReason] = useState('')
   const [cancelPaymentMethod, setCancelPaymentMethod] = useState<PaymentMethod>('PIX')
   const [cancelServiceChargeInput, setCancelServiceChargeInput] = useState('')
+  const [isSelectingForTransfer, setIsSelectingForTransfer] = useState(false)
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
+  const [isPickingTransferTarget, setIsPickingTransferTarget] = useState(false)
+  const [pendingTransferUndo, setPendingTransferUndo] = useState<{ itemIds: string[]; targetTabId: string; label: string } | null>(null)
+  const pendingTransferUndoTimeoutRef = useRef<number | null>(null)
 
   const { data: freeTables } = useQuery({
     queryKey: ['tables', 'FREE'],
@@ -171,7 +177,7 @@ export function TabDetailPage() {
   const { data: otherOpenTabs } = useQuery({
     queryKey: ['tabs', 'OPEN'],
     queryFn: () => listTabs('OPEN'),
-    enabled: isMerging,
+    enabled: isMerging || isPickingTransferTarget,
   })
 
   const { data: modifierGroups } = useQuery({
@@ -284,6 +290,60 @@ export function TabDetailPage() {
     },
     onError: () => setError('Não foi possível desfazer a mesclagem.'),
   })
+
+  const transferItemsMutation = useMutation({
+    mutationFn: ({ itemIds, targetTabId }: { itemIds: string[]; targetTabId: string }) => transferItems(itemIds, targetTabId),
+    onSuccess: (_data, variables) => {
+      invalidateTabQueries()
+      queryClient.invalidateQueries({ queryKey: ['tabs', variables.targetTabId, 'orders'] })
+      setIsPickingTransferTarget(false)
+      setIsSelectingForTransfer(false)
+
+      const targetTab = otherOpenTabs?.find((t) => t.id === variables.targetTabId)
+      const label = targetTab ? formatTableLabel(targetTab.tables.map((t) => t.number)) : 'a comanda'
+      if (pendingTransferUndoTimeoutRef.current) window.clearTimeout(pendingTransferUndoTimeoutRef.current)
+      setPendingTransferUndo({ itemIds: variables.itemIds, targetTabId: variables.targetTabId, label })
+      pendingTransferUndoTimeoutRef.current = window.setTimeout(() => setPendingTransferUndo(null), UNDO_MERGE_WINDOW_MS)
+      setSelectedItemIds(new Set())
+    },
+    onError: () => setError('Não foi possível transferir os itens selecionados.'),
+  })
+
+  const undoTransferMutation = useMutation({
+    mutationFn: (undo: { itemIds: string[]; targetTabId: string }) => transferItems(undo.itemIds, tabId!),
+    onSuccess: (_data, undo) => {
+      invalidateTabQueries()
+      queryClient.invalidateQueries({ queryKey: ['tabs', undo.targetTabId, 'orders'] })
+      if (pendingTransferUndoTimeoutRef.current) window.clearTimeout(pendingTransferUndoTimeoutRef.current)
+      setPendingTransferUndo(null)
+    },
+    onError: () => setError('Não foi possível desfazer a transferência.'),
+  })
+
+  function toggleTransferSelectionMode() {
+    setError(null)
+    setIsSelectingForTransfer((prev) => !prev)
+    setSelectedItemIds(new Set())
+  }
+
+  function toggleItemSelected(itemId: string) {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(itemId)) next.delete(itemId)
+      else next.add(itemId)
+      return next
+    })
+  }
+
+  function openTransferTargetPicker() {
+    if (selectedItemIds.size === 0) return
+    setError(null)
+    setIsPickingTransferTarget(true)
+  }
+
+  function handleTransferToTab(targetTab: Tab) {
+    transferItemsMutation.mutate({ itemIds: Array.from(selectedItemIds), targetTabId: targetTab.id })
+  }
 
   const itemDiscountMutation = useMutation({
     mutationFn: ({ itemId, discountType, value, reason }: { itemId: string; discountType: DiscountType | null; value?: number; reason?: string }) =>
@@ -510,6 +570,20 @@ export function TabDetailPage() {
               <GitMerge className="h-4 w-4" />
               Mesclar comanda
             </button>
+            {allItems.some((item) => item.status !== 'CANCELLED') && (
+              <button
+                type="button"
+                onClick={toggleTransferSelectionMode}
+                className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm ${
+                  isSelectingForTransfer
+                    ? 'border-brand-600 bg-brand-50 text-brand-700'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <ArrowRightLeft className="h-4 w-4" />
+                {isSelectingForTransfer ? 'Cancelar seleção' : 'Transferir itens'}
+              </button>
+            )}
             <button
               type="button"
               onClick={openAddItemForm}
@@ -548,6 +622,41 @@ export function TabDetailPage() {
             className="font-medium text-blue-700 underline hover:text-blue-900 disabled:opacity-50"
           >
             Desfazer
+          </button>
+        </div>
+      )}
+
+      {pendingTransferUndo && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <span className="flex items-center gap-2">
+            <Undo2 className="h-4 w-4" />
+            {pendingTransferUndo.itemIds.length} {pendingTransferUndo.itemIds.length === 1 ? 'item transferido' : 'itens transferidos'} pra {pendingTransferUndo.label}.
+          </span>
+          <button
+            type="button"
+            onClick={() => undoTransferMutation.mutate(pendingTransferUndo)}
+            disabled={undoTransferMutation.isPending}
+            className="font-medium text-blue-700 underline hover:text-blue-900 disabled:opacity-50"
+          >
+            Desfazer
+          </button>
+        </div>
+      )}
+
+      {isSelectingForTransfer && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
+          <span>
+            {selectedItemIds.size === 0
+              ? 'Selecione os itens que você quer transferir.'
+              : `${selectedItemIds.size} ${selectedItemIds.size === 1 ? 'item selecionado' : 'itens selecionados'}.`}
+          </span>
+          <button
+            type="button"
+            onClick={openTransferTargetPicker}
+            disabled={selectedItemIds.size === 0}
+            className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+          >
+            Transferir selecionados
           </button>
         </div>
       )}
@@ -643,27 +752,37 @@ export function TabDetailPage() {
                 const ItemStatusIcon = ITEM_STATUS_ICONS[item.status]
                 return (
                   <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-800">
-                        {item.quantity}x {item.productName}
-                      </span>
-                      {item.observation && <span className="ml-2 text-gray-500">({item.observation})</span>}
-                      {item.modifiers.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {item.modifiers.map((modifier, index) => (
-                            <span key={index} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                              {modifier.optionName}
-                            </span>
-                          ))}
-                        </div>
+                    <div className="flex items-start gap-2">
+                      {isSelectingForTransfer && item.status !== 'CANCELLED' && (
+                        <input
+                          type="checkbox"
+                          checked={selectedItemIds.has(item.id)}
+                          onChange={() => toggleItemSelected(item.id)}
+                          className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                        />
                       )}
-                      {item.discountType && (
-                        <div className="mt-1 flex items-center gap-1 text-xs text-orange-600">
-                          <Percent className="h-3 w-3" />
-                          -{currencyFormatter.format(item.discountAmount)}
-                          {item.discountReason && <span className="text-gray-400">({item.discountReason})</span>}
-                        </div>
-                      )}
+                      <div>
+                        <span className="font-medium text-gray-800">
+                          {item.quantity}x {item.productName}
+                        </span>
+                        {item.observation && <span className="ml-2 text-gray-500">({item.observation})</span>}
+                        {item.modifiers.length > 0 && (
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {item.modifiers.map((modifier, index) => (
+                              <span key={index} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                                {modifier.optionName}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {item.discountType && (
+                          <div className="mt-1 flex items-center gap-1 text-xs text-orange-600">
+                            <Percent className="h-3 w-3" />
+                            -{currencyFormatter.format(item.discountAmount)}
+                            {item.discountReason && <span className="text-gray-400">({item.discountReason})</span>}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <span
@@ -885,6 +1004,42 @@ export function TabDetailPage() {
                     className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                   >
                     Mesclar aqui
+                  </button>
+                </li>
+              ))}
+          </ul>
+        </Modal>
+      )}
+
+      {isPickingTransferTarget && (
+        <Modal title="Transferir itens" onClose={() => setIsPickingTransferTarget(false)}>
+          {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+
+          <p className="mb-3 text-sm text-gray-500">
+            {selectedItemIds.size} {selectedItemIds.size === 1 ? 'item selecionado' : 'itens selecionados'}. Escolha
+            pra qual comanda transferir.
+          </p>
+
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+            <Combine className="h-3.5 w-3.5" />
+            Outras comandas abertas
+          </p>
+          {otherOpenTabs?.filter((t) => t.id !== tabId).length === 0 && (
+            <p className="text-sm text-gray-500">Nenhuma outra comanda aberta.</p>
+          )}
+          <ul className="divide-y divide-gray-100">
+            {otherOpenTabs
+              ?.filter((t) => t.id !== tabId)
+              .map((otherTab) => (
+                <li key={otherTab.id} className="flex items-center justify-between py-2 text-sm">
+                  <span>{formatTableLabel(otherTab.tables.map((t) => t.number))}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleTransferToTab(otherTab)}
+                    disabled={transferItemsMutation.isPending}
+                    className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    Transferir pra cá
                   </button>
                 </li>
               ))}
