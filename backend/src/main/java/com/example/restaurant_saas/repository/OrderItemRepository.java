@@ -25,7 +25,10 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     List<OrderItem> findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatus(UUID tabId, UUID restaurantId, ItemStatus status);
     List<OrderItem> findByOrder_Tab_IdOrderByCreatedAtAsc(UUID tabId);
 
-    @Query("SELECT oi.product.id, oi.product.name, SUM(oi.quantity), SUM(oi.quantity * oi.unitPrice) FROM OrderItem oi " +
+    @Query("SELECT oi.product.id, oi.product.name, SUM(oi.quantity), SUM(oi.quantity * oi.unitPrice), " +
+            "SUM(CASE WHEN oi.unitCostPrice IS NOT NULL THEN oi.quantity ELSE 0 END), " +
+            "SUM(CASE WHEN oi.unitCostPrice IS NOT NULL THEN oi.quantity * oi.unitCostPrice ELSE 0 END), " +
+            "SUM(CASE WHEN oi.unitCostPrice IS NOT NULL THEN oi.quantity * oi.unitPrice ELSE 0 END) FROM OrderItem oi " +
             "WHERE oi.order.restaurant.id = :restaurantId AND oi.order.tab.status = 'CLOSED' " +
             "AND oi.order.tab.paidAt >= :start AND oi.order.tab.paidAt < :end " +
             "GROUP BY oi.product.id, oi.product.name ORDER BY SUM(oi.quantity) DESC")

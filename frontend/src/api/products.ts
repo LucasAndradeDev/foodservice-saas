@@ -8,6 +8,7 @@ export interface Product {
   description: string | null
   imageUrl: string | null
   price: number
+  costPrice: number | null
   active: boolean
   soldOutToday: boolean
   featured: boolean
@@ -24,6 +25,7 @@ export interface ProductPayload {
   description?: string
   imageUrl?: string
   price: number
+  costPrice?: number
   categoryId: string
   featured?: boolean
 }

@@ -177,24 +177,52 @@ export function ReportsPage() {
               {data.topProducts.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-gray-500">Nenhuma venda no período.</p>
               ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-left text-gray-500">
-                    <tr>
-                      <th className="px-4 py-2 font-medium">Produto</th>
-                      <th className="px-4 py-2 font-medium">Qtd.</th>
-                      <th className="px-4 py-2 font-medium">Faturamento</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.topProducts.map((product) => (
-                      <tr key={product.productId} className="border-t border-gray-100">
-                        <td className="px-4 py-2 text-gray-800">{product.productName}</td>
-                        <td className="px-4 py-2 text-gray-600">{product.quantitySold}</td>
-                        <td className="px-4 py-2 text-gray-600">{currencyFormatter.format(product.revenue)}</td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-left text-gray-500">
+                      <tr>
+                        <th className="px-4 py-2 font-medium">Produto</th>
+                        <th className="px-4 py-2 font-medium">Qtd.</th>
+                        <th className="px-4 py-2 font-medium">Faturamento</th>
+                        <th className="px-4 py-2 font-medium">Margem</th>
+                        <th className="px-4 py-2 font-medium">Margem %</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {data.topProducts.map((product) => {
+                        const hasCostData = product.marginPercentage !== null
+                        const partialCostData = hasCostData && product.costQuantityCovered < product.quantitySold
+                        return (
+                          <tr key={product.productId} className="border-t border-gray-100">
+                            <td className="px-4 py-2 text-gray-800">{product.productName}</td>
+                            <td className="px-4 py-2 text-gray-600">{product.quantitySold}</td>
+                            <td className="px-4 py-2 text-gray-600">{currencyFormatter.format(product.revenue)}</td>
+                            <td className="px-4 py-2 text-gray-600">
+                              {hasCostData ? (
+                                <>
+                                  {currencyFormatter.format(product.marginTotal)}
+                                  {partialCostData && (
+                                    <span
+                                      title="Preço de custo não cadastrado para todas as vendas do período"
+                                      className="ml-1 text-amber-500"
+                                    >
+                                      *
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-gray-600">
+                              {hasCostData ? `${product.marginPercentage}%` : <span className="text-gray-400">—</span>}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>

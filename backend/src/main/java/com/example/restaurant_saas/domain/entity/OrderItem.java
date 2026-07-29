@@ -41,6 +41,9 @@ public class OrderItem {
     @Column(name = "unit_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal unitPrice;
 
+    @Column(name = "unit_cost_price", precision = 10, scale = 2)
+    private BigDecimal unitCostPrice;
+
     @Column(length = 255)
     private String observation;
 

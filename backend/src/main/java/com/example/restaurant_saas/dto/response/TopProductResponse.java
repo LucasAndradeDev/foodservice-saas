@@ -13,4 +13,8 @@ public class TopProductResponse {
     private String productName;
     private long quantitySold;
     private BigDecimal revenue;
+    private long costQuantityCovered;
+    private BigDecimal costTotal;
+    private BigDecimal marginTotal;
+    private BigDecimal marginPercentage;
 }

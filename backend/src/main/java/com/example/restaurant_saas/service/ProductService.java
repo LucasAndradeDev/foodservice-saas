@@ -58,6 +58,7 @@ public class ProductService {
                 .description(request.getDescription())
                 .imageUrl(request.getImageUrl())
                 .price(request.getPrice())
+                .costPrice(request.getCostPrice())
                 .active(true)
                 .featured(Boolean.TRUE.equals(request.getFeatured()))
                 .build();
@@ -83,6 +84,9 @@ public class ProductService {
         }
         if (request.getPrice() != null) {
             product.setPrice(request.getPrice());
+        }
+        if (request.getCostPrice() != null) {
+            product.setCostPrice(request.getCostPrice());
         }
         if (request.getCategoryId() != null) {
             product.setCategory(findCategory(restaurantId, request.getCategoryId()));
@@ -128,6 +132,7 @@ public class ProductService {
                 .description(product.getDescription())
                 .imageUrl(product.getImageUrl())
                 .price(product.getPrice())
+                .costPrice(product.getCostPrice())
                 .active(product.getActive())
                 .soldOutToday(isSoldOutToday(product))
                 .featured(product.getFeatured())

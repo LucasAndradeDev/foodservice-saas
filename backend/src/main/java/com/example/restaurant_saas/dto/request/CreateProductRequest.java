@@ -26,6 +26,9 @@ public class CreateProductRequest {
     @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than zero")
     private BigDecimal price;
 
+    @DecimalMin(value = "0.0", message = "Cost price must not be negative")
+    private BigDecimal costPrice;
+
     @NotNull(message = "Category is required")
     private UUID categoryId;
 

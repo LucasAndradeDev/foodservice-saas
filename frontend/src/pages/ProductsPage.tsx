@@ -67,6 +67,7 @@ export function ProductsPage() {
   const [description, setDescription] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
   const [price, setPrice] = useState('')
+  const [costPrice, setCostPrice] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [featured, setFeatured] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -117,6 +118,7 @@ export function ProductsPage() {
     setDescription('')
     setPhotoUrl('')
     setPrice('')
+    setCostPrice('')
     setCategoryId(categories[0].id)
     setFeatured(false)
     setError(null)
@@ -129,6 +131,7 @@ export function ProductsPage() {
     setDescription(product.description ?? '')
     setPhotoUrl(product.imageUrl ?? '')
     setPrice(String(product.price))
+    setCostPrice(product.costPrice !== null ? String(product.costPrice) : '')
     setCategoryId(product.categoryId)
     setFeatured(product.featured)
     setError(null)
@@ -147,6 +150,7 @@ export function ProductsPage() {
       description,
       imageUrl: photoUrl,
       price: Number(price),
+      costPrice: costPrice ? Number(costPrice) : undefined,
       categoryId,
       featured,
     }
@@ -466,6 +470,19 @@ export function ProductsPage() {
               step="0.01"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            />
+
+            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productCostPrice">
+              Preço de custo <span className="font-normal text-gray-400">(opcional)</span>
+            </label>
+            <input
+              id="productCostPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              value={costPrice}
+              onChange={(e) => setCostPrice(e.target.value)}
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
 

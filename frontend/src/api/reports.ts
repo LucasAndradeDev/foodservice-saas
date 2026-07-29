@@ -12,6 +12,10 @@ export interface TopProduct {
   productName: string
   quantitySold: number
   revenue: number
+  costQuantityCovered: number
+  costTotal: number
+  marginTotal: number
+  marginPercentage: number | null
 }
 
 export interface ReportSummary {

@@ -72,12 +72,26 @@ public class ReportService {
         List<TopProductResponse> topProducts = orderItemRepository
                 .findTopSellingProducts(restaurantId, rangeStart, rangeEnd, PageRequest.of(0, TOP_PRODUCTS_LIMIT))
                 .stream()
-                .map(row -> TopProductResponse.builder()
-                        .productId((UUID) row[0])
-                        .productName((String) row[1])
-                        .quantitySold((Long) row[2])
-                        .revenue((BigDecimal) row[3])
-                        .build())
+                .map(row -> {
+                    long costQuantityCovered = (Long) row[4];
+                    BigDecimal costTotal = (BigDecimal) row[5];
+                    BigDecimal revenueCovered = (BigDecimal) row[6];
+                    BigDecimal marginTotal = revenueCovered.subtract(costTotal);
+                    BigDecimal marginPercentage = costQuantityCovered > 0 && revenueCovered.compareTo(BigDecimal.ZERO) > 0
+                            ? marginTotal.multiply(BigDecimal.valueOf(100)).divide(revenueCovered, 1, RoundingMode.HALF_UP)
+                            : null;
+
+                    return TopProductResponse.builder()
+                            .productId((UUID) row[0])
+                            .productName((String) row[1])
+                            .quantitySold((Long) row[2])
+                            .revenue((BigDecimal) row[3])
+                            .costQuantityCovered(costQuantityCovered)
+                            .costTotal(costTotal)
+                            .marginTotal(marginTotal)
+                            .marginPercentage(marginPercentage)
+                            .build();
+                })
                 .toList();
 
         return ReportSummaryResponse.builder()

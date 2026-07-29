@@ -188,6 +188,89 @@ class ProductControllerIntegrationTest {
     }
 
     @Test
+    void createProduct_withCostPrice_shouldPersist() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCostPrice(new BigDecimal("9.50"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.costPrice").value(9.50));
+    }
+
+    @Test
+    void createProduct_withoutCostPrice_shouldReturnNullCostPrice() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.costPrice").doesNotExist());
+    }
+
+    @Test
+    void createProduct_withNegativeCostPrice_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCostPrice(new BigDecimal("-1.00"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+
+        mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateProduct_setCostPrice_shouldSucceed() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategory(ownerToken, "Burgers");
+
+        CreateProductRequest request = new CreateProductRequest();
+        request.setName("Cheeseburger");
+        request.setPrice(new BigDecimal("25.90"));
+        request.setCategoryId(java.util.UUID.fromString(categoryId));
+        MvcResult createResult = mockMvc.perform(post("/api/v1/products")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String productId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        UpdateProductRequest updateRequest = new UpdateProductRequest();
+        updateRequest.setCostPrice(new BigDecimal("9.50"));
+
+        mockMvc.perform(put("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.costPrice").value(9.50));
+    }
+
+    @Test
     void createProduct_withNonPositivePrice_shouldReturn400() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String categoryId = createCategory(ownerToken, "Burgers");

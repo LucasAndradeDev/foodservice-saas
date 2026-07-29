@@ -15,6 +15,7 @@ import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
+import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.TabRepository;
 import com.example.restaurant_saas.repository.UserRepository;
@@ -155,6 +156,16 @@ class ReportControllerIntegrationTest {
         return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
     }
 
+    private void setProductCostPrice(String token, String productId, String costPrice) throws Exception {
+        UpdateProductRequest request = new UpdateProductRequest();
+        request.setCostPrice(new BigDecimal(costPrice));
+        mockMvc.perform(put("/api/v1/products/" + productId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk());
+    }
+
     private List<String> createOrderAndGetItemIds(String token, String tabId, String productId, int quantity) throws Exception {
         CreateOrderItemRequest item = new CreateOrderItemRequest();
         item.setProductId(UUID.fromString(productId));
@@ -246,6 +257,75 @@ class ReportControllerIntegrationTest {
                 .andExpect(jsonPath("$.topProducts[1].productName").value("Soda"))
                 .andExpect(jsonPath("$.topProducts[1].quantitySold").value(1))
                 .andExpect(jsonPath("$.topProducts[1].revenue").value(5.00));
+    }
+
+    @Test
+    void getSummary_withCostPrice_shouldComputeMargin() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String burgerId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.00");
+        setProductCostPrice(ownerToken, burgerId, "9.50");
+        String sodaId = createProductAndGetId(ownerToken, categoryId, "Soda", "5.00");
+
+        String table1 = createTableAndGetId(ownerToken);
+        String tab1 = openTabAndGetId(ownerToken, table1);
+        String burgerItem1 = createOrderAndGetItemIds(ownerToken, tab1, burgerId, 2).get(0);
+        String sodaItem1 = createOrderAndGetItemIds(ownerToken, tab1, sodaId, 1).get(0);
+        deliverItem(ownerToken, burgerItem1);
+        deliverItem(ownerToken, sodaItem1);
+        payTab(ownerToken, tab1, "PIX", "55.00");
+
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/summary")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.topProducts[0].productName").value("Cheeseburger"))
+                .andExpect(jsonPath("$.topProducts[0].quantitySold").value(2))
+                .andExpect(jsonPath("$.topProducts[0].revenue").value(50.00))
+                .andExpect(jsonPath("$.topProducts[0].costQuantityCovered").value(2))
+                .andExpect(jsonPath("$.topProducts[0].costTotal").value(19.00))
+                .andExpect(jsonPath("$.topProducts[0].marginTotal").value(31.00))
+                .andExpect(jsonPath("$.topProducts[0].marginPercentage").value(62.0))
+                .andExpect(jsonPath("$.topProducts[1].productName").value("Soda"))
+                .andExpect(jsonPath("$.topProducts[1].costQuantityCovered").value(0))
+                .andExpect(jsonPath("$.topProducts[1].marginPercentage").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void getSummary_costPriceSetAfterSale_shouldOnlyCoverLaterUnits() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String burgerId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "20.00");
+
+        String table1 = createTableAndGetId(ownerToken);
+        String tab1 = openTabAndGetId(ownerToken, table1);
+
+        String earlyItemId = createOrderAndGetItemIds(ownerToken, tab1, burgerId, 1).get(0);
+        deliverItem(ownerToken, earlyItemId);
+
+        setProductCostPrice(ownerToken, burgerId, "8.00");
+
+        String laterItemId = createOrderAndGetItemIds(ownerToken, tab1, burgerId, 1).get(0);
+        deliverItem(ownerToken, laterItemId);
+
+        payTab(ownerToken, tab1, "PIX", "40.00");
+
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/summary")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.topProducts[0].quantitySold").value(2))
+                .andExpect(jsonPath("$.topProducts[0].revenue").value(40.00))
+                .andExpect(jsonPath("$.topProducts[0].costQuantityCovered").value(1))
+                .andExpect(jsonPath("$.topProducts[0].costTotal").value(8.00))
+                .andExpect(jsonPath("$.topProducts[0].marginTotal").value(12.00))
+                .andExpect(jsonPath("$.topProducts[0].marginPercentage").value(60.0));
     }
 
     @Test

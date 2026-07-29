@@ -22,6 +22,9 @@ public class UpdateProductRequest {
     @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than zero")
     private BigDecimal price;
 
+    @DecimalMin(value = "0.0", message = "Cost price must not be negative")
+    private BigDecimal costPrice;
+
     private UUID categoryId;
 
     private Boolean active;

@@ -98,6 +98,7 @@ public class OrderService {
                 .product(product)
                 .quantity(itemRequest.getQuantity())
                 .unitPrice(product.getPrice())
+                .unitCostPrice(product.getCostPrice())
                 .observation(itemRequest.getObservation())
                 .status(ItemStatus.PENDING)
                 .build();

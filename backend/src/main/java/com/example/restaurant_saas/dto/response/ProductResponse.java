@@ -16,6 +16,7 @@ public class ProductResponse {
     private String description;
     private String imageUrl;
     private BigDecimal price;
+    private BigDecimal costPrice;
     private Boolean active;
     private Boolean soldOutToday;
     private Boolean featured;
