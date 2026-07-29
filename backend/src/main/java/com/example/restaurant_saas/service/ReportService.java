@@ -1,10 +1,14 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.dto.response.PaymentMethodTotalResponse;
+import com.example.restaurant_saas.dto.response.PeakHourCellResponse;
+import com.example.restaurant_saas.dto.response.PeakHoursResponse;
 import com.example.restaurant_saas.dto.response.ReportSummaryResponse;
 import com.example.restaurant_saas.dto.response.TopProductResponse;
 import com.example.restaurant_saas.repository.OrderItemRepository;
+import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.TabRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -13,10 +17,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -27,6 +38,7 @@ public class ReportService {
 
     private final TabRepository tabRepository;
     private final OrderItemRepository orderItemRepository;
+    private final OrderRepository orderRepository;
 
     @Transactional(readOnly = true)
     public ReportSummaryResponse getSummary(UUID restaurantId, LocalDate start, LocalDate end) {
@@ -75,5 +87,76 @@ public class ReportService {
                 .byPaymentMethod(byPaymentMethod)
                 .topProducts(topProducts)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public PeakHoursResponse getPeakHours(UUID restaurantId, LocalDate start, LocalDate end) {
+        if (start.isAfter(end)) {
+            throw new IllegalArgumentException("Start date must not be after end date.");
+        }
+
+        ZoneId zone = ZoneId.systemDefault();
+        OffsetDateTime rangeStart = start.atStartOfDay(zone).toOffsetDateTime();
+        OffsetDateTime rangeEnd = end.plusDays(1).atStartOfDay(zone).toOffsetDateTime();
+
+        Map<DayOfWeek, Integer> occurrencesByWeekday = new EnumMap<>(DayOfWeek.class);
+        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+            occurrencesByWeekday.merge(date.getDayOfWeek(), 1, Integer::sum);
+        }
+
+        Map<DayOfWeek, Map<Integer, Long>> occupiedTableHours = new EnumMap<>(DayOfWeek.class);
+        for (Tab tab : tabRepository.findClosedTabsWithTablesOverlappingRange(restaurantId, rangeStart, rangeEnd)) {
+            long tableCount = tab.getTables().size();
+            OffsetDateTime overlapStart = tab.getOpenedAt().isBefore(rangeStart) ? rangeStart : tab.getOpenedAt();
+            OffsetDateTime overlapEnd = tab.getClosedAt().isAfter(rangeEnd) ? rangeEnd : tab.getClosedAt();
+
+            ZonedDateTime hourCursor = overlapStart.atZoneSameInstant(zone).truncatedTo(ChronoUnit.HOURS);
+            ZonedDateTime overlapEndZoned = overlapEnd.atZoneSameInstant(zone);
+            while (hourCursor.isBefore(overlapEndZoned)) {
+                occupiedTableHours
+                        .computeIfAbsent(hourCursor.getDayOfWeek(), k -> new HashMap<>())
+                        .merge(hourCursor.getHour(), tableCount, Long::sum);
+                hourCursor = hourCursor.plusHours(1);
+            }
+        }
+
+        Map<DayOfWeek, Map<Integer, Long>> orderCounts = new EnumMap<>(DayOfWeek.class);
+        for (OffsetDateTime createdAt : orderRepository.findCreatedAtByRestaurantIdAndCreatedAtBetween(restaurantId, rangeStart, rangeEnd)) {
+            ZonedDateTime zoned = createdAt.atZoneSameInstant(zone);
+            orderCounts
+                    .computeIfAbsent(zoned.getDayOfWeek(), k -> new HashMap<>())
+                    .merge(zoned.getHour(), 1L, Long::sum);
+        }
+
+        List<PeakHourCellResponse> cells = new ArrayList<>();
+        for (DayOfWeek dayOfWeek : DayOfWeek.values()) {
+            int occurrences = occurrencesByWeekday.getOrDefault(dayOfWeek, 0);
+            for (int hour = 0; hour < 24; hour++) {
+                long occupiedTableHourCount = occupiedTableHours
+                        .getOrDefault(dayOfWeek, Map.of())
+                        .getOrDefault(hour, 0L);
+                long orderCount = orderCounts
+                        .getOrDefault(dayOfWeek, Map.of())
+                        .getOrDefault(hour, 0L);
+
+                cells.add(PeakHourCellResponse.builder()
+                        .dayOfWeek(dayOfWeek)
+                        .hour(hour)
+                        .avgOccupiedTables(average(occupiedTableHourCount, occurrences))
+                        .avgOrderCount(average(orderCount, occurrences))
+                        .sampleCount(occurrences)
+                        .build());
+            }
+        }
+
+        return PeakHoursResponse.builder().cells(cells).build();
+    }
+
+    private BigDecimal average(long total, int occurrences) {
+        if (occurrences == 0) {
+            return BigDecimal.ZERO;
+        }
+        return BigDecimal.valueOf(total)
+                .divide(BigDecimal.valueOf(occurrences), 1, RoundingMode.HALF_UP);
     }
 }

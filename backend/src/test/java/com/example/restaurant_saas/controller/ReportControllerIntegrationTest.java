@@ -1,5 +1,7 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.domain.entity.Order;
+import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
@@ -13,6 +15,8 @@ import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
+import com.example.restaurant_saas.repository.OrderRepository;
+import com.example.restaurant_saas.repository.TabRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
@@ -30,9 +34,11 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -50,7 +56,16 @@ class ReportControllerIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
+    private TabRepository tabRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
     private JwtService jwtService;
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -374,5 +389,169 @@ class ReportControllerIntegrationTest {
                         .param("start", today)
                         .param("end", today))
                 .andExpect(status().is4xxClientError());
+    }
+
+    private void setOrderCreatedAt(UUID orderId, java.time.OffsetDateTime createdAt) {
+        // Order.createdAt is @Column(updatable = false), so Hibernate ignores it on UPDATE; go around it with raw SQL.
+        jdbcTemplate.update("UPDATE orders SET created_at = ? WHERE id = ?", createdAt, orderId);
+    }
+
+    private Double cellValue(String responseBody, java.time.DayOfWeek dayOfWeek, int hour, String field) {
+        List<Object> values = JsonPath.read(responseBody,
+                "$.cells[?(@.dayOfWeek=='" + dayOfWeek + "' && @.hour==" + hour + ")]." + field);
+        return ((Number) values.get(0)).doubleValue();
+    }
+
+    @Test
+    void getPeakHours_happyPath_shouldAggregateOccupancyAndOrdersByDayOfWeekAndHour() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String burgerId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "10.00");
+
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String itemId = createOrderAndGetItemIds(ownerToken, tabId, burgerId, 1).get(0);
+        deliverItem(ownerToken, itemId);
+        payTab(ownerToken, tabId, "PIX", "10.00");
+
+        LocalDate testDate = LocalDate.now().minusMonths(1);
+        java.time.DayOfWeek testDayOfWeek = testDate.getDayOfWeek();
+        ZoneId zone = ZoneId.systemDefault();
+
+        Tab tab = tabRepository.findById(UUID.fromString(tabId)).orElseThrow();
+        // Occupied from 11:30 to 13:15 -> covers hour buckets 11, 12 and 13.
+        tab.setOpenedAt(testDate.atTime(11, 30).atZone(zone).toOffsetDateTime());
+        tab.setClosedAt(testDate.atTime(13, 15).atZone(zone).toOffsetDateTime());
+        tabRepository.save(tab);
+
+        Order order = orderRepository.findByTabIdAndRestaurantId(tab.getId(), tab.getRestaurant().getId()).get(0);
+        setOrderCreatedAt(order.getId(), testDate.atTime(12, 0).atZone(zone).toOffsetDateTime());
+
+        MvcResult result = mockMvc.perform(get("/api/v1/reports/peak-hours")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", testDate.toString())
+                        .param("end", testDate.toString()))
+                .andExpect(status().isOk())
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+
+        assertEquals(1.0, cellValue(body, testDayOfWeek, 11, "avgOccupiedTables"));
+        assertEquals(0.0, cellValue(body, testDayOfWeek, 11, "avgOrderCount"));
+        assertEquals(1.0, cellValue(body, testDayOfWeek, 12, "avgOccupiedTables"));
+        assertEquals(1.0, cellValue(body, testDayOfWeek, 12, "avgOrderCount"));
+        assertEquals(1.0, cellValue(body, testDayOfWeek, 13, "avgOccupiedTables"));
+        assertEquals(0.0, cellValue(body, testDayOfWeek, 14, "avgOccupiedTables"));
+        assertEquals(1.0, cellValue(body, testDayOfWeek, 0, "sampleCount"));
+        assertEquals(0.0, cellValue(body, testDayOfWeek.plus(1), 0, "sampleCount"));
+        assertEquals(0.0, cellValue(body, testDayOfWeek, 10, "avgOccupiedTables"));
+    }
+
+    @Test
+    void getPeakHours_shouldExcludeCounterTabsFromOccupancyButKeepTheirOrders() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String burgerId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "10.00");
+
+        OpenTabRequest openCounterRequest = new OpenTabRequest();
+        openCounterRequest.setTableIds(List.of());
+        MvcResult openResult = mockMvc.perform(post("/api/v1/tabs")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(openCounterRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String counterTabId = JsonPath.read(openResult.getResponse().getContentAsString(), "$.id");
+
+        String itemId = createOrderAndGetItemIds(ownerToken, counterTabId, burgerId, 1).get(0);
+        deliverItem(ownerToken, itemId);
+        payTab(ownerToken, counterTabId, "PIX", "10.00");
+
+        LocalDate testDate = LocalDate.now().minusMonths(1);
+        java.time.DayOfWeek testDayOfWeek = testDate.getDayOfWeek();
+        ZoneId zone = ZoneId.systemDefault();
+
+        Tab tab = tabRepository.findById(UUID.fromString(counterTabId)).orElseThrow();
+        tab.setOpenedAt(testDate.atTime(11, 30).atZone(zone).toOffsetDateTime());
+        tab.setClosedAt(testDate.atTime(12, 15).atZone(zone).toOffsetDateTime());
+        tabRepository.save(tab);
+
+        Order order = orderRepository.findByTabIdAndRestaurantId(tab.getId(), tab.getRestaurant().getId()).get(0);
+        setOrderCreatedAt(order.getId(), testDate.atTime(11, 30).atZone(zone).toOffsetDateTime());
+
+        MvcResult result = mockMvc.perform(get("/api/v1/reports/peak-hours")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", testDate.toString())
+                        .param("end", testDate.toString()))
+                .andExpect(status().isOk())
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+
+        assertEquals(0.0, cellValue(body, testDayOfWeek, 11, "avgOccupiedTables"));
+        assertEquals(1.0, cellValue(body, testDayOfWeek, 11, "avgOrderCount"));
+    }
+
+    @Test
+    void getPeakHours_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/peak-hours")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getPeakHours_crossTenant_shouldNotLeakOtherRestaurantData() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "10.00");
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String itemId = createOrderAndGetItemIds(ownerToken, tabId, productId, 1).get(0);
+        deliverItem(ownerToken, itemId);
+        payTab(ownerToken, tabId, "PIX", "10.00");
+
+        RegisterRestaurantRequest otherRestaurant = new RegisterRestaurantRequest();
+        otherRestaurant.setRestaurantName("Pizza Place");
+        otherRestaurant.setOwnerName("Another Owner");
+        otherRestaurant.setOwnerEmail("another+" + System.nanoTime() + "@test.com");
+        otherRestaurant.setOwnerPassword("password789");
+        MvcResult otherResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(otherRestaurant)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String otherToken = JsonPath.read(otherResult.getResponse().getContentAsString(), "$.accessToken");
+
+        String today = LocalDate.now().toString();
+
+        MvcResult result = mockMvc.perform(get("/api/v1/reports/peak-hours")
+                        .header("Authorization", "Bearer " + otherToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+
+        List<Number> nonZeroCells = JsonPath.read(body, "$.cells[?(@.avgOccupiedTables > 0 || @.avgOrderCount > 0)]");
+        assertEquals(0, nonZeroCells.size());
+    }
+
+    @Test
+    void getPeakHours_startAfterEnd_shouldReturnBadRequest() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String today = LocalDate.now().toString();
+        String yesterday = LocalDate.now().minusDays(1).toString();
+
+        mockMvc.perform(get("/api/v1/reports/peak-hours")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", yesterday))
+                .andExpect(status().isBadRequest());
     }
 }

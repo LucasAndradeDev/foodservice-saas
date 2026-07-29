@@ -30,4 +30,10 @@ public interface TabRepository extends JpaRepository<Tab, UUID> {
 
     @Query("SELECT t FROM Tab t JOIN t.tables rt WHERE rt.id = :tableId AND t.restaurant.id = :restaurantId AND t.status = 'OPEN'")
     Optional<Tab> findOpenTabByRestaurantIdAndTableId(@Param("restaurantId") UUID restaurantId, @Param("tableId") UUID tableId);
+
+    @Query("SELECT DISTINCT t FROM Tab t JOIN t.tables rt " +
+            "WHERE t.restaurant.id = :restaurantId AND t.closedAt IS NOT NULL " +
+            "AND t.openedAt < :rangeEnd AND t.closedAt > :rangeStart")
+    List<Tab> findClosedTabsWithTablesOverlappingRange(
+            @Param("restaurantId") UUID restaurantId, @Param("rangeStart") OffsetDateTime rangeStart, @Param("rangeEnd") OffsetDateTime rangeEnd);
 }

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Receipt, TrendingUp, Wallet, type LucideIcon } from 'lucide-react'
+import { BarChart3, Calendar, Receipt, TrendingUp, Wallet, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
-import { getReportSummary } from '../api/reports'
+import { getPeakHours, getReportSummary } from '../api/reports'
+import { PeakHoursHeatmap } from './reports/PeakHoursHeatmap'
 import type { PaymentMethod } from '../api/tabs'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -49,6 +50,11 @@ export function ReportsPage() {
     queryFn: () => getReportSummary(start, end),
   })
 
+  const { data: peakHours } = useQuery({
+    queryKey: ['reports', 'peak-hours', start, end],
+    queryFn: () => getPeakHours(start, end),
+  })
+
   function applyPreset(preset: 'today' | 'last7days' | 'thisMonth') {
     const now = new Date()
     if (preset === 'today') {
@@ -65,6 +71,25 @@ export function ReportsPage() {
     }
   }
 
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
+  const presetRanges = {
+    today: { start: today, end: today },
+    last7days: { start: toDateInputValue(sevenDaysAgo), end: today },
+    thisMonth: { start: toDateInputValue(startOfMonth(new Date())), end: today },
+  } as const
+  const activePreset = (Object.keys(presetRanges) as Array<keyof typeof presetRanges>).find(
+    (preset) => presetRanges[preset].start === start && presetRanges[preset].end === end,
+  )
+
+  function presetButtonClasses(preset: keyof typeof presetRanges) {
+    return `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+      activePreset === preset
+        ? 'bg-brand-600 text-white shadow-sm'
+        : 'border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
+    }`
+  }
+
   return (
     <div>
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
@@ -75,45 +100,34 @@ export function ReportsPage() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => applyPreset('today')}
-              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            >
+            <button type="button" onClick={() => applyPreset('today')} className={presetButtonClasses('today')}>
               Hoje
             </button>
-            <button
-              type="button"
-              onClick={() => applyPreset('last7days')}
-              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            >
+            <button type="button" onClick={() => applyPreset('last7days')} className={presetButtonClasses('last7days')}>
               Últimos 7 dias
             </button>
-            <button
-              type="button"
-              onClick={() => applyPreset('thisMonth')}
-              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-            >
+            <button type="button" onClick={() => applyPreset('thisMonth')} className={presetButtonClasses('thisMonth')}>
               Este mês
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 transition-colors focus-within:border-brand-500 focus-within:bg-white">
+            <Calendar className="h-4 w-4 shrink-0 text-gray-400" />
             <input
               type="date"
               value={start}
               max={end}
               onChange={(e) => setStart(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-brand-500 focus:bg-white focus:outline-none"
+              className="bg-transparent text-sm text-gray-700 focus:outline-none"
             />
-            <span className="text-gray-400">até</span>
+            <span className="text-sm text-gray-400">até</span>
             <input
               type="date"
               value={end}
               min={start}
               max={today}
               onChange={(e) => setEnd(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:border-brand-500 focus:bg-white focus:outline-none"
+              className="bg-transparent text-sm text-gray-700 focus:outline-none"
             />
           </div>
         </div>
@@ -184,6 +198,27 @@ export function ReportsPage() {
               )}
             </div>
           </div>
+
+          {peakHours && (
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <PeakHoursHeatmap
+                title="Ocupação de mesas por dia e hora"
+                cells={peakHours.cells}
+                metric="avgOccupiedTables"
+                unitLabel="mesas"
+                rangeStart={start}
+                rangeEnd={end}
+              />
+              <PeakHoursHeatmap
+                title="Pedidos por dia e hora"
+                cells={peakHours.cells}
+                metric="avgOrderCount"
+                unitLabel="pedidos"
+                rangeStart={start}
+                rangeEnd={end}
+              />
+            </div>
+          )}
         </>
       )}
     </div>

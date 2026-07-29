@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.dto.response.PeakHoursResponse;
 import com.example.restaurant_saas.dto.response.ReportSummaryResponse;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.example.restaurant_saas.service.ReportService;
@@ -41,5 +42,20 @@ public class ReportController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
     ) {
         return ResponseEntity.ok(reportService.getSummary(currentUser.getRestaurantId(), start, end));
+    }
+
+    @GetMapping("/peak-hours")
+    @Operation(summary = "Get peak hours grid", description = "Returns, for each day of week and hour of day, the average number of occupied tables and the average number of orders created, within the given date range (inclusive). Averages are computed over how many times each weekday occurs in the range. Only tabs with at least one table are considered (counter/Balcão tabs are excluded).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Grid returned"),
+            @ApiResponse(responseCode = "400", description = "start is after end"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
+    })
+    public ResponseEntity<PeakHoursResponse> getPeakHours(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
+    ) {
+        return ResponseEntity.ok(reportService.getPeakHours(currentUser.getRestaurantId(), start, end));
     }
 }
