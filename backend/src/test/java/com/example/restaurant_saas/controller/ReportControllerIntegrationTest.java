@@ -14,6 +14,7 @@ import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
+import com.example.restaurant_saas.dto.request.SetMonthlyGoalRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.repository.OrderRepository;
@@ -214,6 +215,200 @@ class ReportControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk());
+    }
+
+    private void setTabPaidAt(String tabId, LocalDate paidDate) {
+        Tab tab = tabRepository.findById(UUID.fromString(tabId)).orElseThrow();
+        tab.setPaidAt(paidDate.atTime(12, 0).atZone(ZoneId.systemDefault()).toOffsetDateTime());
+        tabRepository.save(tab);
+    }
+
+    private void createPaidTabOn(String token, String productId, String amount, LocalDate paidDate) throws Exception {
+        String tableId = createTableAndGetId(token);
+        String tabId = openTabAndGetId(token, tableId);
+        String itemId = createOrderAndGetItemIds(token, tabId, productId, 1).get(0);
+        deliverItem(token, itemId);
+        payTab(token, tabId, "PIX", amount);
+        setTabPaidAt(tabId, paidDate);
+    }
+
+    @Test
+    void getSummary_withComparison_shouldComputePercentageChange() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String product100 = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "100.00");
+        String product80 = createProductAndGetId(ownerToken, categoryId, "Soda", "80.00");
+
+        createPaidTabOn(ownerToken, product100, "100.00", LocalDate.now());
+        createPaidTabOn(ownerToken, product80, "80.00", LocalDate.now().minusDays(1));
+
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/summary")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalRevenue").value(100.00))
+                .andExpect(jsonPath("$.comparison.previousTotalRevenue").value(80.00))
+                .andExpect(jsonPath("$.comparison.previousClosedTabsCount").value(1))
+                .andExpect(jsonPath("$.comparison.revenueChangePercentage").value(25.0))
+                .andExpect(jsonPath("$.comparison.closedTabsChangePercentage").value(0.0))
+                .andExpect(jsonPath("$.comparison.averageTicketChangePercentage").value(25.0));
+    }
+
+    @Test
+    void getSummary_marchFullMonth_previousPeriodShouldBorrowDaysFromJanuary() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String product50 = createProductAndGetId(ownerToken, categoryId, "Item50", "50.00");
+        String product999 = createProductAndGetId(ownerToken, categoryId, "Item999", "999.00");
+        String product100 = createProductAndGetId(ownerToken, categoryId, "Item100", "100.00");
+
+        // Previous period for March 1-31 is Jan 29 - Feb 28 (31 days, borrowing 3 from January).
+        createPaidTabOn(ownerToken, product50, "50.00", LocalDate.of(2026, 1, 29));
+        createPaidTabOn(ownerToken, product50, "50.00", LocalDate.of(2026, 2, 28));
+        // One day before the previous period starts: must NOT be counted.
+        createPaidTabOn(ownerToken, product999, "999.00", LocalDate.of(2026, 1, 28));
+        // Inside the current period.
+        createPaidTabOn(ownerToken, product100, "100.00", LocalDate.of(2026, 3, 1));
+
+        mockMvc.perform(get("/api/v1/reports/summary")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", "2026-03-01")
+                        .param("end", "2026-03-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalRevenue").value(100.00))
+                .andExpect(jsonPath("$.comparison.previousTotalRevenue").value(100.00))
+                .andExpect(jsonPath("$.comparison.previousClosedTabsCount").value(2))
+                .andExpect(jsonPath("$.comparison.revenueChangePercentage").value(0.0));
+    }
+
+    @Test
+    void getSummary_noPreviousPeriodData_shouldReturnNullPercentages() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "50.00");
+
+        createPaidTabOn(ownerToken, productId, "50.00", LocalDate.now());
+
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/summary")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.comparison.previousClosedTabsCount").value(0))
+                .andExpect(jsonPath("$.comparison.revenueChangePercentage").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.comparison.closedTabsChangePercentage").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.comparison.averageTicketChangePercentage").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void setMonthlyGoal_asOwner_shouldCreateAndReturnProgress() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "50.00");
+
+        createPaidTabOn(ownerToken, productId, "50.00", LocalDate.of(2026, 7, 10));
+
+        SetMonthlyGoalRequest goalRequest = new SetMonthlyGoalRequest();
+        goalRequest.setMonth(LocalDate.of(2026, 7, 1));
+        goalRequest.setRevenueGoal(new BigDecimal("100.00"));
+
+        mockMvc.perform(put("/api/v1/reports/goals")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(goalRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.month").value("2026-07-01"))
+                .andExpect(jsonPath("$.revenueGoal").value(100.00))
+                .andExpect(jsonPath("$.currentRevenue").value(50.00))
+                .andExpect(jsonPath("$.progressPercentage").value(50.0));
+
+        mockMvc.perform(get("/api/v1/reports/goals")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("month", "2026-07-15"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.month").value("2026-07-01"))
+                .andExpect(jsonPath("$.revenueGoal").value(100.00))
+                .andExpect(jsonPath("$.progressPercentage").value(50.0));
+    }
+
+    @Test
+    void setMonthlyGoal_upsert_shouldUpdateExistingGoal() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        SetMonthlyGoalRequest first = new SetMonthlyGoalRequest();
+        first.setMonth(LocalDate.of(2026, 8, 1));
+        first.setRevenueGoal(new BigDecimal("1000.00"));
+        mockMvc.perform(put("/api/v1/reports/goals")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(first)))
+                .andExpect(status().isOk());
+
+        SetMonthlyGoalRequest updated = new SetMonthlyGoalRequest();
+        updated.setMonth(LocalDate.of(2026, 8, 15));
+        updated.setRevenueGoal(new BigDecimal("2000.00"));
+        mockMvc.perform(put("/api/v1/reports/goals")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updated)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.revenueGoal").value(2000.00));
+
+        mockMvc.perform(get("/api/v1/reports/goals")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("month", "2026-08-01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.revenueGoal").value(2000.00));
+    }
+
+    @Test
+    void getMonthlyGoal_withoutGoalSet_shouldReturnNullGoalAndPercentage() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        mockMvc.perform(get("/api/v1/reports/goals")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("month", "2026-09-01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.revenueGoal").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.progressPercentage").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.currentRevenue").value(0));
+    }
+
+    @Test
+    void setMonthlyGoal_withNonPositiveValue_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        SetMonthlyGoalRequest request = new SetMonthlyGoalRequest();
+        request.setMonth(LocalDate.of(2026, 7, 1));
+        request.setRevenueGoal(BigDecimal.ZERO);
+
+        mockMvc.perform(put("/api/v1/reports/goals")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void setMonthlyGoal_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+
+        SetMonthlyGoalRequest request = new SetMonthlyGoalRequest();
+        request.setMonth(LocalDate.of(2026, 7, 1));
+        request.setRevenueGoal(new BigDecimal("1000.00"));
+
+        mockMvc.perform(put("/api/v1/reports/goals")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
     }
 
     @Test

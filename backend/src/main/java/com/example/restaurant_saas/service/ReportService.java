@@ -5,6 +5,7 @@ import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.dto.response.PaymentMethodTotalResponse;
 import com.example.restaurant_saas.dto.response.PeakHourCellResponse;
 import com.example.restaurant_saas.dto.response.PeakHoursResponse;
+import com.example.restaurant_saas.dto.response.ReportComparisonResponse;
 import com.example.restaurant_saas.dto.response.ReportSummaryResponse;
 import com.example.restaurant_saas.dto.response.TopProductResponse;
 import com.example.restaurant_saas.repository.OrderItemRepository;
@@ -94,13 +95,71 @@ public class ReportService {
                 })
                 .toList();
 
+        ReportComparisonResponse comparison = getComparison(restaurantId, start, end, totalRevenue, closedTabsCount, averageTicket);
+
         return ReportSummaryResponse.builder()
                 .totalRevenue(totalRevenue)
                 .closedTabsCount(closedTabsCount)
                 .averageTicket(averageTicket)
                 .byPaymentMethod(byPaymentMethod)
                 .topProducts(topProducts)
+                .comparison(comparison)
                 .build();
+    }
+
+    /**
+     * Previous period = the same number of days immediately before the selected range,
+     * regardless of calendar month boundaries — always an equal-length, apples-to-apples
+     * comparison (e.g. comparing all of March to Feb 28 alone would inflate March's growth
+     * just because March has 3 more days, so the window borrows those days from January).
+     */
+    private ReportComparisonResponse getComparison(UUID restaurantId, LocalDate start, LocalDate end,
+                                                     BigDecimal totalRevenue, long closedTabsCount, BigDecimal averageTicket) {
+        long periodDays = ChronoUnit.DAYS.between(start, end) + 1;
+        LocalDate previousEnd = start.minusDays(1);
+        LocalDate previousStart = previousEnd.minusDays(periodDays - 1);
+
+        OffsetDateTime previousRangeStart = previousStart.atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime();
+        OffsetDateTime previousRangeEnd = previousEnd.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime();
+
+        List<PaymentMethodTotalResponse> previousByPaymentMethod = tabRepository
+                .sumPaidAmountByRestaurantIdAndPaidAtBetweenGroupedByPaymentMethod(restaurantId, previousRangeStart, previousRangeEnd)
+                .stream()
+                .map(row -> PaymentMethodTotalResponse.builder()
+                        .paymentMethod((PaymentMethod) row[0])
+                        .total((BigDecimal) row[1])
+                        .tabsCount((Long) row[2])
+                        .build())
+                .toList();
+
+        BigDecimal previousTotalRevenue = previousByPaymentMethod.stream()
+                .map(PaymentMethodTotalResponse::getTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        long previousClosedTabsCount = previousByPaymentMethod.stream()
+                .mapToLong(PaymentMethodTotalResponse::getTabsCount)
+                .sum();
+        BigDecimal previousAverageTicket = previousClosedTabsCount == 0
+                ? BigDecimal.ZERO
+                : previousTotalRevenue.divide(BigDecimal.valueOf(previousClosedTabsCount), 2, RoundingMode.HALF_UP);
+
+        return ReportComparisonResponse.builder()
+                .previousTotalRevenue(previousTotalRevenue)
+                .previousClosedTabsCount(previousClosedTabsCount)
+                .previousAverageTicket(previousAverageTicket)
+                .revenueChangePercentage(percentageChange(totalRevenue, previousTotalRevenue))
+                .closedTabsChangePercentage(percentageChange(BigDecimal.valueOf(closedTabsCount), BigDecimal.valueOf(previousClosedTabsCount)))
+                .averageTicketChangePercentage(percentageChange(averageTicket, previousAverageTicket))
+                .build();
+    }
+
+    private BigDecimal percentageChange(BigDecimal current, BigDecimal previous) {
+        if (previous.compareTo(BigDecimal.ZERO) == 0) {
+            return null;
+        }
+        return current.subtract(previous)
+                .divide(previous, 4, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(1, RoundingMode.HALF_UP);
     }
 
     @Transactional(readOnly = true)

@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Calendar, Receipt, TrendingUp, Wallet, type LucideIcon } from 'lucide-react'
+import { BarChart3, Calendar, Receipt, TrendingDown, TrendingUp, Wallet, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { getPeakHours, getReportSummary } from '../api/reports'
+import { MonthlyGoalCard } from './reports/MonthlyGoalCard'
 import { PeakHoursHeatmap } from './reports/PeakHoursHeatmap'
 import type { PaymentMethod } from '../api/tabs'
 
@@ -22,13 +23,70 @@ function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1)
 }
 
+function parseDateInput(value: string) {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+function addDays(value: string, delta: number) {
+  const date = parseDateInput(value)
+  date.setDate(date.getDate() + delta)
+  return toDateInputValue(date)
+}
+
+function daysBetweenInclusive(start: string, end: string) {
+  const startDate = parseDateInput(start)
+  const endDate = parseDateInput(end)
+  return Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1
+}
+
+// Rule A: the same number of days immediately before the selected range — always an
+// equal-length, apples-to-apples window, even if it has to borrow days from an earlier
+// month (see MonthlyGoalCard/backend ReportService for the full rationale).
+function getPreviousPeriodRange(start: string, end: string) {
+  const periodDays = daysBetweenInclusive(start, end)
+  const previousEnd = addDays(start, -1)
+  const previousStart = addDays(previousEnd, -(periodDays - 1))
+  return { start: previousStart, end: previousEnd }
+}
+
+function formatDateShort(value: string, referenceYear: number) {
+  const [year, month, day] = value.split('-')
+  return Number(year) === referenceYear ? `${day}/${month}` : `${day}/${month}/${year}`
+}
+
 interface StatTileProps {
   icon: LucideIcon
   label: string
   value: string
+  changePercentage?: number | null
+  previousValueLabel?: string
+  previousRangeLabel?: string
 }
 
-function StatTile({ icon: Icon, label, value }: StatTileProps) {
+function ChangeLine({
+  changePercentage,
+  previousValueLabel,
+  previousRangeLabel,
+}: {
+  changePercentage: number
+  previousValueLabel: string
+  previousRangeLabel: string
+}) {
+  const isPositive = changePercentage >= 0
+  const Icon = isPositive ? TrendingUp : TrendingDown
+  return (
+    <div className={`mt-1 flex items-start gap-1 text-xs ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+      <Icon className="mt-0.5 h-3 w-3 shrink-0" />
+      <span>
+        {Math.abs(changePercentage)}% vs {previousValueLabel}
+        <span className="text-gray-400"> ({previousRangeLabel})</span>
+      </span>
+    </div>
+  )
+}
+
+function StatTile({ icon: Icon, label, value, changePercentage, previousValueLabel, previousRangeLabel }: StatTileProps) {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-center gap-1.5 text-sm text-gray-500">
@@ -36,6 +94,13 @@ function StatTile({ icon: Icon, label, value }: StatTileProps) {
         {label}
       </div>
       <div className="mt-1 text-3xl font-semibold text-brand-700">{value}</div>
+      {changePercentage !== null && changePercentage !== undefined && previousValueLabel && previousRangeLabel && (
+        <ChangeLine
+          changePercentage={changePercentage}
+          previousValueLabel={previousValueLabel}
+          previousRangeLabel={previousRangeLabel}
+        />
+      )}
     </div>
   )
 }
@@ -90,6 +155,10 @@ export function ReportsPage() {
     }`
   }
 
+  const previousPeriod = getPreviousPeriodRange(start, end)
+  const referenceYear = parseDateInput(start).getFullYear()
+  const previousRangeLabel = `${formatDateShort(previousPeriod.start, referenceYear)} a ${formatDateShort(previousPeriod.end, referenceYear)}`
+
   return (
     <div>
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
@@ -138,9 +207,34 @@ export function ReportsPage() {
       ) : (
         <>
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <StatTile icon={Wallet} label="Faturamento total" value={currencyFormatter.format(data.totalRevenue)} />
-            <StatTile icon={Receipt} label="Comandas fechadas" value={String(data.closedTabsCount)} />
-            <StatTile icon={TrendingUp} label="Ticket médio" value={currencyFormatter.format(data.averageTicket)} />
+            <StatTile
+              icon={Wallet}
+              label="Faturamento total"
+              value={currencyFormatter.format(data.totalRevenue)}
+              changePercentage={data.comparison.revenueChangePercentage}
+              previousValueLabel={currencyFormatter.format(data.comparison.previousTotalRevenue)}
+              previousRangeLabel={previousRangeLabel}
+            />
+            <StatTile
+              icon={Receipt}
+              label="Comandas fechadas"
+              value={String(data.closedTabsCount)}
+              changePercentage={data.comparison.closedTabsChangePercentage}
+              previousValueLabel={String(data.comparison.previousClosedTabsCount)}
+              previousRangeLabel={previousRangeLabel}
+            />
+            <StatTile
+              icon={TrendingUp}
+              label="Ticket médio"
+              value={currencyFormatter.format(data.averageTicket)}
+              changePercentage={data.comparison.averageTicketChangePercentage}
+              previousValueLabel={currencyFormatter.format(data.comparison.previousAverageTicket)}
+              previousRangeLabel={previousRangeLabel}
+            />
+          </div>
+
+          <div className="mb-6">
+            <MonthlyGoalCard />
           </div>
 
           <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -14,4 +14,5 @@ public class ReportSummaryResponse {
     private BigDecimal averageTicket;
     private List<PaymentMethodTotalResponse> byPaymentMethod;
     private List<TopProductResponse> topProducts;
+    private ReportComparisonResponse comparison;
 }
