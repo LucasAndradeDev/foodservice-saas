@@ -1,6 +1,5 @@
 package com.example.restaurant_saas.domain.entity;
 
-import com.example.restaurant_saas.domain.enums.TableStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -10,13 +9,13 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "restaurant_tables")
+@Table(name = "dining_areas")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class RestaurantTable {
+public class DiningArea {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -26,20 +25,11 @@ public class RestaurantTable {
     @JoinColumn(name = "restaurant_id", nullable = false)
     private Restaurant restaurant;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "area_id")
-    private DiningArea area;
+    @Column(nullable = false, length = 100)
+    private String name;
 
-    @Column(nullable = false)
-    private Integer number;
-
-    @Enumerated(EnumType.STRING)
-    @Builder.Default
-    @Column(nullable = false, length = 20)
-    private TableStatus status = TableStatus.FREE;
-
-    @Builder.Default
-    private Boolean active = true;
+    @Column(name = "display_order", nullable = false)
+    private Integer displayOrder;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

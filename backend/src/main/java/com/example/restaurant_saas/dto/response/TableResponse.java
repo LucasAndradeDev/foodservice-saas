@@ -14,4 +14,5 @@ public class TableResponse {
     private Integer number;
     private TableStatus status;
     private Boolean active;
+    private UUID areaId;
 }

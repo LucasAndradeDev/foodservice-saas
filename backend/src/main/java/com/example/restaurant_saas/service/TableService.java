@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.domain.entity.DiningArea;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.enums.TableStatus;
@@ -8,6 +9,7 @@ import com.example.restaurant_saas.dto.request.CreateTablesBulkRequest;
 import com.example.restaurant_saas.dto.request.UpdateTableRequest;
 import com.example.restaurant_saas.dto.request.UpdateTableStatusRequest;
 import com.example.restaurant_saas.dto.response.TableResponse;
+import com.example.restaurant_saas.repository.DiningAreaRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.RestaurantTableRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,7 @@ public class TableService {
 
     private final RestaurantTableRepository tableRepository;
     private final RestaurantRepository restaurantRepository;
+    private final DiningAreaRepository diningAreaRepository;
 
     @Transactional(readOnly = true)
     public List<TableResponse> listTables(UUID restaurantId, TableStatus statusFilter, Boolean activeFilter) {
@@ -50,6 +53,7 @@ public class TableService {
 
         RestaurantTable table = RestaurantTable.builder()
                 .restaurant(restaurantRepository.getReferenceById(restaurantId))
+                .area(resolveArea(restaurantId, request.getAreaId()))
                 .number(number)
                 .status(TableStatus.FREE)
                 .active(true)
@@ -103,8 +107,21 @@ public class TableService {
         if (request.getActive() != null) {
             table.setActive(request.getActive());
         }
+        if (Boolean.TRUE.equals(request.getClearArea())) {
+            table.setArea(null);
+        } else if (request.getAreaId() != null) {
+            table.setArea(resolveArea(restaurantId, request.getAreaId()));
+        }
 
         return toResponse(tableRepository.save(table));
+    }
+
+    private DiningArea resolveArea(UUID restaurantId, UUID areaId) {
+        if (areaId == null) {
+            return null;
+        }
+        return diningAreaRepository.findByIdAndRestaurantId(areaId, restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Dining area not found."));
     }
 
     @Transactional
@@ -135,6 +152,7 @@ public class TableService {
                 .number(table.getNumber())
                 .status(table.getStatus())
                 .active(table.getActive())
+                .areaId(table.getArea() != null ? table.getArea().getId() : null)
                 .build();
     }
 }

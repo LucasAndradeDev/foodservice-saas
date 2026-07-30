@@ -8,6 +8,7 @@ export interface RestaurantTable {
   number: number
   status: TableStatus
   active: boolean
+  areaId: string | null
 }
 
 export interface TableFilters {
@@ -19,15 +20,18 @@ export function listTables(filters: TableFilters = {}) {
   return http.get<RestaurantTable[]>('/tables', { params: filters }).then((res) => res.data)
 }
 
-export function createTable(number?: number) {
-  return http.post<RestaurantTable>('/tables', { number }).then((res) => res.data)
+export function createTable(number?: number, areaId?: string | null) {
+  return http.post<RestaurantTable>('/tables', { number, areaId }).then((res) => res.data)
 }
 
 export function createTablesBulk(quantity: number) {
   return http.post<RestaurantTable[]>('/tables/bulk', { quantity }).then((res) => res.data)
 }
 
-export function updateTable(id: string, payload: { number?: number; active?: boolean }) {
+export function updateTable(
+  id: string,
+  payload: { number?: number; active?: boolean; areaId?: string | null; clearArea?: boolean },
+) {
   return http.put<RestaurantTable>(`/tables/${id}`, payload).then((res) => res.data)
 }
 

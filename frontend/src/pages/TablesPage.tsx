@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { motion, type PanInfo } from 'framer-motion'
 import {
   AlertTriangle,
   Bell,
@@ -9,6 +10,7 @@ import {
   LayoutGrid,
   Layers,
   MoreVertical,
+  Move,
   Plus,
   Users,
   UtensilsCrossed,
@@ -33,6 +35,7 @@ import {
   type RestaurantTable,
   type TableStatus,
 } from '../api/tables'
+import { listDiningAreas } from '../api/diningAreas'
 import { listTabs, openTab, type Tab } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
@@ -140,6 +143,11 @@ export function TablesPage() {
     queryFn: getMyRestaurant,
   })
 
+  const { data: areas } = useQuery({
+    queryKey: ['dining-areas'],
+    queryFn: listDiningAreas,
+  })
+
   const tableForgottenWarningThreshold = restaurant?.tableForgottenWarningThresholdMinutes ?? 30
   const tableForgottenCriticalThreshold = restaurant?.tableForgottenCriticalThresholdMinutes ?? 60
 
@@ -204,6 +212,64 @@ export function TablesPage() {
     return counts
   }, [tables])
 
+  const groupedTables = useMemo(() => {
+    if (!tables) return []
+    const byArea = new Map<string, RestaurantTable[]>()
+    tables.forEach((table) => {
+      const key = table.areaId ?? 'none'
+      const list = byArea.get(key) ?? []
+      list.push(table)
+      byArea.set(key, list)
+    })
+    const groups: { id: string; name: string; tables: RestaurantTable[] }[] = []
+    areas?.forEach((area) => {
+      const areaTables = byArea.get(area.id)
+      if (areaTables && areaTables.length > 0) {
+        groups.push({ id: area.id, name: area.name, tables: areaTables })
+      }
+    })
+    const noAreaTables = byArea.get('none')
+    if (noAreaTables && noAreaTables.length > 0) {
+      groups.push({ id: 'none', name: 'Sem área', tables: noAreaTables })
+    }
+    return groups
+  }, [tables, areas])
+  const showGroupHeaders = groupedTables.length > 1
+
+  const [isOrganizingAreas, setIsOrganizingAreas] = useState(false)
+  const [dragHoverGroupId, setDragHoverGroupId] = useState<string | null>(null)
+  const groupRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
+  const organizeGroups = useMemo(() => {
+    if (!tables) return []
+    const byArea = new Map<string, RestaurantTable[]>()
+    tables.forEach((table) => {
+      const key = table.areaId ?? 'none'
+      const list = byArea.get(key) ?? []
+      list.push(table)
+      byArea.set(key, list)
+    })
+    const groups = (areas ?? []).map((area) => ({
+      id: area.id,
+      name: area.name,
+      tables: byArea.get(area.id) ?? [],
+    }))
+    groups.push({ id: 'none', name: 'Sem área', tables: byArea.get('none') ?? [] })
+    return groups
+  }, [tables, areas])
+
+  const displayGroups = isOrganizingAreas ? organizeGroups : groupedTables
+
+  function findGroupAtPoint(x: number, y: number): string | null {
+    for (const [groupId, el] of groupRefs.current.entries()) {
+      const rect = el.getBoundingClientRect()
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        return groupId
+      }
+    }
+    return null
+  }
+
   const [isCreating, setIsCreating] = useState(false)
   const [isBulkCreating, setIsBulkCreating] = useState(false)
   const [isSelectingTables, setIsSelectingTables] = useState(false)
@@ -212,10 +278,12 @@ export function TablesPage() {
   const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(new Set())
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null)
   const [numberInput, setNumberInput] = useState('')
+  const [createAreaId, setCreateAreaId] = useState('')
   const [quantityInput, setQuantityInput] = useState('')
   const [editNumber, setEditNumber] = useState('')
   const [editStatus, setEditStatus] = useState<TableStatus>('FREE')
   const [editActive, setEditActive] = useState(true)
+  const [editAreaId, setEditAreaId] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -234,7 +302,7 @@ export function TablesPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: (number?: number) => createTable(number),
+    mutationFn: ({ number, areaId }: { number?: number; areaId: string | null }) => createTable(number, areaId),
     onSuccess: () => {
       invalidate()
       setIsCreating(false)
@@ -285,6 +353,7 @@ export function TablesPage() {
 
   function openCreateForm() {
     setNumberInput('')
+    setCreateAreaId('')
     setError(null)
     setIsCreating(true)
   }
@@ -300,6 +369,7 @@ export function TablesPage() {
     setEditNumber(String(table.number))
     setEditStatus(table.status)
     setEditActive(table.active)
+    setEditAreaId(table.areaId ?? '')
     setError(null)
   }
 
@@ -321,7 +391,10 @@ export function TablesPage() {
   function handleCreateSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
-    createMutation.mutate(numberInput ? Number(numberInput) : undefined)
+    createMutation.mutate({
+      number: numberInput ? Number(numberInput) : undefined,
+      areaId: createAreaId || null,
+    })
   }
 
   function handleBulkSubmit(event: FormEvent) {
@@ -336,8 +409,9 @@ export function TablesPage() {
     if (!selectedTable) return
 
     if (canManage) {
+      const areaPayload = editAreaId ? { areaId: editAreaId } : { clearArea: true }
       updateMutation.mutate(
-        { id: selectedTable.id, payload: { number: Number(editNumber), active: editActive } },
+        { id: selectedTable.id, payload: { number: Number(editNumber), active: editActive, ...areaPayload } },
         { onError: () => setError('Não foi possível salvar. Verifique se o número já está em uso.') },
       )
     }
@@ -382,6 +456,7 @@ export function TablesPage() {
   }
 
   function handleTableClick(table: RestaurantTable) {
+    if (isOrganizingAreas) return
     if (isSelectingTables) {
       toggleTableSelection(table)
       return
@@ -394,6 +469,16 @@ export function TablesPage() {
     openTableModal(table)
   }
 
+  function handleTableDragEnd(table: RestaurantTable, info: PanInfo) {
+    const targetGroupId = findGroupAtPoint(info.point.x, info.point.y)
+    setDragHoverGroupId(null)
+    if (!targetGroupId) return
+    const currentGroupId = table.areaId ?? 'none'
+    if (targetGroupId === currentGroupId) return
+    const payload = targetGroupId === 'none' ? { clearArea: true } : { areaId: targetGroupId }
+    updateMutation.mutate({ id: table.id, payload })
+  }
+
   return (
     <div>
       <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
@@ -402,7 +487,7 @@ export function TablesPage() {
             <LayoutGrid className="h-5 w-5 text-brand-600" />
             Mesas
           </h1>
-          {canManage && !isSelectingTables && (
+          {canManage && !isSelectingTables && !isOrganizingAreas && (
             <div className="relative" ref={moreMenuRef}>
               <button
                 type="button"
@@ -438,13 +523,26 @@ export function TablesPage() {
                     <Plus className="h-4 w-4 text-gray-400" />
                     Nova mesa
                   </button>
+                  {areas && areas.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOrganizingAreas(true)
+                        setIsMoreMenuOpen(false)
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+                    >
+                      <Move className="h-4 w-4 text-gray-400" />
+                      Organizar mesas
+                    </button>
+                  )}
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {canOpenTab && !isSelectingTables && (
+        {canOpenTab && !isSelectingTables && !isOrganizingAreas && (
           <div className="mt-3 flex gap-2">
             <button
               type="button"
@@ -504,6 +602,22 @@ export function TablesPage() {
         </div>
       )}
 
+      {isOrganizingAreas && (
+        <div className="mb-4 flex flex-col gap-2 rounded-lg border border-brand-300 bg-brand-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex items-center gap-2 text-brand-800">
+            <Move className="h-4 w-4" />
+            Arraste uma mesa pra área desejada. A mudança é salva na hora.
+          </span>
+          <button
+            type="button"
+            onClick={() => setIsOrganizingAreas(false)}
+            className="rounded-md bg-brand-600 px-3 py-1.5 font-medium text-white hover:bg-brand-700"
+          >
+            Concluir
+          </button>
+        </div>
+      )}
+
       {error && !selectedTable && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {canOpenTab && counterTabs.length > 0 && (
@@ -549,66 +663,101 @@ export function TablesPage() {
       )}
 
       {tables && tables.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {tables.map((table) => {
-            const isSelected = selectedTableIds.has(table.id)
-            const isSelectableNow = !isSelectingTables || table.status === 'FREE'
-            const tab = tableTabMap.get(table.id)
-            const StatusIcon = STATUS_ICONS[table.status]
-            const tableRequests = pendingRequestsByTable.get(table.id) ?? []
-            const { level: delayLevel, minutesWithoutOrder } = getTableDelay(tab, table.status)
-            return (
-              <div key={table.id} className="relative h-full">
-                <button
-                  type="button"
-                  disabled={(!canChangeStatus && !canManage && !canOpenTab) || !isSelectableNow}
-                  onClick={() => handleTableClick(table)}
-                  className={`flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border-2 p-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}
-                >
-                  <StatusIcon className="h-5 w-5" />
-                  <div className="text-xl font-bold leading-none">{table.number}</div>
-                  <div className="text-[11px] font-semibold tracking-wide uppercase">{STATUS_LABELS[table.status]}</div>
-                  {tab && table.status === 'OCCUPIED' && (
-                    delayLevel !== 'none' ? (
-                      <div
-                        className={`flex items-center gap-1 text-[11px] font-semibold ${
-                          delayLevel === 'critical' ? 'text-red-900' : 'text-amber-900'
-                        }`}
+        <div className="space-y-6">
+          {displayGroups.map((group) => (
+            <div
+              key={group.id}
+              ref={(el) => {
+                if (el) groupRefs.current.set(group.id, el)
+                else groupRefs.current.delete(group.id)
+              }}
+              className={`rounded-xl transition-colors ${
+                isOrganizingAreas && dragHoverGroupId === group.id ? 'bg-brand-50 ring-2 ring-brand-400' : ''
+              }`}
+            >
+              {(showGroupHeaders || isOrganizingAreas) && (
+                <p className="mb-2 px-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">{group.name}</p>
+              )}
+              {isOrganizingAreas && group.tables.length === 0 ? (
+                <div className="flex items-center justify-center rounded-xl border border-dashed border-gray-300 py-6 text-xs text-gray-400">
+                  Arraste mesas aqui
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                  {group.tables.map((table) => {
+                  const isSelected = selectedTableIds.has(table.id)
+                  const isSelectableNow = !isSelectingTables || table.status === 'FREE'
+                  const tab = tableTabMap.get(table.id)
+                  const StatusIcon = STATUS_ICONS[table.status]
+                  const tableRequests = pendingRequestsByTable.get(table.id) ?? []
+                  const { level: delayLevel, minutesWithoutOrder } = getTableDelay(tab, table.status)
+                  const canDrag = isOrganizingAreas && canManage
+                  return (
+                    <motion.div
+                      key={table.id}
+                      className="relative h-full"
+                      layout={canDrag}
+                      drag={canDrag}
+                      dragSnapToOrigin
+                      dragMomentum={false}
+                      whileDrag={{ scale: 1.05, zIndex: 50 }}
+                      onDrag={(_, info) => setDragHoverGroupId(findGroupAtPoint(info.point.x, info.point.y))}
+                      onDragEnd={(_, info) => handleTableDragEnd(table, info)}
+                    >
+                      <button
+                        type="button"
+                        disabled={(!canChangeStatus && !canManage && !canOpenTab) || !isSelectableNow}
+                        onClick={() => handleTableClick(table)}
+                        className={`flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border-2 p-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}
                       >
-                        <AlertTriangle className="h-3 w-3" />
-                        sem pedido há {minutesWithoutOrder} min
-                      </div>
-                    ) : (
-                      <div className="text-[11px] opacity-75">há {minutesSince(tab.openedAt)} min</div>
-                    )
-                  )}
-                  {!table.active && <div className="text-[11px]">Inativa</div>}
-                </button>
-                {tableRequests.length > 0 && (
-                  <div className="absolute -right-2 -top-2 z-10 flex flex-col items-end gap-1">
-                    {tableRequests.map((request) => {
-                      const RequestIcon = TABLE_REQUEST_ICONS[request.type]
-                      return (
-                        <button
-                          key={request.id}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            acknowledgeMutation.mutate(request.id)
-                          }}
-                          title="Marcar como atendido"
-                          className="flex animate-pulse items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-800 shadow hover:bg-amber-200"
-                        >
-                          <RequestIcon className="h-3 w-3" />
-                          {TABLE_REQUEST_LABELS[request.type]}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
+                        <StatusIcon className="h-5 w-5" />
+                        <div className="text-xl font-bold leading-none">{table.number}</div>
+                        <div className="text-[11px] font-semibold tracking-wide uppercase">{STATUS_LABELS[table.status]}</div>
+                        {tab && table.status === 'OCCUPIED' && (
+                          delayLevel !== 'none' ? (
+                            <div
+                              className={`flex items-center gap-1 text-[11px] font-semibold ${
+                                delayLevel === 'critical' ? 'text-red-900' : 'text-amber-900'
+                              }`}
+                            >
+                              <AlertTriangle className="h-3 w-3" />
+                              sem pedido há {minutesWithoutOrder} min
+                            </div>
+                          ) : (
+                            <div className="text-[11px] opacity-75">há {minutesSince(tab.openedAt)} min</div>
+                          )
+                        )}
+                        {!table.active && <div className="text-[11px]">Inativa</div>}
+                      </button>
+                      {!isOrganizingAreas && tableRequests.length > 0 && (
+                        <div className="absolute -right-2 -top-2 z-10 flex flex-col items-end gap-1">
+                          {tableRequests.map((request) => {
+                            const RequestIcon = TABLE_REQUEST_ICONS[request.type]
+                            return (
+                              <button
+                                key={request.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  acknowledgeMutation.mutate(request.id)
+                                }}
+                                title="Marcar como atendido"
+                                className="flex animate-pulse items-center gap-1 rounded-full border border-amber-300 bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-800 shadow hover:bg-amber-200"
+                              >
+                                <RequestIcon className="h-3 w-3" />
+                                {TABLE_REQUEST_LABELS[request.type]}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </motion.div>
+                  )
+                })}
               </div>
-            )
-          })}
+              )}
+            </div>
+          ))}
         </div>
       )}
 
@@ -626,6 +775,23 @@ export function TablesPage() {
               onChange={(e) => setNumberInput(e.target.value)}
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
             />
+
+            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="tableAreaCreate">
+              Área <span className="font-normal text-gray-400">(opcional)</span>
+            </label>
+            <select
+              id="tableAreaCreate"
+              value={createAreaId}
+              onChange={(e) => setCreateAreaId(e.target.value)}
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            >
+              <option value="">Sem área</option>
+              {areas?.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {area.name}
+                </option>
+              ))}
+            </select>
 
             {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
@@ -702,6 +868,24 @@ export function TablesPage() {
               {(Object.keys(STATUS_LABELS) as TableStatus[]).map((status) => (
                 <option key={status} value={status}>
                   {STATUS_LABELS[status]}
+                </option>
+              ))}
+            </select>
+
+            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="editArea">
+              Área
+            </label>
+            <select
+              id="editArea"
+              disabled={!canManage}
+              value={editAreaId}
+              onChange={(e) => setEditAreaId(e.target.value)}
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+            >
+              <option value="">Sem área</option>
+              {areas?.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {area.name}
                 </option>
               ))}
             </select>
