@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, type Variants } from 'framer-motion'
 import {
   Check,
   ChevronDown,
@@ -20,9 +20,9 @@ import { getMyRestaurant, updateMyRestaurant, uploadRestaurantLogo } from '../ap
 import { useAuth } from '../auth/AuthContext'
 import { publicMenuUrl } from '../utils/publicMenuUrl'
 
-const EASE_OUT = [0.16, 1, 0.3, 1] as const
+const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
-const advancedPanelVariants = {
+const advancedPanelVariants: Variants = {
   collapsed: {
     height: 0,
     opacity: 0,
@@ -168,6 +168,8 @@ export function RestaurantSettingsPage() {
     return <p className="text-sm text-gray-500">Carregando...</p>
   }
 
+  const menuUrl = restaurant.slug ? publicMenuUrl(restaurant.slug) : null
+
   return (
     <div>
       <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs">
@@ -304,10 +306,10 @@ export function RestaurantSettingsPage() {
                 )}
               </div>
 
-              {restaurant.slug && (
+              {menuUrl && (
                 <div className="mt-6 flex flex-1 flex-col items-center justify-center gap-4 border-t border-gray-200 pt-6 sm:flex-row sm:justify-center">
                   <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-md">
-                    <QRCodeCanvas value={publicMenuUrl(restaurant.slug)} size={140} />
+                    <QRCodeCanvas value={menuUrl} size={140} />
                   </div>
                   <div className="flex max-w-xs flex-col items-center gap-3">
                     <p className="text-center text-xs text-gray-400">
@@ -316,7 +318,7 @@ export function RestaurantSettingsPage() {
                     </p>
                     <div className="flex w-full gap-2">
                       <a
-                        href={publicMenuUrl(restaurant.slug)}
+                        href={menuUrl}
                         target="_blank"
                         rel="noreferrer"
                         className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
@@ -327,7 +329,7 @@ export function RestaurantSettingsPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText(publicMenuUrl(restaurant.slug))
+                          navigator.clipboard.writeText(menuUrl)
                           setLinkCopied(true)
                           setTimeout(() => setLinkCopied(false), 2000)
                         }}
