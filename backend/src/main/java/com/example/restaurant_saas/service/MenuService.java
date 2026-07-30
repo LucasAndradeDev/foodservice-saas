@@ -3,6 +3,7 @@ package com.example.restaurant_saas.service;
 import com.example.restaurant_saas.domain.entity.Category;
 import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.Product;
+import com.example.restaurant_saas.domain.entity.ProductAvailabilityWindow;
 import com.example.restaurant_saas.domain.entity.ProductModifierGroup;
 import com.example.restaurant_saas.domain.entity.ProductModifierOption;
 import com.example.restaurant_saas.domain.entity.Restaurant;
@@ -21,6 +22,7 @@ import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.repository.CategoryRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
+import com.example.restaurant_saas.repository.ProductAvailabilityWindowRepository;
 import com.example.restaurant_saas.repository.ProductModifierGroupRepository;
 import com.example.restaurant_saas.repository.ProductModifierOptionRepository;
 import com.example.restaurant_saas.repository.ProductRepository;
@@ -32,9 +34,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -61,6 +66,7 @@ public class MenuService {
     private final OrderItemRepository orderItemRepository;
     private final ProductModifierGroupRepository modifierGroupRepository;
     private final ProductModifierOptionRepository modifierOptionRepository;
+    private final ProductAvailabilityWindowRepository availabilityWindowRepository;
 
     @Transactional(readOnly = true)
     public PublicMenuResponse getPublicMenu(String slug, UUID tableId) {
@@ -72,11 +78,13 @@ public class MenuService {
                 fetchModifierGroupsByProduct(restaurant.getId(), activeProducts);
         Map<UUID, Integer> estimatedWaitMinutesByProduct = fetchEstimatedWaitMinutesByProduct(restaurant.getId());
         Set<UUID> bestsellerProductIds = fetchBestsellerProductIds(restaurant.getId());
+        Map<UUID, List<ProductAvailabilityWindow>> availabilityWindowsByProduct =
+                fetchAvailabilityWindowsByProduct(restaurant.getId(), activeProducts);
 
         List<PublicMenuCategoryResponse> categories = categoryRepository
                 .findByRestaurantIdAndActiveTrueOrderByNameAsc(restaurant.getId())
                 .stream()
-                .map(category -> toCategoryResponse(category, activeProducts, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds))
+                .map(category -> toCategoryResponse(category, activeProducts, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds, availabilityWindowsByProduct))
                 .filter(category -> !category.getProducts().isEmpty())
                 .toList();
 
@@ -123,10 +131,11 @@ public class MenuService {
 
     private PublicMenuCategoryResponse toCategoryResponse(
             Category category, List<Product> activeProducts, Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct,
-            Map<UUID, Integer> estimatedWaitMinutesByProduct, Set<UUID> bestsellerProductIds) {
+            Map<UUID, Integer> estimatedWaitMinutesByProduct, Set<UUID> bestsellerProductIds,
+            Map<UUID, List<ProductAvailabilityWindow>> availabilityWindowsByProduct) {
         List<PublicMenuProductResponse> products = activeProducts.stream()
                 .filter(product -> product.getCategory().getId().equals(category.getId()))
-                .map(product -> toProductResponse(product, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds))
+                .map(product -> toProductResponse(product, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds, availabilityWindowsByProduct))
                 .toList();
 
         return PublicMenuCategoryResponse.builder()
@@ -138,7 +147,8 @@ public class MenuService {
 
     private PublicMenuProductResponse toProductResponse(
             Product product, Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct,
-            Map<UUID, Integer> estimatedWaitMinutesByProduct, Set<UUID> bestsellerProductIds) {
+            Map<UUID, Integer> estimatedWaitMinutesByProduct, Set<UUID> bestsellerProductIds,
+            Map<UUID, List<ProductAvailabilityWindow>> availabilityWindowsByProduct) {
         return PublicMenuProductResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
@@ -146,6 +156,7 @@ public class MenuService {
                 .imageUrl(product.getImageUrl())
                 .price(product.getPrice())
                 .soldOut(isSoldOutToday(product))
+                .availableNow(isAvailableNow(availabilityWindowsByProduct.getOrDefault(product.getId(), List.of())))
                 .featured(product.getFeatured())
                 .bestseller(bestsellerProductIds.contains(product.getId()))
                 .estimatedWaitMinutes(estimatedWaitMinutesByProduct.get(product.getId()))
@@ -206,6 +217,30 @@ public class MenuService {
         return product.getSoldOutAt() != null
                 && product.getSoldOutAt().atZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
                     .equals(OffsetDateTime.now().atZoneSameInstant(ZoneId.systemDefault()).toLocalDate());
+    }
+
+    private Map<UUID, List<ProductAvailabilityWindow>> fetchAvailabilityWindowsByProduct(UUID restaurantId, List<Product> products) {
+        if (products.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> productIds = products.stream().map(Product::getId).toList();
+        return availabilityWindowRepository.findByRestaurantIdAndProductIdInOrderByCreatedAtAsc(restaurantId, productIds).stream()
+                .collect(Collectors.groupingBy(window -> window.getProduct().getId()));
+    }
+
+    private boolean isAvailableNow(List<ProductAvailabilityWindow> windows) {
+        if (windows.isEmpty()) {
+            return true;
+        }
+
+        ZonedDateTime now = OffsetDateTime.now().atZoneSameInstant(ZoneId.systemDefault());
+        DayOfWeek today = now.getDayOfWeek();
+        LocalTime timeNow = now.toLocalTime();
+
+        return windows.stream().anyMatch(window ->
+                (window.getDayOfWeek() == null || window.getDayOfWeek() == today)
+                        && !timeNow.isBefore(window.getStartTime())
+                        && !timeNow.isAfter(window.getEndTime()));
     }
 
     private Map<UUID, List<ModifierGroupResponse>> fetchModifierGroupsByProduct(UUID restaurantId, List<Product> products) {

@@ -2,19 +2,24 @@ package com.example.restaurant_saas.service;
 
 import com.example.restaurant_saas.domain.entity.Category;
 import com.example.restaurant_saas.domain.entity.Product;
+import com.example.restaurant_saas.domain.entity.ProductAvailabilityWindow;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.dto.response.ProductResponse;
 import com.example.restaurant_saas.repository.CategoryRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
+import com.example.restaurant_saas.repository.ProductAvailabilityWindowRepository;
 import com.example.restaurant_saas.repository.ProductRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,6 +31,7 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
     private final RestaurantRepository restaurantRepository;
     private final OrderItemRepository orderItemRepository;
+    private final ProductAvailabilityWindowRepository availabilityWindowRepository;
 
     @Transactional(readOnly = true)
     public List<ProductResponse> listProducts(UUID restaurantId, UUID categoryId, String search, Boolean activeFilter) {
@@ -136,6 +142,7 @@ public class ProductService {
                 .active(product.getActive())
                 .soldOutToday(isSoldOutToday(product))
                 .featured(product.getFeatured())
+                .availableNow(isAvailableNow(product))
                 .build();
     }
 
@@ -143,5 +150,22 @@ public class ProductService {
         return product.getSoldOutAt() != null
                 && product.getSoldOutAt().atZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
                     .equals(OffsetDateTime.now().atZoneSameInstant(ZoneId.systemDefault()).toLocalDate());
+    }
+
+    private boolean isAvailableNow(Product product) {
+        List<ProductAvailabilityWindow> windows = availabilityWindowRepository
+                .findByProductIdAndRestaurantIdOrderByCreatedAtAsc(product.getId(), product.getRestaurant().getId());
+        if (windows.isEmpty()) {
+            return true;
+        }
+
+        ZonedDateTime now = OffsetDateTime.now().atZoneSameInstant(ZoneId.systemDefault());
+        DayOfWeek today = now.getDayOfWeek();
+        LocalTime timeNow = now.toLocalTime();
+
+        return windows.stream().anyMatch(window ->
+                (window.getDayOfWeek() == null || window.getDayOfWeek() == today)
+                        && !timeNow.isBefore(window.getStartTime())
+                        && !timeNow.isAfter(window.getEndTime()));
     }
 }

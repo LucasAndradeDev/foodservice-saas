@@ -9,6 +9,7 @@ export interface PublicMenuProduct {
   imageUrl: string | null
   price: number
   soldOut: boolean
+  availableNow: boolean
   featured: boolean
   bestseller: boolean
   estimatedWaitMinutes: number | null

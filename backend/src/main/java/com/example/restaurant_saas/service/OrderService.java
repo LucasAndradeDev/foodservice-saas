@@ -4,6 +4,7 @@ import com.example.restaurant_saas.domain.entity.Order;
 import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.OrderItemModifier;
 import com.example.restaurant_saas.domain.entity.Product;
+import com.example.restaurant_saas.domain.entity.ProductAvailabilityWindow;
 import com.example.restaurant_saas.domain.entity.ProductModifierGroup;
 import com.example.restaurant_saas.domain.entity.ProductModifierOption;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
@@ -16,6 +17,7 @@ import com.example.restaurant_saas.dto.response.OrderItemModifierResponse;
 import com.example.restaurant_saas.dto.response.OrderItemResponse;
 import com.example.restaurant_saas.dto.response.OrderResponse;
 import com.example.restaurant_saas.repository.OrderRepository;
+import com.example.restaurant_saas.repository.ProductAvailabilityWindowRepository;
 import com.example.restaurant_saas.repository.ProductModifierGroupRepository;
 import com.example.restaurant_saas.repository.ProductModifierOptionRepository;
 import com.example.restaurant_saas.repository.ProductRepository;
@@ -26,7 +28,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +49,7 @@ public class OrderService {
     private final RestaurantRepository restaurantRepository;
     private final ProductModifierGroupRepository modifierGroupRepository;
     private final ProductModifierOptionRepository modifierOptionRepository;
+    private final ProductAvailabilityWindowRepository availabilityWindowRepository;
 
     @Transactional(readOnly = true)
     public List<OrderResponse> listOrders(UUID restaurantId, UUID tabId) {
@@ -92,6 +99,9 @@ public class OrderService {
         if (!Boolean.TRUE.equals(product.getActive())) {
             throw new IllegalStateException("Product " + product.getName() + " is not active.");
         }
+        if (!isAvailableNow(restaurantId, product)) {
+            throw new IllegalStateException("Product " + product.getName() + " is not available at this time.");
+        }
 
         OrderItem item = OrderItem.builder()
                 .order(order)
@@ -108,6 +118,23 @@ public class OrderService {
         item.setModifiers(modifiers);
 
         return item;
+    }
+
+    private boolean isAvailableNow(UUID restaurantId, Product product) {
+        List<ProductAvailabilityWindow> windows = availabilityWindowRepository
+                .findByProductIdAndRestaurantIdOrderByCreatedAtAsc(product.getId(), restaurantId);
+        if (windows.isEmpty()) {
+            return true;
+        }
+
+        ZonedDateTime now = OffsetDateTime.now().atZoneSameInstant(ZoneId.systemDefault());
+        DayOfWeek today = now.getDayOfWeek();
+        LocalTime timeNow = now.toLocalTime();
+
+        return windows.stream().anyMatch(window ->
+                (window.getDayOfWeek() == null || window.getDayOfWeek() == today)
+                        && !timeNow.isBefore(window.getStartTime())
+                        && !timeNow.isAfter(window.getEndTime()));
     }
 
     private List<OrderItemModifier> resolveModifiers(UUID restaurantId, Product product, List<UUID> selectedOptionIds) {

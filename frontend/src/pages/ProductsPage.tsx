@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import {
   Ban,
+  CalendarClock,
   CheckCircle2,
   ChevronDown,
   Circle,
@@ -15,7 +16,7 @@ import {
   Star,
   Trash2,
 } from 'lucide-react'
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { listCategories } from '../api/categories'
 import {
@@ -314,6 +315,12 @@ export function ProductsPage() {
                         Esgotado hoje
                       </span>
                     )}
+                    {!product.soldOutToday && !product.availableNow && (
+                      <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                        <CalendarClock className="h-3 w-3" />
+                        Fora do horário
+                      </span>
+                    )}
                     {product.featured && (
                       <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">
                         <Star className="h-3 w-3" />
@@ -377,6 +384,12 @@ export function ProductsPage() {
                           <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
                             <Ban className="h-3 w-3" />
                             Esgotado hoje
+                          </span>
+                        )}
+                        {!product.soldOutToday && !product.availableNow && (
+                          <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                            <CalendarClock className="h-3 w-3" />
+                            Fora do horário
                           </span>
                         )}
                         {product.featured && (
@@ -552,7 +565,9 @@ function ProductActionButtons({
   align = 'start',
 }: ProductActionButtonsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [openUpward, setOpenUpward] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!isMenuOpen) return
@@ -563,6 +578,21 @@ function ProductActionButtons({
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isMenuOpen])
+
+  useLayoutEffect(() => {
+    if (!isMenuOpen || !triggerRef.current) return
+    const estimatedMenuHeight = 340
+    const triggerBottom = triggerRef.current.getBoundingClientRect().bottom
+    // The desktop table wrapper clips overflow to keep its rounded corners, so a dropdown
+    // opening downward on the last row gets cut off by that boundary before it ever reaches
+    // the edge of the viewport. Whichever boundary is closer is the one that actually clips it.
+    const clippingAncestor = triggerRef.current.closest('.overflow-hidden') as HTMLElement | null
+    const spaceBelowContainer = clippingAncestor
+      ? clippingAncestor.getBoundingClientRect().bottom - triggerBottom
+      : Infinity
+    const spaceBelowViewport = window.innerHeight - triggerBottom
+    setOpenUpward(Math.min(spaceBelowContainer, spaceBelowViewport) < estimatedMenuHeight)
   }, [isMenuOpen])
 
   function runAndClose(action: () => void) {
@@ -584,6 +614,7 @@ function ProductActionButtons({
 
       <div className="relative" ref={menuRef}>
         <button
+          ref={triggerRef}
           type="button"
           onClick={() => setIsMenuOpen((open) => !open)}
           title="Mais ações"
@@ -595,22 +626,30 @@ function ProductActionButtons({
 
         {isMenuOpen && (
           <div
-            className={`absolute z-10 mt-1 w-52 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg ${
-              align === 'end' ? 'right-0' : 'left-0'
-            }`}
+            className={`absolute z-10 w-64 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg ${
+              openUpward ? 'bottom-full mb-1' : 'mt-1'
+            } ${align === 'end' ? 'right-0' : 'left-0'}`}
           >
             <Link
               to={`/products/${product.id}/modifiers`}
               onClick={() => setIsMenuOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-50"
+              className="flex items-center gap-2 whitespace-nowrap px-3 py-2 text-gray-700 hover:bg-gray-50"
             >
               <ListChecks className="h-4 w-4 text-gray-400" />
               Modificadores
             </Link>
+            <Link
+              to={`/products/${product.id}/availability`}
+              onClick={() => setIsMenuOpen(false)}
+              className="flex items-center gap-2 whitespace-nowrap px-3 py-2 text-gray-700 hover:bg-gray-50"
+            >
+              <CalendarClock className="h-4 w-4 text-gray-400" />
+              Horários de disponibilidade
+            </Link>
             <button
               type="button"
               onClick={() => runAndClose(onToggleActive)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
             >
               <Power className="h-4 w-4 text-gray-400" />
               {product.active ? 'Desativar' : 'Ativar'}
@@ -618,7 +657,7 @@ function ProductActionButtons({
             <button
               type="button"
               onClick={() => runAndClose(onToggleSoldOut)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
             >
               <Ban className="h-4 w-4 text-gray-400" />
               {product.soldOutToday ? 'Remover "esgotado hoje"' : 'Marcar como esgotado hoje'}
@@ -626,7 +665,7 @@ function ProductActionButtons({
             <button
               type="button"
               onClick={() => runAndClose(onToggleFeatured)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
             >
               <Star className="h-4 w-4 text-gray-400" />
               {product.featured ? 'Remover destaque' : 'Marcar como destaque'}

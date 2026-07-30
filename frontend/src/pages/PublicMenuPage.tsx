@@ -190,7 +190,7 @@ export function PublicMenuPage() {
     const items: CartItem[] = []
     menu.table.lastOrderItems.forEach((historyItem) => {
       const product = productsById.get(historyItem.productId)
-      if (!product || product.soldOut) {
+      if (!product || product.soldOut || !product.availableNow) {
         skippedNames.push(historyItem.productName)
         return
       }

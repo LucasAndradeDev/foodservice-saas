@@ -13,11 +13,13 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, onDecrement }: ProductCardProps) {
+  const unavailable = product.soldOut || !product.availableNow
+
   return (
     <motion.div
-      whileTap={canOrder && !product.soldOut ? { scale: 0.97 } : undefined}
+      whileTap={canOrder && !unavailable ? { scale: 0.97 } : undefined}
       className={`flex gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-stone-900 ${
-        product.soldOut ? 'opacity-60' : ''
+        unavailable ? 'opacity-60' : ''
       }`}
     >
       {product.imageUrl ? (
@@ -38,7 +40,7 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
             {currencyFormatter.format(product.price)}
           </span>
         </div>
-        {!product.soldOut && (product.bestseller || product.featured) && (
+        {!unavailable && (product.bestseller || product.featured) && (
           <div className="mt-1 flex flex-wrap items-center gap-1">
             {product.bestseller && (
               <span className="flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-500/10 dark:text-orange-400">
@@ -57,7 +59,7 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
         {product.description && (
           <p className="mt-1 text-sm italic text-gray-500 dark:text-stone-400">{product.description}</p>
         )}
-        {!product.soldOut && product.estimatedWaitMinutes !== null && (
+        {!unavailable && product.estimatedWaitMinutes !== null && (
           <span className="mt-1 flex items-center gap-1 text-xs text-gray-400 dark:text-stone-500">
             <Clock className="h-3 w-3" />
             Pronto em {product.estimatedWaitMinutes < 1 ? 'menos de 1 min' : `~${product.estimatedWaitMinutes} min`}
@@ -66,6 +68,10 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
         {product.soldOut ? (
           <span className="mt-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
             Esgotado hoje
+          </span>
+        ) : !product.availableNow ? (
+          <span className="mt-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+            Fora do horário
           </span>
         ) : (
           canOrder && (

@@ -12,6 +12,7 @@ export interface Product {
   active: boolean
   soldOutToday: boolean
   featured: boolean
+  availableNow: boolean
 }
 
 export interface ProductFilters {

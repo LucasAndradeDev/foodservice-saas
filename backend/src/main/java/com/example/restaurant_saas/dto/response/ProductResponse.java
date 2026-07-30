@@ -20,4 +20,5 @@ public class ProductResponse {
     private Boolean active;
     private Boolean soldOutToday;
     private Boolean featured;
+    private Boolean availableNow;
 }
