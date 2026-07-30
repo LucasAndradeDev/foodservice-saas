@@ -1,6 +1,8 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.dto.request.SetMonthlyGoalRequest;
+import com.example.restaurant_saas.dto.response.FeedbackPageResponse;
+import com.example.restaurant_saas.dto.response.FeedbackReportResponse;
 import com.example.restaurant_saas.dto.response.MonthlyGoalResponse;
 import com.example.restaurant_saas.dto.response.PeakHoursResponse;
 import com.example.restaurant_saas.dto.response.ReportSummaryResponse;
@@ -64,6 +66,38 @@ public class ReportController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
     ) {
         return ResponseEntity.ok(reportService.getPeakHours(currentUser.getRestaurantId(), start, end));
+    }
+
+    @GetMapping("/feedback")
+    @Operation(summary = "Get post-meal feedback report", description = "Returns the average rating, total count, and the most recent feedback entries (capped) submitted by customers for tabs closed within the given date range (inclusive).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Report returned"),
+            @ApiResponse(responseCode = "400", description = "start is after end"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
+    })
+    public ResponseEntity<FeedbackReportResponse> getFeedbackReport(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
+    ) {
+        return ResponseEntity.ok(reportService.getFeedbackReport(currentUser.getRestaurantId(), start, end));
+    }
+
+    @GetMapping("/feedback/entries")
+    @Operation(summary = "Get paginated post-meal feedback entries", description = "Returns a page of feedback entries submitted by customers for tabs closed within the given date range (inclusive), most recent first.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Page returned"),
+            @ApiResponse(responseCode = "400", description = "start is after end"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
+    })
+    public ResponseEntity<FeedbackPageResponse> getFeedbackEntries(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ResponseEntity.ok(reportService.getFeedbackEntries(currentUser.getRestaurantId(), start, end, page, size));
     }
 
     @GetMapping("/goals")

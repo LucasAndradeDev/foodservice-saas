@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AppLayout } from './layout/AppLayout'
+import { AllFeedbackPage } from './pages/AllFeedbackPage'
 import { CategoriesPage } from './pages/CategoriesPage'
 import { CheckoutPage } from './pages/CheckoutPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -13,6 +14,7 @@ import { OrderTicketPrintPage } from './pages/OrderTicketPrintPage'
 import { ProductAvailabilityPage } from './pages/ProductAvailabilityPage'
 import { ProductModifiersPage } from './pages/ProductModifiersPage'
 import { ProductsPage } from './pages/ProductsPage'
+import { PostMealFeedbackPage } from './pages/PostMealFeedbackPage'
 import { PublicMenuPage } from './pages/PublicMenuPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ReportsPage } from './pages/ReportsPage'
@@ -31,6 +33,7 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/menu/:slug" element={<PublicMenuPage />} />
           <Route path="/menu/:slug/:tableId" element={<PublicMenuPage />} />
+          <Route path="/feedback/:slug/:tabId" element={<PostMealFeedbackPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/orders/:orderId/print" element={<OrderTicketPrintPage />} />
             <Route path="/tabs/:tabId/print" element={<TabReceiptPrintPage />} />
@@ -47,6 +50,7 @@ function App() {
               <Route path="/products/:productId/modifiers" element={<ProductModifiersPage />} />
               <Route path="/products/:productId/availability" element={<ProductAvailabilityPage />} />
               <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/reports/feedback" element={<AllFeedbackPage />} />
               <Route path="/settings" element={<RestaurantSettingsPage />} />
               <Route path="/staff" element={<StaffPage />} />
             </Route>

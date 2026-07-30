@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Calendar, Receipt, TrendingDown, TrendingUp, Wallet, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { getPeakHours, getReportSummary } from '../api/reports'
+import { FeedbackCard } from './reports/FeedbackCard'
 import { MonthlyGoalCard } from './reports/MonthlyGoalCard'
 import { PeakHoursHeatmap } from './reports/PeakHoursHeatmap'
 import type { PaymentMethod } from '../api/tabs'
@@ -319,6 +320,10 @@ export function ReportsPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="mb-6">
+            <FeedbackCard start={start} end={end} />
           </div>
 
           {peakHours && (

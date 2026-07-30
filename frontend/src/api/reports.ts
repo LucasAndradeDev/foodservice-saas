@@ -72,3 +72,34 @@ export interface PeakHours {
 export function getPeakHours(start: string, end: string) {
   return http.get<PeakHours>('/reports/peak-hours', { params: { start, end } }).then((res) => res.data)
 }
+
+export interface FeedbackEntry {
+  rating: number
+  comment: string | null
+  createdAt: string
+  tableNumbers: number[]
+}
+
+export interface FeedbackReport {
+  averageRating: number | null
+  totalCount: number
+  recent: FeedbackEntry[]
+}
+
+export function getFeedbackReport(start: string, end: string) {
+  return http.get<FeedbackReport>('/reports/feedback', { params: { start, end } }).then((res) => res.data)
+}
+
+export interface FeedbackPage {
+  entries: FeedbackEntry[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+}
+
+export function getFeedbackEntries(start: string, end: string, page: number, size: number) {
+  return http
+    .get<FeedbackPage>('/reports/feedback/entries', { params: { start, end, page, size } })
+    .then((res) => res.data)
+}

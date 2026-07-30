@@ -48,6 +48,7 @@ export interface PublicMenuTable {
   hasDeliveredItems: boolean
   orderItems: PublicMenuOrderItem[]
   lastOrderItems: PublicMenuReorderItem[]
+  currentTabId: string | null
 }
 
 export interface PublicMenu {

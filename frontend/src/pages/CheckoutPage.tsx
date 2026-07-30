@@ -18,7 +18,9 @@ import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
+import { QrCodeCard } from '../components/QrCodeCard'
 import { formatTableLabel } from '../utils/tableLabel'
+import { feedbackUrl } from '../utils/publicMenuUrl'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -317,6 +319,15 @@ export function CheckoutPage() {
                 <CheckCircle2 className="h-4 w-4" />
                 Pagamento confirmado.
               </p>
+              {selectedSummary.tab.tables.length === 0 && restaurant?.slug && (
+                <div className="mb-4">
+                  <QrCodeCard
+                    title="Avalie o atendimento"
+                    url={feedbackUrl(restaurant.slug, selectedSummary.tab.id)}
+                    helperText="Peça pro cliente escanear antes de ir embora"
+                  />
+                </div>
+              )}
               <Link
                 to={`/tabs/${selectedSummary.tab.id}/print`}
                 target="_blank"

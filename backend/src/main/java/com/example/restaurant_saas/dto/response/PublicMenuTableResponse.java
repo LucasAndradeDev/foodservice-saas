@@ -14,4 +14,5 @@ public class PublicMenuTableResponse {
     private boolean hasDeliveredItems;
     private List<PublicMenuOrderItemResponse> orderItems;
     private List<PublicMenuReorderItemResponse> lastOrderItems;
+    private UUID currentTabId;
 }

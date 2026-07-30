@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ShoppingBag } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { getPublicMenu, submitPublicOrder, type PublicMenuProduct } from '../api/publicMenu'
 import { createTableRequest, type TableRequestType } from '../api/tableRequests'
 import { CartDrawer } from './publicMenu/CartDrawer'
@@ -31,6 +31,7 @@ const itemVariants = {
 
 export function PublicMenuPage() {
   const { slug, tableId } = useParams<{ slug: string; tableId?: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { theme, toggleTheme } = usePublicMenuTheme()
   const [search, setSearch] = useState('')
@@ -51,6 +52,18 @@ export function PublicMenuPage() {
     refetchInterval: POLL_INTERVAL_MS,
     refetchIntervalInBackground: true,
   })
+
+  // Only redirects when a tab we've watched be open during this very session just closed —
+  // never on a fresh page load. That's what keeps a new customer scanning the table's QR from
+  // ever landing on the previous customer's feedback prompt instead of the ordering menu.
+  const currentTabId = menu?.table?.currentTabId ?? null
+  const seenTabIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (slug && seenTabIdRef.current && !currentTabId) {
+      navigate(`/feedback/${slug}/${seenTabIdRef.current}`, { replace: true })
+    }
+    seenTabIdRef.current = currentTabId
+  }, [slug, currentTabId, navigate])
 
   const filteredCategories = useMemo(() => {
     if (!menu) return []

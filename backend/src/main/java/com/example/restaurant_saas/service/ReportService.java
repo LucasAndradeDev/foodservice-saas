@@ -1,7 +1,12 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.domain.entity.PostMealFeedback;
+import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
+import com.example.restaurant_saas.dto.response.FeedbackEntryResponse;
+import com.example.restaurant_saas.dto.response.FeedbackPageResponse;
+import com.example.restaurant_saas.dto.response.FeedbackReportResponse;
 import com.example.restaurant_saas.dto.response.PaymentMethodTotalResponse;
 import com.example.restaurant_saas.dto.response.PeakHourCellResponse;
 import com.example.restaurant_saas.dto.response.PeakHoursResponse;
@@ -10,8 +15,10 @@ import com.example.restaurant_saas.dto.response.ReportSummaryResponse;
 import com.example.restaurant_saas.dto.response.TopProductResponse;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
+import com.example.restaurant_saas.repository.PostMealFeedbackRepository;
 import com.example.restaurant_saas.repository.TabRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,10 +43,14 @@ import java.util.UUID;
 public class ReportService {
 
     private static final int TOP_PRODUCTS_LIMIT = 10;
+    // Just a teaser for the Reports summary card — the dedicated Avaliações screen paginates
+    // through everything else via getFeedbackEntries.
+    private static final int SUMMARY_FEEDBACK_LIMIT = 5;
 
     private final TabRepository tabRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderRepository orderRepository;
+    private final PostMealFeedbackRepository postMealFeedbackRepository;
 
     @Transactional(readOnly = true)
     public ReportSummaryResponse getSummary(UUID restaurantId, LocalDate start, LocalDate end) {
@@ -231,5 +242,65 @@ public class ReportService {
         }
         return BigDecimal.valueOf(total)
                 .divide(BigDecimal.valueOf(occurrences), 1, RoundingMode.HALF_UP);
+    }
+
+    @Transactional(readOnly = true)
+    public FeedbackReportResponse getFeedbackReport(UUID restaurantId, LocalDate start, LocalDate end) {
+        if (start.isAfter(end)) {
+            throw new IllegalArgumentException("Start date must not be after end date.");
+        }
+
+        ZoneId zone = ZoneId.systemDefault();
+        OffsetDateTime rangeStart = start.atStartOfDay(zone).toOffsetDateTime();
+        OffsetDateTime rangeEnd = end.plusDays(1).atStartOfDay(zone).toOffsetDateTime();
+
+        List<PostMealFeedback> feedbackList = postMealFeedbackRepository
+                .findByRestaurantIdAndCreatedAtBetweenOrderByCreatedAtDesc(restaurantId, rangeStart, rangeEnd);
+
+        Double averageRating = feedbackList.isEmpty()
+                ? null
+                : feedbackList.stream().mapToInt(PostMealFeedback::getRating).average().orElse(0);
+
+        List<FeedbackEntryResponse> recent = feedbackList.stream()
+                .limit(SUMMARY_FEEDBACK_LIMIT)
+                .map(this::toFeedbackEntryResponse)
+                .toList();
+
+        return FeedbackReportResponse.builder()
+                .averageRating(averageRating)
+                .totalCount(feedbackList.size())
+                .recent(recent)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public FeedbackPageResponse getFeedbackEntries(UUID restaurantId, LocalDate start, LocalDate end, int page, int size) {
+        if (start.isAfter(end)) {
+            throw new IllegalArgumentException("Start date must not be after end date.");
+        }
+
+        ZoneId zone = ZoneId.systemDefault();
+        OffsetDateTime rangeStart = start.atStartOfDay(zone).toOffsetDateTime();
+        OffsetDateTime rangeEnd = end.plusDays(1).atStartOfDay(zone).toOffsetDateTime();
+
+        Page<PostMealFeedback> result = postMealFeedbackRepository.findByRestaurantIdAndCreatedAtBetweenOrderByCreatedAtDesc(
+                restaurantId, rangeStart, rangeEnd, PageRequest.of(page, size));
+
+        return FeedbackPageResponse.builder()
+                .entries(result.getContent().stream().map(this::toFeedbackEntryResponse).toList())
+                .page(page)
+                .size(size)
+                .totalElements(result.getTotalElements())
+                .totalPages(result.getTotalPages())
+                .build();
+    }
+
+    private FeedbackEntryResponse toFeedbackEntryResponse(PostMealFeedback feedback) {
+        return FeedbackEntryResponse.builder()
+                .rating(feedback.getRating())
+                .comment(feedback.getComment())
+                .createdAt(feedback.getCreatedAt())
+                .tableNumbers(feedback.getTab().getTables().stream().map(RestaurantTable::getNumber).toList())
+                .build();
     }
 }
