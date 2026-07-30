@@ -30,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -110,7 +111,10 @@ public class TabService {
                 .restaurant(restaurantRepository.getReferenceById(restaurantId))
                 .status(TabStatus.OPEN)
                 .openedAt(OffsetDateTime.now())
-                .tables(List.of(table))
+                // Must be a mutable list: Hibernate clears/replaces this collection on a later
+                // merge of this same instance (e.g. a caller that re-saves the returned Tab in
+                // the same transaction), which throws UnsupportedOperationException on List.of().
+                .tables(new ArrayList<>(List.of(table)))
                 .build();
         tab = tabRepository.save(tab);
 

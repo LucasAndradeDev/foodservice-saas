@@ -49,6 +49,7 @@ export interface PublicMenuTable {
   orderItems: PublicMenuOrderItem[]
   lastOrderItems: PublicMenuReorderItem[]
   currentTabId: string | null
+  discountAppliedLabel: string | null
 }
 
 export interface PublicMenu {
@@ -74,5 +75,15 @@ export function getPublicMenu(slug: string, tableId?: string) {
 export function submitPublicOrder(slug: string, tableId: string, items: PublicOrderItemPayload[]) {
   return http
     .post(`/public/menu/${slug}/tables/${tableId}/orders`, { items })
+    .then((res) => res.data)
+}
+
+export interface CouponRedemption {
+  discountAppliedLabel: string | null
+}
+
+export function redeemCoupon(slug: string, tableId: string, code: string) {
+  return http
+    .post<CouponRedemption>(`/public/menu/${slug}/tables/${tableId}/coupon`, { code })
     .then((res) => res.data)
 }

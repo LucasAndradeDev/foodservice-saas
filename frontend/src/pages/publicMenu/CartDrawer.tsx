@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { X } from 'lucide-react'
+import { Ticket, X } from 'lucide-react'
 import type { CartItem } from './utils'
 import { currencyFormatter, modifiersTotal } from './utils'
 
@@ -14,6 +14,12 @@ interface CartDrawerProps {
   onUpdateObservation: (index: number, observation: string) => void
   onRemove: (index: number) => void
   onSubmit: () => void
+  discountAppliedLabel: string | null
+  couponCode: string
+  onCouponCodeChange: (value: string) => void
+  onApplyCoupon: () => void
+  isApplyingCoupon: boolean
+  couponError: string | null
 }
 
 export function CartDrawer({
@@ -27,6 +33,12 @@ export function CartDrawer({
   onUpdateObservation,
   onRemove,
   onSubmit,
+  discountAppliedLabel,
+  couponCode,
+  onCouponCodeChange,
+  onApplyCoupon,
+  isApplyingCoupon,
+  couponError,
 }: CartDrawerProps) {
   return (
     <AnimatePresence>
@@ -60,6 +72,34 @@ export function CartDrawer({
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            {discountAppliedLabel ? (
+              <div className="mb-4 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2 text-sm font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+                <Ticket className="h-4 w-4 shrink-0" />
+                {discountAppliedLabel}
+              </div>
+            ) : (
+              <div className="mb-4">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => onCouponCodeChange(e.target.value.toUpperCase())}
+                    placeholder="Tenho um cupom"
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={onApplyCoupon}
+                    disabled={!couponCode.trim() || isApplyingCoupon}
+                    className="shrink-0 rounded-md border border-brand-600 px-3 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-white/5"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+                {couponError && <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{couponError}</p>}
+              </div>
+            )}
 
             {cart.length === 0 ? (
               <p className="pb-4 text-sm text-gray-500 dark:text-stone-400">Seu carrinho está vazio.</p>

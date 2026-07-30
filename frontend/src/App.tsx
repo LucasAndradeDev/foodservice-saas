@@ -5,6 +5,7 @@ import { AppLayout } from './layout/AppLayout'
 import { AllFeedbackPage } from './pages/AllFeedbackPage'
 import { CategoriesPage } from './pages/CategoriesPage'
 import { CheckoutPage } from './pages/CheckoutPage'
+import { CouponsPage } from './pages/CouponsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DiningAreasPage } from './pages/DiningAreasPage'
 import { KitchenPage } from './pages/KitchenPage'
@@ -45,6 +46,7 @@ function App() {
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/dining-areas" element={<DiningAreasPage />} />
+              <Route path="/coupons" element={<CouponsPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/products/import" element={<MenuImportPage />} />
               <Route path="/products/:productId/modifiers" element={<ProductModifiersPage />} />

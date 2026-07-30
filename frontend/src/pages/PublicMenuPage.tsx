@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ShoppingBag } from 'lucide-react'
+import { ShoppingBag, Ticket } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { getPublicMenu, submitPublicOrder, type PublicMenuProduct } from '../api/publicMenu'
+import { getPublicMenu, redeemCoupon, submitPublicOrder, type PublicMenuProduct } from '../api/publicMenu'
 import { createTableRequest, type TableRequestType } from '../api/tableRequests'
 import { CartDrawer } from './publicMenu/CartDrawer'
 import { CategoryNav } from './publicMenu/CategoryNav'
@@ -43,6 +43,8 @@ export function PublicMenuPage() {
   const [activeModifierProduct, setActiveModifierProduct] = useState<PublicMenuProduct | null>(null)
   const [requestedTypes, setRequestedTypes] = useState<Set<TableRequestType>>(new Set())
   const requestTimeoutsRef = useRef<Partial<Record<TableRequestType, number>>>({})
+  const [couponCode, setCouponCode] = useState('')
+  const [couponError, setCouponError] = useState<string | null>(null)
 
   const { data: menu, isLoading, isError } = useQuery({
     queryKey: ['publicMenu', slug, tableId],
@@ -113,6 +115,16 @@ export function PublicMenuPage() {
       queryClient.invalidateQueries({ queryKey: ['publicMenu', slug, tableId] })
     },
     onError: () => setOrderError('Não foi possível enviar o pedido. Tente novamente.'),
+  })
+
+  const applyCouponMutation = useMutation({
+    mutationFn: () => redeemCoupon(slug!, tableId!, couponCode.trim()),
+    onSuccess: () => {
+      setCouponError(null)
+      setCouponCode('')
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', slug, tableId] })
+    },
+    onError: () => setCouponError('Cupom inválido, expirado ou esgotado.'),
   })
 
   const tableRequestMutation = useMutation({
@@ -285,6 +297,15 @@ export function PublicMenuPage() {
 
       <CategoryNav categories={menu.categories} search={search} onSearchChange={setSearch} />
 
+      {menu.table?.discountAppliedLabel && (
+        <div className="mx-auto max-w-2xl px-4 pt-3">
+          <div className="flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2 text-sm font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+            <Ticket className="h-4 w-4 shrink-0" />
+            {menu.table.discountAppliedLabel}
+          </div>
+        </div>
+      )}
+
       <main className="mx-auto max-w-2xl px-4 py-4">
         {filteredCategories.length === 0 && (
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-stone-400">Nenhum produto encontrado.</p>
@@ -391,6 +412,12 @@ export function PublicMenuPage() {
         onUpdateObservation={updateObservation}
         onRemove={removeFromCart}
         onSubmit={() => submitOrderMutation.mutate()}
+        discountAppliedLabel={menu.table?.discountAppliedLabel ?? null}
+        couponCode={couponCode}
+        onCouponCodeChange={setCouponCode}
+        onApplyCoupon={() => applyCouponMutation.mutate()}
+        isApplyingCoupon={applyCouponMutation.isPending}
+        couponError={couponError}
       />
 
       <ModifierSheet
