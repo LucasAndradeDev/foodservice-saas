@@ -1,0 +1,42 @@
+services:
+  - name: mora-backend
+    type: web
+    runtime: docker
+    plan: free
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend/
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: STORAGE_PROVIDER
+        value: supabase
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        sync: false
+
+  - name: mora-frontend
+    type: web
+    runtime: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    # After the first deploy, add a Rewrite rule in the Render dashboard
+    # (Settings > Redirects/Rewrites) for this service:
+    #   Source: /api/*
+    #   Destination: https://mora-backend.onrender.com/api/*
+    #   Action: Rewrite
+    # This proxies API calls server-side so the frontend keeps using its existing
+    # relative "/api/v1" base URL, with no CORS setup needed.

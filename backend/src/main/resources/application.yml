@@ -34,6 +34,14 @@ api:
 
 app:
   upload-dir: ${UPLOAD_DIR:./uploads}
+  storage:
+    provider: ${STORAGE_PROVIDER:local}
+
+supabase:
+  url: ${SUPABASE_URL:}
+  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+  storage:
+    bucket: ${SUPABASE_STORAGE_BUCKET:uploads}
 
 gemini:
   api-key: ${GEMINI_API_KEY}
@@ -41,4 +49,4 @@ gemini:
   base-url: https://generativelanguage.googleapis.com
 
 server:
-  port: 8080
+  port: ${PORT:8080}
