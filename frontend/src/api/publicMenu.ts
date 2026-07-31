@@ -42,6 +42,8 @@ export interface PublicMenuReorderItem {
   modifiers: PublicMenuReorderModifier[]
 }
 
+export type DiscountType = 'FIXED' | 'PERCENTAGE'
+
 export interface PublicMenuTable {
   id: string
   number: number
@@ -50,6 +52,8 @@ export interface PublicMenuTable {
   lastOrderItems: PublicMenuReorderItem[]
   currentTabId: string | null
   discountAppliedLabel: string | null
+  discountType: DiscountType | null
+  discountValue: number | null
 }
 
 export interface PublicMenu {
@@ -80,6 +84,8 @@ export function submitPublicOrder(slug: string, tableId: string, items: PublicOr
 
 export interface CouponRedemption {
   discountAppliedLabel: string | null
+  discountType: DiscountType | null
+  discountValue: number | null
 }
 
 export function redeemCoupon(slug: string, tableId: string, code: string) {

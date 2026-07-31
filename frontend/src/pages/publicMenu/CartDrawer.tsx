@@ -1,11 +1,13 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Ticket, X } from 'lucide-react'
+import { ArrowRight, Minus, Plus, Ticket, Trash2, X } from 'lucide-react'
 import type { CartItem } from './utils'
 import { currencyFormatter, modifiersTotal } from './utils'
 
 interface CartDrawerProps {
   isOpen: boolean
   cart: CartItem[]
+  cartSubtotal: number
+  cartDiscountAmount: number
   cartTotal: number
   orderError: string | null
   isSubmitting: boolean
@@ -25,6 +27,8 @@ interface CartDrawerProps {
 export function CartDrawer({
   isOpen,
   cart,
+  cartSubtotal,
+  cartDiscountAmount,
   cartTotal,
   orderError,
   isSubmitting,
@@ -57,7 +61,7 @@ export function CartDrawer({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="fixed inset-x-0 bottom-0 z-40 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-white p-4 shadow-2xl dark:bg-stone-900"
+            className="fixed inset-x-0 bottom-0 z-40 mx-auto max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl bg-white p-4 shadow-2xl dark:bg-stone-900"
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300 dark:bg-stone-700" />
 
@@ -86,13 +90,13 @@ export function CartDrawer({
                     value={couponCode}
                     onChange={(e) => onCouponCodeChange(e.target.value.toUpperCase())}
                     placeholder="Tenho um cupom"
-                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500"
+                    className="flex-1 rounded-xl border border-gray-200 px-3 py-2.5 text-sm uppercase focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500"
                   />
                   <button
                     type="button"
                     onClick={onApplyCoupon}
                     disabled={!couponCode.trim() || isApplyingCoupon}
-                    className="shrink-0 rounded-md border border-brand-600 px-3 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50 disabled:opacity-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-white/5"
+                    className="shrink-0 rounded-xl border border-brand-600 px-4 py-2.5 text-sm font-semibold text-brand-600 hover:bg-brand-50 disabled:opacity-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-white/5"
                   >
                     Aplicar
                   </button>
@@ -105,49 +109,54 @@ export function CartDrawer({
               <p className="pb-4 text-sm text-gray-500 dark:text-stone-400">Seu carrinho está vazio.</p>
             ) : (
               <>
-                <ul className="mb-4 divide-y divide-gray-100 dark:divide-white/10">
+                <ul className="mb-4 flex flex-col gap-3">
                   {cart.map((item, index) => (
-                    <li key={index} className="py-3">
+                    <li key={index} className="rounded-2xl border border-gray-100 bg-gray-50/70 p-3 dark:border-white/10 dark:bg-white/5">
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-medium text-gray-800 dark:text-white">{item.productName}</span>
-                        <span className="text-sm text-gray-600 dark:text-stone-400">
+                        <span className="text-sm font-semibold text-gray-800 dark:text-white">
                           {currencyFormatter.format((item.unitPrice + modifiersTotal(item.selectedModifiers)) * item.quantity)}
                         </span>
                       </div>
                       {item.selectedModifiers.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
+                        <div className="mt-1.5 flex flex-wrap gap-1">
                           {item.selectedModifiers.map((modifier) => (
                             <span
                               key={modifier.optionId}
-                              className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-stone-300"
+                              className="rounded-full bg-white px-2 py-0.5 text-xs text-gray-600 ring-1 ring-gray-200 dark:bg-white/10 dark:text-stone-300 dark:ring-white/10"
                             >
                               {modifier.optionName}
                             </span>
                           ))}
                         </div>
                       )}
-                      <div className="mt-2 flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onUpdateQuantity(index, -1)}
-                          className="h-7 w-7 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
-                        >
-                          −
-                        </button>
-                        <span className="w-6 text-center text-sm dark:text-white">{item.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => onUpdateQuantity(index, 1)}
-                          className="h-7 w-7 rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
-                        >
-                          +
-                        </button>
+                      <div className="mt-3 flex items-center gap-2">
+                        <div className="flex items-center gap-1 rounded-full border border-gray-200 bg-white p-1 dark:border-white/10 dark:bg-stone-900">
+                          <button
+                            type="button"
+                            onClick={() => onUpdateQuantity(index, -1)}
+                            aria-label="Diminuir quantidade"
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 dark:text-stone-300 dark:hover:bg-white/10"
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="w-6 text-center text-sm font-medium dark:text-white">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => onUpdateQuantity(index, 1)}
+                            aria-label="Aumentar quantidade"
+                            className="flex h-7 w-7 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 dark:text-stone-300 dark:hover:bg-white/10"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                         <button
                           type="button"
                           onClick={() => onRemove(index)}
-                          className="ml-auto text-sm text-red-600 hover:underline dark:text-red-400"
+                          aria-label="Remover item"
+                          className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
                         >
-                          Remover
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                       <input
@@ -156,27 +165,42 @@ export function CartDrawer({
                         maxLength={255}
                         value={item.observation}
                         onChange={(e) => onUpdateObservation(index, e.target.value)}
-                        className="mt-2 w-full rounded-md border border-gray-300 px-2 py-1 text-xs focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500"
+                        className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-900 dark:text-white dark:placeholder:text-stone-500"
                       />
                     </li>
                   ))}
                 </ul>
 
-                <div className="mb-3 flex items-center justify-between text-sm font-semibold text-gray-800 dark:text-white">
-                  <span>Total</span>
-                  <span>{currencyFormatter.format(cartTotal)}</span>
+                <div className="-mx-4 border-t border-gray-100 px-4 pt-3 dark:border-white/10">
+                  {cartDiscountAmount > 0 && (
+                    <>
+                      <div className="mb-1 flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
+                        <span>Subtotal</span>
+                        <span>{currencyFormatter.format(cartSubtotal)}</span>
+                      </div>
+                      <div className="mb-1 flex items-center justify-between text-sm text-green-700 dark:text-green-400">
+                        <span>Desconto</span>
+                        <span>-{currencyFormatter.format(cartDiscountAmount)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-sm text-gray-500 dark:text-stone-400">Total</span>
+                    <span className="text-xl font-bold text-gray-900 dark:text-white">{currencyFormatter.format(cartTotal)}</span>
+                  </div>
+
+                  {orderError && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{orderError}</p>}
+
+                  <button
+                    type="button"
+                    onClick={onSubmit}
+                    disabled={isSubmitting}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-brand-500 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-900/20 transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
+                  >
+                    {isSubmitting ? 'Enviando...' : 'Enviar pedido'}
+                    {!isSubmitting && <ArrowRight className="h-4 w-4" />}
+                  </button>
                 </div>
-
-                {orderError && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{orderError}</p>}
-
-                <button
-                  type="button"
-                  onClick={onSubmit}
-                  disabled={isSubmitting}
-                  className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-                >
-                  Enviar pedido
-                </button>
               </>
             )}
           </motion.div>

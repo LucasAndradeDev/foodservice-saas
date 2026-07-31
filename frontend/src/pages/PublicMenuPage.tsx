@@ -14,7 +14,15 @@ import { OrderStatusPanel } from './publicMenu/OrderStatusPanel'
 import { ProductCard } from './publicMenu/ProductCard'
 import { TableRequestButtons } from './publicMenu/TableRequestButtons'
 import { usePublicMenuTheme } from './publicMenu/usePublicMenuTheme'
-import { currencyFormatter, modifiersTotal, sameModifiers, type CartItem, type SelectedModifier } from './publicMenu/utils'
+import {
+  computeDiscountAmount,
+  currencyFormatter,
+  modifiersTotal,
+  roundCurrency,
+  sameModifiers,
+  type CartItem,
+  type SelectedModifier,
+} from './publicMenu/utils'
 
 const TABLE_REQUEST_COOLDOWN_MS = 60000
 const POLL_INTERVAL_MS = 4000
@@ -280,10 +288,12 @@ export function PublicMenuPage() {
   const canOrder = !!tableId && !!menu.table
   const canRequestBill = canOrder && !!menu.table?.hasDeliveredItems
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
-  const cartTotal = cart.reduce(
+  const cartSubtotal = cart.reduce(
     (sum, item) => sum + (item.unitPrice + modifiersTotal(item.selectedModifiers)) * item.quantity,
     0,
   )
+  const cartDiscountAmount = computeDiscountAmount(menu.table?.discountType ?? null, menu.table?.discountValue ?? null, cartSubtotal)
+  const cartTotal = roundCurrency(cartSubtotal - cartDiscountAmount)
 
   return (
     <div className={`${themeClass} min-h-screen bg-gray-50 pb-24 dark:bg-stone-950`}>
@@ -417,6 +427,8 @@ export function PublicMenuPage() {
       <CartDrawer
         isOpen={isCartOpen}
         cart={cart}
+        cartSubtotal={cartSubtotal}
+        cartDiscountAmount={cartDiscountAmount}
         cartTotal={cartTotal}
         orderError={orderError}
         isSubmitting={submitOrderMutation.isPending}

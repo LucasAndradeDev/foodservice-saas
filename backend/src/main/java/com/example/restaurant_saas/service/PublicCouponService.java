@@ -54,6 +54,8 @@ public class PublicCouponService {
 
         return PublicCouponRedemptionResponse.builder()
                 .discountAppliedLabel(buildDiscountLabel(tab))
+                .discountType(tab.getDiscountType())
+                .discountValue(tab.getDiscountValue())
                 .build();
     }
 

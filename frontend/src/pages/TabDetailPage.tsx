@@ -506,10 +506,12 @@ export function TabDetailPage() {
   const grandTotal = allItems
     .filter((item) => item.status !== 'CANCELLED')
     .reduce((sum, item) => sum + item.netSubtotal, 0)
+  const tabDiscountAmount = computeDiscountAmount(tab.discountType, tab.discountValue, grandTotal)
+  const grandTotalAfterDiscount = roundCurrency(grandTotal - tabDiscountAmount)
   const isOpen = tab.status === 'OPEN'
 
   const cancelServiceChargePercentage = cancelServiceChargeInput.trim() ? Number(cancelServiceChargeInput) : null
-  const cancelAfterDiscount = roundCurrency(grandTotal - computeDiscountAmount(tab.discountType, tab.discountValue, grandTotal))
+  const cancelAfterDiscount = grandTotalAfterDiscount
   const cancelServiceChargeAmount = roundCurrency((cancelAfterDiscount * (cancelServiceChargePercentage ?? 0)) / 100)
   const cancelPaymentTotal = roundCurrency(cancelAfterDiscount + cancelServiceChargeAmount)
 
@@ -825,12 +827,29 @@ export function TabDetailPage() {
       </div>
 
       {allItems.length > 0 && (
-        <div className="mt-4 flex items-center justify-between rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
-          <span className="flex items-center gap-2 text-sm font-medium text-gray-500">
-            <Wallet className="h-4 w-4" />
-            Total da comanda
-          </span>
-          <span className="text-xl font-semibold text-brand-700">{currencyFormatter.format(grandTotal)}</span>
+        <div className="mt-4 rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+          {tab.discountType && (
+            <>
+              <div className="flex items-center justify-between text-sm text-gray-500">
+                <span>Subtotal</span>
+                <span>{currencyFormatter.format(grandTotal)}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-sm text-orange-600">
+                <span>{tab.discountReason || 'Desconto'}</span>
+                <span>-{currencyFormatter.format(tabDiscountAmount)}</span>
+              </div>
+              <div className="my-2 border-t border-gray-100" />
+            </>
+          )}
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-2 text-sm font-medium text-gray-500">
+              <Wallet className="h-4 w-4" />
+              Total da comanda
+            </span>
+            <span className="text-xl font-semibold text-brand-700">
+              {currencyFormatter.format(grandTotalAfterDiscount)}
+            </span>
+          </div>
         </div>
       )}
 

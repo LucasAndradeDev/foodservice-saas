@@ -16,3 +16,19 @@ export const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'curren
 export function scrollToCategory(categoryId: string) {
   document.getElementById(`category-${categoryId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
+
+/** Rounds to cents, avoiding binary floating-point artifacts (e.g. 51.3 + 38.9 === 90.19999999999999 in JS). */
+export function roundCurrency(value: number) {
+  return Math.round(value * 100) / 100
+}
+
+/** Mirrors Tab.getDiscountAmount on the backend: capped fixed/percentage discount over a base amount. */
+export function computeDiscountAmount(
+  discountType: 'FIXED' | 'PERCENTAGE' | null,
+  discountValue: number | null,
+  baseAmount: number,
+) {
+  if (!discountType || !discountValue) return 0
+  const amount = discountType === 'PERCENTAGE' ? roundCurrency((baseAmount * discountValue) / 100) : discountValue
+  return Math.min(amount, baseAmount)
+}

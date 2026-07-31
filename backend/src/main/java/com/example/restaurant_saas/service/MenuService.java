@@ -120,6 +120,8 @@ public class MenuService {
                     .lastOrderItems(lastOrderItems)
                     .currentTabId(openTab.map(Tab::getId).orElse(null))
                     .discountAppliedLabel(openTab.map(PublicCouponService::buildDiscountLabel).orElse(null))
+                    .discountType(openTab.map(Tab::getDiscountType).orElse(null))
+                    .discountValue(openTab.map(Tab::getDiscountValue).orElse(null))
                     .build();
         }
 
