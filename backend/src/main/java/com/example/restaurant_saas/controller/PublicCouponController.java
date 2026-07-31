@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -39,5 +40,18 @@ public class PublicCouponController {
             @Valid @RequestBody RedeemCouponRequest request
     ) {
         return ResponseEntity.ok(publicCouponService.redeem(slug, tableId, request));
+    }
+
+    @DeleteMapping
+    @Operation(summary = "Remove the coupon applied to the table's tab", description = "Clears the discount from a previous coupon redemption and gives back its usage slot. No authentication required.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Coupon removed"),
+            @ApiResponse(responseCode = "400", description = "Restaurant/table not found, no open tab, or no coupon currently applied")
+    })
+    public ResponseEntity<PublicCouponRedemptionResponse> remove(
+            @PathVariable String slug,
+            @PathVariable UUID tableId
+    ) {
+        return ResponseEntity.ok(publicCouponService.remove(slug, tableId));
     }
 }

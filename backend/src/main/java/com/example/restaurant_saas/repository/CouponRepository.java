@@ -27,4 +27,9 @@ public interface CouponRepository extends JpaRepository<Coupon, UUID> {
     @Modifying
     @Query("UPDATE Coupon c SET c.usedCount = c.usedCount + 1 WHERE c.id = :id AND (c.maxUses IS NULL OR c.usedCount < c.maxUses)")
     int incrementUsage(@Param("id") UUID id);
+
+    /** Gives back the usage slot claimed by incrementUsage when a redemption is undone. */
+    @Modifying
+    @Query("UPDATE Coupon c SET c.usedCount = c.usedCount - 1 WHERE c.id = :id AND c.usedCount > 0")
+    void decrementUsage(@Param("id") UUID id);
 }

@@ -93,3 +93,7 @@ export function redeemCoupon(slug: string, tableId: string, code: string) {
     .post<CouponRedemption>(`/public/menu/${slug}/tables/${tableId}/coupon`, { code })
     .then((res) => res.data)
 }
+
+export function removeCoupon(slug: string, tableId: string) {
+  return http.delete<CouponRedemption>(`/public/menu/${slug}/tables/${tableId}/coupon`).then((res) => res.data)
+}

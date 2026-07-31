@@ -34,6 +34,7 @@ import { getMyRestaurant } from '../api/restaurant'
 import { listTables } from '../api/tables'
 import {
   addTableToTab,
+  applyTabDiscount,
   cancelTab,
   cancelTabPayment,
   computeDiscountAmount,
@@ -344,6 +345,14 @@ export function TabDetailPage() {
   function handleTransferToTab(targetTab: Tab) {
     transferItemsMutation.mutate({ itemIds: Array.from(selectedItemIds), targetTabId: targetTab.id })
   }
+
+  const tabDiscountMutation = useMutation({
+    mutationFn: () => applyTabDiscount(tabId!, { discountType: null }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tabs', tabId] })
+    },
+    onError: () => setError('Não foi possível remover o desconto desta comanda.'),
+  })
 
   const itemDiscountMutation = useMutation({
     mutationFn: ({ itemId, discountType, value, reason }: { itemId: string; discountType: DiscountType | null; value?: number; reason?: string }) =>
@@ -835,7 +844,19 @@ export function TabDetailPage() {
                 <span>{currencyFormatter.format(grandTotal)}</span>
               </div>
               <div className="mt-1 flex items-center justify-between text-sm text-orange-600">
-                <span>{tab.discountReason || 'Desconto'}</span>
+                <span className="flex items-center gap-2">
+                  {tab.discountReason || 'Desconto'}
+                  {isOpen && canDiscount && (
+                    <button
+                      type="button"
+                      onClick={() => tabDiscountMutation.mutate()}
+                      disabled={tabDiscountMutation.isPending}
+                      className="text-xs font-medium text-red-600 underline hover:text-red-700 disabled:opacity-50"
+                    >
+                      Remover
+                    </button>
+                  )}
+                </span>
                 <span>-{currencyFormatter.format(tabDiscountAmount)}</span>
               </div>
               <div className="my-2 border-t border-gray-100" />

@@ -21,6 +21,8 @@ interface CartDrawerProps {
   onCouponCodeChange: (value: string) => void
   onApplyCoupon: () => void
   isApplyingCoupon: boolean
+  onRemoveCoupon: () => void
+  isRemovingCoupon: boolean
   couponError: string | null
 }
 
@@ -42,6 +44,8 @@ export function CartDrawer({
   onCouponCodeChange,
   onApplyCoupon,
   isApplyingCoupon,
+  onRemoveCoupon,
+  isRemovingCoupon,
   couponError,
 }: CartDrawerProps) {
   return (
@@ -80,7 +84,15 @@ export function CartDrawer({
             {discountAppliedLabel ? (
               <div className="mb-4 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2 text-sm font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
                 <Ticket className="h-4 w-4 shrink-0" />
-                {discountAppliedLabel}
+                <span className="flex-1">{discountAppliedLabel}</span>
+                <button
+                  type="button"
+                  onClick={onRemoveCoupon}
+                  disabled={isRemovingCoupon}
+                  className="shrink-0 text-xs font-semibold text-green-800 underline hover:text-green-900 disabled:opacity-50 dark:text-green-300 dark:hover:text-green-200"
+                >
+                  Remover
+                </button>
               </div>
             ) : (
               <div className="mb-4">

@@ -59,6 +59,33 @@ public class PublicCouponService {
                 .build();
     }
 
+    @Transactional
+    public PublicCouponRedemptionResponse remove(String slug, UUID tableId) {
+        Restaurant restaurant = restaurantRepository.findBySlug(slug)
+                .orElseThrow(() -> new IllegalArgumentException("Menu not found."));
+
+        Tab tab = tabRepository.findOpenTabByRestaurantIdAndTableId(restaurant.getId(), tableId)
+                .orElseThrow(() -> new IllegalArgumentException("No open tab for this table."));
+
+        String reason = tab.getDiscountReason();
+        if (reason == null || !reason.startsWith("Cupom: ")) {
+            throw new IllegalArgumentException("No coupon applied to this table.");
+        }
+
+        String code = reason.substring("Cupom: ".length());
+        couponRepository.findByRestaurantIdAndCodeIgnoreCase(restaurant.getId(), code)
+                .ifPresent(coupon -> couponRepository.decrementUsage(coupon.getId()));
+
+        tab.setDiscountType(null);
+        tab.setDiscountValue(null);
+        tab.setDiscountReason(null);
+        tab.setDiscountAppliedBy(null);
+        tab.setDiscountAppliedAt(null);
+        tabRepository.save(tab);
+
+        return PublicCouponRedemptionResponse.builder().build();
+    }
+
     static String buildDiscountLabel(Tab tab) {
         if (tab.getDiscountType() == null || tab.getDiscountValue() == null) {
             return null;

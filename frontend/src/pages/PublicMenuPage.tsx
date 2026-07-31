@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ShoppingBag, Ticket } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { getPublicMenu, redeemCoupon, submitPublicOrder, type PublicMenuProduct } from '../api/publicMenu'
+import { getPublicMenu, redeemCoupon, removeCoupon, submitPublicOrder, type PublicMenuProduct } from '../api/publicMenu'
 import { createTableRequest, type TableRequestType } from '../api/tableRequests'
 import { CartDrawer } from './publicMenu/CartDrawer'
 import { CategoryNav } from './publicMenu/CategoryNav'
@@ -133,6 +133,15 @@ export function PublicMenuPage() {
       queryClient.invalidateQueries({ queryKey: ['publicMenu', slug, tableId] })
     },
     onError: () => setCouponError('Cupom inválido, expirado ou esgotado.'),
+  })
+
+  const removeCouponMutation = useMutation({
+    mutationFn: () => removeCoupon(slug!, tableId!),
+    onSuccess: () => {
+      setCouponError(null)
+      queryClient.invalidateQueries({ queryKey: ['publicMenu', slug, tableId] })
+    },
+    onError: () => setCouponError('Não foi possível remover o cupom. Tente novamente.'),
   })
 
   const tableRequestMutation = useMutation({
@@ -442,6 +451,8 @@ export function PublicMenuPage() {
         onCouponCodeChange={setCouponCode}
         onApplyCoupon={() => applyCouponMutation.mutate()}
         isApplyingCoupon={applyCouponMutation.isPending}
+        onRemoveCoupon={() => removeCouponMutation.mutate()}
+        isRemovingCoupon={removeCouponMutation.isPending}
         couponError={couponError}
       />
 
