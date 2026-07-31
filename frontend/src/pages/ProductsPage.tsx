@@ -4,8 +4,8 @@ import {
   Ban,
   CalendarClock,
   CheckCircle2,
-  ChevronDown,
   Circle,
+  Filter,
   ListChecks,
   MoreVertical,
   Package,
@@ -14,6 +14,7 @@ import {
   Power,
   Search,
   Star,
+  Tag,
   Trash2,
 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
@@ -28,9 +29,16 @@ import {
   type Product,
 } from '../api/products'
 import { useAuth } from '../auth/AuthContext'
+import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+
+const STATUS_FILTER_OPTIONS: { value: 'active' | 'inactive' | 'all'; label: string }[] = [
+  { value: 'active', label: 'Ativos' },
+  { value: 'inactive', label: 'Inativos' },
+  { value: 'all', label: 'Todos' },
+]
 
 export function ProductsPage() {
   const { user } = useAuth()
@@ -46,6 +54,11 @@ export function ProductsPage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active')
+
+  const categoryFilterOptions = [
+    { value: '', label: 'Todas as categorias' },
+    ...(categories ?? []).map((category) => ({ value: category.id, label: category.name })),
+  ]
 
   useEffect(() => {
     const timeout = setTimeout(() => setSearch(searchInput), 300)
@@ -235,33 +248,20 @@ export function ProductsPage() {
               className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm focus:border-brand-500 focus:bg-white focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:focus:bg-stone-800"
             />
           </div>
-          <div className="relative w-full sm:w-auto">
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm focus:border-brand-500 focus:bg-white focus:outline-none sm:w-auto dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:focus:bg-stone-800"
-            >
-              <option value="">Todas as categorias</option>
-              {categories?.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-stone-500" />
-          </div>
-          <div className="relative w-full sm:w-auto">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | 'all')}
-              className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm focus:border-brand-500 focus:bg-white focus:outline-none sm:w-auto dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:focus:bg-stone-800"
-            >
-              <option value="active">Ativos</option>
-              <option value="inactive">Inativos</option>
-              <option value="all">Todos</option>
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-stone-500" />
-          </div>
+          <Dropdown
+            value={categoryFilter}
+            options={categoryFilterOptions}
+            onChange={setCategoryFilter}
+            icon={Tag}
+            panelClassName="w-56"
+          />
+          <Dropdown
+            value={statusFilter}
+            options={STATUS_FILTER_OPTIONS}
+            onChange={setStatusFilter}
+            icon={Filter}
+            panelClassName="w-40"
+          />
         </div>
       </div>
 

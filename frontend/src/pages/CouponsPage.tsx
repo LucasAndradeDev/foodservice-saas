@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Circle, Clock, Pencil, Plus, Power, Ticket, XCircle } from 'lucide-react'
+import { CheckCircle2, Circle, Clock, Filter, Pencil, Plus, Power, Ticket, Trash2, XCircle } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { createCoupon, listCoupons, updateCoupon, type Coupon } from '../api/coupons'
+import { createCoupon, deleteCoupon, listCoupons, updateCoupon, type Coupon } from '../api/coupons'
 import type { DiscountType } from '../api/orders'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
 
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -15,17 +17,27 @@ function formatUsage(coupon: Coupon) {
   return coupon.maxUses ? `${coupon.usedCount}/${coupon.maxUses}` : `${coupon.usedCount}`
 }
 
-function getCouponStatus(coupon: Coupon) {
+type CouponStatusLabel = 'Ativo' | 'Inativo' | 'Expirado' | 'Esgotado'
+
+const STATUS_FILTER_OPTIONS: { value: 'all' | CouponStatusLabel; label: string }[] = [
+  { value: 'all', label: 'Todos' },
+  { value: 'Ativo', label: 'Ativos' },
+  { value: 'Inativo', label: 'Inativos' },
+  { value: 'Expirado', label: 'Expirados' },
+  { value: 'Esgotado', label: 'Esgotados' },
+]
+
+function getCouponStatus(coupon: Coupon): { label: CouponStatusLabel; className: string; icon: typeof CheckCircle2 } {
   if (!coupon.active) {
-    return { label: 'Inativo', className: 'bg-gray-400 text-white', icon: Circle }
+    return { label: 'Inativo', className: 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400', icon: Circle }
   }
   if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
-    return { label: 'Expirado', className: 'bg-amber-500 text-white', icon: Clock }
+    return { label: 'Expirado', className: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400', icon: Clock }
   }
   if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
-    return { label: 'Esgotado', className: 'bg-red-600 text-white', icon: XCircle }
+    return { label: 'Esgotado', className: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400', icon: XCircle }
   }
-  return { label: 'Ativo', className: 'bg-green-600 text-white', icon: CheckCircle2 }
+  return { label: 'Ativo', className: 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400', icon: CheckCircle2 }
 }
 
 export function CouponsPage() {
@@ -44,6 +56,13 @@ export function CouponsPage() {
   const [expiresAt, setExpiresAt] = useState('')
   const [maxUses, setMaxUses] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [listError, setListError] = useState<string | null>(null)
+  const [couponToDelete, setCouponToDelete] = useState<Coupon | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'all' | CouponStatusLabel>('all')
+
+  const filteredCoupons = (coupons ?? []).filter(
+    (coupon) => statusFilter === 'all' || getCouponStatus(coupon).label === statusFilter,
+  )
 
   const createMutation = useMutation({
     mutationFn: createCoupon,
@@ -58,6 +77,15 @@ export function CouponsPage() {
     mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof updateCoupon>[1] }) =>
       updateCoupon(id, payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['coupons'] }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteCoupon,
+    onSuccess: () => {
+      setListError(null)
+      queryClient.invalidateQueries({ queryKey: ['coupons'] })
+    },
+    onError: () => setListError('Não foi possível excluir o cupom.'),
   })
 
   function openCreateForm() {
@@ -117,6 +145,14 @@ export function CouponsPage() {
     updateMutation.mutate({ id: coupon.id, payload: { active: !coupon.active } })
   }
 
+  function confirmDelete() {
+    if (couponToDelete) {
+      setListError(null)
+      deleteMutation.mutate(couponToDelete.id)
+    }
+    setCouponToDelete(null)
+  }
+
   const isFormOpen = isCreating || editingCoupon !== null
 
   return (
@@ -138,6 +174,8 @@ export function CouponsPage() {
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
+      {listError && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{listError}</p>}
+
       {coupons && coupons.length === 0 && (
         <p className="text-sm text-gray-500 dark:text-stone-400">
           Nenhum cupom cadastrado. O cliente aplica o código sozinho no cardápio digital, no carrinho.
@@ -145,66 +183,87 @@ export function CouponsPage() {
       )}
 
       {coupons && coupons.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Código</th>
-                  <th className="px-4 py-2 font-medium">Desconto</th>
-                  <th className="px-4 py-2 font-medium">Validade</th>
-                  <th className="px-4 py-2 font-medium">Usos</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {coupons.map((coupon) => {
-                  const status = getCouponStatus(coupon)
-                  const StatusIcon = status.icon
-                  return (
-                  <tr key={coupon.id} className="border-t border-gray-100 dark:border-white/10">
-                    <td className="px-4 py-2 font-medium text-gray-800 dark:text-white">{coupon.code}</td>
-                    <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{formatDiscount(coupon.discountType, coupon.discountValue)}</td>
-                    <td className="px-4 py-2 text-gray-600 dark:text-stone-400">
-                      {coupon.expiresAt ? dateFormatter.format(new Date(coupon.expiresAt)) : 'Sem validade'}
-                    </td>
-                    <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{formatUsage(coupon)}</td>
-                    <td className="px-4 py-2">
-                      <span className={`flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}>
-                        <StatusIcon className="h-3.5 w-3.5" />
-                        {status.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openEditForm(coupon)}
-                          title="Editar"
-                          aria-label="Editar"
-                          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleActive(coupon)}
-                          title={coupon.active ? 'Desativar' : 'Ativar'}
-                          aria-label={coupon.active ? 'Desativar' : 'Ativar'}
-                          className={`rounded-md p-1.5 hover:bg-gray-100 dark:hover:bg-white/5 ${coupon.active ? 'text-gray-500 hover:text-amber-700 dark:text-stone-400 dark:hover:text-amber-400' : 'text-gray-400 hover:text-green-700 dark:text-stone-500 dark:hover:text-green-400'}`}
-                        >
-                          <Power className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+        <>
+          <div className="mb-4">
+            <Dropdown value={statusFilter} options={STATUS_FILTER_OPTIONS} onChange={setStatusFilter} icon={Filter} panelClassName="w-44" />
           </div>
-        </div>
+
+          {filteredCoupons.length === 0 && (
+            <p className="text-sm text-gray-500 dark:text-stone-400">Nenhum cupom com esse status.</p>
+          )}
+
+          {filteredCoupons.length > 0 && (
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
+                    <tr>
+                      <th className="px-4 py-2 font-medium">Código</th>
+                      <th className="px-4 py-2 font-medium">Desconto</th>
+                      <th className="px-4 py-2 font-medium">Validade</th>
+                      <th className="px-4 py-2 font-medium">Usos</th>
+                      <th className="px-4 py-2 font-medium">Status</th>
+                      <th className="px-4 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredCoupons.map((coupon) => {
+                      const status = getCouponStatus(coupon)
+                      const StatusIcon = status.icon
+                      return (
+                        <tr key={coupon.id} className="border-t border-gray-100 dark:border-white/10">
+                          <td className="px-4 py-2 font-medium text-gray-800 dark:text-white">{coupon.code}</td>
+                          <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{formatDiscount(coupon.discountType, coupon.discountValue)}</td>
+                          <td className="px-4 py-2 text-gray-600 dark:text-stone-400">
+                            {coupon.expiresAt ? dateFormatter.format(new Date(coupon.expiresAt)) : 'Sem validade'}
+                          </td>
+                          <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{formatUsage(coupon)}</td>
+                          <td className="px-4 py-2">
+                            <span className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${status.className}`}>
+                              <StatusIcon className="h-3 w-3" />
+                              {status.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openEditForm(coupon)}
+                                title="Editar"
+                                aria-label="Editar"
+                                className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => toggleActive(coupon)}
+                                title={coupon.active ? 'Desativar' : 'Ativar'}
+                                aria-label={coupon.active ? 'Desativar' : 'Ativar'}
+                                className={`rounded-md p-1.5 hover:bg-gray-100 dark:hover:bg-white/5 ${coupon.active ? 'text-gray-500 hover:text-amber-700 dark:text-stone-400 dark:hover:text-amber-400' : 'text-gray-400 hover:text-green-700 dark:text-stone-500 dark:hover:text-green-400'}`}
+                              >
+                                <Power className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCouponToDelete(coupon)}
+                                title="Excluir"
+                                aria-label="Excluir"
+                                className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-red-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-red-400"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {isFormOpen && (
@@ -308,6 +367,18 @@ export function CouponsPage() {
             </button>
           </form>
         </Modal>
+      )}
+
+      {couponToDelete && (
+        <ConfirmDialog
+          title="Excluir cupom"
+          message={`Excluir o cupom "${couponToDelete.code}"? Essa ação não pode ser desfeita.`}
+          confirmLabel="Excluir"
+          cancelLabel="Voltar"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setCouponToDelete(null)}
+        />
       )}
     </div>
   )

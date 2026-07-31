@@ -245,6 +245,47 @@ class CouponControllerIntegrationTest {
     }
 
     @Test
+    void deleteCoupon_asOwner_shouldRemoveItFromListing() throws Exception {
+        String token = registerOwnerAndGetToken();
+        MvcResult createResult = mockMvc.perform(post("/api/v1/coupons")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createCouponRequestBody("EXCLUIVEL", DiscountType.FIXED, "5.00")))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String couponId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(delete("/api/v1/coupons/" + couponId)
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/coupons")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void deleteCoupon_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/coupons")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createCouponRequestBody("PROTEGIDO", DiscountType.FIXED, "5.00")))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String couponId = JsonPath.read(createResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(delete("/api/v1/coupons/" + couponId)
+                        .header("Authorization", "Bearer " + waiterToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void listCoupons_asOwner_shouldReturnCreatedCoupon() throws Exception {
         String token = registerOwnerAndGetToken();
         mockMvc.perform(post("/api/v1/coupons")

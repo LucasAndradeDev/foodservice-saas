@@ -52,7 +52,7 @@ export function ConfirmDialog({
               type="button"
               onClick={onConfirm}
               className={`rounded-md px-4 py-2 text-sm font-medium text-white ${
-                danger ? 'bg-red-600 hover:bg-red-700' : 'bg-brand-600 hover:bg-brand-700'
+                danger ? 'bg-brand-700 hover:bg-brand-800' : 'bg-brand-600 hover:bg-brand-700'
               }`}
             >
               {confirmLabel}

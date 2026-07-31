@@ -42,3 +42,7 @@ export function createCoupon(payload: CreateCouponPayload) {
 export function updateCoupon(id: string, payload: UpdateCouponPayload) {
   return http.put<Coupon>(`/coupons/${id}`, payload).then((res) => res.data)
 }
+
+export function deleteCoupon(id: string) {
+  return http.delete<void>(`/coupons/${id}`).then((res) => res.data)
+}

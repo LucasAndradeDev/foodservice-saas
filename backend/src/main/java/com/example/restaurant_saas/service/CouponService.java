@@ -88,6 +88,11 @@ public class CouponService {
         return toResponse(couponRepository.save(coupon));
     }
 
+    @Transactional
+    public void deleteCoupon(UUID restaurantId, UUID couponId) {
+        couponRepository.delete(findByIdAndRestaurant(restaurantId, couponId));
+    }
+
     private void validateDiscountValue(DiscountType type, BigDecimal value) {
         if (type == DiscountType.PERCENTAGE && value.compareTo(BigDecimal.valueOf(100)) > 0) {
             throw new IllegalArgumentException("Percentage discount cannot exceed 100.");

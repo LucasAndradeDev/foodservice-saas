@@ -66,4 +66,19 @@ public class CouponController {
     ) {
         return ResponseEntity.ok(couponService.updateCoupon(currentUser.getRestaurantId(), id, request));
     }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Delete coupon", description = "Permanently deletes a coupon. Past redemptions are unaffected — the discount they applied was copied onto the tab at redemption time. Deactivate instead if you just want to stop new redemptions while keeping the coupon's history visible.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Coupon deleted"),
+            @ApiResponse(responseCode = "400", description = "Coupon not found in this restaurant"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
+    })
+    public ResponseEntity<Void> deleteCoupon(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id
+    ) {
+        couponService.deleteCoupon(currentUser.getRestaurantId(), id);
+        return ResponseEntity.noContent().build();
+    }
 }
