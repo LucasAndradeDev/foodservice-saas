@@ -1,12 +1,9 @@
+import { Eye, EyeOff, IdCard, Lock, Mail, MapPin, Phone, Store, User } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { AuthInput } from '../components/AuthLayout'
 import { Logo } from '../theme/Logo'
-import { ThemeToggleButton } from '../theme/ThemeToggleButton'
-
-const inputClass =
-  'mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400'
-const labelClass = 'mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300'
 
 export function RegisterPage() {
   const { registerRestaurant, isAuthenticated } = useAuth()
@@ -19,6 +16,7 @@ export function RegisterPage() {
   const [ownerEmail, setOwnerEmail] = useState('')
   const [confirmOwnerEmail, setConfirmOwnerEmail] = useState('')
   const [ownerPassword, setOwnerPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -55,104 +53,106 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-gray-50 p-4 dark:bg-stone-950">
-      <ThemeToggleButton className="absolute right-4 top-4" />
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-lg bg-white p-6 shadow-sm sm:p-8 dark:bg-stone-900"
-      >
-        <Logo className="mx-auto mb-4 h-12 w-auto" />
-        <h1 className="mb-6 text-center text-sm font-medium text-gray-500 dark:text-stone-400">
-          Cadastrar restaurante
-        </h1>
+    <>
+      <Logo className="mx-auto mb-6 block h-16 w-auto" />
+      <h1 className="mb-8 text-2xl font-bold text-gray-800 dark:text-white">Cadastre seu restaurante</h1>
 
-        <label className={labelClass} htmlFor="restaurantName">
-          Nome do restaurante
-        </label>
-        <input
+      <form onSubmit={handleSubmit}>
+        <AuthInput
           id="restaurantName"
           type="text"
+          label="Nome do restaurante"
+          icon={Store}
           required
+          placeholder="Digite o nome do restaurante"
           value={restaurantName}
           onChange={(e) => setRestaurantName(e.target.value)}
-          className={inputClass}
         />
 
-        <label className={labelClass} htmlFor="cnpj">
-          CNPJ <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
-        </label>
-        <input id="cnpj" type="text" value={cnpj} onChange={(e) => setCnpj(e.target.value)} className={inputClass} />
+        <AuthInput
+          id="cnpj"
+          type="text"
+          label="CNPJ (opcional)"
+          icon={IdCard}
+          placeholder="Digite o CNPJ"
+          value={cnpj}
+          onChange={(e) => setCnpj(e.target.value)}
+        />
 
-        <label className={labelClass} htmlFor="phone">
-          Telefone <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
-        </label>
-        <input
+        <AuthInput
           id="phone"
           type="text"
+          label="Telefone (opcional)"
+          icon={Phone}
+          placeholder="Digite o telefone"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          className={inputClass}
         />
 
-        <label className={labelClass} htmlFor="address">
-          Endereço <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
-        </label>
-        <input
+        <AuthInput
           id="address"
           type="text"
+          label="Endereço (opcional)"
+          icon={MapPin}
+          placeholder="Digite o endereço"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
-          className={inputClass}
         />
 
-        <label className={labelClass} htmlFor="ownerName">
-          Seu nome
-        </label>
-        <input
+        <AuthInput
           id="ownerName"
           type="text"
+          label="Seu nome"
+          icon={User}
           required
+          placeholder="Digite seu nome"
           value={ownerName}
           onChange={(e) => setOwnerName(e.target.value)}
-          className={inputClass}
         />
 
-        <label className={labelClass} htmlFor="ownerEmail">
-          Email
-        </label>
-        <input
+        <AuthInput
           id="ownerEmail"
           type="email"
+          label="Email"
+          icon={Mail}
           required
+          placeholder="Digite o e-mail"
           value={ownerEmail}
           onChange={(e) => setOwnerEmail(e.target.value)}
-          className={inputClass}
         />
 
-        <label className={labelClass} htmlFor="confirmOwnerEmail">
-          Confirmar email
-        </label>
-        <input
+        <AuthInput
           id="confirmOwnerEmail"
           type="email"
+          label="Confirmar email"
+          icon={Mail}
           required
+          placeholder="Confirme o e-mail"
           value={confirmOwnerEmail}
           onChange={(e) => setConfirmOwnerEmail(e.target.value)}
           onPaste={(e) => e.preventDefault()}
-          className={inputClass}
         />
 
-        <label className={labelClass} htmlFor="ownerPassword">
-          Senha
-        </label>
-        <input
+        <AuthInput
           id="ownerPassword"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
+          label="Senha"
+          icon={Lock}
           required
           minLength={6}
+          placeholder="Digite a senha"
           value={ownerPassword}
           onChange={(e) => setOwnerPassword(e.target.value)}
-          className={inputClass}
+          rightElement={
+            <button
+              type="button"
+              onClick={() => setShowPassword((show) => !show)}
+              aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+              className="text-gray-400 hover:text-gray-600 dark:text-stone-500 dark:hover:text-stone-300"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          }
         />
 
         {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -160,18 +160,18 @@ export function RegisterPage() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+          className="mt-2 w-full rounded-lg bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
         >
           {isSubmitting ? 'Cadastrando...' : 'Cadastrar'}
         </button>
-
-        <p className="mt-4 text-center text-sm text-gray-600 dark:text-stone-400">
-          Já tem uma conta?{' '}
-          <Link to="/login" className="font-medium text-brand-700 hover:underline dark:text-brand-400">
-            Entrar
-          </Link>
-        </p>
       </form>
-    </div>
+
+      <p className="mt-6 text-center text-sm text-gray-600 dark:text-stone-400">
+        Já tem uma conta?{' '}
+        <Link to="/login" className="font-medium text-brand-700 hover:underline dark:text-brand-400">
+          Entrar
+        </Link>
+      </p>
+    </>
   )
 }
