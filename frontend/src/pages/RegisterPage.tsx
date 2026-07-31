@@ -1,7 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import moraLogo from '../assets/mora-logo.svg'
 import { useAuth } from '../auth/AuthContext'
+import { Logo } from '../theme/Logo'
+import { ThemeToggleButton } from '../theme/ThemeToggleButton'
+
+const inputClass =
+  'mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400'
+const labelClass = 'mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300'
 
 export function RegisterPage() {
   const { registerRestaurant, isAuthenticated } = useAuth()
@@ -50,17 +55,18 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-gray-50 p-4 dark:bg-stone-950">
+      <ThemeToggleButton className="absolute right-4 top-4" />
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-lg bg-white p-6 shadow-sm sm:p-8"
+        className="w-full max-w-sm rounded-lg bg-white p-6 shadow-sm sm:p-8 dark:bg-stone-900"
       >
-        <img src={moraLogo} alt="Morá" className="mx-auto mb-4 h-12 w-auto" />
-        <h1 className="mb-6 text-center text-sm font-medium text-gray-500">
+        <Logo className="mx-auto mb-4 h-12 w-auto" />
+        <h1 className="mb-6 text-center text-sm font-medium text-gray-500 dark:text-stone-400">
           Cadastrar restaurante
         </h1>
 
-        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="restaurantName">
+        <label className={labelClass} htmlFor="restaurantName">
           Nome do restaurante
         </label>
         <input
@@ -69,43 +75,37 @@ export function RegisterPage() {
           required
           value={restaurantName}
           onChange={(e) => setRestaurantName(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className={inputClass}
         />
 
-        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="cnpj">
-          CNPJ <span className="font-normal text-gray-400">(opcional)</span>
+        <label className={labelClass} htmlFor="cnpj">
+          CNPJ <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
         </label>
-        <input
-          id="cnpj"
-          type="text"
-          value={cnpj}
-          onChange={(e) => setCnpj(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
-        />
+        <input id="cnpj" type="text" value={cnpj} onChange={(e) => setCnpj(e.target.value)} className={inputClass} />
 
-        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="phone">
-          Telefone <span className="font-normal text-gray-400">(opcional)</span>
+        <label className={labelClass} htmlFor="phone">
+          Telefone <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
         </label>
         <input
           id="phone"
           type="text"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className={inputClass}
         />
 
-        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="address">
-          Endereço <span className="font-normal text-gray-400">(opcional)</span>
+        <label className={labelClass} htmlFor="address">
+          Endereço <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
         </label>
         <input
           id="address"
           type="text"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className={inputClass}
         />
 
-        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="ownerName">
+        <label className={labelClass} htmlFor="ownerName">
           Seu nome
         </label>
         <input
@@ -114,10 +114,10 @@ export function RegisterPage() {
           required
           value={ownerName}
           onChange={(e) => setOwnerName(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className={inputClass}
         />
 
-        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="ownerEmail">
+        <label className={labelClass} htmlFor="ownerEmail">
           Email
         </label>
         <input
@@ -126,10 +126,10 @@ export function RegisterPage() {
           required
           value={ownerEmail}
           onChange={(e) => setOwnerEmail(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className={inputClass}
         />
 
-        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="confirmOwnerEmail">
+        <label className={labelClass} htmlFor="confirmOwnerEmail">
           Confirmar email
         </label>
         <input
@@ -139,10 +139,10 @@ export function RegisterPage() {
           value={confirmOwnerEmail}
           onChange={(e) => setConfirmOwnerEmail(e.target.value)}
           onPaste={(e) => e.preventDefault()}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className={inputClass}
         />
 
-        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="ownerPassword">
+        <label className={labelClass} htmlFor="ownerPassword">
           Senha
         </label>
         <input
@@ -152,10 +152,10 @@ export function RegisterPage() {
           minLength={6}
           value={ownerPassword}
           onChange={(e) => setOwnerPassword(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className={inputClass}
         />
 
-        {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+        {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         <button
           type="submit"
@@ -165,9 +165,9 @@ export function RegisterPage() {
           {isSubmitting ? 'Cadastrando...' : 'Cadastrar'}
         </button>
 
-        <p className="mt-4 text-center text-sm text-gray-600">
+        <p className="mt-4 text-center text-sm text-gray-600 dark:text-stone-400">
           Já tem uma conta?{' '}
-          <Link to="/login" className="font-medium text-brand-700 hover:underline">
+          <Link to="/login" className="font-medium text-brand-700 hover:underline dark:text-brand-400">
             Entrar
           </Link>
         </p>

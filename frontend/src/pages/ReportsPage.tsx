@@ -77,11 +77,13 @@ function ChangeLine({
   const isPositive = changePercentage >= 0
   const Icon = isPositive ? TrendingUp : TrendingDown
   return (
-    <div className={`mt-1 flex items-start gap-1 text-xs ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+    <div
+      className={`mt-1 flex items-start gap-1 text-xs ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+    >
       <Icon className="mt-0.5 h-3 w-3 shrink-0" />
       <span>
         {Math.abs(changePercentage)}% vs {previousValueLabel}
-        <span className="text-gray-400"> ({previousRangeLabel})</span>
+        <span className="text-gray-400 dark:text-stone-500"> ({previousRangeLabel})</span>
       </span>
     </div>
   )
@@ -89,12 +91,12 @@ function ChangeLine({
 
 function StatTile({ icon: Icon, label, value, changePercentage, previousValueLabel, previousRangeLabel }: StatTileProps) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-1.5 text-sm text-gray-500">
+    <div className="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-stone-900 p-4 shadow-sm">
+      <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-stone-400">
         <Icon className="h-4 w-4" />
         {label}
       </div>
-      <div className="mt-1 text-3xl font-semibold text-brand-700">{value}</div>
+      <div className="mt-1 text-3xl font-semibold text-brand-700 dark:text-brand-400">{value}</div>
       {changePercentage !== null && changePercentage !== undefined && previousValueLabel && previousRangeLabel && (
         <ChangeLine
           changePercentage={changePercentage}
@@ -152,7 +154,7 @@ export function ReportsPage() {
     return `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
       activePreset === preset
         ? 'bg-brand-600 text-white shadow-sm'
-        : 'border border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
+        : 'border border-gray-200 bg-gray-50 text-gray-700 dark:text-stone-300 hover:bg-gray-100 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10'
     }`
   }
 
@@ -162,8 +164,8 @@ export function ReportsPage() {
 
   return (
     <div>
-      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
-        <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800">
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-stone-900 p-4 shadow-xs">
+        <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
           <BarChart3 className="h-5 w-5 text-brand-600" />
           Relatórios
         </h1>
@@ -181,30 +183,30 @@ export function ReportsPage() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 transition-colors focus-within:border-brand-500 focus-within:bg-white">
-            <Calendar className="h-4 w-4 shrink-0 text-gray-400" />
+          <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 transition-colors focus-within:border-brand-500 focus-within:bg-white dark:border-white/10 dark:bg-white/5 dark:focus-within:bg-stone-900">
+            <Calendar className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />
             <input
               type="date"
               value={start}
               max={end}
               onChange={(e) => setStart(e.target.value)}
-              className="bg-transparent text-sm text-gray-700 focus:outline-none"
+              className="bg-transparent text-sm text-gray-700 dark:text-stone-300 focus:outline-none"
             />
-            <span className="text-sm text-gray-400">até</span>
+            <span className="text-sm text-gray-400 dark:text-stone-500">até</span>
             <input
               type="date"
               value={end}
               min={start}
               max={today}
               onChange={(e) => setEnd(e.target.value)}
-              className="bg-transparent text-sm text-gray-700 focus:outline-none"
+              className="bg-transparent text-sm text-gray-700 dark:text-stone-300 focus:outline-none"
             />
           </div>
         </div>
       </div>
 
       {isLoading || !data ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>
       ) : (
         <>
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -239,15 +241,15 @@ export function ReportsPage() {
           </div>
 
           <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-              <h2 className="border-b border-gray-100 px-4 py-3 text-sm font-medium text-gray-700">
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-stone-900 shadow-sm">
+              <h2 className="border-b border-gray-100 dark:border-white/10 px-4 py-3 text-sm font-medium text-gray-700 dark:text-stone-300">
                 Faturamento por forma de pagamento
               </h2>
               {data.byPaymentMethod.length === 0 ? (
-                <p className="px-4 py-3 text-sm text-gray-500">Nenhuma comanda fechada no período.</p>
+                <p className="px-4 py-3 text-sm text-gray-500 dark:text-stone-400">Nenhuma comanda fechada no período.</p>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-left text-gray-500">
+                  <thead className="bg-gray-50 text-left dark:bg-white/5 text-gray-500 dark:text-stone-400">
                     <tr>
                       <th className="px-4 py-2 font-medium">Forma de pagamento</th>
                       <th className="px-4 py-2 font-medium">Comandas</th>
@@ -256,10 +258,10 @@ export function ReportsPage() {
                   </thead>
                   <tbody>
                     {data.byPaymentMethod.map((row) => (
-                      <tr key={row.paymentMethod} className="border-t border-gray-100">
-                        <td className="px-4 py-2 text-gray-800">{PAYMENT_METHOD_LABELS[row.paymentMethod]}</td>
-                        <td className="px-4 py-2 text-gray-600">{row.tabsCount}</td>
-                        <td className="px-4 py-2 text-gray-600">{currencyFormatter.format(row.total)}</td>
+                      <tr key={row.paymentMethod} className="border-t border-gray-100 dark:border-white/10">
+                        <td className="px-4 py-2 text-gray-800 dark:text-white">{PAYMENT_METHOD_LABELS[row.paymentMethod]}</td>
+                        <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{row.tabsCount}</td>
+                        <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{currencyFormatter.format(row.total)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -267,14 +269,14 @@ export function ReportsPage() {
               )}
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-              <h2 className="border-b border-gray-100 px-4 py-3 text-sm font-medium text-gray-700">Produtos mais vendidos</h2>
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-stone-900 shadow-sm">
+              <h2 className="border-b border-gray-100 dark:border-white/10 px-4 py-3 text-sm font-medium text-gray-700 dark:text-stone-300">Produtos mais vendidos</h2>
               {data.topProducts.length === 0 ? (
-                <p className="px-4 py-3 text-sm text-gray-500">Nenhuma venda no período.</p>
+                <p className="px-4 py-3 text-sm text-gray-500 dark:text-stone-400">Nenhuma venda no período.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-left text-gray-500">
+                    <thead className="bg-gray-50 text-left dark:bg-white/5 text-gray-500 dark:text-stone-400">
                       <tr>
                         <th className="px-4 py-2 font-medium">Produto</th>
                         <th className="px-4 py-2 font-medium">Qtd.</th>
@@ -288,29 +290,29 @@ export function ReportsPage() {
                         const hasCostData = product.marginPercentage !== null
                         const partialCostData = hasCostData && product.costQuantityCovered < product.quantitySold
                         return (
-                          <tr key={product.productId} className="border-t border-gray-100">
-                            <td className="px-4 py-2 text-gray-800">{product.productName}</td>
-                            <td className="px-4 py-2 text-gray-600">{product.quantitySold}</td>
-                            <td className="px-4 py-2 text-gray-600">{currencyFormatter.format(product.revenue)}</td>
-                            <td className="px-4 py-2 text-gray-600">
+                          <tr key={product.productId} className="border-t border-gray-100 dark:border-white/10">
+                            <td className="px-4 py-2 text-gray-800 dark:text-white">{product.productName}</td>
+                            <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{product.quantitySold}</td>
+                            <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{currencyFormatter.format(product.revenue)}</td>
+                            <td className="px-4 py-2 text-gray-600 dark:text-stone-400">
                               {hasCostData ? (
                                 <>
                                   {currencyFormatter.format(product.marginTotal)}
                                   {partialCostData && (
                                     <span
                                       title="Preço de custo não cadastrado para todas as vendas do período"
-                                      className="ml-1 text-amber-500"
+                                      className="ml-1 text-amber-500 dark:text-amber-400"
                                     >
                                       *
                                     </span>
                                   )}
                                 </>
                               ) : (
-                                <span className="text-gray-400">—</span>
+                                <span className="text-gray-400 dark:text-stone-500">—</span>
                               )}
                             </td>
-                            <td className="px-4 py-2 text-gray-600">
-                              {hasCostData ? `${product.marginPercentage}%` : <span className="text-gray-400">—</span>}
+                            <td className="px-4 py-2 text-gray-600 dark:text-stone-400">
+                              {hasCostData ? `${product.marginPercentage}%` : <span className="text-gray-400 dark:text-stone-500">—</span>}
                             </td>
                           </tr>
                         )

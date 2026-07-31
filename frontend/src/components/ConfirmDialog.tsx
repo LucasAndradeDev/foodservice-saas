@@ -34,17 +34,17 @@ export function ConfirmDialog({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 16 }}
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full rounded-t-xl bg-white p-6 shadow-lg sm:max-w-sm sm:rounded-lg"
+          className="w-full rounded-t-xl bg-white p-6 shadow-lg sm:max-w-sm sm:rounded-lg dark:bg-stone-900"
           onClick={(event) => event.stopPropagation()}
         >
-          <h2 className="text-lg font-semibold text-gray-800">{title}</h2>
-          <p className="mt-2 text-sm text-gray-600">{message}</p>
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">{title}</h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-stone-400">{message}</p>
 
           <div className="mt-6 flex justify-end gap-3">
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-md border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-md border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
             >
               {cancelLabel}
             </button>

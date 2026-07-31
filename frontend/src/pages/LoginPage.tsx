@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import moraLogo from '../assets/mora-logo.svg'
 import { useAuth } from '../auth/AuthContext'
+import { Logo } from '../theme/Logo'
+import { ThemeToggleButton } from '../theme/ThemeToggleButton'
 
 export function LoginPage() {
   const { login, isAuthenticated } = useAuth()
@@ -30,14 +31,15 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+    <div className="relative flex min-h-screen items-center justify-center bg-gray-50 p-4 dark:bg-stone-950">
+      <ThemeToggleButton className="absolute right-4 top-4" />
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-lg bg-white p-6 shadow-sm sm:p-8"
+        className="w-full max-w-sm rounded-lg bg-white p-6 shadow-sm sm:p-8 dark:bg-stone-900"
       >
-        <img src={moraLogo} alt="Morá" className="mx-auto mb-6 h-12 w-auto" />
+        <Logo className="mx-auto mb-6 h-12 w-auto" />
 
-        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="email">
+        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="email">
           Email
         </label>
         <input
@@ -46,10 +48,10 @@ export function LoginPage() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
         />
 
-        <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="password">
+        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="password">
           Senha
         </label>
         <input
@@ -58,10 +60,10 @@ export function LoginPage() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+          className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
         />
 
-        {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+        {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         <button
           type="submit"
@@ -71,9 +73,9 @@ export function LoginPage() {
           {isSubmitting ? 'Entrando...' : 'Entrar'}
         </button>
 
-        <p className="mt-4 text-center text-sm text-gray-600">
+        <p className="mt-4 text-center text-sm text-gray-600 dark:text-stone-400">
           Ainda não tem uma conta?{' '}
-          <Link to="/register" className="font-medium text-brand-700 hover:underline">
+          <Link to="/register" className="font-medium text-brand-700 hover:underline dark:text-brand-400">
             Cadastre seu restaurante
           </Link>
         </p>

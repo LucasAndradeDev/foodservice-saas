@@ -51,9 +51,9 @@ const STATUS_LABELS: Record<TableStatus, string> = {
 }
 
 const STATUS_STYLES: Record<TableStatus, string> = {
-  FREE: 'border-green-300 bg-gradient-to-br from-green-50 to-white text-green-800',
-  OCCUPIED: 'border-red-300 bg-gradient-to-br from-red-50 to-white text-red-800',
-  CLOSING: 'border-amber-300 bg-gradient-to-br from-amber-50 to-white text-amber-800',
+  FREE: 'border-green-300 bg-gradient-to-br from-green-50 to-white text-green-800 dark:border-green-500/30 dark:from-green-500/10 dark:to-stone-900 dark:text-green-400',
+  OCCUPIED: 'border-red-300 bg-gradient-to-br from-red-50 to-white text-red-800 dark:border-red-500/30 dark:from-red-500/10 dark:to-stone-900 dark:text-red-400',
+  CLOSING: 'border-amber-300 bg-gradient-to-br from-amber-50 to-white text-amber-800 dark:border-amber-500/30 dark:from-amber-500/10 dark:to-stone-900 dark:text-amber-400',
 }
 
 const STATUS_ICONS: Record<TableStatus, LucideIcon> = {
@@ -63,9 +63,9 @@ const STATUS_ICONS: Record<TableStatus, LucideIcon> = {
 }
 
 const STATUS_PILL_STYLES: Record<TableStatus, string> = {
-  FREE: 'border-green-200 bg-green-50 text-green-800',
-  OCCUPIED: 'border-red-200 bg-red-50 text-red-800',
-  CLOSING: 'border-amber-200 bg-amber-50 text-amber-800',
+  FREE: 'border-green-200 bg-green-50 text-green-800 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-400',
+  OCCUPIED: 'border-red-200 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400',
+  CLOSING: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400',
 }
 
 const POLL_INTERVAL_MS = 4000
@@ -481,10 +481,10 @@ export function TablesPage() {
 
   return (
     <div>
-      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
+      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
         <div className="flex items-center justify-between gap-3">
-          <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-            <LayoutGrid className="h-5 w-5 text-brand-600" />
+          <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
+            <LayoutGrid className="h-5 w-5 text-brand-600 dark:text-brand-400" />
             Mesas
           </h1>
           {canManage && !isSelectingTables && !isOrganizingAreas && (
@@ -494,22 +494,22 @@ export function TablesPage() {
                 onClick={() => setIsMoreMenuOpen((open) => !open)}
                 title="Mais ações"
                 aria-label="Mais ações"
-                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
               >
                 <MoreVertical className="h-5 w-5" />
               </button>
 
               {isMoreMenuOpen && (
-                <div className="absolute right-0 z-10 mt-1 w-48 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg">
+                <div className="absolute right-0 z-10 mt-1 w-48 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-stone-800">
                   <button
                     type="button"
                     onClick={() => {
                       openBulkForm()
                       setIsMoreMenuOpen(false)
                     }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
                   >
-                    <Layers className="h-4 w-4 text-gray-400" />
+                    <Layers className="h-4 w-4 text-gray-400 dark:text-stone-500" />
                     Criar em lote
                   </button>
                   <button
@@ -518,9 +518,9 @@ export function TablesPage() {
                       openCreateForm()
                       setIsMoreMenuOpen(false)
                     }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
                   >
-                    <Plus className="h-4 w-4 text-gray-400" />
+                    <Plus className="h-4 w-4 text-gray-400 dark:text-stone-500" />
                     Nova mesa
                   </button>
                   {areas && areas.length > 0 && (
@@ -530,9 +530,9 @@ export function TablesPage() {
                         setIsOrganizingAreas(true)
                         setIsMoreMenuOpen(false)
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
                     >
-                      <Move className="h-4 w-4 text-gray-400" />
+                      <Move className="h-4 w-4 text-gray-400 dark:text-stone-500" />
                       Organizar mesas
                     </button>
                   )}
@@ -547,7 +547,7 @@ export function TablesPage() {
             <button
               type="button"
               onClick={startSelectingTables}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-100"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-100 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
             >
               <Users className="h-4 w-4" />
               Abrir comanda
@@ -556,7 +556,7 @@ export function TablesPage() {
               type="button"
               onClick={openCounterTab}
               disabled={openTabMutation.isPending}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10"
             >
               <Coffee className="h-4 w-4" />
               Balcão
@@ -576,8 +576,8 @@ export function TablesPage() {
       )}
 
       {isSelectingTables && (
-        <div className="mb-4 flex flex-col gap-2 rounded-lg border border-brand-300 bg-brand-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <span className="flex items-center gap-2 text-brand-800">
+        <div className="mb-4 flex flex-col gap-2 rounded-lg border border-brand-300 bg-brand-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-brand-500/30 dark:bg-brand-500/10">
+          <span className="flex items-center gap-2 text-brand-800 dark:text-brand-400">
             <Users className="h-4 w-4" />
             Selecione uma ou mais mesas livres ({selectedTableIds.size} selecionada
             {selectedTableIds.size === 1 ? '' : 's'})
@@ -586,7 +586,7 @@ export function TablesPage() {
             <button
               type="button"
               onClick={cancelSelectingTables}
-              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-100"
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-white/5"
             >
               Cancelar
             </button>
@@ -603,8 +603,8 @@ export function TablesPage() {
       )}
 
       {isOrganizingAreas && (
-        <div className="mb-4 flex flex-col gap-2 rounded-lg border border-brand-300 bg-brand-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <span className="flex items-center gap-2 text-brand-800">
+        <div className="mb-4 flex flex-col gap-2 rounded-lg border border-brand-300 bg-brand-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-brand-500/30 dark:bg-brand-500/10">
+          <span className="flex items-center gap-2 text-brand-800 dark:text-brand-400">
             <Move className="h-4 w-4" />
             Arraste uma mesa pra área desejada. A mudança é salva na hora.
           </span>
@@ -618,11 +618,11 @@ export function TablesPage() {
         </div>
       )}
 
-      {error && !selectedTable && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      {error && !selectedTable && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {canOpenTab && counterTabs.length > 0 && (
         <div className="mb-6">
-          <p className="mb-2 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+          <p className="mb-2 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
             Comandas de balcão abertas
           </p>
           <div className="flex flex-wrap gap-2">
@@ -631,24 +631,24 @@ export function TablesPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => navigate(`/tabs/${tab.id}`)}
-                className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-stone-900 dark:text-stone-300"
               >
-                <Coffee className="h-4 w-4 text-brand-600" />
+                <Coffee className="h-4 w-4 text-brand-600 dark:text-brand-400" />
                 Balcão · aberta às{' '}
                 {new Date(tab.openedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                <span className="text-gray-400">· há {minutesSince(tab.openedAt)} min</span>
+                <span className="text-gray-400 dark:text-stone-500">· há {minutesSince(tab.openedAt)} min</span>
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
+      {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {tables && tables.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 py-16 text-center">
-          <UtensilsCrossed className="h-10 w-10 text-gray-300" />
-          <p className="text-sm text-gray-500">Nenhuma mesa cadastrada ainda.</p>
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 py-16 text-center dark:border-white/10 dark:bg-white/5">
+          <UtensilsCrossed className="h-10 w-10 text-gray-300 dark:text-stone-600" />
+          <p className="text-sm text-gray-500 dark:text-stone-400">Nenhuma mesa cadastrada ainda.</p>
           {canManage && (
             <button
               type="button"
@@ -672,14 +672,18 @@ export function TablesPage() {
                 else groupRefs.current.delete(group.id)
               }}
               className={`rounded-xl transition-colors ${
-                isOrganizingAreas && dragHoverGroupId === group.id ? 'bg-brand-50 ring-2 ring-brand-400' : ''
+                isOrganizingAreas && dragHoverGroupId === group.id
+                  ? 'bg-brand-50 ring-2 ring-brand-400 dark:bg-brand-500/10'
+                  : ''
               }`}
             >
               {(showGroupHeaders || isOrganizingAreas) && (
-                <p className="mb-2 px-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">{group.name}</p>
+                <p className="mb-2 px-1 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
+                  {group.name}
+                </p>
               )}
               {isOrganizingAreas && group.tables.length === 0 ? (
-                <div className="flex items-center justify-center rounded-xl border border-dashed border-gray-300 py-6 text-xs text-gray-400">
+                <div className="flex items-center justify-center rounded-xl border border-dashed border-gray-300 py-6 text-xs text-gray-400 dark:border-white/10 dark:text-stone-500">
                   Arraste mesas aqui
                 </div>
               ) : (
@@ -717,7 +721,9 @@ export function TablesPage() {
                           delayLevel !== 'none' ? (
                             <div
                               className={`flex items-center gap-1 text-[11px] font-semibold ${
-                                delayLevel === 'critical' ? 'text-red-900' : 'text-amber-900'
+                                delayLevel === 'critical'
+                                  ? 'text-red-900 dark:text-red-300'
+                                  : 'text-amber-900 dark:text-amber-300'
                               }`}
                             >
                               <AlertTriangle className="h-3 w-3" />
@@ -764,8 +770,8 @@ export function TablesPage() {
       {isCreating && (
         <Modal title="Nova mesa" onClose={() => setIsCreating(false)}>
           <form onSubmit={handleCreateSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="tableNumber">
-              Número <span className="font-normal text-gray-400">(opcional, automático se vazio)</span>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="tableNumber">
+              Número <span className="font-normal text-gray-400 dark:text-stone-500">(opcional, automático se vazio)</span>
             </label>
             <input
               id="tableNumber"
@@ -773,17 +779,17 @@ export function TablesPage() {
               min="1"
               value={numberInput}
               onChange={(e) => setNumberInput(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="tableAreaCreate">
-              Área <span className="font-normal text-gray-400">(opcional)</span>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="tableAreaCreate">
+              Área <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
             </label>
             <select
               id="tableAreaCreate"
               value={createAreaId}
               onChange={(e) => setCreateAreaId(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             >
               <option value="">Sem área</option>
               {areas?.map((area) => (
@@ -793,7 +799,7 @@ export function TablesPage() {
               ))}
             </select>
 
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <button
               type="submit"
@@ -809,7 +815,7 @@ export function TablesPage() {
       {isBulkCreating && (
         <Modal title="Criar mesas em lote" onClose={() => setIsBulkCreating(false)}>
           <form onSubmit={handleBulkSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="quantity">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="quantity">
               Quantidade
             </label>
             <input
@@ -820,13 +826,13 @@ export function TablesPage() {
               max="200"
               value={quantityInput}
               onChange={(e) => setQuantityInput(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
-            <p className="mb-4 text-xs text-gray-500">
+            <p className="mb-4 text-xs text-gray-500 dark:text-stone-400">
               As mesas serão numeradas em sequência, a partir do próximo número disponível.
             </p>
 
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <button
               type="submit"
@@ -842,7 +848,7 @@ export function TablesPage() {
       {selectedTable && (
         <Modal title={`Mesa ${selectedTable.number}`} onClose={closeTableModal}>
           <form onSubmit={handleTableSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="editNumber">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editNumber">
               Número
             </label>
             <input
@@ -852,10 +858,10 @@ export function TablesPage() {
               disabled={!canManage}
               value={editNumber}
               onChange={(e) => setEditNumber(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="editStatus">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editStatus">
               Status
             </label>
             <select
@@ -863,7 +869,7 @@ export function TablesPage() {
               disabled={!canChangeStatus}
               value={editStatus}
               onChange={(e) => setEditStatus(e.target.value as TableStatus)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
             >
               {(Object.keys(STATUS_LABELS) as TableStatus[]).map((status) => (
                 <option key={status} value={status}>
@@ -872,7 +878,7 @@ export function TablesPage() {
               ))}
             </select>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="editArea">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editArea">
               Área
             </label>
             <select
@@ -880,7 +886,7 @@ export function TablesPage() {
               disabled={!canManage}
               value={editAreaId}
               onChange={(e) => setEditAreaId(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
             >
               <option value="">Sem área</option>
               {areas?.map((area) => (
@@ -891,7 +897,7 @@ export function TablesPage() {
             </select>
 
             {canManage && (
-              <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+              <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">
                 <input
                   type="checkbox"
                   checked={editActive}
@@ -901,7 +907,7 @@ export function TablesPage() {
               </label>
             )}
 
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             {(canManage || canChangeStatus) && (
               <button
@@ -918,7 +924,7 @@ export function TablesPage() {
                 type="button"
                 onClick={handleDelete}
                 disabled={deleteMutation.isPending}
-                className="mt-2 w-full rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                className="mt-2 w-full rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
               >
                 Excluir mesa
               </button>
@@ -926,7 +932,7 @@ export function TablesPage() {
           </form>
 
           {restaurant?.slug && (
-            <div className="mt-6 border-t border-gray-100 pt-6">
+            <div className="mt-6 border-t border-gray-100 pt-6 dark:border-white/10">
               <QrCodeCard
                 title={`Autoatendimento · Mesa ${selectedTable.number}`}
                 url={publicMenuUrl(restaurant.slug, selectedTable.id)}

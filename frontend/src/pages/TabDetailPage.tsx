@@ -67,11 +67,11 @@ const ITEM_STATUS_LABELS: Record<ItemStatus, string> = {
 }
 
 const ITEM_STATUS_STYLES: Record<ItemStatus, string> = {
-  PENDING: 'bg-gray-100 text-gray-600',
-  PREPARING: 'bg-blue-100 text-blue-700',
-  READY: 'bg-amber-100 text-amber-700',
-  DELIVERED: 'bg-green-100 text-green-700',
-  CANCELLED: 'bg-red-100 text-red-700 line-through',
+  PENDING: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-stone-400',
+  PREPARING: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  READY: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  DELIVERED: 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400',
+  CANCELLED: 'bg-red-100 text-red-700 line-through dark:bg-red-500/10 dark:text-red-400',
 }
 
 const ITEM_STATUS_ICONS: Record<ItemStatus, LucideIcon> = {
@@ -508,7 +508,7 @@ export function TabDetailPage() {
   }
 
   if (isTabLoading || isOrdersLoading || !tab) {
-    return <p className="text-sm text-gray-500">Carregando...</p>
+    return <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>
   }
 
   const allItems = orders?.flatMap((order) => order.items) ?? []
@@ -529,32 +529,36 @@ export function TabDetailPage() {
       <button
         type="button"
         onClick={() => navigate('/tables')}
-        className="mb-4 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 hover:underline"
+        className="mb-4 flex items-center gap-1 text-sm text-gray-500 dark:text-stone-400 hover:text-gray-700 dark:hover:text-stone-200 hover:underline"
       >
         <ArrowLeft className="h-4 w-4" />
         Voltar para Mesas
       </button>
 
-      <div className="mb-6 flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-6 flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:bg-stone-900">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
             <Receipt className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-800">
+            <h1 className="text-lg font-semibold text-gray-800 dark:text-white">
               {formatTableLabel(tab.tables.map((t) => t.number))}
             </h1>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
               <span
                 className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${
-                  isOpen ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                  isOpen
+                    ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                    : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-stone-400'
                 }`}
               >
                 {isOpen ? <Clock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
                 {isOpen ? 'Aberta' : 'Fechada'}
               </span>
               {isOpen && (
-                <span className="flex items-center gap-1 text-gray-400">há {minutesSince(tab.openedAt)} min</span>
+                <span className="flex items-center gap-1 text-gray-400 dark:text-stone-500">
+                  há {minutesSince(tab.openedAt)} min
+                </span>
               )}
             </div>
           </div>
@@ -567,7 +571,7 @@ export function TabDetailPage() {
                 type="button"
                 onClick={handleCancelTab}
                 disabled={cancelMutation.isPending}
-                className="flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
               >
                 <Ban className="h-4 w-4" />
                 Cancelar comanda
@@ -576,7 +580,7 @@ export function TabDetailPage() {
             <button
               type="button"
               onClick={openMergeModal}
-              className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+              className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
             >
               <GitMerge className="h-4 w-4" />
               Mesclar comanda
@@ -587,8 +591,8 @@ export function TabDetailPage() {
                 onClick={toggleTransferSelectionMode}
                 className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm ${
                   isSelectingForTransfer
-                    ? 'border-brand-600 bg-brand-50 text-brand-700'
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-100'
+                    ? 'border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-400'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5'
                 }`}
               >
                 <ArrowRightLeft className="h-4 w-4" />
@@ -611,7 +615,7 @@ export function TabDetailPage() {
             <button
               type="button"
               onClick={openCancelPaymentModal}
-              className="flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
+              className="flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
             >
               <Pencil className="h-4 w-4" />
               Corrigir pagamento
@@ -621,7 +625,7 @@ export function TabDetailPage() {
       </div>
 
       {pendingUndo && (
-        <div className="mb-4 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-400">
           <span className="flex items-center gap-2">
             <Undo2 className="h-4 w-4" />
             Mesclado com {pendingUndo.label}.
@@ -630,7 +634,7 @@ export function TabDetailPage() {
             type="button"
             onClick={() => undoMergeMutation.mutate(pendingUndo.sourceTabId)}
             disabled={undoMergeMutation.isPending}
-            className="font-medium text-blue-700 underline hover:text-blue-900 disabled:opacity-50"
+            className="font-medium text-blue-700 underline hover:text-blue-900 disabled:opacity-50 dark:text-blue-400 dark:hover:text-blue-300"
           >
             Desfazer
           </button>
@@ -638,7 +642,7 @@ export function TabDetailPage() {
       )}
 
       {pendingTransferUndo && (
-        <div className="mb-4 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-400">
           <span className="flex items-center gap-2">
             <Undo2 className="h-4 w-4" />
             {pendingTransferUndo.itemIds.length} {pendingTransferUndo.itemIds.length === 1 ? 'item transferido' : 'itens transferidos'} pra {pendingTransferUndo.label}.
@@ -647,7 +651,7 @@ export function TabDetailPage() {
             type="button"
             onClick={() => undoTransferMutation.mutate(pendingTransferUndo)}
             disabled={undoTransferMutation.isPending}
-            className="font-medium text-blue-700 underline hover:text-blue-900 disabled:opacity-50"
+            className="font-medium text-blue-700 underline hover:text-blue-900 disabled:opacity-50 dark:text-blue-400 dark:hover:text-blue-300"
           >
             Desfazer
           </button>
@@ -655,7 +659,7 @@ export function TabDetailPage() {
       )}
 
       {isSelectingForTransfer && (
-        <div className="mb-4 flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-400">
           <span>
             {selectedItemIds.size === 0
               ? 'Selecione os itens que você quer transferir.'
@@ -672,28 +676,28 @@ export function TabDetailPage() {
         </div>
       )}
 
-      {error && draftItems.length === 0 && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      {error && draftItems.length === 0 && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {draftItems.length > 0 && (
-        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
-            <ShoppingCart className="h-4 w-4 text-brand-600" />
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white">
+            <ShoppingCart className="h-4 w-4 text-brand-600 dark:text-brand-400" />
             Novo pedido (ainda não enviado)
           </h2>
-          <ul className="mb-3 divide-y divide-gray-100">
+          <ul className="mb-3 divide-y divide-gray-100 dark:divide-white/10">
             {draftItems.map((item, index) => (
               <li key={index} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
                 <div>
-                  <span className="font-medium text-gray-800">
+                  <span className="font-medium text-gray-800 dark:text-white">
                     {item.quantity}x {item.productName}
                   </span>
-                  {item.observation && <span className="ml-2 text-gray-500">({item.observation})</span>}
+                  {item.observation && <span className="ml-2 text-gray-500 dark:text-stone-400">({item.observation})</span>}
                   {item.selectedModifiers.length > 0 && (
                     <div className="mt-1 flex flex-wrap gap-1">
                       {item.selectedModifiers.map((modifier) => (
                         <span
                           key={modifier.optionId}
-                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-stone-400"
                         >
                           {modifier.optionName}
                         </span>
@@ -702,13 +706,13 @@ export function TabDetailPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-gray-600">
+                  <span className="text-gray-600 dark:text-stone-400">
                     {currencyFormatter.format((item.unitPrice + modifiersTotal(item.selectedModifiers)) * item.quantity)}
                   </span>
                   <button
                     type="button"
                     onClick={() => removeDraftItem(index)}
-                    className="text-red-600 hover:underline"
+                    className="text-red-600 hover:underline dark:text-red-400"
                   >
                     Remover
                   </button>
@@ -717,7 +721,7 @@ export function TabDetailPage() {
             ))}
           </ul>
 
-          {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+          {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
           <button
             type="button"
@@ -732,33 +736,33 @@ export function TabDetailPage() {
 
       <div className="space-y-3">
         {orders && orders.length === 0 && draftItems.length === 0 && (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 py-12 text-center">
-            <ClipboardList className="h-8 w-8 text-gray-300" />
-            <p className="text-sm text-gray-500">Nenhum pedido enviado ainda.</p>
+          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 py-12 text-center dark:border-white/10 dark:bg-white/5">
+            <ClipboardList className="h-8 w-8 text-gray-300 dark:text-stone-600" />
+            <p className="text-sm text-gray-500 dark:text-stone-400">Nenhum pedido enviado ainda.</p>
           </div>
         )}
 
         {orders?.map((order: Order) => (
-          <div key={order.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-3 text-sm text-gray-500">
+          <div key={order.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900">
+            <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-3 text-sm text-gray-500 dark:border-white/10 dark:text-stone-400">
               <span className="flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5" />
                 Pedido às {new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
               </span>
               <div className="flex items-center gap-3">
-                {order.printedAt && <span className="text-xs text-gray-400">Impresso</span>}
+                {order.printedAt && <span className="text-xs text-gray-400 dark:text-stone-500">Impresso</span>}
                 <Link
                   to={`/orders/${order.id}/print`}
                   target="_blank"
-                  className="flex items-center gap-1 text-brand-600 hover:underline"
+                  className="flex items-center gap-1 text-brand-600 hover:underline dark:text-brand-400"
                 >
                   <Printer className="h-3.5 w-3.5" />
                   Imprimir
                 </Link>
-                <span className="font-medium text-gray-700">{currencyFormatter.format(order.total)}</span>
+                <span className="font-medium text-gray-700 dark:text-stone-300">{currencyFormatter.format(order.total)}</span>
               </div>
             </div>
-            <ul className="divide-y divide-gray-100">
+            <ul className="divide-y divide-gray-100 dark:divide-white/10">
               {order.items.map((item) => {
                 const ItemStatusIcon = ITEM_STATUS_ICONS[item.status]
                 return (
@@ -769,32 +773,34 @@ export function TabDetailPage() {
                           type="checkbox"
                           checked={selectedItemIds.has(item.id)}
                           onChange={() => toggleItemSelected(item.id)}
-                          className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                          className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-white/20 dark:bg-stone-800"
                         />
                       )}
                       <div>
-                        <span className="font-medium text-gray-800">
+                        <span className="font-medium text-gray-800 dark:text-white">
                           {item.quantity}x {item.productName}
                         </span>
-                        {item.observation && <span className="ml-2 text-gray-500">({item.observation})</span>}
+                        {item.observation && <span className="ml-2 text-gray-500 dark:text-stone-400">({item.observation})</span>}
                         {item.modifiers.length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
                             {item.modifiers.map((modifier, index) => (
-                              <span key={index} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                              <span key={index} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-stone-400">
                                 {modifier.optionName}
                               </span>
                             ))}
                           </div>
                         )}
                         {item.discountType && (
-                          <div className="mt-1 flex items-center gap-1 text-xs text-orange-600">
+                          <div className="mt-1 flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
                             <Percent className="h-3 w-3" />
                             -{currencyFormatter.format(item.discountAmount)}
-                            {item.discountReason && <span className="text-gray-400">({item.discountReason})</span>}
+                            {item.discountReason && (
+                              <span className="text-gray-400 dark:text-stone-500">({item.discountReason})</span>
+                            )}
                           </div>
                         )}
                         {item.status === 'CANCELLED' && item.cancelledBy && (
-                          <div className="mt-1 text-xs text-gray-400">
+                          <div className="mt-1 text-xs text-gray-400 dark:text-stone-500">
                             Cancelado por {item.cancelledBy}
                             {item.cancelledAt &&
                               ` às ${new Date(item.cancelledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
@@ -809,9 +815,9 @@ export function TabDetailPage() {
                         <ItemStatusIcon className="h-3 w-3" />
                         {ITEM_STATUS_LABELS[item.status]}
                       </span>
-                      <span className="text-gray-600">
+                      <span className="text-gray-600 dark:text-stone-400">
                         {item.discountType && (
-                          <span className="mr-1 text-xs text-gray-400 line-through">
+                          <span className="mr-1 text-xs text-gray-400 line-through dark:text-stone-500">
                             {currencyFormatter.format(item.subtotal)}
                           </span>
                         )}
@@ -821,7 +827,7 @@ export function TabDetailPage() {
                         <button
                           type="button"
                           onClick={() => openDiscountModal(item)}
-                          className="text-xs text-brand-600 hover:underline"
+                          className="text-xs text-brand-600 hover:underline dark:text-brand-400"
                         >
                           Desconto
                         </button>
@@ -836,14 +842,14 @@ export function TabDetailPage() {
       </div>
 
       {allItems.length > 0 && (
-        <div className="mt-4 rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm">
+        <div className="mt-4 rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm dark:border-white/10 dark:bg-stone-900">
           {tab.discountType && (
             <>
-              <div className="flex items-center justify-between text-sm text-gray-500">
+              <div className="flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
                 <span>Subtotal</span>
                 <span>{currencyFormatter.format(grandTotal)}</span>
               </div>
-              <div className="mt-1 flex items-center justify-between text-sm text-orange-600">
+              <div className="mt-1 flex items-center justify-between text-sm text-orange-600 dark:text-orange-400">
                 <span className="flex items-center gap-2">
                   {tab.discountReason || 'Desconto'}
                   {isOpen && canDiscount && (
@@ -851,7 +857,7 @@ export function TabDetailPage() {
                       type="button"
                       onClick={() => tabDiscountMutation.mutate()}
                       disabled={tabDiscountMutation.isPending}
-                      className="text-xs font-medium text-red-600 underline hover:text-red-700 disabled:opacity-50"
+                      className="text-xs font-medium text-red-600 underline hover:text-red-700 disabled:opacity-50 dark:text-red-400 dark:hover:text-red-300"
                     >
                       Remover
                     </button>
@@ -859,15 +865,15 @@ export function TabDetailPage() {
                 </span>
                 <span>-{currencyFormatter.format(tabDiscountAmount)}</span>
               </div>
-              <div className="my-2 border-t border-gray-100" />
+              <div className="my-2 border-t border-gray-100 dark:border-white/10" />
             </>
           )}
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-sm font-medium text-gray-500">
+            <span className="flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-stone-400">
               <Wallet className="h-4 w-4" />
               Total da comanda
             </span>
-            <span className="text-xl font-semibold text-brand-700">
+            <span className="text-xl font-semibold text-brand-700 dark:text-brand-400">
               {currencyFormatter.format(grandTotalAfterDiscount)}
             </span>
           </div>
@@ -877,28 +883,28 @@ export function TabDetailPage() {
       {isAddingItem && (
         <Modal title="Adicionar item" onClose={() => setIsAddingItem(false)}>
           <form onSubmit={handleAddDraftItem}>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="product">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="product">
               Produto
             </label>
             <div className="relative mb-2">
-              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-stone-500" />
               <input
                 type="text"
                 placeholder="Buscar produto..."
                 value={productSearch}
                 onChange={(e) => setProductSearch(e.target.value)}
-                className="w-full rounded-md border border-gray-300 py-2 pr-3 pl-9 text-sm focus:border-brand-500 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 py-2 pr-3 pl-9 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
               />
             </div>
-            <div className="mb-4 max-h-56 space-y-3 overflow-y-auto rounded-md border border-gray-200 p-2">
+            <div className="mb-4 max-h-56 space-y-3 overflow-y-auto rounded-md border border-gray-200 p-2 dark:border-white/10">
               {filteredProductsByCategory.length === 0 && (
-                <p className="py-4 text-center text-sm text-gray-400">Nenhum produto encontrado.</p>
+                <p className="py-4 text-center text-sm text-gray-400 dark:text-stone-500">Nenhum produto encontrado.</p>
               )}
               {filteredProductsByCategory.map(({ category, products: categoryProducts }) => {
                 const CategoryIcon = getCategoryIcon(category.name)
                 return (
                   <div key={category.id}>
-                    <div className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+                    <div className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
                       <CategoryIcon className="h-3.5 w-3.5" />
                       {category.name}
                     </div>
@@ -912,14 +918,16 @@ export function TabDetailPage() {
                             whileTap={{ scale: 0.98 }}
                             onClick={() => setProductId(product.id)}
                             className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors ${
-                              isSelected ? 'border-brand-600 bg-brand-50' : 'border-gray-200 hover:bg-gray-50'
+                              isSelected
+                                ? 'border-brand-600 bg-brand-50 dark:border-brand-400 dark:bg-brand-500/10'
+                                : 'border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5'
                             }`}
                           >
-                            <span className="flex items-center gap-2 text-gray-800">
-                              {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-brand-600" />}
+                            <span className="flex items-center gap-2 text-gray-800 dark:text-white">
+                              {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-brand-600 dark:text-brand-400" />}
                               {product.name}
                             </span>
-                            <span className="shrink-0 text-gray-500">{currencyFormatter.format(product.price)}</span>
+                            <span className="shrink-0 text-gray-500 dark:text-stone-400">{currencyFormatter.format(product.price)}</span>
                           </motion.button>
                         )
                       })}
@@ -929,7 +937,7 @@ export function TabDetailPage() {
               })}
             </div>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="quantity">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="quantity">
               Quantidade
             </label>
             <input
@@ -939,7 +947,7 @@ export function TabDetailPage() {
               min="1"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
             {modifierGroups && modifierGroups.length > 0 && (
@@ -947,9 +955,9 @@ export function TabDetailPage() {
                 {modifierGroups.map((group) => (
                   <div key={group.id}>
                     <div className="mb-1 flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-700">{group.name}</span>
+                      <span className="text-sm font-medium text-gray-700 dark:text-stone-300">{group.name}</span>
                       {group.required && (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
                           Obrigatório
                         </span>
                       )}
@@ -964,12 +972,12 @@ export function TabDetailPage() {
                             onClick={() => toggleModifierOption(group.id, option.id, group.selectionType === 'SINGLE')}
                             className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
                               isSelected
-                                ? 'border-brand-600 bg-brand-50'
-                                : 'border-gray-200 hover:bg-gray-50'
+                                ? 'border-brand-600 bg-brand-50 dark:border-brand-400 dark:bg-brand-500/10'
+                                : 'border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5'
                             }`}
                           >
-                            <span className="text-gray-800">{option.name}</span>
-                            <span className="text-gray-500">
+                            <span className="text-gray-800 dark:text-white">{option.name}</span>
+                            <span className="text-gray-500 dark:text-stone-400">
                               {option.priceDelta > 0 ? `+${currencyFormatter.format(option.priceDelta)}` : 'Grátis'}
                             </span>
                           </button>
@@ -981,8 +989,8 @@ export function TabDetailPage() {
               </div>
             )}
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="observation">
-              Observação <span className="font-normal text-gray-400">(opcional)</span>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="observation">
+              Observação <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
             </label>
             <input
               id="observation"
@@ -990,7 +998,7 @@ export function TabDetailPage() {
               maxLength={255}
               value={observation}
               onChange={(e) => setObservation(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
             <button
@@ -1006,16 +1014,16 @@ export function TabDetailPage() {
 
       {isMerging && (
         <Modal title="Mesclar comanda" onClose={() => setIsMerging(false)}>
-          {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+          {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
             <Table2 className="h-3.5 w-3.5" />
             Mesas livres
           </p>
           {freeTables?.length === 0 && (
-            <p className="mb-4 text-sm text-gray-500">Nenhuma mesa livre no momento.</p>
+            <p className="mb-4 text-sm text-gray-500 dark:text-stone-400">Nenhuma mesa livre no momento.</p>
           )}
-          <ul className="mb-4 divide-y divide-gray-100">
+          <ul className="mb-4 divide-y divide-gray-100 dark:divide-white/10">
             {freeTables?.map((table) => (
               <li key={table.id} className="flex items-center justify-between py-2 text-sm">
                 <span>Mesa {table.number}</span>
@@ -1023,7 +1031,7 @@ export function TabDetailPage() {
                   type="button"
                   onClick={() => addTableMutation.mutate(table.id)}
                   disabled={addTableMutation.isPending}
-                  className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                  className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
                 >
                   Adicionar a esta comanda
                 </button>
@@ -1031,14 +1039,14 @@ export function TabDetailPage() {
             ))}
           </ul>
 
-          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
             <Combine className="h-3.5 w-3.5" />
             Outras comandas abertas
           </p>
           {otherOpenTabs?.filter((t) => t.id !== tabId).length === 0 && (
-            <p className="text-sm text-gray-500">Nenhuma outra comanda aberta.</p>
+            <p className="text-sm text-gray-500 dark:text-stone-400">Nenhuma outra comanda aberta.</p>
           )}
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-gray-100 dark:divide-white/10">
             {otherOpenTabs
               ?.filter((t) => t.id !== tabId)
               .map((otherTab) => (
@@ -1048,7 +1056,7 @@ export function TabDetailPage() {
                     type="button"
                     onClick={() => handleMergeTab(otherTab)}
                     disabled={mergeMutation.isPending}
-                    className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                    className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
                   >
                     Mesclar aqui
                   </button>
@@ -1060,21 +1068,21 @@ export function TabDetailPage() {
 
       {isPickingTransferTarget && (
         <Modal title="Transferir itens" onClose={() => setIsPickingTransferTarget(false)}>
-          {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+          {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-          <p className="mb-3 text-sm text-gray-500">
+          <p className="mb-3 text-sm text-gray-500 dark:text-stone-400">
             {selectedItemIds.size} {selectedItemIds.size === 1 ? 'item selecionado' : 'itens selecionados'}. Escolha
             pra qual comanda transferir.
           </p>
 
-          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400 uppercase">
+          <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
             <Combine className="h-3.5 w-3.5" />
             Outras comandas abertas
           </p>
           {otherOpenTabs?.filter((t) => t.id !== tabId).length === 0 && (
-            <p className="text-sm text-gray-500">Nenhuma outra comanda aberta.</p>
+            <p className="text-sm text-gray-500 dark:text-stone-400">Nenhuma outra comanda aberta.</p>
           )}
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-gray-100 dark:divide-white/10">
             {otherOpenTabs
               ?.filter((t) => t.id !== tabId)
               .map((otherTab) => (
@@ -1084,7 +1092,7 @@ export function TabDetailPage() {
                     type="button"
                     onClick={() => handleTransferToTab(otherTab)}
                     disabled={transferItemsMutation.isPending}
-                    className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                    className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
                   >
                     Transferir pra cá
                   </button>
@@ -1097,7 +1105,7 @@ export function TabDetailPage() {
       {discountingItem && (
         <Modal title={`Desconto em ${discountingItem.productName}`} onClose={() => setDiscountingItem(null)}>
           <form onSubmit={handleApplyItemDiscount}>
-            <p className="mb-3 text-sm text-gray-500">
+            <p className="mb-3 text-sm text-gray-500 dark:text-stone-400">
               Valor do item: {currencyFormatter.format(discountingItem.subtotal)}
             </p>
 
@@ -1106,7 +1114,9 @@ export function TabDetailPage() {
                 type="button"
                 onClick={() => setDiscountKind('FIXED')}
                 className={`flex-1 rounded-md border px-3 py-2 text-sm ${
-                  discountKind === 'FIXED' ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-gray-300 text-gray-600'
+                  discountKind === 'FIXED'
+                    ? 'border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-400'
+                    : 'border-gray-300 text-gray-600 dark:border-white/10 dark:text-stone-400'
                 }`}
               >
                 Valor em R$
@@ -1115,14 +1125,16 @@ export function TabDetailPage() {
                 type="button"
                 onClick={() => setDiscountKind('PERCENTAGE')}
                 className={`flex-1 rounded-md border px-3 py-2 text-sm ${
-                  discountKind === 'PERCENTAGE' ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-gray-300 text-gray-600'
+                  discountKind === 'PERCENTAGE'
+                    ? 'border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-400'
+                    : 'border-gray-300 text-gray-600 dark:border-white/10 dark:text-stone-400'
                 }`}
               >
                 Percentual (%)
               </button>
             </div>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="discount-value">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="discount-value">
               {discountKind === 'FIXED' ? 'Valor do desconto (R$)' : 'Percentual de desconto (%)'}
             </label>
             <input
@@ -1134,11 +1146,11 @@ export function TabDetailPage() {
               max={discountKind === 'PERCENTAGE' ? 100 : undefined}
               value={discountValue}
               onChange={(e) => setDiscountValue(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="discount-reason">
-              Motivo <span className="font-normal text-gray-400">(opcional)</span>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="discount-reason">
+              Motivo <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
             </label>
             <input
               id="discount-reason"
@@ -1146,10 +1158,10 @@ export function TabDetailPage() {
               maxLength={255}
               value={discountReason}
               onChange={(e) => setDiscountReason(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <div className="flex gap-2">
               {discountingItem.discountType && (
@@ -1177,12 +1189,12 @@ export function TabDetailPage() {
       {isCancellingPayment && (
         <Modal title="Corrigir pagamento" onClose={() => setIsCancellingPayment(false)}>
           <form onSubmit={handleCancelPayment}>
-            <p className="mb-3 text-sm text-gray-500">
+            <p className="mb-3 text-sm text-gray-500 dark:text-stone-400">
               Substitui o pagamento registrado por um corrigido. A comanda continua fechada e a mesa não é mexida —
               use isso pra corrigir forma ou valor errados, não pra retomar o atendimento.
             </p>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="cancel-payment-reason">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="cancel-payment-reason">
               Motivo
             </label>
             <input
@@ -1193,17 +1205,17 @@ export function TabDetailPage() {
               value={cancelPaymentReason}
               onChange={(e) => setCancelPaymentReason(e.target.value)}
               placeholder="Ex.: registrei a forma de pagamento errada"
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="cancel-payment-method">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="cancel-payment-method">
               Forma de pagamento correta
             </label>
             <select
               id="cancel-payment-method"
               value={cancelPaymentMethod}
               onChange={(e) => setCancelPaymentMethod(e.target.value as PaymentMethod)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             >
               {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => (
                 <option key={method} value={method}>
@@ -1212,8 +1224,8 @@ export function TabDetailPage() {
               ))}
             </select>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="cancel-service-charge">
-              Taxa de serviço (%) <span className="font-normal text-gray-400">(opcional)</span>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="cancel-service-charge">
+              Taxa de serviço (%) <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
             </label>
             <input
               id="cancel-service-charge"
@@ -1224,23 +1236,23 @@ export function TabDetailPage() {
               value={cancelServiceChargeInput}
               onChange={(e) => setCancelServiceChargeInput(e.target.value)}
               placeholder="Sem taxa de serviço"
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <div className="mb-4 space-y-1 border-t border-gray-200 pt-3">
+            <div className="mb-4 space-y-1 border-t border-gray-200 pt-3 dark:border-white/10">
               {cancelServiceChargePercentage != null && (
-                <div className="flex items-center justify-between text-sm text-gray-500">
+                <div className="flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
                   <span>Subtotal</span>
                   <span>{currencyFormatter.format(cancelAfterDiscount)}</span>
                 </div>
               )}
-              <div className="flex items-center justify-between text-base font-semibold text-gray-800">
+              <div className="flex items-center justify-between text-base font-semibold text-gray-800 dark:text-white">
                 <span>Total corrigido</span>
                 <span>{currencyFormatter.format(cancelPaymentTotal)}</span>
               </div>
             </div>
 
-            {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <button
               type="submit"

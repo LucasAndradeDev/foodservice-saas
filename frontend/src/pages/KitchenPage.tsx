@@ -34,11 +34,11 @@ const STATUS_LABELS: Record<ItemStatus, string> = {
 }
 
 const STATUS_STYLES: Record<ItemStatus, string> = {
-  PENDING: 'bg-gray-100 text-gray-600',
-  PREPARING: 'bg-blue-100 text-blue-700',
-  READY: 'bg-amber-100 text-amber-700',
-  DELIVERED: 'bg-green-100 text-green-700',
-  CANCELLED: 'bg-red-100 text-red-700',
+  PENDING: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-stone-400',
+  PREPARING: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
+  READY: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+  DELIVERED: 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400',
+  CANCELLED: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400',
 }
 
 const STATUS_ICONS: Record<ItemStatus, LucideIcon> = {
@@ -181,9 +181,9 @@ export function KitchenPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-          <ChefHat className="h-5 w-5 text-brand-600" />
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
+        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
+          <ChefHat className="h-5 w-5 text-brand-600 dark:text-brand-400" />
           Cozinha
         </h1>
 
@@ -193,15 +193,17 @@ export function KitchenPage() {
           aria-label="Mostrar só pedidos atrasados"
           className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm font-medium transition-colors ${
             showOnlyDelayed
-              ? 'border-amber-400 bg-amber-100 text-amber-800'
-              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              ? 'border-amber-400 bg-amber-100 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-400'
+              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:bg-stone-900 dark:text-stone-400 dark:hover:bg-white/5'
           }`}
         >
           <AlertTriangle className="h-4 w-4" />
           <span className="hidden sm:inline">Atrasados</span>
           <span
             className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-              showOnlyDelayed ? 'bg-amber-200 text-amber-900' : 'bg-gray-100 text-gray-600'
+              showOnlyDelayed
+                ? 'bg-amber-200 text-amber-900 dark:bg-amber-500/25 dark:text-amber-300'
+                : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-stone-400'
             }`}
           >
             {delayedItemCount}
@@ -209,7 +211,7 @@ export function KitchenPage() {
         </button>
       </div>
 
-      {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
+      {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {items && items.length === 0 && <EmptyState icon={ChefHat} message="Nenhum item na fila." />}
 
@@ -226,42 +228,44 @@ export function KitchenPage() {
             return (
               <div
                 key={group.key}
-                className={`overflow-hidden rounded-xl border-2 bg-white shadow-sm ${
+                className={`overflow-hidden rounded-xl border-2 bg-white shadow-sm dark:bg-stone-900 ${
                   group.delayLevel === 'critical'
-                    ? 'border-red-400'
+                    ? 'border-red-400 dark:border-red-500/50'
                     : group.delayLevel === 'warning'
-                      ? 'border-amber-400'
-                      : 'border-gray-200'
+                      ? 'border-amber-400 dark:border-amber-500/50'
+                      : 'border-gray-200 dark:border-white/10'
                 }`}
               >
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.key)}
-                  className="flex w-full items-center justify-between gap-2 px-3 py-3 text-left hover:bg-gray-50 sm:px-4"
+                  className="flex w-full items-center justify-between gap-2 px-3 py-3 text-left hover:bg-gray-50 sm:px-4 dark:hover:bg-white/5"
                 >
                   <span className="flex min-w-0 items-center gap-2.5">
                     <span
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
                         group.delayLevel === 'critical'
-                          ? 'bg-red-100 text-red-700'
+                          ? 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400'
                           : group.delayLevel === 'warning'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-brand-50 text-brand-700'
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400'
+                            : 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400'
                       }`}
                     >
                       {tableNumbers.length > 0 ? tableNumbers.join(',') : <UtensilsCrossed className="h-4 w-4" />}
                     </span>
                     <span className="min-w-0">
                       <span className="flex items-center gap-1.5">
-                        <span className="truncate text-sm font-semibold text-gray-800">{group.label}</span>
+                        <span className="truncate text-sm font-semibold text-gray-800 dark:text-white">
+                          {group.label}
+                        </span>
                         {group.delayLevel === 'critical' && (
-                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-600" />
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-600 dark:text-red-400" />
                         )}
                         {group.delayLevel === 'warning' && (
-                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
                         )}
                       </span>
-                      <span className="block text-xs text-gray-500">
+                      <span className="block text-xs text-gray-500 dark:text-stone-400">
                         {group.items.length} {group.items.length > 1 ? 'itens' : 'item'}
                       </span>
                     </span>
@@ -271,7 +275,7 @@ export function KitchenPage() {
                     transition={{ duration: 0.35, ease: EASE_OUT }}
                     className="shrink-0"
                   >
-                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                    <ChevronDown className="h-4 w-4 text-gray-400 dark:text-stone-500" />
                   </motion.span>
                 </button>
 
@@ -282,9 +286,9 @@ export function KitchenPage() {
                       animate="expanded"
                       exit="collapsed"
                       variants={groupPanelVariants}
-                      className="overflow-hidden border-t border-gray-100"
+                      className="overflow-hidden border-t border-gray-100 dark:border-white/10"
                     >
-                      <div className="divide-y divide-gray-100">
+                      <div className="divide-y divide-gray-100 dark:divide-white/10">
                         {group.items.map((item) => {
                           const minutes = minutesSince(item.createdAt)
                           const delayLevel = getDelayLevel(item, warningThresholdMinutes, criticalThresholdMinutes)
@@ -299,22 +303,22 @@ export function KitchenPage() {
                               key={item.id}
                               className={`border-l-4 p-3 sm:p-4 ${
                                 delayLevel === 'critical'
-                                  ? 'border-red-400'
+                                  ? 'border-red-400 dark:border-red-500/50'
                                   : delayLevel === 'warning'
-                                    ? 'border-amber-400'
+                                    ? 'border-amber-400 dark:border-amber-500/50'
                                     : 'border-transparent'
                               }`}
                             >
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="min-w-0">
-                                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+                                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-stone-400">
                                     <Clock className="h-3.5 w-3.5" />
                                     <span
                                       className={
                                         delayLevel === 'critical'
-                                          ? 'font-semibold text-red-600'
+                                          ? 'font-semibold text-red-600 dark:text-red-400'
                                           : delayLevel === 'warning'
-                                            ? 'font-semibold text-amber-600'
+                                            ? 'font-semibold text-amber-600 dark:text-amber-400'
                                             : ''
                                       }
                                     >
@@ -327,13 +331,13 @@ export function KitchenPage() {
                                       {STATUS_LABELS[item.status]}
                                     </span>
                                     {delayLevel === 'critical' && (
-                                      <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
+                                      <AlertTriangle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />
                                     )}
                                     {delayLevel === 'warning' && (
-                                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                                     )}
                                   </div>
-                                  <div className="mt-1.5 text-base font-semibold text-gray-800">
+                                  <div className="mt-1.5 text-base font-semibold text-gray-800 dark:text-white">
                                     {item.quantity}x {item.productName}
                                   </div>
                                   {item.modifiers.length > 0 && (
@@ -341,7 +345,7 @@ export function KitchenPage() {
                                       {item.modifiers.map((modifier, index) => (
                                         <span
                                           key={index}
-                                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-stone-400"
                                         >
                                           {modifier.optionName}
                                         </span>
@@ -349,7 +353,9 @@ export function KitchenPage() {
                                     </div>
                                   )}
                                   {item.observation && (
-                                    <div className="mt-1 text-sm text-gray-500">{item.observation}</div>
+                                    <div className="mt-1 text-sm text-gray-500 dark:text-stone-400">
+                                      {item.observation}
+                                    </div>
                                   )}
                                 </div>
 
@@ -388,7 +394,7 @@ export function KitchenPage() {
                                     type="button"
                                     onClick={() => setItemToCancel(item)}
                                     aria-label="Cancelar item"
-                                    className={`flex shrink-0 items-center justify-center rounded-lg p-2.5 text-gray-400 hover:bg-red-50 hover:text-red-600 ${
+                                    className={`flex shrink-0 items-center justify-center rounded-lg p-2.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:text-stone-500 dark:hover:bg-red-500/10 dark:hover:text-red-400 ${
                                       hasPrimaryAction ? '' : 'flex-1 sm:flex-none'
                                     }`}
                                   >

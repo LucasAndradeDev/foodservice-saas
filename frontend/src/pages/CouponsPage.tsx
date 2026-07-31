@@ -121,9 +121,9 @@ export function CouponsPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-          <Ticket className="h-5 w-5 text-brand-600" />
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
+        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
+          <Ticket className="h-5 w-5 text-brand-600 dark:text-brand-400" />
           Cupons de desconto
         </h1>
         <button
@@ -136,19 +136,19 @@ export function CouponsPage() {
         </button>
       </div>
 
-      {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
+      {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {coupons && coupons.length === 0 && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-500 dark:text-stone-400">
           Nenhum cupom cadastrado. O cliente aplica o código sozinho no cardápio digital, no carrinho.
         </p>
       )}
 
       {coupons && coupons.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-500">
+              <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
                 <tr>
                   <th className="px-4 py-2 font-medium">Código</th>
                   <th className="px-4 py-2 font-medium">Desconto</th>
@@ -163,13 +163,13 @@ export function CouponsPage() {
                   const status = getCouponStatus(coupon)
                   const StatusIcon = status.icon
                   return (
-                  <tr key={coupon.id} className="border-t border-gray-100">
-                    <td className="px-4 py-2 font-medium text-gray-800">{coupon.code}</td>
-                    <td className="px-4 py-2 text-gray-600">{formatDiscount(coupon.discountType, coupon.discountValue)}</td>
-                    <td className="px-4 py-2 text-gray-600">
+                  <tr key={coupon.id} className="border-t border-gray-100 dark:border-white/10">
+                    <td className="px-4 py-2 font-medium text-gray-800 dark:text-white">{coupon.code}</td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{formatDiscount(coupon.discountType, coupon.discountValue)}</td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-stone-400">
                       {coupon.expiresAt ? dateFormatter.format(new Date(coupon.expiresAt)) : 'Sem validade'}
                     </td>
-                    <td className="px-4 py-2 text-gray-600">{formatUsage(coupon)}</td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{formatUsage(coupon)}</td>
                     <td className="px-4 py-2">
                       <span className={`flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}>
                         <StatusIcon className="h-3.5 w-3.5" />
@@ -183,7 +183,7 @@ export function CouponsPage() {
                           onClick={() => openEditForm(coupon)}
                           title="Editar"
                           aria-label="Editar"
-                          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
+                          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -192,7 +192,7 @@ export function CouponsPage() {
                           onClick={() => toggleActive(coupon)}
                           title={coupon.active ? 'Desativar' : 'Ativar'}
                           aria-label={coupon.active ? 'Desativar' : 'Ativar'}
-                          className={`rounded-md p-1.5 hover:bg-gray-100 ${coupon.active ? 'text-gray-500 hover:text-amber-700' : 'text-gray-400 hover:text-green-700'}`}
+                          className={`rounded-md p-1.5 hover:bg-gray-100 dark:hover:bg-white/5 ${coupon.active ? 'text-gray-500 hover:text-amber-700 dark:text-stone-400 dark:hover:text-amber-400' : 'text-gray-400 hover:text-green-700 dark:text-stone-500 dark:hover:text-green-400'}`}
                         >
                           <Power className="h-4 w-4" />
                         </button>
@@ -212,7 +212,7 @@ export function CouponsPage() {
           <form onSubmit={handleSubmit}>
             {!editingCoupon && (
               <>
-                <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="couponCode">
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="couponCode">
                   Código
                 </label>
                 <input
@@ -223,28 +223,28 @@ export function CouponsPage() {
                   value={code}
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                   placeholder="Ex: ANIVERSARIO10"
-                  className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:border-brand-500 focus:outline-none"
+                  className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm uppercase focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                 />
               </>
             )}
 
             <div className="mb-4 grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="discountType">
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="discountType">
                   Tipo
                 </label>
                 <select
                   id="discountType"
                   value={discountType}
                   onChange={(e) => setDiscountType(e.target.value as DiscountType)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                 >
                   <option value="PERCENTAGE">Percentual</option>
                   <option value="FIXED">Valor fixo</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="discountValue">
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="discountValue">
                   Valor
                 </label>
                 <input
@@ -256,27 +256,27 @@ export function CouponsPage() {
                   max={discountType === 'PERCENTAGE' ? 100 : undefined}
                   value={discountValue}
                   onChange={(e) => setDiscountValue(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                 />
               </div>
             </div>
 
             <div className="mb-4 grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="expiresAt">
-                  Validade <span className="font-normal text-gray-400">(opcional)</span>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="expiresAt">
+                  Validade <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
                 </label>
                 <input
                   id="expiresAt"
                   type="date"
                   value={expiresAt}
                   onChange={(e) => setExpiresAt(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="maxUses">
-                  Limite de usos <span className="font-normal text-gray-400">(opcional)</span>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="maxUses">
+                  Limite de usos <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
                 </label>
                 <input
                   id="maxUses"
@@ -285,19 +285,19 @@ export function CouponsPage() {
                   step="1"
                   value={maxUses}
                   onChange={(e) => setMaxUses(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                 />
               </div>
             </div>
 
             {editingCoupon && (
-              <p className="mb-4 text-xs text-gray-400">
+              <p className="mb-4 text-xs text-gray-400 dark:text-stone-500">
                 Deixe validade ou limite em branco pra removê-los. O código não pode ser alterado — crie um novo
                 cupom se precisar de outro.
               </p>
             )}
 
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <button
               type="submit"

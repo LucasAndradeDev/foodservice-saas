@@ -198,12 +198,12 @@ export function CheckoutPage() {
 
   return (
     <div>
-      <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs">
-        <Wallet className="h-5 w-5 text-brand-600" />
+      <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs dark:border-white/10 dark:bg-stone-900 dark:text-white">
+        <Wallet className="h-5 w-5 text-brand-600 dark:text-brand-400" />
         Caixa
       </h1>
 
-      {isTabsLoading && <p className="text-sm text-gray-500">Carregando...</p>}
+      {isTabsLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {openTabs && openTabs.length === 0 && <EmptyState icon={Wallet} message="Nenhuma comanda aberta." />}
 
@@ -214,27 +214,29 @@ export function CheckoutPage() {
               key={summary.tab.id}
               type="button"
               onClick={() => handleCardClick(summary)}
-              className={`rounded-xl border-2 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
-                summary.isReady ? 'border-green-300 hover:bg-green-50' : 'border-gray-200 hover:bg-gray-50'
+              className={`rounded-xl border-2 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:bg-stone-900 ${
+                summary.isReady
+                  ? 'border-green-300 hover:bg-green-50 dark:border-green-500/30 dark:hover:bg-green-500/10'
+                  : 'border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5'
               }`}
             >
-              <div className="text-base font-semibold text-gray-800">
+              <div className="text-base font-semibold text-gray-800 dark:text-white">
                 {formatTableLabel(summary.tab.tables.map((t) => t.number))}
               </div>
               {summary.isLoading ? (
-                <div className="mt-1 text-sm text-gray-500">Carregando itens...</div>
+                <div className="mt-1 text-sm text-gray-500 dark:text-stone-400">Carregando itens...</div>
               ) : summary.isReady ? (
                 <>
-                  <span className="mt-1 flex w-fit items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                  <span className="mt-1 flex w-fit items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700 dark:bg-green-500/10 dark:text-green-400">
                     <CheckCircle2 className="h-3 w-3" />
                     Pronta para fechar
                   </span>
-                  <div className="mt-2 text-lg font-semibold text-gray-800">
+                  <div className="mt-2 text-lg font-semibold text-gray-800 dark:text-white">
                     {currencyFormatter.format(summary.total)}
                   </div>
                 </>
               ) : (
-                <span className="mt-1 flex w-fit items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                <span className="mt-1 flex w-fit items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
                   <Clock className="h-3 w-3" />
                   Itens ainda em preparo
                 </span>
@@ -249,17 +251,17 @@ export function CheckoutPage() {
           <button
             type="button"
             onClick={() => setShowClosedToday((prev) => !prev)}
-            className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 text-left shadow-sm transition hover:bg-gray-50"
+            className="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 text-left shadow-sm transition hover:bg-gray-50 dark:border-white/10 dark:bg-stone-900 dark:hover:bg-white/5"
           >
-            <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-              <Lock className="h-4 w-4 text-gray-400" />
+            <span className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-stone-300">
+              <Lock className="h-4 w-4 text-gray-400 dark:text-stone-500" />
               Comandas fechadas hoje
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-white/10 dark:text-stone-400">
                 {closedToday.length}
               </span>
             </span>
             <motion.span animate={{ rotate: showClosedToday ? 180 : 0 }} transition={{ duration: 0.2 }}>
-              <ChevronDown className="h-4 w-4 text-gray-400" />
+              <ChevronDown className="h-4 w-4 text-gray-400 dark:text-stone-500" />
             </motion.span>
           </button>
 
@@ -277,26 +279,26 @@ export function CheckoutPage() {
                     <motion.div key={tab.id} whileHover={{ y: -2 }} transition={{ duration: 0.15 }}>
                       <Link
                         to={`/tabs/${tab.id}`}
-                        className="group flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-gray-300 hover:shadow-md"
+                        className="group flex h-full flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-gray-300 hover:shadow-md dark:border-white/10 dark:bg-stone-900 dark:hover:border-white/20"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <span className="text-base font-semibold text-gray-800">
+                          <span className="text-base font-semibold text-gray-800 dark:text-white">
                             {formatTableLabel(tab.tables.map((t) => t.number))}
                           </span>
-                          <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                          <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-white/10 dark:text-stone-400">
                             <Lock className="h-3 w-3" />
                             Fechada
                           </span>
                         </div>
-                        <span className="mt-1 flex items-center gap-1 text-xs text-gray-400">
+                        <span className="mt-1 flex items-center gap-1 text-xs text-gray-400 dark:text-stone-500">
                           <Clock className="h-3 w-3" />
                           {tab.closedAt && timeFormatter.format(new Date(tab.closedAt))}
                         </span>
                         <div className="mt-3 flex flex-1 items-end justify-between">
-                          <span className="text-lg font-semibold text-gray-800">
+                          <span className="text-lg font-semibold text-gray-800 dark:text-white">
                             {tab.paidAmount != null && currencyFormatter.format(tab.paidAmount)}
                           </span>
-                          <span className="flex items-center gap-1 text-xs font-medium text-gray-400 opacity-0 transition group-hover:text-red-600 group-hover:opacity-100">
+                          <span className="flex items-center gap-1 text-xs font-medium text-gray-400 opacity-0 transition group-hover:text-red-600 group-hover:opacity-100 dark:text-stone-500 dark:group-hover:text-red-400">
                             <Pencil className="h-3.5 w-3.5" />
                             Corrigir pagamento
                           </span>
@@ -315,7 +317,7 @@ export function CheckoutPage() {
         <Modal title={`Fechar conta — ${formatTableLabel(selectedSummary.tab.tables.map((t) => t.number))}`} onClose={handleCloseModal}>
           {justPaidTabId === selectedSummary.tab.id ? (
             <>
-              <p className="mb-4 flex items-center gap-1.5 text-sm font-medium text-green-700">
+              <p className="mb-4 flex items-center gap-1.5 text-sm font-medium text-green-700 dark:text-green-400">
                 <CheckCircle2 className="h-4 w-4" />
                 Pagamento confirmado.
               </p>
@@ -339,7 +341,7 @@ export function CheckoutPage() {
               {canDiscount && (
                 <Link
                   to={`/tabs/${selectedSummary.tab.id}`}
-                  className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-center text-sm text-gray-700 hover:bg-gray-100"
+                  className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-center text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
                 >
                   Ver comanda / corrigir pagamento
                 </Link>
@@ -347,41 +349,60 @@ export function CheckoutPage() {
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
               >
                 Fechar
               </button>
             </>
           ) : (
             <>
-              <ul className="mb-4 divide-y divide-gray-100">
+              <ul className="mb-4 divide-y divide-gray-100 dark:divide-white/10">
                 {selectedSummary.items.map((item) => (
                   <li key={item.id} className="flex items-start justify-between gap-2 py-2 text-sm">
                     <div>
-                      <span className={item.status === 'CANCELLED' ? 'text-gray-400 line-through' : 'text-gray-800'}>
+                      <span
+                        className={
+                          item.status === 'CANCELLED'
+                            ? 'text-gray-400 line-through dark:text-stone-600'
+                            : 'text-gray-800 dark:text-white'
+                        }
+                      >
                         {item.quantity}x {item.productName}
                       </span>
                       {item.modifiers.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
                           {item.modifiers.map((modifier, index) => (
-                            <span key={index} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                            <span
+                              key={index}
+                              className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-stone-400"
+                            >
                               {modifier.optionName}
                             </span>
                           ))}
                         </div>
                       )}
-                      {item.observation && <div className="mt-1 text-xs text-gray-500">{item.observation}</div>}
+                      {item.observation && (
+                        <div className="mt-1 text-xs text-gray-500 dark:text-stone-400">{item.observation}</div>
+                      )}
                       {item.discountType && item.status !== 'CANCELLED' && (
-                        <div className="mt-1 flex items-center gap-1 text-xs text-orange-600">
+                        <div className="mt-1 flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
                           <Percent className="h-3 w-3" />
                           -{currencyFormatter.format(item.discountAmount)}
-                          {item.discountReason && <span className="text-gray-400">({item.discountReason})</span>}
+                          {item.discountReason && (
+                            <span className="text-gray-400 dark:text-stone-500">({item.discountReason})</span>
+                          )}
                         </div>
                       )}
                     </div>
-                    <span className={item.status === 'CANCELLED' ? 'shrink-0 text-gray-400 line-through' : 'shrink-0 text-gray-600'}>
+                    <span
+                      className={
+                        item.status === 'CANCELLED'
+                          ? 'shrink-0 text-gray-400 line-through dark:text-stone-600'
+                          : 'shrink-0 text-gray-600 dark:text-stone-300'
+                      }
+                    >
                       {item.discountType && item.status !== 'CANCELLED' && (
-                        <span className="mr-1 text-xs text-gray-400 line-through">
+                        <span className="mr-1 text-xs text-gray-400 line-through dark:text-stone-500">
                           {currencyFormatter.format(item.subtotal)}
                         </span>
                       )}
@@ -392,24 +413,30 @@ export function CheckoutPage() {
               </ul>
 
               {canDiscount && (
-                <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-white/10 dark:bg-white/5">
                   {!isEditingDiscount ? (
                     <div className="flex items-center justify-between">
                       {selectedSummary.tab.discountType ? (
-                        <div className="text-sm text-orange-700">
+                        <div className="text-sm text-orange-700 dark:text-orange-400">
                           <span className="flex items-center gap-1 font-medium">
                             <Percent className="h-3.5 w-3.5" />
                             Desconto na comanda: -
                             {currencyFormatter.format(computeDiscountAmount(selectedSummary.tab.discountType, selectedSummary.tab.discountValue, selectedSummary.itemsTotal))}
                           </span>
                           {selectedSummary.tab.discountReason && (
-                            <span className="text-xs text-gray-500">{selectedSummary.tab.discountReason}</span>
+                            <span className="text-xs text-gray-500 dark:text-stone-400">
+                              {selectedSummary.tab.discountReason}
+                            </span>
                           )}
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-500">Nenhum desconto na comanda.</span>
+                        <span className="text-sm text-gray-500 dark:text-stone-400">Nenhum desconto na comanda.</span>
                       )}
-                      <button type="button" onClick={openDiscountForm} className="text-sm text-brand-600 hover:underline">
+                      <button
+                        type="button"
+                        onClick={openDiscountForm}
+                        className="text-sm text-brand-600 hover:underline dark:text-brand-400"
+                      >
                         {selectedSummary.tab.discountType ? 'Editar' : 'Aplicar desconto'}
                       </button>
                     </div>
@@ -420,7 +447,9 @@ export function CheckoutPage() {
                           type="button"
                           onClick={() => setDiscountKind('FIXED')}
                           className={`flex-1 rounded-md border px-2 py-1.5 text-xs ${
-                            discountKind === 'FIXED' ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-gray-300 text-gray-600'
+                            discountKind === 'FIXED'
+                              ? 'border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-400'
+                              : 'border-gray-300 text-gray-600 dark:border-white/10 dark:text-stone-400'
                           }`}
                         >
                           Valor em R$
@@ -429,7 +458,9 @@ export function CheckoutPage() {
                           type="button"
                           onClick={() => setDiscountKind('PERCENTAGE')}
                           className={`flex-1 rounded-md border px-2 py-1.5 text-xs ${
-                            discountKind === 'PERCENTAGE' ? 'border-brand-600 bg-brand-50 text-brand-700' : 'border-gray-300 text-gray-600'
+                            discountKind === 'PERCENTAGE'
+                              ? 'border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-400'
+                              : 'border-gray-300 text-gray-600 dark:border-white/10 dark:text-stone-400'
                           }`}
                         >
                           Percentual (%)
@@ -444,7 +475,7 @@ export function CheckoutPage() {
                         value={discountValue}
                         onChange={(e) => setDiscountValue(e.target.value)}
                         placeholder={discountKind === 'FIXED' ? 'Valor do desconto (R$)' : 'Percentual (%)'}
-                        className="mb-2 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+                        className="mb-2 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                       />
                       <input
                         type="text"
@@ -452,7 +483,7 @@ export function CheckoutPage() {
                         value={discountReason}
                         onChange={(e) => setDiscountReason(e.target.value)}
                         placeholder="Motivo (opcional)"
-                        className="mb-2 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+                        className="mb-2 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                       />
                       <div className="flex gap-2">
                         {selectedSummary.tab.discountType && (
@@ -460,7 +491,7 @@ export function CheckoutPage() {
                             type="button"
                             onClick={handleRemoveTabDiscount}
                             disabled={tabDiscountMutation.isPending}
-                            className="flex-1 rounded-md border border-red-300 px-2 py-1.5 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50"
+                            className="flex-1 rounded-md border border-red-300 px-2 py-1.5 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
                           >
                             Remover
                           </button>
@@ -468,7 +499,7 @@ export function CheckoutPage() {
                         <button
                           type="button"
                           onClick={() => setIsEditingDiscount(false)}
-                          className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+                          className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:border-white/10 dark:text-stone-400 dark:hover:bg-white/5"
                         >
                           Cancelar
                         </button>
@@ -486,21 +517,21 @@ export function CheckoutPage() {
               )}
 
               {canPay && (
-                <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-white/10 dark:bg-white/5">
                   {!isEditingServiceCharge || !canDiscount ? (
                     <div className="flex items-center justify-between">
                       {serviceChargePercentage != null ? (
-                        <span className="text-sm text-gray-700">
+                        <span className="text-sm text-gray-700 dark:text-stone-300">
                           Taxa de serviço ({serviceChargePercentage}%): {currencyFormatter.format(serviceChargeAmount)}
                         </span>
                       ) : (
-                        <span className="text-sm text-gray-500">Sem taxa de serviço.</span>
+                        <span className="text-sm text-gray-500 dark:text-stone-400">Sem taxa de serviço.</span>
                       )}
                       {canDiscount && (
                         <button
                           type="button"
                           onClick={() => setIsEditingServiceCharge(true)}
-                          className="text-sm text-brand-600 hover:underline"
+                          className="text-sm text-brand-600 hover:underline dark:text-brand-400"
                         >
                           {serviceChargePercentage != null ? 'Editar' : 'Adicionar'}
                         </button>
@@ -517,14 +548,14 @@ export function CheckoutPage() {
                         value={serviceChargeInput}
                         onChange={(e) => setServiceChargeInput(e.target.value)}
                         placeholder="Percentual (%)"
-                        className="mb-2 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none"
+                        className="mb-2 w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                       />
                       <div className="flex gap-2">
                         {serviceChargePercentage != null && (
                           <button
                             type="button"
                             onClick={handleRemoveServiceCharge}
-                            className="flex-1 rounded-md border border-red-300 px-2 py-1.5 text-xs text-red-700 hover:bg-red-50"
+                            className="flex-1 rounded-md border border-red-300 px-2 py-1.5 text-xs text-red-700 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
                           >
                             Remover
                           </button>
@@ -532,7 +563,7 @@ export function CheckoutPage() {
                         <button
                           type="button"
                           onClick={() => setIsEditingServiceCharge(false)}
-                          className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100"
+                          className="flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:border-white/10 dark:text-stone-400 dark:hover:bg-white/5"
                         >
                           Cancelar
                         </button>
@@ -548,27 +579,27 @@ export function CheckoutPage() {
                 </div>
               )}
 
-              <div className="mb-4 space-y-1 border-t border-gray-200 pt-3">
+              <div className="mb-4 space-y-1 border-t border-gray-200 pt-3 dark:border-white/10">
                 {serviceChargePercentage != null && (
-                  <div className="flex items-center justify-between text-sm text-gray-500">
+                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
                     <span>Subtotal</span>
                     <span>{currencyFormatter.format(selectedSummary.total)}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between text-base font-semibold text-gray-800">
+                <div className="flex items-center justify-between text-base font-semibold text-gray-800 dark:text-white">
                   <span>Total</span>
                   <span>{currencyFormatter.format(finalTotal)}</span>
                 </div>
               </div>
 
-              <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="paymentMethod">
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="paymentMethod">
                 Forma de pagamento
               </label>
               <select
                 id="paymentMethod"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
               >
                 {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => (
                   <option key={method} value={method}>
@@ -577,7 +608,7 @@ export function CheckoutPage() {
                 ))}
               </select>
 
-              {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+              {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
               {canPay && (
                 <button

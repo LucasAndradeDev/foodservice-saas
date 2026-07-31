@@ -142,14 +142,17 @@ export function ProductModifiersPage() {
 
   return (
     <div>
-      <Link to="/products" className="mb-2 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+      <Link
+        to="/products"
+        className="mb-2 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-stone-400 dark:hover:text-stone-200"
+      >
         <ChevronLeft className="h-4 w-4" />
         Produtos
       </Link>
 
       <div className="mb-1 flex items-center justify-between">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-          <ListChecks className="h-5 w-5 text-brand-600" />
+        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
+          <ListChecks className="h-5 w-5 text-brand-600 dark:text-brand-400" />
           Modificadores {product && `· ${product.name}`}
         </h1>
         <button
@@ -160,18 +163,18 @@ export function ProductModifiersPage() {
           Adicionar grupo
         </button>
       </div>
-      <p className="mb-4 text-sm text-gray-500">
+      <p className="mb-4 text-sm text-gray-500 dark:text-stone-400">
         São as opções que o cliente escolhe ao pedir esse produto — como tamanho, ponto da carne ou ingredientes
         extras. Cada grupo aparece pro cliente exatamente como você configurar aqui.
       </p>
 
-      {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
+      {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {groups && groups.length === 0 && (
-        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
-          <ListChecks className="mx-auto mb-2 h-8 w-8 text-gray-300" />
-          <p className="mb-1 text-sm font-medium text-gray-700">Nenhum modificador cadastrado ainda</p>
-          <p className="mx-auto max-w-sm text-sm text-gray-500">
+        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center dark:border-white/10 dark:bg-white/5">
+          <ListChecks className="mx-auto mb-2 h-8 w-8 text-gray-300 dark:text-stone-600" />
+          <p className="mb-1 text-sm font-medium text-gray-700 dark:text-stone-300">Nenhum modificador cadastrado ainda</p>
+          <p className="mx-auto max-w-sm text-sm text-gray-500 dark:text-stone-400">
             Exemplo: um grupo "Tamanho" com as opções P, M e G, onde o G custa R$ 15,00 a mais. Clique em "Adicionar
             grupo" pra criar o primeiro.
           </p>
@@ -181,27 +184,32 @@ export function ProductModifiersPage() {
       {groups && groups.length > 0 && (
         <div className="space-y-3">
           {groups.map((group) => (
-            <div key={group.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div
+              key={group.id}
+              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900"
+            >
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-gray-800">{group.name}</span>
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                    <span className="font-medium text-gray-800 dark:text-white">{group.name}</span>
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-stone-400">
                       {group.selectionType === 'SINGLE' ? 'Cliente escolhe 1' : 'Cliente escolhe vários'}
                     </span>
                     <span
                       className={`rounded-full px-2 py-0.5 text-xs ${
-                        group.required ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'
+                        group.required
+                          ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
+                          : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                       }`}
                     >
                       {group.required ? 'Obrigatório' : 'Opcional'}
                     </span>
                   </div>
-                  <ul className="mt-2 space-y-1 text-sm text-gray-600">
+                  <ul className="mt-2 space-y-1 text-sm text-gray-600 dark:text-stone-400">
                     {group.options.map((option) => (
                       <li key={option.id} className="flex items-center gap-2">
                         <span>{option.name}</span>
-                        <span className="text-gray-400">
+                        <span className="text-gray-400 dark:text-stone-500">
                           {option.priceDelta > 0 ? `+${currencyFormatter.format(option.priceDelta)}` : '—'}
                         </span>
                       </li>
@@ -214,7 +222,7 @@ export function ProductModifiersPage() {
                     onClick={() => openEditForm(group)}
                     title="Editar"
                     aria-label="Editar"
-                    className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
+                    className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
                   >
                     <Pencil className="h-4 w-4" />
                   </button>
@@ -223,7 +231,7 @@ export function ProductModifiersPage() {
                     onClick={() => handleDelete(group)}
                     title="Excluir"
                     aria-label="Excluir"
-                    className="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700"
+                    className="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-stone-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -237,7 +245,7 @@ export function ProductModifiersPage() {
       {isFormOpen && (
         <Modal title={editingGroup ? 'Editar grupo' : 'Novo grupo de modificador'} onClose={closeForm}>
           <form onSubmit={handleSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="groupName">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="groupName">
               Nome
             </label>
             <input
@@ -248,39 +256,39 @@ export function ProductModifiersPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Tamanho, Ponto da carne..."
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <span className="mb-1 block text-sm font-medium text-gray-700">Como o cliente escolhe?</span>
+            <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">Como o cliente escolhe?</span>
             <div className="mb-4 space-y-2">
               <button
                 type="button"
                 onClick={() => setSelectionType('SINGLE')}
                 className={`w-full rounded-md border px-3 py-2 text-left text-sm transition-colors ${
                   selectionType === 'SINGLE'
-                    ? 'border-brand-600 bg-brand-50'
-                    : 'border-gray-200 hover:bg-gray-50'
+                    ? 'border-brand-600 bg-brand-50 dark:border-brand-400 dark:bg-brand-500/10'
+                    : 'border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5'
                 }`}
               >
-                <span className="block font-medium text-gray-800">Apenas 1 opção</span>
-                <span className="block text-xs text-gray-500">Ex: tamanho — o cliente marca só P, M ou G</span>
+                <span className="block font-medium text-gray-800 dark:text-white">Apenas 1 opção</span>
+                <span className="block text-xs text-gray-500 dark:text-stone-400">Ex: tamanho — o cliente marca só P, M ou G</span>
               </button>
               <button
                 type="button"
                 onClick={() => setSelectionType('MULTIPLE')}
                 className={`w-full rounded-md border px-3 py-2 text-left text-sm transition-colors ${
                   selectionType === 'MULTIPLE'
-                    ? 'border-brand-600 bg-brand-50'
-                    : 'border-gray-200 hover:bg-gray-50'
+                    ? 'border-brand-600 bg-brand-50 dark:border-brand-400 dark:bg-brand-500/10'
+                    : 'border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5'
                 }`}
               >
-                <span className="block font-medium text-gray-800">Uma ou mais opções</span>
-                <span className="block text-xs text-gray-500">Ex: ingredientes extras — o cliente pode marcar vários</span>
+                <span className="block font-medium text-gray-800 dark:text-white">Uma ou mais opções</span>
+                <span className="block text-xs text-gray-500 dark:text-stone-400">Ex: ingredientes extras — o cliente pode marcar vários</span>
               </button>
             </div>
 
-            <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
-              <label className="flex items-start gap-2 text-sm text-gray-700">
+            <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+              <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-stone-300">
                 <input
                   type="checkbox"
                   className="mt-0.5"
@@ -288,8 +296,8 @@ export function ProductModifiersPage() {
                   onChange={(e) => setRequired(e.target.checked)}
                 />
                 <span>
-                  <span className="block font-medium text-gray-800">Obrigatório</span>
-                  <span className="block text-xs text-gray-500">
+                  <span className="block font-medium text-gray-800 dark:text-white">Obrigatório</span>
+                  <span className="block text-xs text-gray-500 dark:text-stone-400">
                     O cliente precisa escolher uma opção antes de adicionar ao carrinho. Marque pra tamanho; deixe
                     desmarcado pra extras opcionais.
                   </span>
@@ -297,8 +305,8 @@ export function ProductModifiersPage() {
               </label>
             </div>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700">Opções</label>
-            <p className="mb-2 text-xs text-gray-500">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">Opções</label>
+            <p className="mb-2 text-xs text-gray-500 dark:text-stone-400">
               Deixe o preço em R$ 0,00 se a opção não mudar o valor do produto.
             </p>
             <div className="mb-2 space-y-2">
@@ -310,7 +318,7 @@ export function ProductModifiersPage() {
                     maxLength={100}
                     value={option.name}
                     onChange={(e) => updateOptionRow(index, { name: e.target.value })}
-                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                    className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                   />
                   <input
                     type="number"
@@ -319,7 +327,7 @@ export function ProductModifiersPage() {
                     placeholder="+R$"
                     value={option.priceDelta}
                     onChange={(e) => updateOptionRow(index, { priceDelta: e.target.value })}
-                    className="w-24 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                    className="w-24 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                   />
                   <button
                     type="button"
@@ -327,7 +335,7 @@ export function ProductModifiersPage() {
                     disabled={options.length === 1}
                     title="Remover"
                     aria-label="Remover"
-                    className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-700 disabled:opacity-30"
+                    className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-700 disabled:opacity-30 dark:text-stone-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
                   >
                     <Minus className="h-4 w-4" />
                   </button>
@@ -343,7 +351,7 @@ export function ProductModifiersPage() {
               Adicionar opção
             </button>
 
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <button
               type="submit"

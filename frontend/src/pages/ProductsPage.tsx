@@ -206,10 +206,10 @@ export function ProductsPage() {
 
   return (
     <div>
-      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
+      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-            <Package className="h-5 w-5 text-brand-600" />
+          <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
+            <Package className="h-5 w-5 text-brand-600 dark:text-brand-400" />
             Produtos
           </h1>
           {canManage && (
@@ -226,20 +226,20 @@ export function ProductsPage() {
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1 sm:max-w-xs">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-stone-500" />
             <input
               type="text"
               placeholder="Buscar por nome..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm focus:border-brand-500 focus:bg-white focus:outline-none"
+              className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm focus:border-brand-500 focus:bg-white focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:focus:bg-stone-800"
             />
           </div>
           <div className="relative w-full sm:w-auto">
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm focus:border-brand-500 focus:bg-white focus:outline-none sm:w-auto"
+              className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm focus:border-brand-500 focus:bg-white focus:outline-none sm:w-auto dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:focus:bg-stone-800"
             >
               <option value="">Todas as categorias</option>
               {categories?.map((category) => (
@@ -248,25 +248,25 @@ export function ProductsPage() {
                 </option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-stone-500" />
           </div>
           <div className="relative w-full sm:w-auto">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as 'active' | 'inactive' | 'all')}
-              className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm focus:border-brand-500 focus:bg-white focus:outline-none sm:w-auto"
+              className="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 py-2 pl-3 pr-8 text-sm focus:border-brand-500 focus:bg-white focus:outline-none sm:w-auto dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:focus:bg-stone-800"
             >
               <option value="active">Ativos</option>
               <option value="inactive">Inativos</option>
               <option value="all">Todos</option>
             </select>
-            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-stone-500" />
           </div>
         </div>
       </div>
 
       {showNoCategoryNotice && categories?.length === 0 && (
-        <div className="mb-4 flex flex-col gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-4 flex flex-col gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
           <span>Crie uma categoria antes de cadastrar produtos.</span>
           <Link to="/categories" className="font-medium underline">
             Ir para Categorias
@@ -274,28 +274,33 @@ export function ProductsPage() {
         </div>
       )}
 
-      {listError && <p className="mb-4 text-sm text-red-600">{listError}</p>}
+      {listError && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{listError}</p>}
 
-      {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
+      {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
-      {products && products.length === 0 && <p className="text-sm text-gray-500">Nenhum produto encontrado.</p>}
+      {products && products.length === 0 && (
+        <p className="text-sm text-gray-500 dark:text-stone-400">Nenhum produto encontrado.</p>
+      )}
 
       {products && products.length > 0 && (
         <>
           {/* Mobile: stacked cards */}
           <div className="space-y-2 sm:hidden">
             {products.map((product) => (
-              <div key={product.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div
+                key={product.id}
+                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900"
+              >
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <span className="flex items-center gap-3">
                     {product.imageUrl ? (
                       <img src={product.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
                     ) : (
-                      <span className="h-14 w-14 shrink-0 rounded-lg bg-gray-100" />
+                      <span className="h-14 w-14 shrink-0 rounded-lg bg-gray-100 dark:bg-white/10" />
                     )}
                     <span>
-                      <span className="block font-medium text-gray-800">{product.name}</span>
-                      <span className="block text-sm text-gray-500">
+                      <span className="block font-medium text-gray-800 dark:text-white">{product.name}</span>
+                      <span className="block text-sm text-gray-500 dark:text-stone-400">
                         {categoryName(product.categoryId)} · {currencyFormatter.format(product.price)}
                       </span>
                     </span>
@@ -303,26 +308,28 @@ export function ProductsPage() {
                   <span className="flex shrink-0 flex-col items-end gap-1">
                     <span
                       className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                        product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                        product.active
+                          ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                          : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                       }`}
                     >
                       {product.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                       {product.active ? 'Ativo' : 'Inativo'}
                     </span>
                     {product.soldOutToday && (
-                      <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                      <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
                         <Ban className="h-3 w-3" />
                         Esgotado hoje
                       </span>
                     )}
                     {!product.soldOutToday && !product.availableNow && (
-                      <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                      <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
                         <CalendarClock className="h-3 w-3" />
                         Fora do horário
                       </span>
                     )}
                     {product.featured && (
-                      <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">
+                      <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400">
                         <Star className="h-3 w-3" />
                         Destaque
                       </span>
@@ -344,9 +351,9 @@ export function ProductsPage() {
           </div>
 
           {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block">
+          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block dark:border-white/10 dark:bg-stone-900">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-500">
+              <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
                 <tr>
                   <th className="px-4 py-2 font-medium">Nome</th>
                   <th className="px-4 py-2 font-medium">Categoria</th>
@@ -357,43 +364,45 @@ export function ProductsPage() {
               </thead>
               <tbody>
                 {products.map((product) => (
-                  <tr key={product.id} className="border-t border-gray-100">
-                    <td className="px-4 py-2 text-gray-800">
+                  <tr key={product.id} className="border-t border-gray-100 dark:border-white/10">
+                    <td className="px-4 py-2 text-gray-800 dark:text-white">
                       <span className="flex items-center gap-3">
                         {product.imageUrl ? (
                           <img src={product.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
                         ) : (
-                          <span className="h-14 w-14 shrink-0 rounded-lg bg-gray-100" />
+                          <span className="h-14 w-14 shrink-0 rounded-lg bg-gray-100 dark:bg-white/10" />
                         )}
                         {product.name}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-gray-600">{categoryName(product.categoryId)}</td>
-                    <td className="px-4 py-2 text-gray-600">{currencyFormatter.format(product.price)}</td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{categoryName(product.categoryId)}</td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{currencyFormatter.format(product.price)}</td>
                     <td className="px-4 py-2">
                       <span className="flex w-fit flex-col items-start gap-1">
                         <span
                           className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                            product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                            product.active
+                              ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                              : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                           }`}
                         >
                           {product.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                           {product.active ? 'Ativo' : 'Inativo'}
                         </span>
                         {product.soldOutToday && (
-                          <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                          <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
                             <Ban className="h-3 w-3" />
                             Esgotado hoje
                           </span>
                         )}
                         {!product.soldOutToday && !product.availableNow && (
-                          <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                          <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
                             <CalendarClock className="h-3 w-3" />
                             Fora do horário
                           </span>
                         )}
                         {product.featured && (
-                          <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700">
+                          <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400">
                             <Star className="h-3 w-3" />
                             Destaque
                           </span>
@@ -424,7 +433,7 @@ export function ProductsPage() {
       {isFormOpen && (
         <Modal title={editingProduct ? 'Editar produto' : 'Novo produto'} onClose={closeForm}>
           <form onSubmit={handleSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productName">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productName">
               Nome
             </label>
             <input
@@ -434,10 +443,10 @@ export function ProductsPage() {
               maxLength={100}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productDescription">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productDescription">
               Descrição
             </label>
             <textarea
@@ -445,12 +454,12 @@ export function ProductsPage() {
               maxLength={255}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
               rows={2}
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productPhotoUrl">
-              Foto do produto <span className="font-normal text-gray-400">(opcional)</span>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productPhotoUrl">
+              Foto do produto <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
             </label>
             <div className="mb-1 flex flex-col gap-2 sm:flex-row">
               <input
@@ -460,9 +469,9 @@ export function ProductsPage() {
                 maxLength={500}
                 value={photoUrl}
                 onChange={(e) => setPhotoUrl(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
               />
-              <label className="flex shrink-0 cursor-pointer items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
+              <label className="flex shrink-0 cursor-pointer items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5">
                 {isUploading ? 'Enviando...' : 'Enviar do dispositivo'}
                 <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} disabled={isUploading} />
               </label>
@@ -472,7 +481,7 @@ export function ProductsPage() {
             )}
             {!photoUrl && <div className="mb-4" />}
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productPrice">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productPrice">
               Preço
             </label>
             <input
@@ -483,11 +492,11 @@ export function ProductsPage() {
               step="0.01"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productCostPrice">
-              Preço de custo <span className="font-normal text-gray-400">(opcional)</span>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productCostPrice">
+              Preço de custo <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
             </label>
             <input
               id="productCostPrice"
@@ -496,10 +505,10 @@ export function ProductsPage() {
               step="0.01"
               value={costPrice}
               onChange={(e) => setCostPrice(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="productCategory">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productCategory">
               Categoria
             </label>
             <select
@@ -507,7 +516,7 @@ export function ProductsPage() {
               required
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             >
               <option value="" disabled>
                 Selecione uma categoria
@@ -519,17 +528,17 @@ export function ProductsPage() {
               ))}
             </select>
 
-            <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+            <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">
               <input
                 type="checkbox"
                 checked={featured}
                 onChange={(e) => setFeatured(e.target.checked)}
-                className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                className="rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-white/20 dark:bg-stone-800"
               />
               Marcar como destaque no cardápio digital
             </label>
 
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <button
               type="submit"
@@ -607,7 +616,7 @@ function ProductActionButtons({
         onClick={onEdit}
         title="Editar"
         aria-label="Editar"
-        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
+        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
       >
         <Pencil className="h-4 w-4" />
       </button>
@@ -619,62 +628,62 @@ function ProductActionButtons({
           onClick={() => setIsMenuOpen((open) => !open)}
           title="Mais ações"
           aria-label="Mais ações"
-          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
         >
           <MoreVertical className="h-4 w-4" />
         </button>
 
         {isMenuOpen && (
           <div
-            className={`absolute z-10 w-64 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg ${
+            className={`absolute z-10 w-64 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-stone-800 ${
               openUpward ? 'bottom-full mb-1' : 'mt-1'
             } ${align === 'end' ? 'right-0' : 'left-0'}`}
           >
             <Link
               to={`/products/${product.id}/modifiers`}
               onClick={() => setIsMenuOpen(false)}
-              className="flex items-center gap-2 whitespace-nowrap px-3 py-2 text-gray-700 hover:bg-gray-50"
+              className="flex items-center gap-2 whitespace-nowrap px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
             >
-              <ListChecks className="h-4 w-4 text-gray-400" />
+              <ListChecks className="h-4 w-4 text-gray-400 dark:text-stone-500" />
               Modificadores
             </Link>
             <Link
               to={`/products/${product.id}/availability`}
               onClick={() => setIsMenuOpen(false)}
-              className="flex items-center gap-2 whitespace-nowrap px-3 py-2 text-gray-700 hover:bg-gray-50"
+              className="flex items-center gap-2 whitespace-nowrap px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
             >
-              <CalendarClock className="h-4 w-4 text-gray-400" />
+              <CalendarClock className="h-4 w-4 text-gray-400 dark:text-stone-500" />
               Horários de disponibilidade
             </Link>
             <button
               type="button"
               onClick={() => runAndClose(onToggleActive)}
-              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
             >
-              <Power className="h-4 w-4 text-gray-400" />
+              <Power className="h-4 w-4 text-gray-400 dark:text-stone-500" />
               {product.active ? 'Desativar' : 'Ativar'}
             </button>
             <button
               type="button"
               onClick={() => runAndClose(onToggleSoldOut)}
-              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
             >
-              <Ban className="h-4 w-4 text-gray-400" />
+              <Ban className="h-4 w-4 text-gray-400 dark:text-stone-500" />
               {product.soldOutToday ? 'Remover "esgotado hoje"' : 'Marcar como esgotado hoje'}
             </button>
             <button
               type="button"
               onClick={() => runAndClose(onToggleFeatured)}
-              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50"
+              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
             >
-              <Star className="h-4 w-4 text-gray-400" />
+              <Star className="h-4 w-4 text-gray-400 dark:text-stone-500" />
               {product.featured ? 'Remover destaque' : 'Marcar como destaque'}
             </button>
-            <div className="my-1 border-t border-gray-100" />
+            <div className="my-1 border-t border-gray-100 dark:border-white/10" />
             <button
               type="button"
               onClick={() => runAndClose(onDelete)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
             >
               <Trash2 className="h-4 w-4" />
               Excluir

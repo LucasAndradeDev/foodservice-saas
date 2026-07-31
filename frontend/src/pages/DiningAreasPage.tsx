@@ -109,9 +109,9 @@ export function DiningAreasPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-          <MapPin className="h-5 w-5 text-brand-600" />
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
+        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
+          <MapPin className="h-5 w-5 text-brand-600 dark:text-brand-400" />
           Áreas do salão
         </h1>
         {canManage && (
@@ -126,17 +126,19 @@ export function DiningAreasPage() {
         )}
       </div>
 
-      {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
+      {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {orderedAreas.length === 0 && !isLoading && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-gray-500 dark:text-stone-400">
           Nenhuma área cadastrada. Sem áreas, as mesas aparecem numa única grade.
         </p>
       )}
 
       {orderedAreas.length > 0 && (
         <>
-          <p className="mb-2 text-xs text-gray-500">Arraste para reordenar como as áreas aparecem na tela de Mesas.</p>
+          <p className="mb-2 text-xs text-gray-500 dark:text-stone-400">
+            Arraste para reordenar como as áreas aparecem na tela de Mesas.
+          </p>
           <Reorder.Group
             axis="y"
             values={orderedAreas}
@@ -148,10 +150,10 @@ export function DiningAreasPage() {
                 key={area.id}
                 value={area}
                 onDragEnd={handleDragEnd}
-                className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+                className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-stone-900"
               >
-                <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-gray-300 active:cursor-grabbing" />
-                <span className="flex-1 text-sm font-medium text-gray-800">{area.name}</span>
+                <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-gray-300 active:cursor-grabbing dark:text-stone-600" />
+                <span className="flex-1 text-sm font-medium text-gray-800 dark:text-white">{area.name}</span>
                 {canManage && (
                   <div className="flex items-center gap-1">
                     <button
@@ -159,7 +161,7 @@ export function DiningAreasPage() {
                       onClick={() => openEditForm(area)}
                       title="Editar"
                       aria-label="Editar"
-                      className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
+                      className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -168,7 +170,7 @@ export function DiningAreasPage() {
                       onClick={() => handleDelete(area)}
                       title="Excluir"
                       aria-label="Excluir"
-                      className="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700"
+                      className="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-stone-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -183,7 +185,7 @@ export function DiningAreasPage() {
       {isFormOpen && (
         <Modal title={editingArea ? 'Editar área' : 'Nova área'} onClose={closeForm}>
           <form onSubmit={handleSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="areaName">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="areaName">
               Nome
             </label>
             <input
@@ -194,10 +196,10 @@ export function DiningAreasPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Salão interno, Varanda"
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <button
               type="submit"

@@ -101,9 +101,9 @@ export function StaffPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-          <Users className="h-5 w-5 text-brand-600" />
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
+        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
+          <Users className="h-5 w-5 text-brand-600 dark:text-brand-400" />
           Funcionários
         </h1>
         <button
@@ -116,30 +116,37 @@ export function StaffPage() {
         </button>
       </div>
 
-      {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
+      {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
-      {staff && staff.length === 0 && <p className="text-sm text-gray-500">Nenhum funcionário cadastrado.</p>}
+      {staff && staff.length === 0 && (
+        <p className="text-sm text-gray-500 dark:text-stone-400">Nenhum funcionário cadastrado.</p>
+      )}
 
       {staff && staff.length > 0 && (
         <>
           {/* Mobile: stacked cards */}
           <div className="space-y-2 sm:hidden">
             {staff.map((row) => (
-              <div key={row.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div
+                key={row.id}
+                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900"
+              >
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="font-medium text-gray-800">
-                    {row.name} {row.id === user?.id && <span className="text-gray-400">(você)</span>}
+                  <span className="font-medium text-gray-800 dark:text-white">
+                    {row.name} {row.id === user?.id && <span className="text-gray-400 dark:text-stone-500">(você)</span>}
                   </span>
                   <span
                     className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                      row.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      row.active
+                        ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                        : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                     }`}
                   >
                     {row.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                     {row.active ? 'Ativo' : 'Inativo'}
                   </span>
                 </div>
-                <div className="mb-2 text-sm text-gray-500">
+                <div className="mb-2 text-sm text-gray-500 dark:text-stone-400">
                   {row.email} · {ROLE_LABELS[row.role]}
                 </div>
                 {canEditRow(row) && (
@@ -148,7 +155,7 @@ export function StaffPage() {
                     onClick={() => openEditForm(row)}
                     title="Editar"
                     aria-label="Editar"
-                    className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
+                    className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
                   >
                     <Pencil className="h-4 w-4" />
                   </button>
@@ -158,9 +165,9 @@ export function StaffPage() {
           </div>
 
           {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block">
+          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block dark:border-white/10 dark:bg-stone-900">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-500">
+              <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
                 <tr>
                   <th className="px-4 py-2 font-medium">Nome</th>
                   <th className="px-4 py-2 font-medium">Email</th>
@@ -171,16 +178,18 @@ export function StaffPage() {
               </thead>
               <tbody>
                 {staff.map((row) => (
-                  <tr key={row.id} className="border-t border-gray-100">
-                    <td className="px-4 py-2 text-gray-800">
-                      {row.name} {row.id === user?.id && <span className="text-gray-400">(você)</span>}
+                  <tr key={row.id} className="border-t border-gray-100 dark:border-white/10">
+                    <td className="px-4 py-2 text-gray-800 dark:text-white">
+                      {row.name} {row.id === user?.id && <span className="text-gray-400 dark:text-stone-500">(você)</span>}
                     </td>
-                    <td className="px-4 py-2 text-gray-600">{row.email}</td>
-                    <td className="px-4 py-2 text-gray-600">{ROLE_LABELS[row.role]}</td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{row.email}</td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{ROLE_LABELS[row.role]}</td>
                     <td className="px-4 py-2">
                       <span
                         className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                          row.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                          row.active
+                            ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                            : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                         }`}
                       >
                         {row.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
@@ -194,7 +203,7 @@ export function StaffPage() {
                           onClick={() => openEditForm(row)}
                           title="Editar"
                           aria-label="Editar"
-                          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
+                          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -211,7 +220,7 @@ export function StaffPage() {
       {isCreating && (
         <Modal title="Novo funcionário" onClose={closeForm}>
           <form onSubmit={handleCreateSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="staffName">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffName">
               Nome
             </label>
             <input
@@ -221,10 +230,10 @@ export function StaffPage() {
               maxLength={100}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="staffEmail">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffEmail">
               Email
             </label>
             <input
@@ -233,10 +242,10 @@ export function StaffPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="staffPassword">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffPassword">
               Senha
             </label>
             <input
@@ -246,17 +255,17 @@ export function StaffPage() {
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="staffRole">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffRole">
               Papel
             </label>
             <select
               id="staffRole"
               value={role}
               onChange={(e) => setRole(e.target.value as UserRole)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             >
               {assignableRoles.map((option) => (
                 <option key={option} value={option}>
@@ -265,7 +274,7 @@ export function StaffPage() {
               ))}
             </select>
 
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <button
               type="submit"
@@ -281,7 +290,7 @@ export function StaffPage() {
       {editingStaff && (
         <Modal title={`Editar ${editingStaff.name}`} onClose={closeForm}>
           <form onSubmit={handleEditSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="editStaffName">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editStaffName">
               Nome
             </label>
             <input
@@ -291,17 +300,17 @@ export function StaffPage() {
               maxLength={100}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="editStaffRole">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editStaffRole">
               Papel
             </label>
             <select
               id="editStaffRole"
               value={role}
               onChange={(e) => setRole(e.target.value as UserRole)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             >
               {assignableRoles.map((option) => (
                 <option key={option} value={option}>
@@ -310,12 +319,12 @@ export function StaffPage() {
               ))}
             </select>
 
-            <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+            <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">
               <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
               Funcionário ativo
             </label>
 
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <button
               type="submit"

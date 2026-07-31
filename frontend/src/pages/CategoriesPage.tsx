@@ -73,9 +73,9 @@ export function CategoriesPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
-          <Tag className="h-5 w-5 text-brand-600" />
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
+        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
+          <Tag className="h-5 w-5 text-brand-600 dark:text-brand-400" />
           Categorias
         </h1>
         {canManage && (
@@ -90,10 +90,10 @@ export function CategoriesPage() {
         )}
       </div>
 
-      {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
+      {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {categories && categories.length === 0 && (
-        <p className="text-sm text-gray-500">Nenhuma categoria cadastrada.</p>
+        <p className="text-sm text-gray-500 dark:text-stone-400">Nenhuma categoria cadastrada.</p>
       )}
 
       {categories && categories.length > 0 && (
@@ -101,12 +101,17 @@ export function CategoriesPage() {
           {/* Mobile: stacked cards */}
           <div className="space-y-2 sm:hidden">
             {categories.map((category) => (
-              <div key={category.id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div
+                key={category.id}
+                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900"
+              >
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="font-medium text-gray-800">{category.name}</span>
+                  <span className="font-medium text-gray-800 dark:text-white">{category.name}</span>
                   <span
                     className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                      category.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      category.active
+                        ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                        : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                     }`}
                   >
                     {category.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
@@ -125,9 +130,9 @@ export function CategoriesPage() {
           </div>
 
           {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block">
+          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block dark:border-white/10 dark:bg-stone-900">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-500">
+              <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
                 <tr>
                   <th className="px-4 py-2 font-medium">Nome</th>
                   <th className="px-4 py-2 font-medium">Status</th>
@@ -136,12 +141,14 @@ export function CategoriesPage() {
               </thead>
               <tbody>
                 {categories.map((category) => (
-                  <tr key={category.id} className="border-t border-gray-100">
-                    <td className="px-4 py-2 text-gray-800">{category.name}</td>
+                  <tr key={category.id} className="border-t border-gray-100 dark:border-white/10">
+                    <td className="px-4 py-2 text-gray-800 dark:text-white">{category.name}</td>
                     <td className="px-4 py-2">
                       <span
                         className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                          category.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                          category.active
+                            ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                            : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                         }`}
                       >
                         {category.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
@@ -169,7 +176,7 @@ export function CategoriesPage() {
       {isFormOpen && (
         <Modal title={editingCategory ? 'Editar categoria' : 'Nova categoria'} onClose={closeForm}>
           <form onSubmit={handleSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700" htmlFor="categoryName">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="categoryName">
               Nome
             </label>
             <input
@@ -179,10 +186,10 @@ export function CategoriesPage() {
               maxLength={100}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <button
               type="submit"
@@ -213,7 +220,7 @@ function CategoryActionButtons({ category, onEdit, onToggleActive, align = 'star
         onClick={onEdit}
         title="Editar"
         aria-label="Editar"
-        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700"
+        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
       >
         <Pencil className="h-4 w-4" />
       </button>
@@ -222,7 +229,7 @@ function CategoryActionButtons({ category, onEdit, onToggleActive, align = 'star
         onClick={onToggleActive}
         title={category.active ? 'Desativar' : 'Ativar'}
         aria-label={category.active ? 'Desativar' : 'Ativar'}
-        className={`rounded-md p-1.5 hover:bg-gray-100 ${category.active ? 'text-gray-500 hover:text-amber-700' : 'text-gray-400 hover:text-green-700'}`}
+        className={`rounded-md p-1.5 hover:bg-gray-100 dark:hover:bg-white/5 ${category.active ? 'text-gray-500 hover:text-amber-700 dark:text-stone-400 dark:hover:text-amber-400' : 'text-gray-400 hover:text-green-700 dark:text-stone-500 dark:hover:text-green-400'}`}
       >
         <Power className="h-4 w-4" />
       </button>

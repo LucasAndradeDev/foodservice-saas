@@ -16,11 +16,12 @@ import {
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import moraLogo from '../assets/mora-logo.svg'
 import type { UserRole } from '../auth/types'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
 import { getNavNotificationStatus, markNavSectionSeen, type NavSection } from '../api/navNotifications'
+import { Logo } from '../theme/Logo'
+import { ThemeToggleButton } from '../theme/ThemeToggleButton'
 
 const NAV_STATUS_POLL_MS = 4000
 
@@ -65,7 +66,9 @@ const MORE_NAV_ITEMS: NavItem[] = [
 
 function sidebarLinkClass({ isActive }: { isActive: boolean }) {
   return `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
-    isActive ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+    isActive
+      ? 'bg-brand-600 text-white'
+      : 'text-gray-600 hover:bg-gray-100 dark:text-stone-400 dark:hover:bg-white/5'
   }`
 }
 
@@ -116,15 +119,17 @@ export function AppLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 sm:flex sm:h-screen sm:overflow-hidden">
+    <div className="min-h-screen bg-gray-50 sm:flex sm:h-screen sm:overflow-hidden dark:bg-stone-950">
       {/* Desktop sidebar */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-200 bg-white sm:flex">
-        <div className="flex items-center justify-center border-b border-gray-200 p-4">
-          <img src={moraLogo} alt="Morá" className="h-9 w-auto" />
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-200 bg-white sm:flex dark:border-white/10 dark:bg-stone-900">
+        <div className="flex items-center justify-center border-b border-gray-200 p-4 dark:border-white/10">
+          <Logo className="h-9 w-auto" />
         </div>
 
         <div className="flex-1 overflow-y-auto p-3">
-          <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-gray-400 uppercase">Operação</p>
+          <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
+            Operação
+          </p>
           <nav className="mb-6 flex flex-col gap-1">
             {PRIMARY_NAV_ITEMS.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end} className={sidebarLinkClass}>
@@ -137,7 +142,9 @@ export function AppLayout() {
 
           {visibleMoreItems.length > 0 && (
             <>
-              <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-gray-400 uppercase">Cadastros</p>
+              <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
+                Cadastros
+              </p>
               <nav className="flex flex-col gap-1">
                 {visibleMoreItems.map((item) => (
                   <NavLink key={item.to} to={item.to} end={item.end} className={sidebarLinkClass}>
@@ -150,15 +157,22 @@ export function AppLayout() {
           )}
         </div>
 
-        <div className="border-t border-gray-200 p-4">
-          <p className="truncate text-sm font-medium text-gray-800">{restaurant?.tradeName ?? restaurant?.name}</p>
-          <p className="mb-3 text-xs text-gray-500">
-            {user?.name} · {user ? ROLE_LABELS[user.role] : ''}
-          </p>
+        <div className="border-t border-gray-200 p-4 dark:border-white/10">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-gray-800 dark:text-white">
+                {restaurant?.tradeName ?? restaurant?.name}
+              </p>
+              <p className="truncate text-xs text-gray-500 dark:text-stone-400">
+                {user?.name} · {user ? ROLE_LABELS[user.role] : ''}
+              </p>
+            </div>
+            <ThemeToggleButton />
+          </div>
           <button
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+            className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
           >
             <LogOut className="h-4 w-4" />
             Sair
@@ -168,16 +182,21 @@ export function AppLayout() {
 
       <div className="flex-1 sm:h-screen sm:overflow-y-auto">
         {/* Mobile top bar */}
-        <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:hidden">
-          <span className="font-semibold text-gray-800">{restaurant?.tradeName ?? restaurant?.name}</span>
-          <button
-            type="button"
-            onClick={handleLogout}
-            aria-label="Sair"
-            className="rounded-md border border-gray-300 p-2 text-gray-700 hover:bg-gray-100"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
+        <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:hidden dark:border-white/10 dark:bg-stone-900">
+          <span className="font-semibold text-gray-800 dark:text-white">
+            {restaurant?.tradeName ?? restaurant?.name}
+          </span>
+          <div className="flex items-center gap-2">
+            <ThemeToggleButton />
+            <button
+              type="button"
+              onClick={handleLogout}
+              aria-label="Sair"
+              className="rounded-md border border-gray-300 p-2 text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </header>
 
         <main className="p-4 pb-20 sm:p-6 sm:pb-6">
@@ -186,7 +205,7 @@ export function AppLayout() {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-gray-200 bg-white sm:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-gray-200 bg-white sm:hidden dark:border-white/10 dark:bg-stone-900">
         {PRIMARY_NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}
@@ -194,7 +213,7 @@ export function AppLayout() {
             end={item.end}
             className={({ isActive }) =>
               `flex flex-1 flex-col items-center gap-0.5 py-2 text-xs ${
-                isActive ? 'text-brand-700' : 'text-gray-500'
+                isActive ? 'text-brand-700 dark:text-brand-400' : 'text-gray-500 dark:text-stone-500'
               }`
             }
           >
@@ -211,7 +230,7 @@ export function AppLayout() {
           <button
             type="button"
             onClick={() => setIsMoreOpen(true)}
-            className="flex flex-1 flex-col items-center gap-0.5 py-2 text-xs text-gray-500"
+            className="flex flex-1 flex-col items-center gap-0.5 py-2 text-xs text-gray-500 dark:text-stone-500"
           >
             <MoreHorizontal className="h-5 w-5" />
             Mais
@@ -221,15 +240,15 @@ export function AppLayout() {
 
       {isMoreOpen && (
         <Modal title="Mais" onClose={() => setIsMoreOpen(false)}>
-          <div className="flex flex-col divide-y divide-gray-100">
+          <div className="flex flex-col divide-y divide-gray-100 dark:divide-white/10">
             {visibleMoreItems.map((item) => (
               <button
                 key={item.to}
                 type="button"
                 onClick={() => handleMoreNavigate(item.to)}
-                className="flex items-center gap-3 py-3 text-left text-sm text-gray-700"
+                className="flex items-center gap-3 py-3 text-left text-sm text-gray-700 dark:text-stone-300"
               >
-                <item.icon className="h-5 w-5 text-gray-500" />
+                <item.icon className="h-5 w-5 text-gray-500 dark:text-stone-400" />
                 {item.label}
               </button>
             ))}

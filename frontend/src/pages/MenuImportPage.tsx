@@ -152,25 +152,25 @@ export function MenuImportPage() {
   }
 
   if (!canManage) {
-    return <p className="text-sm text-gray-500">Você não tem permissão para acessar esta página.</p>
+    return <p className="text-sm text-gray-500 dark:text-stone-400">Você não tem permissão para acessar esta página.</p>
   }
 
   return (
     <div>
-      <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs">
-        <FileSpreadsheet className="h-5 w-5 text-brand-600" />
+      <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs dark:border-white/10 dark:bg-stone-900 dark:text-white">
+        <FileSpreadsheet className="h-5 w-5 text-brand-600 dark:text-brand-400" />
         Importar cardápio
       </h1>
 
       {step === 'upload' && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <p className="mb-4 text-sm text-gray-600">
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-stone-900">
+          <p className="mb-4 text-sm text-gray-600 dark:text-stone-400">
             Envie uma planilha Excel (.xlsx) com o cardápio. A IA identifica categorias e produtos automaticamente -
             você revisa tudo antes de confirmar, nada é salvo sem sua aprovação.
           </p>
 
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-6 py-10 text-sm text-gray-500 hover:border-brand-400 hover:bg-brand-50">
-            <Upload className="h-6 w-6 text-gray-400" />
+          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-6 py-10 text-sm text-gray-500 hover:border-brand-400 hover:bg-brand-50 dark:border-white/10 dark:text-stone-400 dark:hover:border-brand-400 dark:hover:bg-brand-500/10">
+            <Upload className="h-6 w-6 text-gray-400 dark:text-stone-500" />
             {isExtracting ? 'Analisando planilha...' : 'Clique para selecionar um arquivo .xlsx'}
             <input
               type="file"
@@ -181,23 +181,23 @@ export function MenuImportPage() {
             />
           </label>
 
-          {extractError && <p className="mt-4 text-sm text-red-600">{extractError}</p>}
+          {extractError && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{extractError}</p>}
         </div>
       )}
 
       {step === 'review' && commitResult && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-stone-900">
           <p className="mb-4 flex items-center gap-2 text-sm font-medium text-green-700">
             <CheckCircle2 className="h-5 w-5" />
             Importação concluída
           </p>
-          <ul className="mb-4 space-y-1 text-sm text-gray-600">
+          <ul className="mb-4 space-y-1 text-sm text-gray-600 dark:text-stone-400">
             <li>Categorias criadas: {commitResult.categoriesCreated}</li>
             <li>Categorias reaproveitadas: {commitResult.categoriesReused}</li>
             <li>Produtos criados: {commitResult.productsCreated}</li>
           </ul>
           {commitResult.skipped.length > 0 && (
-            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-400">
               <p className="mb-1 font-medium">{commitResult.skipped.length} produto(s) não foram importados:</p>
               <ul className="list-inside list-disc">
                 {commitResult.skipped.map((item) => (
@@ -221,7 +221,7 @@ export function MenuImportPage() {
       {step === 'review' && !commitResult && (
         <div>
           {warnings.length > 0 && (
-            <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-400">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <ul className="list-inside list-disc">
                 {warnings.map((warning) => (
@@ -232,14 +232,14 @@ export function MenuImportPage() {
           )}
 
           {draftRows.length === 0 ? (
-            <p className="text-sm text-gray-500">Nenhum produto foi identificado nessa planilha.</p>
+            <p className="text-sm text-gray-500 dark:text-stone-400">Nenhum produto foi identificado nessa planilha.</p>
           ) : (
             <>
-              <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+              <div className="mb-4 rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700 dark:border-white/10 dark:bg-white/5 dark:text-stone-300">
                 <p className="mb-1 font-medium">
                   {categorySummary.length} categoria(s) · {draftRows.length} produto(s) identificado(s)
                 </p>
-                <ul className="flex flex-wrap gap-x-4 gap-y-1 text-gray-600">
+                <ul className="flex flex-wrap gap-x-4 gap-y-1 text-gray-600 dark:text-stone-400">
                   {categorySummary.map(([name, count]) => (
                     <li key={name}>
                       {name}: {count}
@@ -257,62 +257,65 @@ export function MenuImportPage() {
               {/* Mobile: stacked cards */}
               <div className="space-y-2 sm:hidden">
                 {draftRows.map((row, index) => (
-                  <div key={row.tempId} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <div
+                    key={row.tempId}
+                    className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900"
+                  >
                     <div className="mb-2 flex items-start justify-between gap-2">
                       <input
                         type="text"
                         value={row.name}
                         onChange={(e) => updateRow(index, 'name', e.target.value)}
-                        className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm font-medium focus:border-brand-500 focus:outline-none"
+                        className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm font-medium focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                       />
                       <button
                         type="button"
                         onClick={() => removeRow(index)}
                         title="Remover"
                         aria-label="Remover"
-                        className="shrink-0 rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700"
+                        className="shrink-0 rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-stone-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                     {row.duplicate && (
-                      <span className="mb-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                      <span className="mb-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
                         Possível duplicata
                       </span>
                     )}
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Descrição</label>
+                    <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-stone-400">Descrição</label>
                     <input
                       type="text"
                       maxLength={255}
                       value={row.description}
                       onChange={(e) => updateRow(index, 'description', e.target.value)}
-                      className="mb-2 w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none"
+                      className="mb-2 w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                     />
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Categoria</label>
+                    <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-stone-400">Categoria</label>
                     <input
                       type="text"
                       list="menu-import-categories"
                       value={row.categoryName}
                       onChange={(e) => updateRow(index, 'categoryName', e.target.value)}
-                      className="mb-2 w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none"
+                      className="mb-2 w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                     />
-                    <label className="mb-1 block text-xs font-medium text-gray-500">Preço</label>
+                    <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-stone-400">Preço</label>
                     <input
                       type="number"
                       min="0.01"
                       step="0.01"
                       value={row.price}
                       onChange={(e) => updateRow(index, 'price', e.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none"
+                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                     />
                   </div>
                 ))}
               </div>
 
               {/* Desktop: table */}
-              <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block">
+              <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block dark:border-white/10 dark:bg-stone-900">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-left text-gray-500">
+                  <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
                     <tr>
                       <th className="px-4 py-2 font-medium">Produto</th>
                       <th className="px-4 py-2 font-medium">Descrição</th>
@@ -323,16 +326,16 @@ export function MenuImportPage() {
                   </thead>
                   <tbody>
                     {draftRows.map((row, index) => (
-                      <tr key={row.tempId} className="border-t border-gray-100">
+                      <tr key={row.tempId} className="border-t border-gray-100 dark:border-white/10">
                         <td className="px-4 py-2 align-top">
                           <input
                             type="text"
                             value={row.name}
                             onChange={(e) => updateRow(index, 'name', e.target.value)}
-                            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none"
+                            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                           />
                           {row.duplicate && (
-                            <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+                            <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
                               Possível duplicata
                             </span>
                           )}
@@ -343,7 +346,7 @@ export function MenuImportPage() {
                             maxLength={255}
                             value={row.description}
                             onChange={(e) => updateRow(index, 'description', e.target.value)}
-                            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none"
+                            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                           />
                         </td>
                         <td className="px-4 py-2 align-top">
@@ -352,7 +355,7 @@ export function MenuImportPage() {
                             list="menu-import-categories"
                             value={row.categoryName}
                             onChange={(e) => updateRow(index, 'categoryName', e.target.value)}
-                            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none"
+                            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                           />
                         </td>
                         <td className="px-4 py-2 align-top">
@@ -362,7 +365,7 @@ export function MenuImportPage() {
                             step="0.01"
                             value={row.price}
                             onChange={(e) => updateRow(index, 'price', e.target.value)}
-                            className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none"
+                            className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                           />
                         </td>
                         <td className="px-4 py-2 text-right align-top">
@@ -371,7 +374,7 @@ export function MenuImportPage() {
                             onClick={() => removeRow(index)}
                             title="Remover"
                             aria-label="Remover"
-                            className="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700"
+                            className="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-stone-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -384,7 +387,7 @@ export function MenuImportPage() {
             </>
           )}
 
-          {extractError && <p className="mt-4 text-sm text-red-600">{extractError}</p>}
+          {extractError && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{extractError}</p>}
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <button
@@ -398,7 +401,7 @@ export function MenuImportPage() {
             <button
               type="button"
               onClick={startOver}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              className="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
             >
               Cancelar
             </button>

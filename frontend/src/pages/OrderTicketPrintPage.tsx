@@ -47,48 +47,54 @@ export function OrderTicketPrintPage() {
   }, [autoPrint, order, tab])
 
   if (isOrderLoading || !order) {
-    return <p className="p-6 text-sm text-gray-500">Carregando...</p>
+    return (
+      <div className="min-h-screen bg-white p-6 text-sm text-gray-500" style={{ colorScheme: 'light' }}>
+        Carregando...
+      </div>
+    )
   }
 
   return (
-    <div className="mx-auto max-w-sm p-6">
-      <Link to={`/tabs/${order.tabId}`} className="mb-4 block text-sm text-gray-500 hover:underline print:hidden">
-        ← Voltar
-      </Link>
+    <div className="min-h-screen bg-white" style={{ colorScheme: 'light' }}>
+      <div className="mx-auto max-w-sm p-6">
+        <Link to={`/tabs/${order.tabId}`} className="mb-4 block text-sm text-gray-500 hover:underline print:hidden">
+          ← Voltar
+        </Link>
 
-      <div className="text-center">
-        <h1 className="text-base font-semibold text-gray-800">
-          {restaurant?.tradeName || restaurant?.name}
-        </h1>
-        <p className="text-sm text-gray-600">
-          {tab && formatTableLabel(tab.tables.map((t) => t.number))}
-        </p>
-        <p className="text-xs text-gray-500">
-          {new Date(order.createdAt).toLocaleString('pt-BR')}
-        </p>
+        <div className="text-center">
+          <h1 className="text-base font-semibold text-gray-800">
+            {restaurant?.tradeName || restaurant?.name}
+          </h1>
+          <p className="text-sm text-gray-600">
+            {tab && formatTableLabel(tab.tables.map((t) => t.number))}
+          </p>
+          <p className="text-xs text-gray-500">
+            {new Date(order.createdAt).toLocaleString('pt-BR')}
+          </p>
+        </div>
+
+        <ul className="mt-4 divide-y divide-gray-200 border-t border-gray-300">
+          {order.items.map((item) => (
+            <li key={item.id} className="py-2 text-sm">
+              <div className="font-medium text-gray-800">
+                {item.quantity}x {item.productName}
+              </div>
+              {item.modifiers.length > 0 && (
+                <div className="text-gray-600">{item.modifiers.map((modifier) => modifier.optionName).join(', ')}</div>
+              )}
+              {item.observation && <div className="text-gray-500">Obs: {item.observation}</div>}
+            </li>
+          ))}
+        </ul>
+
+        <button
+          type="button"
+          onClick={handlePrint}
+          className="mt-6 w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 print:hidden"
+        >
+          Imprimir
+        </button>
       </div>
-
-      <ul className="mt-4 divide-y divide-gray-200 border-t border-gray-300">
-        {order.items.map((item) => (
-          <li key={item.id} className="py-2 text-sm">
-            <div className="font-medium text-gray-800">
-              {item.quantity}x {item.productName}
-            </div>
-            {item.modifiers.length > 0 && (
-              <div className="text-gray-600">{item.modifiers.map((modifier) => modifier.optionName).join(', ')}</div>
-            )}
-            {item.observation && <div className="text-gray-500">Obs: {item.observation}</div>}
-          </li>
-        ))}
-      </ul>
-
-      <button
-        type="button"
-        onClick={handlePrint}
-        className="mt-6 w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 print:hidden"
-      >
-        Imprimir
-      </button>
     </div>
   )
 }

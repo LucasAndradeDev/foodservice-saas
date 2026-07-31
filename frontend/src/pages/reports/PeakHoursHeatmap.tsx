@@ -71,15 +71,15 @@ export function PeakHoursHeatmap({ title, cells, metric, unitLabel, rangeStart, 
   const maxValue = Math.max(0, ...cells.map((cell) => cell[metric]))
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-      <div className="border-b border-gray-100 px-4 py-3">
-        <h2 className="text-sm font-medium text-gray-700">{title}</h2>
-        <p className="mt-0.5 text-xs text-gray-400">
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
+      <div className="border-b border-gray-100 px-4 py-3 dark:border-white/10">
+        <h2 className="text-sm font-medium text-gray-700 dark:text-stone-300">{title}</h2>
+        <p className="mt-0.5 text-xs text-gray-400 dark:text-stone-500">
           {rangeStart === rangeEnd ? formatDate(rangeStart) : `${formatDate(rangeStart)} a ${formatDate(rangeEnd)}`}
         </p>
 
         <div className="mt-3 flex items-center gap-2">
-          <span className="text-xs text-gray-500">0</span>
+          <span className="text-xs text-gray-500 dark:text-stone-400">0</span>
           <div className="relative h-2.5 flex-1 rounded-full" style={{ background: `linear-gradient(to right, ${cellColor(0)}, ${cellColor(1)})` }}>
             {[0.25, 0.5, 0.75].map((stop) => (
               <span
@@ -89,23 +89,25 @@ export function PeakHoursHeatmap({ title, cells, metric, unitLabel, rangeStart, 
               />
             ))}
           </div>
-          <span className="whitespace-nowrap text-xs text-gray-500">
+          <span className="whitespace-nowrap text-xs text-gray-500 dark:text-stone-400">
             {maxValue.toFixed(1)} {unitLabel}
           </span>
         </div>
 
-        <div className="mt-2 flex h-8 items-center rounded-lg bg-gray-50 px-2.5 text-xs text-gray-600">
+        <div className="mt-2 flex h-8 items-center rounded-lg bg-gray-50 px-2.5 text-xs text-gray-600 dark:bg-white/5 dark:text-stone-400">
           {hovered ? (
             <span>
-              <span className="font-medium text-gray-800">{DAY_FULL_LABELS[hovered.day]}</span>
+              <span className="font-medium text-gray-800 dark:text-white">{DAY_FULL_LABELS[hovered.day]}</span>
               {`, ${hovered.hour}h — `}
-              <span className="font-medium text-gray-800">
+              <span className="font-medium text-gray-800 dark:text-white">
                 {hovered.value.toFixed(1)} {unitLabel}
               </span>
               {` · média de ${sampleLabel(hovered.sampleCount)} no período`}
             </span>
           ) : (
-            <span className="text-gray-400">Passe o mouse ou navegue pelo grid para ver o detalhe de cada célula</span>
+            <span className="text-gray-400 dark:text-stone-500">
+              Passe o mouse ou navegue pelo grid para ver o detalhe de cada célula
+            </span>
           )}
         </div>
       </div>
@@ -118,10 +120,10 @@ export function PeakHoursHeatmap({ title, cells, metric, unitLabel, rangeStart, 
             return (
               <div
                 key={day}
-                className={`pb-1 text-center text-xs font-medium ${sampleCount === 0 ? 'text-gray-300' : 'text-gray-500'}`}
+                className={`pb-1 text-center text-xs font-medium ${sampleCount === 0 ? 'text-gray-300 dark:text-stone-600' : 'text-gray-500 dark:text-stone-400'}`}
               >
                 {DAY_LABELS[day]}
-                <span className="block text-[10px] font-normal text-gray-400">({sampleCount}x)</span>
+                <span className="block text-[10px] font-normal text-gray-400 dark:text-stone-500">({sampleCount}x)</span>
               </div>
             )
           })}
@@ -129,8 +131,8 @@ export function PeakHoursHeatmap({ title, cells, metric, unitLabel, rangeStart, 
           {HOURS.map((hour) => (
             <div key={hour} className="contents">
               <div
-                className={`flex items-center justify-end pr-2 text-xs text-gray-400 ${
-                  hour % 6 === 0 ? 'pt-1.5 font-medium text-gray-500' : ''
+                className={`flex items-center justify-end pr-2 text-xs text-gray-400 dark:text-stone-500 ${
+                  hour % 6 === 0 ? 'pt-1.5 font-medium text-gray-500 dark:text-stone-400' : ''
                 }`}
               >
                 {hour}h

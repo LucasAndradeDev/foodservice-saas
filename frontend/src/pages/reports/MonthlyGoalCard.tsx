@@ -59,10 +59,10 @@ export function MonthlyGoalCard() {
   const progressColor = progress !== null && progress >= 100 ? 'bg-green-500' : 'bg-brand-600'
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
-          <Target className="h-4 w-4 text-brand-600" />
+        <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-stone-300">
+          <Target className="h-4 w-4 text-brand-600 dark:text-brand-400" />
           Meta do mês
         </div>
         <div className="flex items-center gap-1">
@@ -70,16 +70,16 @@ export function MonthlyGoalCard() {
             type="button"
             aria-label="Mês anterior"
             onClick={() => setMonth((current) => shiftMonth(current, -1))}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-stone-500 dark:hover:bg-white/5 dark:hover:text-stone-300"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
-          <span className="min-w-[9rem] text-center text-sm text-gray-600">{monthLabel(month)}</span>
+          <span className="min-w-[9rem] text-center text-sm text-gray-600 dark:text-stone-400">{monthLabel(month)}</span>
           <button
             type="button"
             aria-label="Próximo mês"
             onClick={() => setMonth((current) => shiftMonth(current, 1))}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-stone-500 dark:hover:bg-white/5 dark:hover:text-stone-300"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -87,7 +87,7 @@ export function MonthlyGoalCard() {
       </div>
 
       {!data ? (
-        <p className="mt-3 text-sm text-gray-400">Carregando...</p>
+        <p className="mt-3 text-sm text-gray-400 dark:text-stone-500">Carregando...</p>
       ) : isEditing ? (
         <div className="mt-3 flex items-center gap-2">
           <input
@@ -98,7 +98,7 @@ export function MonthlyGoalCard() {
             value={goalInput}
             onChange={(e) => setGoalInput(e.target.value)}
             placeholder="Ex: 50000"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
           />
           <button
             type="button"
@@ -111,7 +111,7 @@ export function MonthlyGoalCard() {
           <button
             type="button"
             onClick={() => setIsEditing(false)}
-            className="shrink-0 rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
+            className="shrink-0 rounded-md border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-stone-400 dark:hover:bg-white/5"
           >
             Cancelar
           </button>
@@ -120,25 +120,32 @@ export function MonthlyGoalCard() {
         <button
           type="button"
           onClick={startEditing}
-          className="mt-3 text-sm font-medium text-brand-600 hover:text-brand-700"
+          className="mt-3 text-sm font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
         >
           + Definir meta pra esse mês
         </button>
       ) : (
         <div className="mt-3">
           <div className="flex items-baseline justify-between">
-            <span className="text-2xl font-semibold text-brand-700">{currencyFormatter.format(data.currentRevenue)}</span>
-            <span className="flex items-center gap-1 text-sm text-gray-500">
+            <span className="text-2xl font-semibold text-brand-700 dark:text-brand-400">
+              {currencyFormatter.format(data.currentRevenue)}
+            </span>
+            <span className="flex items-center gap-1 text-sm text-gray-500 dark:text-stone-400">
               de {currencyFormatter.format(data.revenueGoal)}
-              <button type="button" onClick={startEditing} aria-label="Editar meta" className="text-gray-400 hover:text-gray-600">
+              <button
+                type="button"
+                onClick={startEditing}
+                aria-label="Editar meta"
+                className="text-gray-400 hover:text-gray-600 dark:text-stone-500 dark:hover:text-stone-300"
+              >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             </span>
           </div>
-          <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-gray-100">
+          <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
             <div className={`h-full rounded-full ${progressColor}`} style={{ width: `${progressWidth}%` }} />
           </div>
-          <p className="mt-1 text-xs text-gray-400">{progress}% da meta</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-stone-500">{progress}% da meta</p>
         </div>
       )}
     </div>

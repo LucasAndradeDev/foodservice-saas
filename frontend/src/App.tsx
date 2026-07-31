@@ -24,42 +24,45 @@ import { StaffPage } from './pages/StaffPage'
 import { TabDetailPage } from './pages/TabDetailPage'
 import { TablesPage } from './pages/TablesPage'
 import { TabReceiptPrintPage } from './pages/TabReceiptPrintPage'
+import { ThemeProvider } from './theme/ThemeContext'
 
 function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/menu/:slug" element={<PublicMenuPage />} />
-          <Route path="/menu/:slug/:tableId" element={<PublicMenuPage />} />
-          <Route path="/feedback/:slug/:tabId" element={<PostMealFeedbackPage />} />
-          <Route element={<ProtectedRoute />}>
-            <Route path="/orders/:orderId/print" element={<OrderTicketPrintPage />} />
-            <Route path="/tabs/:tabId/print" element={<TabReceiptPrintPage />} />
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/tables" element={<TablesPage />} />
-              <Route path="/tabs/:tabId" element={<TabDetailPage />} />
-              <Route path="/kitchen" element={<KitchenPage />} />
-              <Route path="/checkout" element={<CheckoutPage />} />
-              <Route path="/categories" element={<CategoriesPage />} />
-              <Route path="/dining-areas" element={<DiningAreasPage />} />
-              <Route path="/coupons" element={<CouponsPage />} />
-              <Route path="/products" element={<ProductsPage />} />
-              <Route path="/products/import" element={<MenuImportPage />} />
-              <Route path="/products/:productId/modifiers" element={<ProductModifiersPage />} />
-              <Route path="/products/:productId/availability" element={<ProductAvailabilityPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/reports/feedback" element={<AllFeedbackPage />} />
-              <Route path="/settings" element={<RestaurantSettingsPage />} />
-              <Route path="/staff" element={<StaffPage />} />
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/menu/:slug" element={<PublicMenuPage />} />
+            <Route path="/menu/:slug/:tableId" element={<PublicMenuPage />} />
+            <Route path="/feedback/:slug/:tabId" element={<PostMealFeedbackPage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/orders/:orderId/print" element={<OrderTicketPrintPage />} />
+              <Route path="/tabs/:tabId/print" element={<TabReceiptPrintPage />} />
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/tables" element={<TablesPage />} />
+                <Route path="/tabs/:tabId" element={<TabDetailPage />} />
+                <Route path="/kitchen" element={<KitchenPage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/categories" element={<CategoriesPage />} />
+                <Route path="/dining-areas" element={<DiningAreasPage />} />
+                <Route path="/coupons" element={<CouponsPage />} />
+                <Route path="/products" element={<ProductsPage />} />
+                <Route path="/products/import" element={<MenuImportPage />} />
+                <Route path="/products/:productId/modifiers" element={<ProductModifiersPage />} />
+                <Route path="/products/:productId/availability" element={<ProductAvailabilityPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/reports/feedback" element={<AllFeedbackPage />} />
+                <Route path="/settings" element={<RestaurantSettingsPage />} />
+                <Route path="/staff" element={<StaffPage />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+          </Routes>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   )
 }
 
