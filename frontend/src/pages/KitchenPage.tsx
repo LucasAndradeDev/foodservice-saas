@@ -20,6 +20,7 @@ import { listKitchenQueue, updateItemStatus, type KitchenItem } from '../api/kit
 import type { ItemStatus } from '../api/orders'
 import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState } from '../components/EmptyState'
 import { formatTableLabel } from '../utils/tableLabel'
 import { minutesSince } from '../utils/time'
@@ -169,16 +170,18 @@ export function KitchenPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['kitchen-queue'] }),
   })
 
-  function handleCancel(item: KitchenItem) {
-    const confirmed = window.confirm(`Cancelar "${item.productName}"? Essa ação não pode ser desfeita.`)
-    if (confirmed) {
-      statusMutation.mutate({ id: item.id, status: 'CANCELLED' })
+  const [itemToCancel, setItemToCancel] = useState<KitchenItem | null>(null)
+
+  function confirmCancel() {
+    if (itemToCancel) {
+      statusMutation.mutate({ id: itemToCancel.id, status: 'CANCELLED' })
     }
+    setItemToCancel(null)
   }
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
         <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
           <ChefHat className="h-5 w-5 text-brand-600" />
           Cozinha
@@ -187,16 +190,17 @@ export function KitchenPage() {
         <button
           type="button"
           onClick={() => setShowOnlyDelayed((prev) => !prev)}
-          className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium ${
+          aria-label="Mostrar só pedidos atrasados"
+          className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-sm font-medium transition-colors ${
             showOnlyDelayed
               ? 'border-amber-400 bg-amber-100 text-amber-800'
               : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
           }`}
         >
           <AlertTriangle className="h-4 w-4" />
-          Só atrasados
+          <span className="hidden sm:inline">Atrasados</span>
           <span
-            className={`rounded-full px-1.5 py-0.5 text-xs ${
+            className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
               showOnlyDelayed ? 'bg-amber-200 text-amber-900' : 'bg-gray-100 text-gray-600'
             }`}
           >
@@ -217,6 +221,7 @@ export function KitchenPage() {
         <div className="space-y-3">
           {visibleGroups.map((group) => {
             const isCollapsed = collapsedGroups[group.key] ?? false
+            const tableNumbers = group.items[0].tableNumbers
 
             return (
               <div
@@ -232,20 +237,39 @@ export function KitchenPage() {
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.key)}
-                  className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left hover:bg-gray-50"
+                  className="flex w-full items-center justify-between gap-2 px-3 py-3 text-left hover:bg-gray-50 sm:px-4"
                 >
-                  <span className="flex items-center gap-2">
-                    <UtensilsCrossed className="h-4 w-4 text-brand-600" />
-                    <span className="text-sm font-semibold text-gray-800">{group.label}</span>
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                      {group.items.length} {group.items.length > 1 ? 'itens' : 'item'}
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${
+                        group.delayLevel === 'critical'
+                          ? 'bg-red-100 text-red-700'
+                          : group.delayLevel === 'warning'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-brand-50 text-brand-700'
+                      }`}
+                    >
+                      {tableNumbers.length > 0 ? tableNumbers.join(',') : <UtensilsCrossed className="h-4 w-4" />}
                     </span>
-                    {group.delayLevel === 'critical' && <AlertTriangle className="h-3.5 w-3.5 text-red-600" />}
-                    {group.delayLevel === 'warning' && <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />}
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-1.5">
+                        <span className="truncate text-sm font-semibold text-gray-800">{group.label}</span>
+                        {group.delayLevel === 'critical' && (
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-600" />
+                        )}
+                        {group.delayLevel === 'warning' && (
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                        )}
+                      </span>
+                      <span className="block text-xs text-gray-500">
+                        {group.items.length} {group.items.length > 1 ? 'itens' : 'item'}
+                      </span>
+                    </span>
                   </span>
                   <motion.span
                     animate={{ rotate: isCollapsed ? 0 : 180 }}
                     transition={{ duration: 0.35, ease: EASE_OUT }}
+                    className="shrink-0"
                   >
                     <ChevronDown className="h-4 w-4 text-gray-400" />
                   </motion.span>
@@ -260,104 +284,118 @@ export function KitchenPage() {
                       variants={groupPanelVariants}
                       className="overflow-hidden border-t border-gray-100"
                     >
-                      <div className="space-y-2 p-3">
+                      <div className="divide-y divide-gray-100">
                         {group.items.map((item) => {
                           const minutes = minutesSince(item.createdAt)
                           const delayLevel = getDelayLevel(item, warningThresholdMinutes, criticalThresholdMinutes)
                           const StatusIcon = STATUS_ICONS[item.status]
+                          const hasPrimaryAction =
+                            (item.status === 'PENDING' && canAdvance) ||
+                            (item.status === 'PREPARING' && canAdvance) ||
+                            (item.status === 'READY' && canDeliver)
 
                           return (
                             <div
                               key={item.id}
-                              className={`flex flex-col gap-3 rounded-lg border-2 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between ${
+                              className={`border-l-4 p-3 sm:p-4 ${
                                 delayLevel === 'critical'
                                   ? 'border-red-400'
                                   : delayLevel === 'warning'
                                     ? 'border-amber-400'
-                                    : 'border-gray-200'
+                                    : 'border-transparent'
                               }`}
                             >
-                              <div>
-                                <div className="flex items-center gap-1.5 text-sm text-gray-500">
-                                  <Clock className="h-3.5 w-3.5" />
-                                  <span
-                                    className={
-                                      delayLevel === 'critical'
-                                        ? 'font-semibold text-red-600'
-                                        : delayLevel === 'warning'
-                                          ? 'font-semibold text-amber-600'
-                                          : ''
-                                    }
-                                  >
-                                    há {minutes} min
-                                  </span>
-                                  {delayLevel === 'critical' && <AlertTriangle className="h-3.5 w-3.5 text-red-600" />}
-                                  {delayLevel === 'warning' && <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />}
-                                </div>
-                                <div className="text-base font-medium text-gray-800">
-                                  {item.quantity}x {item.productName}
-                                </div>
-                                {item.modifiers.length > 0 && (
-                                  <div className="mt-1 flex flex-wrap gap-1">
-                                    {item.modifiers.map((modifier, index) => (
-                                      <span
-                                        key={index}
-                                        className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
-                                      >
-                                        {modifier.optionName}
-                                      </span>
-                                    ))}
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+                                    <Clock className="h-3.5 w-3.5" />
+                                    <span
+                                      className={
+                                        delayLevel === 'critical'
+                                          ? 'font-semibold text-red-600'
+                                          : delayLevel === 'warning'
+                                            ? 'font-semibold text-amber-600'
+                                            : ''
+                                      }
+                                    >
+                                      há {minutes} min
+                                    </span>
+                                    <span
+                                      className={`flex items-center gap-1 rounded-full px-2 py-0.5 ${STATUS_STYLES[item.status]}`}
+                                    >
+                                      <StatusIcon className="h-3 w-3" />
+                                      {STATUS_LABELS[item.status]}
+                                    </span>
+                                    {delayLevel === 'critical' && (
+                                      <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
+                                    )}
+                                    {delayLevel === 'warning' && (
+                                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                                    )}
                                   </div>
-                                )}
-                                {item.observation && <div className="text-sm text-gray-500">{item.observation}</div>}
-                              </div>
+                                  <div className="mt-1.5 text-base font-semibold text-gray-800">
+                                    {item.quantity}x {item.productName}
+                                  </div>
+                                  {item.modifiers.length > 0 && (
+                                    <div className="mt-1.5 flex flex-wrap gap-1">
+                                      {item.modifiers.map((modifier, index) => (
+                                        <span
+                                          key={index}
+                                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                                        >
+                                          {modifier.optionName}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {item.observation && (
+                                    <div className="mt-1 text-sm text-gray-500">{item.observation}</div>
+                                  )}
+                                </div>
 
-                              <div className="flex flex-wrap items-center gap-3">
-                                <span
-                                  className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${STATUS_STYLES[item.status]}`}
-                                >
-                                  <StatusIcon className="h-3 w-3" />
-                                  {STATUS_LABELS[item.status]}
-                                </span>
-
-                                {item.status === 'PENDING' && canAdvance && (
+                                <div className="flex items-center gap-2 sm:shrink-0">
+                                  {item.status === 'PENDING' && canAdvance && (
+                                    <button
+                                      type="button"
+                                      onClick={() => statusMutation.mutate({ id: item.id, status: 'PREPARING' })}
+                                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 sm:flex-none"
+                                    >
+                                      <PlayCircle className="h-4 w-4" />
+                                      Iniciar preparo
+                                    </button>
+                                  )}
+                                  {item.status === 'PREPARING' && canAdvance && (
+                                    <button
+                                      type="button"
+                                      onClick={() => statusMutation.mutate({ id: item.id, status: 'READY' })}
+                                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-amber-700 sm:flex-none"
+                                    >
+                                      <PackageCheck className="h-4 w-4" />
+                                      Marcar pronto
+                                    </button>
+                                  )}
+                                  {item.status === 'READY' && canDeliver && (
+                                    <button
+                                      type="button"
+                                      onClick={() => statusMutation.mutate({ id: item.id, status: 'DELIVERED' })}
+                                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-green-700 sm:flex-none"
+                                    >
+                                      <Send className="h-4 w-4" />
+                                      Marcar entregue
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
-                                    onClick={() => statusMutation.mutate({ id: item.id, status: 'PREPARING' })}
-                                    className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+                                    onClick={() => setItemToCancel(item)}
+                                    aria-label="Cancelar item"
+                                    className={`flex shrink-0 items-center justify-center rounded-lg p-2.5 text-gray-400 hover:bg-red-50 hover:text-red-600 ${
+                                      hasPrimaryAction ? '' : 'flex-1 sm:flex-none'
+                                    }`}
                                   >
-                                    <PlayCircle className="h-4 w-4" />
-                                    Iniciar preparo
+                                    <X className="h-4 w-4" />
+                                    <span className="ml-1.5 text-sm sm:hidden">{hasPrimaryAction ? '' : 'Cancelar'}</span>
                                   </button>
-                                )}
-                                {item.status === 'PREPARING' && canAdvance && (
-                                  <button
-                                    type="button"
-                                    onClick={() => statusMutation.mutate({ id: item.id, status: 'READY' })}
-                                    className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
-                                  >
-                                    <PackageCheck className="h-4 w-4" />
-                                    Marcar pronto
-                                  </button>
-                                )}
-                                {item.status === 'READY' && canDeliver && (
-                                  <button
-                                    type="button"
-                                    onClick={() => statusMutation.mutate({ id: item.id, status: 'DELIVERED' })}
-                                    className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
-                                  >
-                                    <Send className="h-4 w-4" />
-                                    Marcar entregue
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => handleCancel(item)}
-                                  className="flex items-center gap-1 text-sm text-red-600 hover:underline"
-                                >
-                                  <X className="h-3.5 w-3.5" />
-                                  Cancelar
-                                </button>
+                                </div>
                               </div>
                             </div>
                           )
@@ -370,6 +408,18 @@ export function KitchenPage() {
             )
           })}
         </div>
+      )}
+
+      {itemToCancel && (
+        <ConfirmDialog
+          title="Cancelar item"
+          message={`Cancelar "${itemToCancel.productName}"? Essa ação não pode ser desfeita.`}
+          confirmLabel="Cancelar item"
+          cancelLabel="Voltar"
+          danger
+          onConfirm={confirmCancel}
+          onCancel={() => setItemToCancel(null)}
+        />
       )}
     </div>
   )
