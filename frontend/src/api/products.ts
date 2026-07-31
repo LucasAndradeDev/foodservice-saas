@@ -13,6 +13,7 @@ export interface Product {
   soldOutToday: boolean
   featured: boolean
   availableNow: boolean
+  hasModifierGroups: boolean
 }
 
 export interface ProductFilters {

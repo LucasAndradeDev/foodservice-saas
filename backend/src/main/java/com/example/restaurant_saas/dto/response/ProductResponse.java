@@ -21,4 +21,5 @@ public class ProductResponse {
     private Boolean soldOutToday;
     private Boolean featured;
     private Boolean availableNow;
+    private Boolean hasModifierGroups;
 }

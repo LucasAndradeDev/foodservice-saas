@@ -11,6 +11,7 @@ import {
   Flame,
   GitMerge,
   Lock,
+  Minus,
   PackageCheck,
   Pencil,
   Percent,
@@ -29,7 +30,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { listCategories } from '../api/categories'
 import { applyItemDiscount, createOrder, listOrders, transferItems, type DiscountType, type ItemStatus, type Order, type OrderItem } from '../api/orders'
 import { listModifierGroups } from '../api/productModifiers'
-import { listProducts } from '../api/products'
+import { listProducts, type Product } from '../api/products'
 import { getMyRestaurant } from '../api/restaurant'
 import { listTables } from '../api/tables'
 import {
@@ -146,9 +147,7 @@ export function TabDetailPage() {
 
   const [isAddingItem, setIsAddingItem] = useState(false)
   const [draftItems, setDraftItems] = useState<DraftItem[]>([])
-  const [productId, setProductId] = useState('')
-  const [quantity, setQuantity] = useState('1')
-  const [observation, setObservation] = useState('')
+  const [configuringProduct, setConfiguringProduct] = useState<Product | null>(null)
   const [modifierSelections, setModifierSelections] = useState<Record<string, string[]>>({})
   const [error, setError] = useState<string | null>(null)
   const [isMerging, setIsMerging] = useState(false)
@@ -182,14 +181,14 @@ export function TabDetailPage() {
   })
 
   const { data: modifierGroups } = useQuery({
-    queryKey: ['products', productId, 'modifier-groups'],
-    queryFn: () => listModifierGroups(productId),
-    enabled: isAddingItem && !!productId,
+    queryKey: ['products', configuringProduct?.id, 'modifier-groups'],
+    queryFn: () => listModifierGroups(configuringProduct!.id),
+    enabled: !!configuringProduct,
   })
 
   useEffect(() => {
     setModifierSelections({})
-  }, [productId])
+  }, [configuringProduct?.id])
 
   const createOrderMutation = useMutation({
     mutationFn: (items: DraftItem[]) =>
@@ -391,10 +390,8 @@ export function TabDetailPage() {
   }
 
   function openAddItemForm() {
-    setProductId(productsByCategory[0]?.products[0]?.id ?? '')
     setProductSearch('')
-    setQuantity('1')
-    setObservation('')
+    setConfiguringProduct(null)
     setModifierSelections({})
     setError(null)
     setIsAddingItem(true)
@@ -431,23 +428,16 @@ export function TabDetailPage() {
     (group) => !group.required || (modifierSelections[group.id]?.length ?? 0) > 0,
   )
 
-  function handleAddDraftItem(event: FormEvent) {
-    event.preventDefault()
-    const product = products?.find((p) => p.id === productId)
-    if (!product || !areModifiersValid) return
-    const trimmedObservation = observation.trim()
-    const addedQuantity = Number(quantity)
+  function isPlainDraftEntry(item: DraftItem) {
+    return item.observation === '' && item.selectedModifiers.length === 0
+  }
 
+  function addPlainProduct(product: Product) {
     setDraftItems((prev) => {
-      const existingIndex = prev.findIndex(
-        (item) =>
-          item.productId === product.id &&
-          item.observation === trimmedObservation &&
-          sameModifiers(item.selectedModifiers, selectedModifiers),
-      )
+      const existingIndex = prev.findIndex((item) => item.productId === product.id && isPlainDraftEntry(item))
       if (existingIndex !== -1) {
         return prev.map((item, index) =>
-          index === existingIndex ? { ...item, quantity: item.quantity + addedQuantity } : item,
+          index === existingIndex ? { ...item, quantity: item.quantity + 1 } : item,
         )
       }
       return [
@@ -456,20 +446,79 @@ export function TabDetailPage() {
           productId: product.id,
           productName: product.name,
           unitPrice: product.price,
-          quantity: addedQuantity,
-          observation: trimmedObservation,
+          quantity: 1,
+          observation: '',
+          selectedModifiers: [],
+        },
+      ]
+    })
+  }
+
+  function adjustPlainProductQuantity(productId: string, delta: number) {
+    setDraftItems((prev) =>
+      prev
+        .map((item) => (item.productId === productId && isPlainDraftEntry(item) ? { ...item, quantity: item.quantity + delta } : item))
+        .filter((item) => item.quantity > 0),
+    )
+  }
+
+  function handleProductTap(product: Product) {
+    setError(null)
+    if (product.hasModifierGroups) {
+      setConfiguringProduct(product)
+    } else {
+      addPlainProduct(product)
+    }
+  }
+
+  function handleConfirmModifiers() {
+    if (!configuringProduct || !areModifiersValid) return
+    const product = configuringProduct
+    setDraftItems((prev) => {
+      const existingIndex = prev.findIndex(
+        (item) => item.productId === product.id && item.observation === '' && sameModifiers(item.selectedModifiers, selectedModifiers),
+      )
+      if (existingIndex !== -1) {
+        return prev.map((item, index) =>
+          index === existingIndex ? { ...item, quantity: item.quantity + 1 } : item,
+        )
+      }
+      return [
+        ...prev,
+        {
+          productId: product.id,
+          productName: product.name,
+          unitPrice: product.price,
+          quantity: 1,
+          observation: '',
           selectedModifiers,
         },
       ]
     })
-    setQuantity('1')
-    setObservation('')
+    setConfiguringProduct(null)
     setModifierSelections({})
+  }
+
+  function updateDraftQuantity(index: number, delta: number) {
+    setDraftItems((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, quantity: item.quantity + delta } : item)).filter((item) => item.quantity > 0),
+    )
+  }
+
+  function updateDraftObservation(index: number, observation: string) {
+    setDraftItems((prev) => prev.map((item, i) => (i === index ? { ...item, observation } : item)))
   }
 
   function removeDraftItem(index: number) {
     setDraftItems((prev) => prev.filter((_, i) => i !== index))
   }
+
+  const plainDraftQuantities = new Map<string, number>()
+  draftItems.forEach((item) => {
+    if (isPlainDraftEntry(item)) {
+      plainDraftQuantities.set(item.productId, (plainDraftQuantities.get(item.productId) ?? 0) + item.quantity)
+    }
+  })
 
   function handleSendToKitchen() {
     setError(null)
@@ -686,33 +735,57 @@ export function TabDetailPage() {
           </h2>
           <ul className="mb-3 divide-y divide-gray-100 dark:divide-white/10">
             {draftItems.map((item, index) => (
-              <li key={index} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                <div>
-                  <span className="font-medium text-gray-800 dark:text-white">
-                    {item.quantity}x {item.productName}
-                  </span>
-                  {item.observation && <span className="ml-2 text-gray-500 dark:text-stone-400">({item.observation})</span>}
-                  {item.selectedModifiers.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {item.selectedModifiers.map((modifier) => (
-                        <span
-                          key={modifier.optionId}
-                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-stone-400"
-                        >
-                          {modifier.optionName}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
+              <li key={index} className="flex flex-col gap-2 py-2 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium text-gray-800 dark:text-white">{item.productName}</span>
                   <span className="text-gray-600 dark:text-stone-400">
                     {currencyFormatter.format((item.unitPrice + modifiersTotal(item.selectedModifiers)) * item.quantity)}
                   </span>
+                </div>
+                {item.selectedModifiers.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {item.selectedModifiers.map((modifier) => (
+                      <span
+                        key={modifier.optionId}
+                        className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-stone-400"
+                      >
+                        {modifier.optionName}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1 rounded-full border border-gray-200 px-1 py-0.5 dark:border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => updateDraftQuantity(index, -1)}
+                      aria-label="Diminuir quantidade"
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 dark:text-stone-300 dark:hover:bg-white/10"
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="w-5 text-center text-xs font-medium text-gray-800 dark:text-white">{item.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => updateDraftQuantity(index, 1)}
+                      aria-label="Aumentar quantidade"
+                      className="flex h-6 w-6 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 dark:text-stone-300 dark:hover:bg-white/10"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Observação (opcional)"
+                    maxLength={255}
+                    value={item.observation}
+                    onChange={(e) => updateDraftObservation(index, e.target.value)}
+                    className="flex-1 rounded-md border border-gray-200 px-2 py-1 text-xs focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white"
+                  />
                   <button
                     type="button"
                     onClick={() => removeDraftItem(index)}
-                    className="text-red-600 hover:underline dark:text-red-400"
+                    className="shrink-0 text-red-600 hover:underline dark:text-red-400"
                   >
                     Remover
                   </button>
@@ -881,134 +954,145 @@ export function TabDetailPage() {
       )}
 
       {isAddingItem && (
-        <Modal title="Adicionar item" onClose={() => setIsAddingItem(false)}>
-          <form onSubmit={handleAddDraftItem}>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="product">
-              Produto
-            </label>
-            <div className="relative mb-2">
-              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-stone-500" />
-              <input
-                type="text"
-                placeholder="Buscar produto..."
-                value={productSearch}
-                onChange={(e) => setProductSearch(e.target.value)}
-                className="w-full rounded-md border border-gray-300 py-2 pr-3 pl-9 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-              />
-            </div>
-            <div className="mb-4 max-h-56 space-y-3 overflow-y-auto rounded-md border border-gray-200 p-2 dark:border-white/10">
-              {filteredProductsByCategory.length === 0 && (
-                <p className="py-4 text-center text-sm text-gray-400 dark:text-stone-500">Nenhum produto encontrado.</p>
-              )}
-              {filteredProductsByCategory.map(({ category, products: categoryProducts }) => {
-                const CategoryIcon = getCategoryIcon(category.name)
-                return (
-                  <div key={category.id}>
-                    <div className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
-                      <CategoryIcon className="h-3.5 w-3.5" />
-                      {category.name}
-                    </div>
-                    <div className="space-y-1">
-                      {categoryProducts.map((product) => {
-                        const isSelected = product.id === productId
-                        return (
-                          <motion.button
-                            key={product.id}
-                            type="button"
-                            whileTap={{ scale: 0.98 }}
-                            onClick={() => setProductId(product.id)}
-                            className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors ${
-                              isSelected
-                                ? 'border-brand-600 bg-brand-50 dark:border-brand-400 dark:bg-brand-500/10'
-                                : 'border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5'
-                            }`}
-                          >
-                            <span className="flex items-center gap-2 text-gray-800 dark:text-white">
-                              {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-brand-600 dark:text-brand-400" />}
-                              {product.name}
-                            </span>
-                            <span className="shrink-0 text-gray-500 dark:text-stone-400">{currencyFormatter.format(product.price)}</span>
-                          </motion.button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="quantity">
-              Quantidade
-            </label>
+        <Modal title="Adicionar itens" onClose={() => setIsAddingItem(false)}>
+          <p className="mb-3 text-xs text-gray-500 dark:text-stone-400">
+            Toque nos produtos que quiser adicionar. Dá pra escolher vários de uma vez.
+          </p>
+          <div className="relative mb-3">
+            <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-stone-500" />
             <input
-              id="quantity"
-              type="number"
-              required
-              min="1"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-            />
-
-            {modifierGroups && modifierGroups.length > 0 && (
-              <div className="mb-4 space-y-4">
-                {modifierGroups.map((group) => (
-                  <div key={group.id}>
-                    <div className="mb-1 flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-700 dark:text-stone-300">{group.name}</span>
-                      {group.required && (
-                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
-                          Obrigatório
-                        </span>
-                      )}
-                    </div>
-                    <div className="space-y-1.5">
-                      {group.options.map((option) => {
-                        const isSelected = (modifierSelections[group.id] ?? []).includes(option.id)
-                        return (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => toggleModifierOption(group.id, option.id, group.selectionType === 'SINGLE')}
-                            className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
-                              isSelected
-                                ? 'border-brand-600 bg-brand-50 dark:border-brand-400 dark:bg-brand-500/10'
-                                : 'border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5'
-                            }`}
-                          >
-                            <span className="text-gray-800 dark:text-white">{option.name}</span>
-                            <span className="text-gray-500 dark:text-stone-400">
-                              {option.priceDelta > 0 ? `+${currencyFormatter.format(option.priceDelta)}` : 'Grátis'}
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="observation">
-              Observação <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
-            </label>
-            <input
-              id="observation"
               type="text"
-              maxLength={255}
-              value={observation}
-              onChange={(e) => setObservation(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+              placeholder="Buscar produto..."
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              className="w-full rounded-md border border-gray-300 py-2 pr-3 pl-9 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
+          </div>
+          <div className="mb-4 max-h-96 space-y-4 overflow-y-auto rounded-md border border-gray-200 p-2 dark:border-white/10">
+            {filteredProductsByCategory.length === 0 && (
+              <p className="py-4 text-center text-sm text-gray-400 dark:text-stone-500">Nenhum produto encontrado.</p>
+            )}
+            {filteredProductsByCategory.map(({ category, products: categoryProducts }) => {
+              const CategoryIcon = getCategoryIcon(category.name)
+              return (
+                <div key={category.id}>
+                  <div className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
+                    <CategoryIcon className="h-3.5 w-3.5" />
+                    {category.name}
+                  </div>
+                  <div className="space-y-1">
+                    {categoryProducts.map((product) => {
+                      const quantity = product.hasModifierGroups ? 0 : (plainDraftQuantities.get(product.id) ?? 0)
+                      return (
+                        <div
+                          key={product.id}
+                          className="flex items-center justify-between gap-2 rounded-md border border-gray-200 px-3 py-2 text-sm dark:border-white/10"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-gray-800 dark:text-white">{product.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-stone-400">{currencyFormatter.format(product.price)}</div>
+                          </div>
+                          {quantity === 0 ? (
+                            <motion.button
+                              type="button"
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => handleProductTap(product)}
+                              className="shrink-0 rounded-full border border-brand-600 px-3 py-1 text-xs font-medium text-brand-600 hover:bg-gray-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-white/5"
+                            >
+                              Adicionar
+                            </motion.button>
+                          ) : (
+                            <div className="flex shrink-0 items-center gap-3 rounded-full border border-brand-600 px-2 py-1 dark:border-brand-400">
+                              <button
+                                type="button"
+                                onClick={() => adjustPlainProductQuantity(product.id, -1)}
+                                aria-label="Diminuir quantidade"
+                                className="flex h-5 w-5 items-center justify-center text-brand-600 dark:text-brand-400"
+                              >
+                                <Minus className="h-3.5 w-3.5" />
+                              </button>
+                              <span className="min-w-[1ch] text-center text-xs font-semibold text-gray-800 dark:text-white">
+                                {quantity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => adjustPlainProductQuantity(product.id, 1)}
+                                aria-label="Aumentar quantidade"
+                                className="flex h-5 w-5 items-center justify-center text-brand-600 dark:text-brand-400"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
 
-            <button
-              type="submit"
-              disabled={!productId || !areModifiersValid}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
-              Adicionar à comanda
-            </button>
-          </form>
+          {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+          <button
+            type="button"
+            onClick={() => setIsAddingItem(false)}
+            disabled={draftItems.length === 0}
+            className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+          >
+            {draftItems.length === 0 ? 'Selecione ao menos um item' : 'Concluir seleção'}
+          </button>
+        </Modal>
+      )}
+
+      {configuringProduct && (
+        <Modal title={configuringProduct.name} onClose={() => setConfiguringProduct(null)}>
+          <div className="space-y-4">
+            {(modifierGroups ?? []).map((group) => (
+              <div key={group.id}>
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-stone-300">{group.name}</span>
+                  {group.required && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                      Obrigatório
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  {group.options.map((option) => {
+                    const isSelected = (modifierSelections[group.id] ?? []).includes(option.id)
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => toggleModifierOption(group.id, option.id, group.selectionType === 'SINGLE')}
+                        className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
+                          isSelected
+                            ? 'border-brand-600 bg-brand-50 dark:border-brand-400 dark:bg-brand-500/10'
+                            : 'border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5'
+                        }`}
+                      >
+                        <span className="text-gray-800 dark:text-white">{option.name}</span>
+                        <span className="text-gray-500 dark:text-stone-400">
+                          {option.priceDelta > 0 ? `+${currencyFormatter.format(option.priceDelta)}` : 'Grátis'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleConfirmModifiers}
+            disabled={!areModifiersValid}
+            className="mt-5 w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+          >
+            Adicionar
+          </button>
         </Modal>
       )}
 

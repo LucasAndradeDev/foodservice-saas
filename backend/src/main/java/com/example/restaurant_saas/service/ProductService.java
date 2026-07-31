@@ -9,6 +9,7 @@ import com.example.restaurant_saas.dto.response.ProductResponse;
 import com.example.restaurant_saas.repository.CategoryRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.ProductAvailabilityWindowRepository;
+import com.example.restaurant_saas.repository.ProductModifierGroupRepository;
 import com.example.restaurant_saas.repository.ProductRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,15 +35,27 @@ public class ProductService {
     private final RestaurantRepository restaurantRepository;
     private final OrderItemRepository orderItemRepository;
     private final ProductAvailabilityWindowRepository availabilityWindowRepository;
+    private final ProductModifierGroupRepository modifierGroupRepository;
 
     @Transactional(readOnly = true)
     public List<ProductResponse> listProducts(UUID restaurantId, UUID categoryId, String search, Boolean activeFilter) {
-        return productRepository.findByRestaurantIdOrderByCategoryNameAscNameAsc(restaurantId).stream()
+        List<Product> products = productRepository.findByRestaurantIdOrderByCategoryNameAscNameAsc(restaurantId).stream()
                 .filter(product -> categoryId == null || product.getCategory().getId().equals(categoryId))
                 .filter(product -> search == null || search.isBlank()
                         || product.getName().toLowerCase().contains(search.toLowerCase()))
                 .filter(product -> activeFilter == null || activeFilter.equals(product.getActive()))
-                .map(this::toResponse)
+                .toList();
+
+        Set<UUID> productIdsWithModifiers = products.isEmpty()
+                ? Set.of()
+                : modifierGroupRepository
+                        .findByRestaurantIdAndProductIdInOrderByCreatedAtAsc(restaurantId, products.stream().map(Product::getId).toList())
+                        .stream()
+                        .map(group -> group.getProduct().getId())
+                        .collect(Collectors.toSet());
+
+        return products.stream()
+                .map(product -> toResponse(product, productIdsWithModifiers.contains(product.getId())))
                 .toList();
     }
 
@@ -130,6 +145,13 @@ public class ProductService {
     }
 
     private ProductResponse toResponse(Product product) {
+        boolean hasModifierGroups = !modifierGroupRepository
+                .findByRestaurantIdAndProductIdInOrderByCreatedAtAsc(product.getRestaurant().getId(), List.of(product.getId()))
+                .isEmpty();
+        return toResponse(product, hasModifierGroups);
+    }
+
+    private ProductResponse toResponse(Product product, boolean hasModifierGroups) {
         return ProductResponse.builder()
                 .id(product.getId())
                 .restaurantId(product.getRestaurant().getId())
@@ -143,6 +165,7 @@ public class ProductService {
                 .soldOutToday(isSoldOutToday(product))
                 .featured(product.getFeatured())
                 .availableNow(isAvailableNow(product))
+                .hasModifierGroups(hasModifierGroups)
                 .build();
     }
 
