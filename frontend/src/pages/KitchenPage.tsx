@@ -148,6 +148,16 @@ export function KitchenPage() {
     [items, warningThresholdMinutes, criticalThresholdMinutes],
   )
 
+  const delayedItemCount = useMemo(
+    () =>
+      (items ?? []).filter((item) => getDelayLevel(item, warningThresholdMinutes, criticalThresholdMinutes) !== 'none')
+        .length,
+    [items, warningThresholdMinutes, criticalThresholdMinutes],
+  )
+
+  const [showOnlyDelayed, setShowOnlyDelayed] = useState(false)
+  const visibleGroups = showOnlyDelayed ? groups.filter((group) => group.delayLevel !== 'none') : groups
+
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
 
   function toggleGroup(key: string) {
@@ -168,18 +178,44 @@ export function KitchenPage() {
 
   return (
     <div>
-      <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs">
-        <ChefHat className="h-5 w-5 text-brand-600" />
-        Cozinha
-      </h1>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
+        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800">
+          <ChefHat className="h-5 w-5 text-brand-600" />
+          Cozinha
+        </h1>
+
+        <button
+          type="button"
+          onClick={() => setShowOnlyDelayed((prev) => !prev)}
+          className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium ${
+            showOnlyDelayed
+              ? 'border-amber-400 bg-amber-100 text-amber-800'
+              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <AlertTriangle className="h-4 w-4" />
+          Só atrasados
+          <span
+            className={`rounded-full px-1.5 py-0.5 text-xs ${
+              showOnlyDelayed ? 'bg-amber-200 text-amber-900' : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            {delayedItemCount}
+          </span>
+        </button>
+      </div>
 
       {isLoading && <p className="text-sm text-gray-500">Carregando...</p>}
 
       {items && items.length === 0 && <EmptyState icon={ChefHat} message="Nenhum item na fila." />}
 
-      {items && items.length > 0 && (
+      {items && items.length > 0 && showOnlyDelayed && visibleGroups.length === 0 && (
+        <EmptyState icon={Check} message="Nenhum pedido atrasado no momento." />
+      )}
+
+      {items && items.length > 0 && visibleGroups.length > 0 && (
         <div className="space-y-3">
-          {groups.map((group) => {
+          {visibleGroups.map((group) => {
             const isCollapsed = collapsedGroups[group.key] ?? false
 
             return (
