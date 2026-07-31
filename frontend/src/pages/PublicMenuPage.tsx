@@ -387,19 +387,32 @@ export function PublicMenuPage() {
         />
       )}
 
-      {canOrder && cartCount > 0 && !isCartOpen && (
-        <button
-          type="button"
-          onClick={() => setIsCartOpen(true)}
-          className="fixed inset-x-4 bottom-4 z-20 flex items-center justify-between gap-2 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-medium text-white shadow-lg dark:shadow-black/50"
-        >
-          <span className="flex items-center gap-2">
-            <ShoppingBag className="h-4 w-4" />
-            {cartCount} {cartCount === 1 ? 'item' : 'itens'}
-          </span>
-          <span>Ver pedido · {currencyFormatter.format(cartTotal)}</span>
-        </button>
-      )}
+      <AnimatePresence>
+        {canOrder && cartCount > 0 && !isCartOpen && (
+          <motion.button
+            type="button"
+            onClick={() => setIsCartOpen(true)}
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ duration: 0.2 }}
+            whileTap={{ scale: 0.97 }}
+            className="fixed inset-x-4 bottom-4 z-20 mx-auto flex max-w-md items-center gap-3 rounded-full bg-gradient-to-r from-brand-600 to-brand-500 py-2.5 pl-2.5 pr-4 text-white shadow-xl shadow-brand-900/30 ring-1 ring-white/10 dark:shadow-black/50"
+          >
+            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15">
+              <ShoppingBag className="h-4 w-4" />
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[11px] font-bold text-brand-600">
+                {cartCount}
+              </span>
+            </span>
+            <span className="flex flex-1 flex-col items-start leading-tight">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-white/75">Ver pedido</span>
+              <span className="text-sm font-semibold">{cartCount === 1 ? '1 item' : `${cartCount} itens`}</span>
+            </span>
+            <span className="text-base font-bold">{currencyFormatter.format(cartTotal)}</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       <CartDrawer
         isOpen={isCartOpen}
