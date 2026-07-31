@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Circle, Pencil, Plus, Power, Ticket } from 'lucide-react'
+import { CheckCircle2, Circle, Clock, Pencil, Plus, Power, Ticket, XCircle } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { createCoupon, listCoupons, updateCoupon, type Coupon } from '../api/coupons'
 import type { DiscountType } from '../api/orders'
@@ -13,6 +13,19 @@ function formatDiscount(type: DiscountType, value: number) {
 
 function formatUsage(coupon: Coupon) {
   return coupon.maxUses ? `${coupon.usedCount}/${coupon.maxUses}` : `${coupon.usedCount}`
+}
+
+function getCouponStatus(coupon: Coupon) {
+  if (!coupon.active) {
+    return { label: 'Inativo', className: 'bg-gray-400 text-white', icon: Circle }
+  }
+  if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
+    return { label: 'Expirado', className: 'bg-amber-500 text-white', icon: Clock }
+  }
+  if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
+    return { label: 'Esgotado', className: 'bg-red-600 text-white', icon: XCircle }
+  }
+  return { label: 'Ativo', className: 'bg-green-600 text-white', icon: CheckCircle2 }
 }
 
 export function CouponsPage() {
@@ -146,7 +159,10 @@ export function CouponsPage() {
                 </tr>
               </thead>
               <tbody>
-                {coupons.map((coupon) => (
+                {coupons.map((coupon) => {
+                  const status = getCouponStatus(coupon)
+                  const StatusIcon = status.icon
+                  return (
                   <tr key={coupon.id} className="border-t border-gray-100">
                     <td className="px-4 py-2 font-medium text-gray-800">{coupon.code}</td>
                     <td className="px-4 py-2 text-gray-600">{formatDiscount(coupon.discountType, coupon.discountValue)}</td>
@@ -155,13 +171,9 @@ export function CouponsPage() {
                     </td>
                     <td className="px-4 py-2 text-gray-600">{formatUsage(coupon)}</td>
                     <td className="px-4 py-2">
-                      <span
-                        className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                          coupon.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
-                        {coupon.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
-                        {coupon.active ? 'Ativo' : 'Inativo'}
+                      <span className={`flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}>
+                        <StatusIcon className="h-3.5 w-3.5" />
+                        {status.label}
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right">
@@ -187,7 +199,8 @@ export function CouponsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
