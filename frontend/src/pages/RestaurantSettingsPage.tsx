@@ -26,12 +26,12 @@ const advancedPanelVariants: Variants = {
   collapsed: {
     height: 0,
     opacity: 0,
-    transition: { height: { duration: 0.25, ease: [0.4, 0, 1, 1] }, opacity: { duration: 0.15, ease: 'easeIn' } },
+    transition: { duration: 0.25, ease: EASE_OUT },
   },
   expanded: {
     height: 'auto',
     opacity: 1,
-    transition: { height: { duration: 0.4, ease: EASE_OUT }, opacity: { duration: 0.3, delay: 0.08, ease: EASE_OUT } },
+    transition: { duration: 0.3, ease: EASE_OUT },
   },
 }
 
@@ -373,13 +373,7 @@ export function RestaurantSettingsPage() {
                     variants={advancedPanelVariants}
                     className="overflow-hidden border-t border-gray-100 dark:border-white/10"
                   >
-                    <motion.div
-                      initial={{ y: -8 }}
-                      animate={{ y: 0 }}
-                      exit={{ y: -8 }}
-                      transition={{ duration: 0.35, ease: EASE_OUT }}
-                      className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2"
-                    >
+                    <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2">
                       <div className="rounded-md border border-gray-200 p-3 dark:border-white/10">
                         <p className="mb-1 text-sm font-medium text-gray-700 dark:text-stone-300">Dados fiscais e impressão</p>
                         <p className="mb-3 text-xs text-gray-500 dark:text-stone-400">
@@ -539,7 +533,7 @@ export function RestaurantSettingsPage() {
                         </span>
                         <ChevronRight className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />
                       </Link>
-                    </motion.div>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
