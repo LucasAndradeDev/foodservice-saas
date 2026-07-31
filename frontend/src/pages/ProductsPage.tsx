@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   Ban,
   CalendarClock,
@@ -13,6 +14,9 @@ import {
   Plus,
   Power,
   Search,
+  Square,
+  SquareCheck,
+  SquareMinus,
   Star,
   Tag,
   Trash2,
@@ -54,6 +58,9 @@ export function ProductsPage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
 
   const categoryFilterOptions = [
     { value: '', label: 'Todas as categorias' },
@@ -64,6 +71,10 @@ export function ProductsPage() {
     const timeout = setTimeout(() => setSearch(searchInput), 300)
     return () => clearTimeout(timeout)
   }, [searchInput])
+
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [categoryFilter, search, statusFilter])
 
   const { data: products, isLoading } = useQuery({
     queryKey: ['products', categoryFilter, search, statusFilter],
@@ -198,6 +209,54 @@ export function ProductsPage() {
     }
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  function toggleSelectAll() {
+    if (!products) return
+    setSelectedIds((prev) => (prev.size === products.length ? new Set() : new Set(products.map((product) => product.id))))
+  }
+
+  async function runBulkUpdate(payload: Parameters<typeof updateProduct>[1]) {
+    const ids = Array.from(selectedIds)
+    setBulkError(null)
+    setIsBulkProcessing(true)
+    const results = await Promise.allSettled(ids.map((id) => updateProduct(id, payload)))
+    setIsBulkProcessing(false)
+    setSelectedIds(new Set())
+    queryClient.invalidateQueries({ queryKey: ['products'] })
+    const failed = results.filter((result) => result.status === 'rejected').length
+    if (failed > 0) {
+      setBulkError(`${failed} de ${ids.length} produtos não puderam ser atualizados.`)
+    }
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedIds)
+    const confirmed = window.confirm(`Excluir ${ids.length} produtos selecionados? Essa ação não pode ser desfeita.`)
+    if (!confirmed) return
+
+    setBulkError(null)
+    setIsBulkProcessing(true)
+    const results = await Promise.allSettled(ids.map((id) => deleteProduct(id)))
+    setIsBulkProcessing(false)
+    setSelectedIds(new Set())
+    queryClient.invalidateQueries({ queryKey: ['products'] })
+    const failed = results.filter((result) => result.status === 'rejected').length
+    if (failed > 0) {
+      setBulkError(`${failed} de ${ids.length} produtos não puderam ser excluídos (provavelmente já usados em pedidos).`)
+    }
+  }
+
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -275,11 +334,48 @@ export function ProductsPage() {
       )}
 
       {listError && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{listError}</p>}
+      {bulkError && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{bulkError}</p>}
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {products && products.length === 0 && (
         <p className="text-sm text-gray-500 dark:text-stone-400">Nenhum produto encontrado.</p>
+      )}
+
+      {canManage && products && products.length > 0 && (
+        <div className="mb-2 flex min-h-[52px] flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-stone-900">
+          <button
+            type="button"
+            onClick={toggleSelectAll}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-800 dark:text-stone-400 dark:hover:text-stone-200"
+          >
+            <SelectionCheckbox
+              state={selectedIds.size === 0 ? 'unchecked' : selectedIds.size === products.length ? 'checked' : 'indeterminate'}
+            />
+            {selectedIds.size > 0 ? `${selectedIds.size} selecionado(s)` : 'Selecionar todos'}
+          </button>
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-gray-500 hover:underline dark:text-stone-400"
+              >
+                Limpar seleção
+              </button>
+              <BulkActionsMenu
+                disabled={isBulkProcessing}
+                onActivate={() => runBulkUpdate({ active: true })}
+                onDeactivate={() => runBulkUpdate({ active: false })}
+                onMarkSoldOut={() => runBulkUpdate({ soldOut: true })}
+                onUnmarkSoldOut={() => runBulkUpdate({ soldOut: false })}
+                onMarkFeatured={() => runBulkUpdate({ featured: true })}
+                onUnmarkFeatured={() => runBulkUpdate({ featured: false })}
+                onDelete={handleBulkDelete}
+              />
+            </div>
+          )}
+        </div>
       )}
 
       {products && products.length > 0 && (
@@ -293,6 +389,11 @@ export function ProductsPage() {
               >
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <span className="flex items-center gap-3">
+                    {canManage && (
+                      <button type="button" onClick={() => toggleSelect(product.id)} className="shrink-0">
+                        <SelectionCheckbox state={selectedIds.has(product.id) ? 'checked' : 'unchecked'} />
+                      </button>
+                    )}
                     {product.imageUrl ? (
                       <img src={product.imageUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
                     ) : (
@@ -337,14 +438,25 @@ export function ProductsPage() {
                   </span>
                 </div>
                 {canManage && (
-                  <ProductActionButtons
-                    product={product}
-                    onEdit={() => openEditForm(product)}
-                    onToggleActive={() => toggleActive(product)}
-                    onToggleSoldOut={() => toggleSoldOut(product)}
-                    onToggleFeatured={() => toggleFeatured(product)}
-                    onDelete={() => handleDelete(product)}
-                  />
+                  <AnimatePresence>
+                    {selectedIds.size < 2 && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ duration: 0.15 }}
+                      >
+                        <ProductActionButtons
+                          product={product}
+                          onEdit={() => openEditForm(product)}
+                          onToggleActive={() => toggleActive(product)}
+                          onToggleSoldOut={() => toggleSoldOut(product)}
+                          onToggleFeatured={() => toggleFeatured(product)}
+                          onDelete={() => handleDelete(product)}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 )}
               </div>
             ))}
@@ -355,16 +467,24 @@ export function ProductsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
                 <tr>
+                  {canManage && <th className="w-10 px-4 py-2" />}
                   <th className="px-4 py-2 font-medium">Nome</th>
                   <th className="px-4 py-2 font-medium">Categoria</th>
                   <th className="px-4 py-2 font-medium">Preço</th>
                   <th className="px-4 py-2 font-medium">Status</th>
-                  {canManage && <th className="px-4 py-2" />}
+                  {canManage && <th className="w-24 px-4 py-2" />}
                 </tr>
               </thead>
               <tbody>
                 {products.map((product) => (
                   <tr key={product.id} className="border-t border-gray-100 dark:border-white/10">
+                    {canManage && (
+                      <td className="px-4 py-2">
+                        <button type="button" onClick={() => toggleSelect(product.id)}>
+                          <SelectionCheckbox state={selectedIds.has(product.id) ? 'checked' : 'unchecked'} />
+                        </button>
+                      </td>
+                    )}
                     <td className="px-4 py-2 text-gray-800 dark:text-white">
                       <span className="flex items-center gap-3">
                         {product.imageUrl ? (
@@ -410,16 +530,27 @@ export function ProductsPage() {
                       </span>
                     </td>
                     {canManage && (
-                      <td className="px-4 py-2 text-right">
-                        <ProductActionButtons
-                          product={product}
-                          onEdit={() => openEditForm(product)}
-                          onToggleActive={() => toggleActive(product)}
-                          onToggleSoldOut={() => toggleSoldOut(product)}
-                          onToggleFeatured={() => toggleFeatured(product)}
-                          onDelete={() => handleDelete(product)}
-                          align="end"
-                        />
+                      <td className="w-24 px-4 py-2 text-right">
+                        <AnimatePresence>
+                          {selectedIds.size < 2 && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.9 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.9 }}
+                              transition={{ duration: 0.15 }}
+                            >
+                              <ProductActionButtons
+                                product={product}
+                                onEdit={() => openEditForm(product)}
+                                onToggleActive={() => toggleActive(product)}
+                                onToggleSoldOut={() => toggleSoldOut(product)}
+                                onToggleFeatured={() => toggleFeatured(product)}
+                                onDelete={() => handleDelete(product)}
+                                align="end"
+                              />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </td>
                     )}
                   </tr>
@@ -551,6 +682,19 @@ export function ProductsPage() {
         </Modal>
       )}
     </div>
+  )
+}
+
+function SelectionCheckbox({ state }: { state: 'checked' | 'unchecked' | 'indeterminate' }) {
+  const Icon = state === 'checked' ? SquareCheck : state === 'indeterminate' ? SquareMinus : Square
+  return (
+    <Icon
+      className={`h-[18px] w-[18px] ${
+        state === 'unchecked'
+          ? 'text-gray-300 dark:text-stone-600'
+          : 'text-brand-600 dark:text-brand-400'
+      }`}
+    />
   )
 }
 
@@ -691,6 +835,125 @@ function ProductActionButtons({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+interface BulkActionsMenuProps {
+  disabled: boolean
+  onActivate: () => void
+  onDeactivate: () => void
+  onMarkSoldOut: () => void
+  onUnmarkSoldOut: () => void
+  onMarkFeatured: () => void
+  onUnmarkFeatured: () => void
+  onDelete: () => void
+}
+
+function BulkActionsMenu({
+  disabled,
+  onActivate,
+  onDeactivate,
+  onMarkSoldOut,
+  onUnmarkSoldOut,
+  onMarkFeatured,
+  onUnmarkFeatured,
+  onDelete,
+}: BulkActionsMenuProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isMenuOpen) return
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isMenuOpen])
+
+  function runAndClose(action: () => void) {
+    action()
+    setIsMenuOpen(false)
+  }
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        type="button"
+        onClick={() => setIsMenuOpen((open) => !open)}
+        disabled={disabled}
+        className="flex items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+      >
+        <MoreVertical className="h-4 w-4" />
+        Ações em massa
+      </button>
+
+      {isMenuOpen && (
+        <div className="absolute right-0 z-10 mt-1 w-64 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-stone-800">
+          <button
+            type="button"
+            onClick={() => runAndClose(onActivate)}
+            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
+          >
+            <Power className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+            Ativar selecionados
+          </button>
+          <button
+            type="button"
+            onClick={() => runAndClose(onDeactivate)}
+            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
+          >
+            <Power className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+            Desativar selecionados
+          </button>
+          <div className="my-1 border-t border-gray-100 dark:border-white/10" />
+          <button
+            type="button"
+            onClick={() => runAndClose(onMarkSoldOut)}
+            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
+          >
+            <Ban className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+            Marcar como esgotado hoje
+          </button>
+          <button
+            type="button"
+            onClick={() => runAndClose(onUnmarkSoldOut)}
+            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
+          >
+            <Ban className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+            Remover "esgotado hoje"
+          </button>
+          <div className="my-1 border-t border-gray-100 dark:border-white/10" />
+          <button
+            type="button"
+            onClick={() => runAndClose(onMarkFeatured)}
+            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
+          >
+            <Star className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+            Marcar como destaque
+          </button>
+          <button
+            type="button"
+            onClick={() => runAndClose(onUnmarkFeatured)}
+            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
+          >
+            <Star className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+            Remover destaque
+          </button>
+          <div className="my-1 border-t border-gray-100 dark:border-white/10" />
+          <button
+            type="button"
+            onClick={() => runAndClose(onDelete)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+          >
+            <Trash2 className="h-4 w-4" />
+            Excluir selecionados
+          </button>
+        </div>
+      )}
     </div>
   )
 }
