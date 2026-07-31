@@ -24,6 +24,8 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     long countByOrder_Restaurant_IdAndStatusIn(UUID restaurantId, List<ItemStatus> statuses);
     List<OrderItem> findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatus(UUID tabId, UUID restaurantId, ItemStatus status);
     List<OrderItem> findByOrder_Tab_IdOrderByCreatedAtAsc(UUID tabId);
+    boolean existsByOrder_Restaurant_IdAndStatusAndCreatedAtAfter(UUID restaurantId, ItemStatus status, OffsetDateTime after);
+    boolean existsByOrder_Restaurant_IdAndStatusAndUpdatedAtAfter(UUID restaurantId, ItemStatus status, OffsetDateTime after);
 
     @Query("SELECT oi.product.id, oi.product.name, SUM(oi.quantity), SUM(oi.quantity * oi.unitPrice), " +
             "SUM(CASE WHEN oi.unitCostPrice IS NOT NULL THEN oi.quantity ELSE 0 END), " +

@@ -13,12 +13,22 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
-import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import moraLogo from '../assets/mora-logo.svg'
 import type { UserRole } from '../auth/types'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
+import { getNavNotificationStatus, markNavSectionSeen, type NavSection } from '../api/navNotifications'
+
+const NAV_STATUS_POLL_MS = 4000
+
+const SECTION_TO_STATUS_KEY = {
+  KITCHEN: 'kitchen',
+  TABLES: 'tables',
+  CHECKOUT: 'checkout',
+} as const
 
 const ROLE_LABELS: Record<string, string> = {
   OWNER: 'Proprietário',
@@ -34,13 +44,14 @@ interface NavItem {
   icon: LucideIcon
   end?: boolean
   roles?: UserRole[]
+  section?: NavSection
 }
 
 const PRIMARY_NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/tables', label: 'Mesas', icon: Table2 },
-  { to: '/kitchen', label: 'Cozinha', icon: ChefHat },
-  { to: '/checkout', label: 'Caixa', icon: Wallet },
+  { to: '/tables', label: 'Mesas', icon: Table2, section: 'TABLES' },
+  { to: '/kitchen', label: 'Cozinha', icon: ChefHat, section: 'KITCHEN' },
+  { to: '/checkout', label: 'Caixa', icon: Wallet, section: 'CHECKOUT' },
 ]
 
 const MORE_NAV_ITEMS: NavItem[] = [
@@ -61,9 +72,38 @@ function sidebarLinkClass({ isActive }: { isActive: boolean }) {
 export function AppLayout() {
   const { user, restaurant, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const queryClient = useQueryClient()
   const [isMoreOpen, setIsMoreOpen] = useState(false)
 
   const visibleMoreItems = MORE_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
+
+  const { data: notificationStatus } = useQuery({
+    queryKey: ['navNotifications'],
+    queryFn: getNavNotificationStatus,
+    refetchInterval: NAV_STATUS_POLL_MS,
+    refetchIntervalInBackground: true,
+  })
+
+  const markSeenMutation = useMutation({
+    mutationFn: markNavSectionSeen,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['navNotifications'] }),
+  })
+
+  useEffect(() => {
+    const activeItem = PRIMARY_NAV_ITEMS.find((item) =>
+      item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
+    )
+    if (activeItem?.section) {
+      markSeenMutation.mutate(activeItem.section)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname])
+
+  function hasNotification(item: NavItem) {
+    if (!item.section || !notificationStatus) return false
+    return notificationStatus[SECTION_TO_STATUS_KEY[item.section]]
+  }
 
   function handleLogout() {
     logout()
@@ -90,6 +130,7 @@ export function AppLayout() {
               <NavLink key={item.to} to={item.to} end={item.end} className={sidebarLinkClass}>
                 <item.icon className="h-5 w-5" />
                 {item.label}
+                {hasNotification(item) && <span className="ml-auto h-2 w-2 rounded-full bg-red-500" />}
               </NavLink>
             ))}
           </nav>
@@ -157,7 +198,12 @@ export function AppLayout() {
               }`
             }
           >
-            <item.icon className="h-5 w-5" />
+            <span className="relative">
+              <item.icon className="h-5 w-5" />
+              {hasNotification(item) && (
+                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500" />
+              )}
+            </span>
             {item.label}
           </NavLink>
         ))}
