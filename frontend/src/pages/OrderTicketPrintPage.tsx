@@ -5,12 +5,14 @@ import { getOrder, markOrderPrinted } from '../api/orders'
 import { getTab } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
 import { formatTableLabel } from '../utils/tableLabel'
+import { applyReceiptPrintPageSize } from '../utils/printPageSize'
 
 export function OrderTicketPrintPage() {
   const { orderId } = useParams<{ orderId: string }>()
   const [searchParams] = useSearchParams()
   const autoPrint = searchParams.get('auto') === '1'
   const hasAutoPrinted = useRef(false)
+  const receiptRef = useRef<HTMLDivElement>(null)
 
   const { data: order, isLoading: isOrderLoading } = useQuery({
     queryKey: ['orders', orderId],
@@ -35,6 +37,7 @@ export function OrderTicketPrintPage() {
 
   function handlePrint() {
     markPrintedMutation.mutate()
+    applyReceiptPrintPageSize(receiptRef.current)
     window.print()
   }
 
@@ -55,37 +58,40 @@ export function OrderTicketPrintPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white" style={{ colorScheme: 'light' }}>
-      <div className="mx-auto max-w-sm p-6">
-        <Link to={`/tabs/${order.tabId}`} className="mb-4 block text-sm text-gray-500 hover:underline print:hidden">
+    <div className="flex min-h-screen justify-center bg-gray-100 py-6 print:block print:min-h-0 print:bg-white print:py-0" style={{ colorScheme: 'light' }}>
+      <div className="h-fit w-[80mm] bg-white p-3 font-mono text-gray-800 shadow print:shadow-none" style={{ colorScheme: 'light' }}>
+        <Link to={`/tabs/${order.tabId}`} className="mb-4 block text-sm font-sans text-gray-500 hover:underline print:hidden">
           ← Voltar
         </Link>
 
+        <div ref={receiptRef}>
         <div className="text-center">
-          <h1 className="text-base font-semibold text-gray-800">
+          <h1 className="text-base font-bold uppercase tracking-wide">
             {restaurant?.tradeName || restaurant?.name}
           </h1>
-          <p className="text-sm text-gray-600">
+          <p className="mt-0.5 text-xs text-gray-600">
             {tab && formatTableLabel(tab.tables.map((t) => t.number))}
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-[11px] text-gray-500">
             {new Date(order.createdAt).toLocaleString('pt-BR')}
           </p>
         </div>
 
-        <ul className="mt-4 divide-y divide-gray-200 border-t border-gray-300">
+        <div className="my-3 border-t border-dashed border-gray-400" />
+
+        <ul className="divide-y divide-dashed divide-gray-300">
           {order.items.map((item) => (
-            <li key={item.id} className="py-2 text-sm">
-              <div className="font-medium text-gray-800">
+            <li key={item.id} className="py-1.5 text-xs">
+              <div className="font-bold">
                 {item.quantity}x {item.productName}
-                {item.isComboHeader && <span className="ml-1 text-xs font-normal text-gray-500">(combo)</span>}
+                {item.isComboHeader && <span className="ml-1 font-normal text-gray-500">(combo)</span>}
               </div>
               {item.modifiers.length > 0 && (
                 <div className="text-gray-600">{item.modifiers.map((modifier) => modifier.optionName).join(', ')}</div>
               )}
               {item.observation && <div className="text-gray-500">Obs: {item.observation}</div>}
               {item.children.length > 0 && (
-                <ul className="mt-1 space-y-1 pl-4">
+                <ul className="mt-1 space-y-0.5 pl-4">
                   {item.children.map((child) => (
                     <li key={child.id} className="text-gray-600">
                       {child.quantity}x {child.productName}
@@ -97,11 +103,12 @@ export function OrderTicketPrintPage() {
             </li>
           ))}
         </ul>
+        </div>
 
         <button
           type="button"
           onClick={handlePrint}
-          className="mt-6 w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 print:hidden"
+          className="mt-6 w-full rounded-md bg-brand-600 px-3 py-2 font-sans text-sm font-medium text-white hover:bg-brand-700 print:hidden"
         >
           Imprimir
         </button>

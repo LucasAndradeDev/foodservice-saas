@@ -9,6 +9,13 @@
   }
 }
 
+@media print {
+  html,
+  body {
+    margin: 0;
+  }
+}
+
 @theme {
   --color-brand-50: #fdf4f1;
   --color-brand-100: #fbe3dc;
