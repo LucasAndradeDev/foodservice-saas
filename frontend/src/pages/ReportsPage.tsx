@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Calendar, Receipt, TrendingDown, TrendingUp, Wallet, type LucideIcon } from 'lucide-react'
+import { BarChart3, Receipt, TrendingDown, TrendingUp, Wallet, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { getPeakHours, getReportSummary } from '../api/reports'
+import { DateRangePicker } from '../components/DateRangePicker'
 import { FeedbackCard } from './reports/FeedbackCard'
 import { MonthlyGoalCard } from './reports/MonthlyGoalCard'
 import { PeakHoursHeatmap } from './reports/PeakHoursHeatmap'
@@ -17,7 +18,10 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 }
 
 function toDateInputValue(date: Date) {
-  return date.toISOString().slice(0, 10)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function startOfMonth(date: Date) {
@@ -183,25 +187,15 @@ export function ReportsPage() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 transition-colors focus-within:border-brand-500 focus-within:bg-white dark:border-white/10 dark:bg-white/5 dark:focus-within:bg-stone-900">
-            <Calendar className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />
-            <input
-              type="date"
-              value={start}
-              max={end}
-              onChange={(e) => setStart(e.target.value)}
-              className="bg-transparent text-sm text-gray-700 dark:text-stone-300 focus:outline-none"
-            />
-            <span className="text-sm text-gray-400 dark:text-stone-500">até</span>
-            <input
-              type="date"
-              value={end}
-              min={start}
-              max={today}
-              onChange={(e) => setEnd(e.target.value)}
-              className="bg-transparent text-sm text-gray-700 dark:text-stone-300 focus:outline-none"
-            />
-          </div>
+          <DateRangePicker
+            start={start}
+            end={end}
+            maxDate={today}
+            onChange={(range) => {
+              setStart(range.start)
+              setEnd(range.end)
+            }}
+          />
         </div>
       </div>
 
