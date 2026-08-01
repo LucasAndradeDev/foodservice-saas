@@ -6,9 +6,12 @@ import { AllFeedbackPage } from './pages/AllFeedbackPage'
 import { AuthRoutes } from './pages/AuthRoutes'
 import { CategoriesPage } from './pages/CategoriesPage'
 import { CheckoutPage } from './pages/CheckoutPage'
+import { CombosPage } from './pages/CombosPage'
+import { ComboFormPage } from './pages/ComboFormPage'
 import { CouponsPage } from './pages/CouponsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DiningAreasPage } from './pages/DiningAreasPage'
+import { HappyHourPage } from './pages/HappyHourPage'
 import { KitchenPage } from './pages/KitchenPage'
 import { MenuImportPage } from './pages/MenuImportPage'
 import { OrderTicketPrintPage } from './pages/OrderTicketPrintPage'
@@ -48,10 +51,14 @@ function App() {
                 <Route path="/categories" element={<CategoriesPage />} />
                 <Route path="/dining-areas" element={<DiningAreasPage />} />
                 <Route path="/coupons" element={<CouponsPage />} />
+                <Route path="/happy-hour" element={<HappyHourPage />} />
                 <Route path="/products" element={<ProductsPage />} />
                 <Route path="/products/import" element={<MenuImportPage />} />
                 <Route path="/products/:productId/modifiers" element={<ProductModifiersPage />} />
                 <Route path="/products/:productId/availability" element={<ProductAvailabilityPage />} />
+                <Route path="/combos" element={<CombosPage />} />
+                <Route path="/combos/new" element={<ComboFormPage />} />
+                <Route path="/combos/:productId" element={<ComboFormPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/reports/feedback" element={<AllFeedbackPage />} />
                 <Route path="/settings" element={<RestaurantSettingsPage />} />

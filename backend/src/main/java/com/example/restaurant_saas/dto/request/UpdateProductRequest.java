@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.dto.request;
 
+import com.example.restaurant_saas.domain.enums.ProductType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -32,4 +33,6 @@ public class UpdateProductRequest {
     private Boolean soldOut;
 
     private Boolean featured;
+
+    private ProductType type;
 }

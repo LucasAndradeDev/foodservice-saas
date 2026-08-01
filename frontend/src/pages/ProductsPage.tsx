@@ -83,6 +83,7 @@ export function ProductsPage() {
         categoryId: categoryFilter || undefined,
         search: search || undefined,
         active: statusFilter === 'all' ? undefined : statusFilter === 'active',
+        type: 'SIMPLE',
       }),
   })
 

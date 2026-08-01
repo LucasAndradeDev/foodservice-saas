@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.domain.enums.ProductType;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.dto.response.ProductResponse;
@@ -34,14 +35,15 @@ public class ProductController {
     private final FileStorageService fileStorageService;
 
     @GetMapping
-    @Operation(summary = "List products", description = "Lists the restaurant's products, optionally filtered by category, name search and active status.")
+    @Operation(summary = "List products", description = "Lists the restaurant's products, optionally filtered by category, name search, active status and type.")
     public ResponseEntity<List<ProductResponse>> listProducts(
             @AuthenticationPrincipal UserDetailsImpl currentUser,
             @Parameter(description = "Filter by category id") @RequestParam(required = false) UUID categoryId,
             @Parameter(description = "Case-insensitive search by name") @RequestParam(required = false) String search,
-            @Parameter(description = "Filter by active status") @RequestParam(required = false) Boolean active
+            @Parameter(description = "Filter by active status") @RequestParam(required = false) Boolean active,
+            @Parameter(description = "Filter by product type (SIMPLE or COMBO)") @RequestParam(required = false) ProductType type
     ) {
-        return ResponseEntity.ok(productService.listProducts(currentUser.getRestaurantId(), categoryId, search, active));
+        return ResponseEntity.ok(productService.listProducts(currentUser.getRestaurantId(), categoryId, search, active, type));
     }
 
     @GetMapping("/{id}")

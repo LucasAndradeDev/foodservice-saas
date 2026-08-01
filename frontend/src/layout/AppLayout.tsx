@@ -1,7 +1,9 @@
 import {
   BarChart3,
   ChefHat,
+  Clock,
   LayoutDashboard,
+  Layers,
   LogOut,
   MoreHorizontal,
   Package,
@@ -67,7 +69,9 @@ const PRIMARY_NAV_ITEMS: NavItem[] = [
 const MORE_NAV_ITEMS: NavItem[] = [
   { to: '/categories', label: 'Categorias', icon: Tag },
   { to: '/products', label: 'Produtos', icon: Package, end: true },
+  { to: '/combos', label: 'Combos', icon: Layers },
   { to: '/coupons', label: 'Cupons', icon: Ticket, roles: ['OWNER', 'MANAGER'] },
+  { to: '/happy-hour', label: 'Happy Hour', icon: Clock, roles: ['OWNER', 'MANAGER'] },
   { to: '/reports', label: 'Relatórios', icon: BarChart3, roles: ['OWNER', 'MANAGER'] },
   { to: '/settings', label: 'Configurações', icon: SettingsIcon, roles: ['OWNER', 'MANAGER'] },
   { to: '/staff', label: 'Funcionários', icon: Users, roles: ['OWNER', 'MANAGER'] },

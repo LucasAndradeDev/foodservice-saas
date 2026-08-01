@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.domain.entity.HappyHourRule;
 import com.example.restaurant_saas.domain.entity.Order;
 import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.OrderItemModifier;
@@ -10,6 +11,7 @@ import com.example.restaurant_saas.domain.entity.ProductModifierOption;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.enums.ModifierSelectionType;
+import com.example.restaurant_saas.domain.enums.ProductType;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
@@ -50,6 +52,8 @@ public class OrderService {
     private final ProductModifierGroupRepository modifierGroupRepository;
     private final ProductModifierOptionRepository modifierOptionRepository;
     private final ProductAvailabilityWindowRepository availabilityWindowRepository;
+    private final ComboExplodeService comboExplodeService;
+    private final HappyHourRuleService happyHourRuleService;
 
     @Transactional(readOnly = true)
     public List<OrderResponse> listOrders(UUID restaurantId, UUID tabId) {
@@ -76,8 +80,9 @@ public class OrderService {
                 .tab(tab)
                 .build();
 
+        Map<UUID, HappyHourRule> activeHappyHourRuleByCategory = happyHourRuleService.fetchActiveRulesByCategory(restaurantId);
         List<OrderItem> items = request.getItems().stream()
-                .map(itemRequest -> toOrderItem(restaurantId, order, itemRequest))
+                .flatMap(itemRequest -> toOrderItems(restaurantId, order, itemRequest, activeHappyHourRuleByCategory).stream())
                 .toList();
         order.setItems(items);
 
@@ -93,9 +98,34 @@ public class OrderService {
         return toResponse(orderRepository.save(order));
     }
 
-    private OrderItem toOrderItem(UUID restaurantId, Order order, CreateOrderItemRequest itemRequest) {
+    private List<OrderItem> toOrderItems(UUID restaurantId, Order order, CreateOrderItemRequest itemRequest, Map<UUID, HappyHourRule> activeHappyHourRuleByCategory) {
         Product product = productRepository.findByIdAndRestaurantId(itemRequest.getProductId(), restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Product not found."));
+
+        if (product.getType() != ProductType.COMBO) {
+            if (itemRequest.getSlotSelections() != null && !itemRequest.getSlotSelections().isEmpty()) {
+                throw new IllegalArgumentException("Product " + product.getName() + " is not a combo.");
+            }
+            return List.of(toOrderItem(restaurantId, order, product, itemRequest, activeHappyHourRuleByCategory));
+        }
+
+        if (!Boolean.TRUE.equals(product.getActive())) {
+            throw new IllegalStateException("Product " + product.getName() + " is not active.");
+        }
+        if (!isAvailableNow(restaurantId, product)) {
+            throw new IllegalStateException("Product " + product.getName() + " is not available at this time.");
+        }
+
+        List<OrderItem> flattened = new ArrayList<>();
+        for (int i = 0; i < itemRequest.getQuantity(); i++) {
+            OrderItem header = comboExplodeService.explodeUnit(restaurantId, order, product, itemRequest);
+            flattened.add(header);
+            flattened.addAll(header.getChildren());
+        }
+        return flattened;
+    }
+
+    private OrderItem toOrderItem(UUID restaurantId, Order order, Product product, CreateOrderItemRequest itemRequest, Map<UUID, HappyHourRule> activeHappyHourRuleByCategory) {
         if (!Boolean.TRUE.equals(product.getActive())) {
             throw new IllegalStateException("Product " + product.getName() + " is not active.");
         }
@@ -116,6 +146,15 @@ public class OrderService {
         List<OrderItemModifier> modifiers = resolveModifiers(restaurantId, product, itemRequest.getSelectedOptionIds());
         modifiers.forEach(modifier -> modifier.setOrderItem(item));
         item.setModifiers(modifiers);
+
+        HappyHourRule happyHourRule = activeHappyHourRuleByCategory.get(product.getCategory().getId());
+        if (happyHourRule != null) {
+            item.setDiscountType(happyHourRule.getDiscountType());
+            item.setDiscountValue(happyHourRule.getDiscountValue());
+            item.setDiscountReason("Happy hour");
+            item.setDiscountAppliedBy("SISTEMA");
+            item.setDiscountAppliedAt(OffsetDateTime.now());
+        }
 
         return item;
     }
@@ -192,6 +231,7 @@ public class OrderService {
 
     private OrderResponse toResponse(Order order) {
         List<OrderItemResponse> itemResponses = order.getItems().stream()
+                .filter(item -> item.getParentOrderItem() == null)
                 .map(this::toOrderItemResponse)
                 .toList();
 
@@ -230,6 +270,8 @@ public class OrderService {
                 .cancelledBy(item.getCancelledBy())
                 .cancelledAt(item.getCancelledAt())
                 .netSubtotal(item.getNetSubtotal())
+                .isComboHeader(item.isComboHeader())
+                .children(item.getChildren().stream().map(this::toOrderItemResponse).toList())
                 .build();
     }
 

@@ -31,4 +31,6 @@ public class OrderItemResponse {
     private String cancelledBy;
     private OffsetDateTime cancelledAt;
     private BigDecimal netSubtotal;
+    private Boolean isComboHeader;
+    private List<OrderItemResponse> children;
 }

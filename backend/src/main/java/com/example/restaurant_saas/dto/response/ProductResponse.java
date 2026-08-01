@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.dto.response;
 
+import com.example.restaurant_saas.domain.enums.ProductType;
 import lombok.Builder;
 import lombok.Data;
 
@@ -22,4 +23,6 @@ public class ProductResponse {
     private Boolean featured;
     private Boolean availableNow;
     private Boolean hasModifierGroups;
+    private ProductType type;
+    private BigDecimal discountPercentage;
 }

@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.dto.request;
 
+import com.example.restaurant_saas.domain.enums.ProductType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -33,4 +34,6 @@ public class CreateProductRequest {
     private UUID categoryId;
 
     private Boolean featured;
+
+    private ProductType type;
 }

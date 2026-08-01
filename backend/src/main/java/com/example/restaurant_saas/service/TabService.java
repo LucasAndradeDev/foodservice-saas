@@ -381,7 +381,7 @@ public class TabService {
 
     private BigDecimal computeItemsTotal(UUID restaurantId, UUID tabId) {
         return orderItemRepository
-                .findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatus(tabId, restaurantId, ItemStatus.DELIVERED).stream()
+                .findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatusAndParentOrderItemIsNull(tabId, restaurantId, ItemStatus.DELIVERED).stream()
                 .map(OrderItem::getNetSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }

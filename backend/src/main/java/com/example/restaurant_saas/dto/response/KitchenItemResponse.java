@@ -20,4 +20,6 @@ public class KitchenItemResponse {
     private List<OrderItemModifierResponse> modifiers;
     private ItemStatus status;
     private OffsetDateTime createdAt;
+    private Boolean isComboHeader;
+    private List<KitchenItemResponse> children;
 }

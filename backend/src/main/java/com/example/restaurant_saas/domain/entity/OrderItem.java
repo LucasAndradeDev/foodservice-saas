@@ -55,6 +55,14 @@ public class OrderItem {
     @Builder.Default
     private List<OrderItemModifier> modifiers = new ArrayList<>();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_order_item_id")
+    private OrderItem parentOrderItem;
+
+    @OneToMany(mappedBy = "parentOrderItem")
+    @Builder.Default
+    private List<OrderItem> children = new ArrayList<>();
+
     @Enumerated(EnumType.STRING)
     @Column(name = "discount_type", length = 20)
     private DiscountType discountType;
@@ -111,5 +119,13 @@ public class OrderItem {
 
     public BigDecimal getNetSubtotal() {
         return getSubtotal().subtract(getDiscountAmount());
+    }
+
+    public boolean isComboHeader() {
+        return !children.isEmpty();
+    }
+
+    public boolean isComboChild() {
+        return parentOrderItem != null;
     }
 }

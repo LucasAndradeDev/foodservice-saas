@@ -1,5 +1,7 @@
 import { http } from './http'
 
+export type ProductType = 'SIMPLE' | 'COMBO'
+
 export interface Product {
   id: string
   restaurantId: string
@@ -14,12 +16,15 @@ export interface Product {
   featured: boolean
   availableNow: boolean
   hasModifierGroups: boolean
+  type: ProductType
+  discountPercentage: number | null
 }
 
 export interface ProductFilters {
   categoryId?: string
   search?: string
   active?: boolean
+  type?: ProductType
 }
 
 export interface ProductPayload {
@@ -30,6 +35,7 @@ export interface ProductPayload {
   costPrice?: number
   categoryId: string
   featured?: boolean
+  type?: ProductType
 }
 
 export function listProducts(filters: ProductFilters = {}) {
@@ -44,7 +50,7 @@ export function createProduct(payload: ProductPayload) {
   return http.post<Product>('/products', payload).then((res) => res.data)
 }
 
-export function updateProduct(id: string, payload: Partial<ProductPayload & { active: boolean; soldOut: boolean }>) {
+export function updateProduct(id: string, payload: Partial<ProductPayload & { active: boolean; soldOut: boolean; type: ProductType }>) {
   return http.put<Product>(`/products/${id}`, payload).then((res) => res.data)
 }
 

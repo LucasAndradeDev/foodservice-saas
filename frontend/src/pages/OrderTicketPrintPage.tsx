@@ -78,11 +78,22 @@ export function OrderTicketPrintPage() {
             <li key={item.id} className="py-2 text-sm">
               <div className="font-medium text-gray-800">
                 {item.quantity}x {item.productName}
+                {item.isComboHeader && <span className="ml-1 text-xs font-normal text-gray-500">(combo)</span>}
               </div>
               {item.modifiers.length > 0 && (
                 <div className="text-gray-600">{item.modifiers.map((modifier) => modifier.optionName).join(', ')}</div>
               )}
               {item.observation && <div className="text-gray-500">Obs: {item.observation}</div>}
+              {item.children.length > 0 && (
+                <ul className="mt-1 space-y-1 pl-4">
+                  {item.children.map((child) => (
+                    <li key={child.id} className="text-gray-600">
+                      {child.quantity}x {child.productName}
+                      {child.modifiers.length > 0 && ` (${child.modifiers.map((modifier) => modifier.optionName).join(', ')})`}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ul>

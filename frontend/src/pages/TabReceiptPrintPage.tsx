@@ -76,21 +76,31 @@ export function TabReceiptPrintPage() {
 
         <ul className="mt-4 divide-y divide-gray-200 border-t border-gray-300">
           {items.map((item) => (
-            <li
-              key={item.id}
-              className={`flex items-center justify-between py-2 text-sm ${item.status === 'CANCELLED' ? 'text-gray-400 line-through' : 'text-gray-800'}`}
-            >
-              <span>
-                {item.quantity}x {item.productName}
-                {item.modifiers.length > 0 && ` (${item.modifiers.map((modifier) => modifier.optionName).join(', ')})`}
-                {item.discountType && item.status !== 'CANCELLED' && (
-                  <span className="block text-xs text-gray-500">
-                    Desconto: -{currencyFormatter.format(item.discountAmount)}
-                    {item.discountReason && ` (${item.discountReason})`}
-                  </span>
-                )}
-              </span>
-              <span>{currencyFormatter.format(item.status === 'CANCELLED' ? item.subtotal : item.netSubtotal)}</span>
+            <li key={item.id} className={item.status === 'CANCELLED' ? 'text-gray-400' : 'text-gray-800'}>
+              <div className={`flex items-center justify-between py-2 text-sm ${item.status === 'CANCELLED' ? 'line-through' : ''}`}>
+                <span>
+                  {item.quantity}x {item.productName}
+                  {item.isComboHeader && <span className="ml-1 text-xs font-normal text-gray-500">(combo)</span>}
+                  {item.modifiers.length > 0 && ` (${item.modifiers.map((modifier) => modifier.optionName).join(', ')})`}
+                  {item.discountType && item.status !== 'CANCELLED' && (
+                    <span className="block text-xs text-gray-500">
+                      Desconto: -{currencyFormatter.format(item.discountAmount)}
+                      {item.discountReason && ` (${item.discountReason})`}
+                    </span>
+                  )}
+                </span>
+                <span>{currencyFormatter.format(item.status === 'CANCELLED' ? item.subtotal : item.netSubtotal)}</span>
+              </div>
+              {item.children.length > 0 && (
+                <ul className="pb-1 pl-4">
+                  {item.children.map((child) => (
+                    <li key={child.id} className="text-xs text-gray-500">
+                      {child.quantity}x {child.productName}
+                      {child.modifiers.length > 0 && ` (${child.modifiers.map((modifier) => modifier.optionName).join(', ')})`}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ul>

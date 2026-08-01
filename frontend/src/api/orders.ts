@@ -34,6 +34,8 @@ export interface OrderItem {
   cancelledBy: string | null
   cancelledAt: string | null
   netSubtotal: number
+  isComboHeader: boolean
+  children: OrderItem[]
 }
 
 export interface Order {
@@ -46,11 +48,17 @@ export interface Order {
   printedAt: string | null
 }
 
+export interface SlotSelectionPayload {
+  slotId: string
+  selectedProductId: string
+}
+
 export interface CreateOrderItemPayload {
   productId: string
   quantity: number
   observation?: string
   selectedOptionIds?: string[]
+  slotSelections?: SlotSelectionPayload[]
 }
 
 export function listOrders(tabId: string) {

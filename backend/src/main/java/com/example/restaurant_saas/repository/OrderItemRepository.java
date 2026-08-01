@@ -22,10 +22,12 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     boolean existsByOrder_Tab_IdAndStatus(UUID tabId, ItemStatus status);
     boolean existsByProductId(UUID productId);
     long countByOrder_Restaurant_IdAndStatusIn(UUID restaurantId, List<ItemStatus> statuses);
-    List<OrderItem> findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatus(UUID tabId, UUID restaurantId, ItemStatus status);
+    List<OrderItem> findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatusAndParentOrderItemIsNull(UUID tabId, UUID restaurantId, ItemStatus status);
     List<OrderItem> findByOrder_Tab_IdOrderByCreatedAtAsc(UUID tabId);
     boolean existsByOrder_Restaurant_IdAndStatusAndCreatedAtAfter(UUID restaurantId, ItemStatus status, OffsetDateTime after);
     boolean existsByOrder_Restaurant_IdAndStatusAndUpdatedAtAfter(UUID restaurantId, ItemStatus status, OffsetDateTime after);
+    List<OrderItem> findByParentOrderItem_Id(UUID parentOrderItemId);
+    List<OrderItem> findByOrder_Restaurant_IdAndStatusInAndParentOrderItemIsNullOrderByCreatedAtAsc(UUID restaurantId, List<ItemStatus> statuses);
 
     /**
      * True when some tab in the restaurant just finished being fully delivered (no items left

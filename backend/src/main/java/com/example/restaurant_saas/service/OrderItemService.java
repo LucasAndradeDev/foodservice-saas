@@ -43,7 +43,7 @@ public class OrderItemService {
     @Transactional(readOnly = true)
     public List<KitchenItemResponse> listKitchenQueue(UUID restaurantId, List<ItemStatus> statusFilter) {
         List<ItemStatus> statuses = (statusFilter == null || statusFilter.isEmpty()) ? OPEN_STATUSES : statusFilter;
-        return orderItemRepository.findByOrder_Restaurant_IdAndStatusInOrderByCreatedAtAsc(restaurantId, statuses).stream()
+        return orderItemRepository.findByOrder_Restaurant_IdAndStatusInAndParentOrderItemIsNullOrderByCreatedAtAsc(restaurantId, statuses).stream()
                 .map(this::toKitchenResponse)
                 .toList();
     }
@@ -52,6 +52,10 @@ public class OrderItemService {
     public OrderItemResponse updateStatus(UUID restaurantId, UUID itemId, UserRole currentUserRole, String actingUserName, UpdateOrderItemStatusRequest request) {
         OrderItem item = orderItemRepository.findByIdAndOrder_Restaurant_Id(itemId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Order item not found."));
+
+        if (item.isComboChild()) {
+            throw new IllegalArgumentException("This item is part of a combo; update the combo header instead.");
+        }
 
         ItemStatus from = item.getStatus();
         ItemStatus to = request.getStatus();
@@ -63,14 +67,23 @@ public class OrderItemService {
             throw new IllegalStateException("Role " + currentUserRole + " is not allowed to perform this status change.");
         }
 
+        OffsetDateTime now = OffsetDateTime.now();
+        applyStatusChange(item, to, actingUserName, now);
+        if (item.isComboHeader()) {
+            item.getChildren().forEach(child -> applyStatusChange(child, to, actingUserName, now));
+            orderItemRepository.saveAll(item.getChildren());
+        }
+        return toOrderItemResponse(orderItemRepository.save(item));
+    }
+
+    private void applyStatusChange(OrderItem item, ItemStatus to, String actingUserName, OffsetDateTime now) {
         item.setStatus(to);
         if (to == ItemStatus.CANCELLED) {
             item.setCancelledBy(actingUserName);
-            item.setCancelledAt(OffsetDateTime.now());
+            item.setCancelledAt(now);
         } else if (to == ItemStatus.DELIVERED) {
-            item.setDeliveredAt(OffsetDateTime.now());
+            item.setDeliveredAt(now);
         }
-        return toOrderItemResponse(orderItemRepository.save(item));
     }
 
     @Transactional
@@ -78,6 +91,9 @@ public class OrderItemService {
         OrderItem item = orderItemRepository.findByIdAndOrder_Restaurant_Id(itemId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Order item not found."));
 
+        if (item.isComboHeader() || item.isComboChild()) {
+            throw new IllegalArgumentException("Cannot apply a manual discount to a combo header or its items; it already carries the combo's discount.");
+        }
         if (item.getStatus() == ItemStatus.CANCELLED) {
             throw new IllegalArgumentException("Cannot discount a cancelled item.");
         }
@@ -116,6 +132,9 @@ public class OrderItemService {
         }
         if (items.stream().anyMatch(item -> item.getStatus() == ItemStatus.CANCELLED)) {
             throw new IllegalArgumentException("Cannot transfer a cancelled item.");
+        }
+        if (items.stream().anyMatch(item -> item.isComboHeader() || item.isComboChild())) {
+            throw new IllegalArgumentException("Cannot transfer a combo item individually; combos must move as a whole order.");
         }
         if (sourceTab.getStatus() != TabStatus.OPEN) {
             throw new IllegalArgumentException("Source tab is not open.");
@@ -193,6 +212,8 @@ public class OrderItemService {
                 .modifiers(toModifierResponses(item))
                 .status(item.getStatus())
                 .createdAt(item.getCreatedAt())
+                .isComboHeader(item.isComboHeader())
+                .children(item.getChildren().stream().map(this::toKitchenResponse).toList())
                 .build();
     }
 
@@ -216,6 +237,8 @@ public class OrderItemService {
                 .cancelledBy(item.getCancelledBy())
                 .cancelledAt(item.getCancelledAt())
                 .netSubtotal(item.getNetSubtotal())
+                .isComboHeader(item.isComboHeader())
+                .children(item.getChildren().stream().map(this::toOrderItemResponse).toList())
                 .build();
     }
 

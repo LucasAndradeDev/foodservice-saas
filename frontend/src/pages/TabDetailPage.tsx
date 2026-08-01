@@ -10,6 +10,7 @@ import {
   Combine,
   Flame,
   GitMerge,
+  Layers,
   Lock,
   Minus,
   PackageCheck,
@@ -27,6 +28,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useState, useRef, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { getComboComposition } from '../api/combos'
 import { listCategories } from '../api/categories'
 import { applyItemDiscount, createOrder, listOrders, transferItems, type DiscountType, type ItemStatus, type Order, type OrderItem } from '../api/orders'
 import { listModifierGroups } from '../api/productModifiers'
@@ -54,6 +56,7 @@ import { getCategoryIcon } from './publicMenu/categoryIcons'
 import { formatTableLabel } from '../utils/tableLabel'
 import { minutesSince } from '../utils/time'
 import { modifiersTotal, sameModifiers, type SelectedModifier } from '../utils/modifiers'
+import { computeComboUnitPrice, sameComboSelections, type SelectedComboSlot } from '../utils/combos'
 
 const UNDO_MERGE_WINDOW_MS = 20000
 
@@ -90,6 +93,7 @@ interface DraftItem {
   quantity: number
   observation: string
   selectedModifiers: SelectedModifier[]
+  comboSelections?: SelectedComboSlot[]
 }
 
 export function TabDetailPage() {
@@ -149,6 +153,7 @@ export function TabDetailPage() {
   const [draftItems, setDraftItems] = useState<DraftItem[]>([])
   const [configuringProduct, setConfiguringProduct] = useState<Product | null>(null)
   const [modifierSelections, setModifierSelections] = useState<Record<string, string[]>>({})
+  const [comboSlotSelections, setComboSlotSelections] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [isMerging, setIsMerging] = useState(false)
   const [pendingUndo, setPendingUndo] = useState<{ sourceTabId: string; label: string } | null>(null)
@@ -183,11 +188,18 @@ export function TabDetailPage() {
   const { data: modifierGroups } = useQuery({
     queryKey: ['products', configuringProduct?.id, 'modifier-groups'],
     queryFn: () => listModifierGroups(configuringProduct!.id),
-    enabled: !!configuringProduct,
+    enabled: !!configuringProduct && configuringProduct.type !== 'COMBO',
+  })
+
+  const { data: comboComposition } = useQuery({
+    queryKey: ['products', configuringProduct?.id, 'combo'],
+    queryFn: () => getComboComposition(configuringProduct!.id),
+    enabled: !!configuringProduct && configuringProduct.type === 'COMBO',
   })
 
   useEffect(() => {
     setModifierSelections({})
+    setComboSlotSelections({})
   }, [configuringProduct?.id])
 
   const createOrderMutation = useMutation({
@@ -199,6 +211,9 @@ export function TabDetailPage() {
           quantity: item.quantity,
           observation: item.observation || undefined,
           selectedOptionIds: item.selectedModifiers.map((m) => m.optionId),
+          slotSelections: item.comboSelections?.length
+            ? item.comboSelections.map((s) => ({ slotId: s.slotId, selectedProductId: s.productId }))
+            : undefined,
         })),
       ),
     onSuccess: () => {
@@ -464,11 +479,57 @@ export function TabDetailPage() {
 
   function handleProductTap(product: Product) {
     setError(null)
-    if (product.hasModifierGroups) {
+    if (product.type === 'COMBO' || product.hasModifierGroups) {
       setConfiguringProduct(product)
     } else {
       addPlainProduct(product)
     }
+  }
+
+  const isComboValid = (comboComposition?.slots ?? []).every((slot) => !slot.required || !!comboSlotSelections[slot.id])
+
+  function handleConfirmCombo() {
+    if (!configuringProduct || !comboComposition || !isComboValid) return
+    const product = configuringProduct
+    const selections: SelectedComboSlot[] = comboComposition.slots
+      .filter((slot) => !!comboSlotSelections[slot.id])
+      .map((slot) => {
+        const option = slot.options.find((o) => o.productId === comboSlotSelections[slot.id])!
+        return {
+          slotId: slot.id,
+          slotName: slot.name,
+          productId: option.productId,
+          productName: option.productName,
+          unitPrice: option.unitPrice,
+          quantity: option.quantity,
+        }
+      })
+    const unitPrice = computeComboUnitPrice(comboComposition, comboSlotSelections)
+    setDraftItems((prev) => {
+      const existingIndex = prev.findIndex(
+        (item) =>
+          item.productId === product.id &&
+          item.observation === '' &&
+          sameComboSelections(item.comboSelections ?? [], selections),
+      )
+      if (existingIndex !== -1) {
+        return prev.map((item, index) => (index === existingIndex ? { ...item, quantity: item.quantity + 1 } : item))
+      }
+      return [
+        ...prev,
+        {
+          productId: product.id,
+          productName: product.name,
+          unitPrice,
+          quantity: 1,
+          observation: '',
+          selectedModifiers: [],
+          comboSelections: selections,
+        },
+      ]
+    })
+    setConfiguringProduct(null)
+    setComboSlotSelections({})
   }
 
   function handleConfirmModifiers() {
@@ -754,6 +815,18 @@ export function TabDetailPage() {
                     ))}
                   </div>
                 )}
+                {item.comboSelections && item.comboSelections.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {item.comboSelections.map((selection) => (
+                      <span
+                        key={selection.slotId}
+                        className="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700 dark:bg-purple-500/10 dark:text-purple-400"
+                      >
+                        {selection.slotName}: {selection.productName}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1 rounded-full border border-gray-200 px-1 py-0.5 dark:border-white/10">
                     <button
@@ -836,79 +909,19 @@ export function TabDetailPage() {
               </div>
             </div>
             <ul className="divide-y divide-gray-100 dark:divide-white/10">
-              {order.items.map((item) => {
-                const ItemStatusIcon = ITEM_STATUS_ICONS[item.status]
-                return (
-                  <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                    <div className="flex items-start gap-2">
-                      {isSelectingForTransfer && item.status !== 'CANCELLED' && (
-                        <input
-                          type="checkbox"
-                          checked={selectedItemIds.has(item.id)}
-                          onChange={() => toggleItemSelected(item.id)}
-                          className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-white/20 dark:bg-stone-800"
-                        />
-                      )}
-                      <div>
-                        <span className="font-medium text-gray-800 dark:text-white">
-                          {item.quantity}x {item.productName}
-                        </span>
-                        {item.observation && <span className="ml-2 text-gray-500 dark:text-stone-400">({item.observation})</span>}
-                        {item.modifiers.length > 0 && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {item.modifiers.map((modifier, index) => (
-                              <span key={index} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-stone-400">
-                                {modifier.optionName}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {item.discountType && (
-                          <div className="mt-1 flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
-                            <Percent className="h-3 w-3" />
-                            -{currencyFormatter.format(item.discountAmount)}
-                            {item.discountReason && (
-                              <span className="text-gray-400 dark:text-stone-500">({item.discountReason})</span>
-                            )}
-                          </div>
-                        )}
-                        {item.status === 'CANCELLED' && item.cancelledBy && (
-                          <div className="mt-1 text-xs text-gray-400 dark:text-stone-500">
-                            Cancelado por {item.cancelledBy}
-                            {item.cancelledAt &&
-                              ` às ${new Date(item.cancelledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${ITEM_STATUS_STYLES[item.status]}`}
-                      >
-                        <ItemStatusIcon className="h-3 w-3" />
-                        {ITEM_STATUS_LABELS[item.status]}
-                      </span>
-                      <span className="text-gray-600 dark:text-stone-400">
-                        {item.discountType && (
-                          <span className="mr-1 text-xs text-gray-400 line-through dark:text-stone-500">
-                            {currencyFormatter.format(item.subtotal)}
-                          </span>
-                        )}
-                        {currencyFormatter.format(item.netSubtotal)}
-                      </span>
-                      {isOpen && canDiscount && item.status !== 'CANCELLED' && (
-                        <button
-                          type="button"
-                          onClick={() => openDiscountModal(item)}
-                          className="text-xs text-brand-600 hover:underline dark:text-brand-400"
-                        >
-                          Desconto
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                )
-              })}
+              {order.items.map((item) => (
+                <OrderItemRow
+                  key={item.id}
+                  item={item}
+                  depth={0}
+                  isSelectingForTransfer={isSelectingForTransfer}
+                  selectedItemIds={selectedItemIds}
+                  toggleItemSelected={toggleItemSelected}
+                  isOpen={isOpen}
+                  canDiscount={canDiscount}
+                  openDiscountModal={openDiscountModal}
+                />
+              ))}
             </ul>
           </div>
         ))}
@@ -982,7 +995,7 @@ export function TabDetailPage() {
                   </div>
                   <div className="space-y-1">
                     {categoryProducts.map((product) => {
-                      const quantity = product.hasModifierGroups ? 0 : (plainDraftQuantities.get(product.id) ?? 0)
+                      const quantity = (product.hasModifierGroups || product.type === 'COMBO') ? 0 : (plainDraftQuantities.get(product.id) ?? 0)
                       return (
                         <div
                           key={product.id}
@@ -990,7 +1003,16 @@ export function TabDetailPage() {
                         >
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-gray-800 dark:text-white">{product.name}</div>
-                            <div className="text-xs text-gray-500 dark:text-stone-400">{currencyFormatter.format(product.price)}</div>
+                            <div className="flex items-center gap-1 text-xs text-gray-500 dark:text-stone-400">
+                              {product.type === 'COMBO' ? (
+                                <>
+                                  <Layers className="h-3 w-3" />
+                                  Combo · toque para montar
+                                </>
+                              ) : (
+                                currencyFormatter.format(product.price)
+                              )}
+                            </div>
                           </div>
                           {quantity === 0 ? (
                             <motion.button
@@ -1046,7 +1068,65 @@ export function TabDetailPage() {
         </Modal>
       )}
 
-      {configuringProduct && (
+      {configuringProduct && configuringProduct.type === 'COMBO' && (
+        <Modal title={configuringProduct.name} onClose={() => setConfiguringProduct(null)}>
+          {comboComposition && (
+            <div className="space-y-4">
+              {comboComposition.fixedItems.length > 0 && (
+                <div>
+                  <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">Itens inclusos</span>
+                  <p className="text-sm text-gray-600 dark:text-stone-400">
+                    {comboComposition.fixedItems.map((item) => `${item.quantity}x ${item.productName}`).join(', ')}
+                  </p>
+                </div>
+              )}
+              {comboComposition.slots.map((slot) => (
+                <div key={slot.id}>
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="text-sm font-medium text-gray-700 dark:text-stone-300">{slot.name}</span>
+                    {slot.required && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                        Obrigatório
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    {slot.options.map((option) => {
+                      const isSelected = comboSlotSelections[slot.id] === option.productId
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => setComboSlotSelections((prev) => ({ ...prev, [slot.id]: option.productId }))}
+                          className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-sm ${
+                            isSelected
+                              ? 'border-brand-600 bg-brand-50 dark:border-brand-400 dark:bg-brand-500/10'
+                              : 'border-gray-200 hover:bg-gray-50 dark:border-white/10 dark:hover:bg-white/5'
+                          }`}
+                        >
+                          <span className="text-gray-800 dark:text-white">{option.productName}</span>
+                          <span className="text-gray-500 dark:text-stone-400">{currencyFormatter.format(option.unitPrice)}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleConfirmCombo}
+            disabled={!comboComposition || !isComboValid}
+            className="mt-5 w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+          >
+            {comboComposition ? `Adicionar · ${currencyFormatter.format(computeComboUnitPrice(comboComposition, comboSlotSelections))}` : 'Adicionar'}
+          </button>
+        </Modal>
+      )}
+
+      {configuringProduct && configuringProduct.type !== 'COMBO' && (
         <Modal title={configuringProduct.name} onClose={() => setConfiguringProduct(null)}>
           <div className="space-y-4">
             {(modifierGroups ?? []).map((group) => (
@@ -1349,5 +1429,121 @@ export function TabDetailPage() {
         </Modal>
       )}
     </div>
+  )
+}
+
+interface OrderItemRowProps {
+  item: OrderItem
+  depth: number
+  isSelectingForTransfer: boolean
+  selectedItemIds: Set<string>
+  toggleItemSelected: (itemId: string) => void
+  isOpen: boolean
+  canDiscount: boolean
+  openDiscountModal: (item: OrderItem) => void
+}
+
+function OrderItemRow({
+  item,
+  depth,
+  isSelectingForTransfer,
+  selectedItemIds,
+  toggleItemSelected,
+  isOpen,
+  canDiscount,
+  openDiscountModal,
+}: OrderItemRowProps) {
+  const ItemStatusIcon = ITEM_STATUS_ICONS[item.status]
+
+  return (
+    <li className={depth > 0 ? 'ml-4 border-l border-gray-200 pl-3 dark:border-white/10' : undefined}>
+      <div className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+        <div className="flex items-start gap-2">
+          {depth === 0 && !item.isComboHeader && isSelectingForTransfer && item.status !== 'CANCELLED' && (
+            <input
+              type="checkbox"
+              checked={selectedItemIds.has(item.id)}
+              onChange={() => toggleItemSelected(item.id)}
+              className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-white/20 dark:bg-stone-800"
+            />
+          )}
+          <div>
+            <span className="font-medium text-gray-800 dark:text-white">
+              {item.quantity}x {item.productName}
+            </span>
+            {item.isComboHeader && (
+              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700 dark:bg-purple-500/10 dark:text-purple-400">
+                <Layers className="h-3 w-3" />
+                Combo
+              </span>
+            )}
+            {item.observation && <span className="ml-2 text-gray-500 dark:text-stone-400">({item.observation})</span>}
+            {item.modifiers.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {item.modifiers.map((modifier, index) => (
+                  <span key={index} className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-white/10 dark:text-stone-400">
+                    {modifier.optionName}
+                  </span>
+                ))}
+              </div>
+            )}
+            {item.discountType && (
+              <div className="mt-1 flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
+                <Percent className="h-3 w-3" />
+                -{currencyFormatter.format(item.discountAmount)}
+                {item.discountReason && <span className="text-gray-400 dark:text-stone-500">({item.discountReason})</span>}
+              </div>
+            )}
+            {item.status === 'CANCELLED' && item.cancelledBy && (
+              <div className="mt-1 text-xs text-gray-400 dark:text-stone-500">
+                Cancelado por {item.cancelledBy}
+                {item.cancelledAt &&
+                  ` às ${new Date(item.cancelledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${ITEM_STATUS_STYLES[item.status]}`}>
+            <ItemStatusIcon className="h-3 w-3" />
+            {ITEM_STATUS_LABELS[item.status]}
+          </span>
+          <span className="text-gray-600 dark:text-stone-400">
+            {item.discountType && (
+              <span className="mr-1 text-xs text-gray-400 line-through dark:text-stone-500">
+                {currencyFormatter.format(item.subtotal)}
+              </span>
+            )}
+            {currencyFormatter.format(item.netSubtotal)}
+          </span>
+          {depth === 0 && !item.isComboHeader && isOpen && canDiscount && item.status !== 'CANCELLED' && (
+            <button
+              type="button"
+              onClick={() => openDiscountModal(item)}
+              className="text-xs text-brand-600 hover:underline dark:text-brand-400"
+            >
+              Desconto
+            </button>
+          )}
+        </div>
+      </div>
+      {item.children.length > 0 && (
+        <ul className="divide-y divide-gray-100 dark:divide-white/10">
+          {item.children.map((child) => (
+            <OrderItemRow
+              key={child.id}
+              item={child}
+              depth={depth + 1}
+              isSelectingForTransfer={isSelectingForTransfer}
+              selectedItemIds={selectedItemIds}
+              toggleItemSelected={toggleItemSelected}
+              isOpen={isOpen}
+              canDiscount={canDiscount}
+              openDiscountModal={openDiscountModal}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
   )
 }

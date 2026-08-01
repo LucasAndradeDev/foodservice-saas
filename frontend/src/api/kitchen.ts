@@ -11,6 +11,8 @@ export interface KitchenItem {
   modifiers: OrderItemModifier[]
   status: ItemStatus
   createdAt: string
+  isComboHeader: boolean
+  children: KitchenItem[]
 }
 
 export function listKitchenQueue() {

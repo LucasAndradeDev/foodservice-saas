@@ -3,10 +3,14 @@ package com.example.restaurant_saas.service;
 import com.example.restaurant_saas.domain.entity.Category;
 import com.example.restaurant_saas.domain.entity.Product;
 import com.example.restaurant_saas.domain.entity.ProductAvailabilityWindow;
+import com.example.restaurant_saas.domain.enums.ProductType;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.dto.response.ProductResponse;
 import com.example.restaurant_saas.repository.CategoryRepository;
+import com.example.restaurant_saas.repository.ComboItemRepository;
+import com.example.restaurant_saas.repository.ComboSlotOptionRepository;
+import com.example.restaurant_saas.repository.ComboSlotRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.ProductAvailabilityWindowRepository;
 import com.example.restaurant_saas.repository.ProductModifierGroupRepository;
@@ -36,14 +40,18 @@ public class ProductService {
     private final OrderItemRepository orderItemRepository;
     private final ProductAvailabilityWindowRepository availabilityWindowRepository;
     private final ProductModifierGroupRepository modifierGroupRepository;
+    private final ComboItemRepository comboItemRepository;
+    private final ComboSlotRepository comboSlotRepository;
+    private final ComboSlotOptionRepository comboSlotOptionRepository;
 
     @Transactional(readOnly = true)
-    public List<ProductResponse> listProducts(UUID restaurantId, UUID categoryId, String search, Boolean activeFilter) {
+    public List<ProductResponse> listProducts(UUID restaurantId, UUID categoryId, String search, Boolean activeFilter, ProductType typeFilter) {
         List<Product> products = productRepository.findByRestaurantIdOrderByCategoryNameAscNameAsc(restaurantId).stream()
                 .filter(product -> categoryId == null || product.getCategory().getId().equals(categoryId))
                 .filter(product -> search == null || search.isBlank()
                         || product.getName().toLowerCase().contains(search.toLowerCase()))
                 .filter(product -> activeFilter == null || activeFilter.equals(product.getActive()))
+                .filter(product -> typeFilter == null || product.getType() == typeFilter)
                 .toList();
 
         Set<UUID> productIdsWithModifiers = products.isEmpty()
@@ -82,6 +90,7 @@ public class ProductService {
                 .costPrice(request.getCostPrice())
                 .active(true)
                 .featured(Boolean.TRUE.equals(request.getFeatured()))
+                .type(request.getType() != null ? request.getType() : ProductType.SIMPLE)
                 .build();
 
         return toResponse(productRepository.save(product));
@@ -121,6 +130,14 @@ public class ProductService {
         if (request.getFeatured() != null) {
             product.setFeatured(request.getFeatured());
         }
+        if (request.getType() != null && request.getType() != product.getType()) {
+            if (request.getType() == ProductType.SIMPLE) {
+                comboItemRepository.deleteByComboProductId(productId);
+                comboSlotRepository.deleteByComboProductId(productId);
+                product.setDiscountPercentage(null);
+            }
+            product.setType(request.getType());
+        }
 
         return toResponse(productRepository.save(product));
     }
@@ -130,6 +147,9 @@ public class ProductService {
         Product product = findByIdAndRestaurant(restaurantId, productId);
         if (orderItemRepository.existsByProductId(productId)) {
             throw new IllegalStateException("Cannot delete a product that has already been ordered. Deactivate it instead.");
+        }
+        if (comboItemRepository.existsByComponentProductId(productId) || comboSlotOptionRepository.existsByProductId(productId)) {
+            throw new IllegalStateException("Cannot delete a product that is used as a component of a combo. Remove it from the combo first.");
         }
         productRepository.delete(product);
     }
@@ -166,6 +186,8 @@ public class ProductService {
                 .featured(product.getFeatured())
                 .availableNow(isAvailableNow(product))
                 .hasModifierGroups(hasModifierGroups)
+                .type(product.getType())
+                .discountPercentage(product.getDiscountPercentage())
                 .build();
     }
 
