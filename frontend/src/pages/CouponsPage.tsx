@@ -185,7 +185,14 @@ export function CouponsPage() {
       {coupons && coupons.length > 0 && (
         <>
           <div className="mb-4">
-            <Dropdown value={statusFilter} options={STATUS_FILTER_OPTIONS} onChange={setStatusFilter} icon={Filter} panelClassName="w-44" />
+            <Dropdown
+              value={statusFilter}
+              options={STATUS_FILTER_OPTIONS}
+              onChange={setStatusFilter}
+              icon={Filter}
+              panelClassName="w-44"
+              mobileTitle="Filtrar por status"
+            />
           </div>
 
           {filteredCoupons.length === 0 && (

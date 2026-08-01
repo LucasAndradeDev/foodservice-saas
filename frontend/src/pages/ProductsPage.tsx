@@ -313,6 +313,7 @@ export function ProductsPage() {
             onChange={setCategoryFilter}
             icon={Tag}
             panelClassName="w-56"
+            mobileTitle="Filtrar por categoria"
           />
           <Dropdown
             value={statusFilter}
@@ -320,6 +321,7 @@ export function ProductsPage() {
             onChange={setStatusFilter}
             icon={Filter}
             panelClassName="w-40"
+            mobileTitle="Filtrar por status"
           />
         </div>
       </div>

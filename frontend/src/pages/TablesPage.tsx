@@ -39,6 +39,7 @@ import { listDiningAreas } from '../api/diningAreas'
 import { listTabs, openTab, type Tab } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
+import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
 import { QrCodeCard } from '../components/QrCodeCard'
 import { minutesSince } from '../utils/time'
@@ -78,23 +79,6 @@ const TABLE_REQUEST_ICONS: Record<TableRequestType, LucideIcon> = {
 const TABLE_REQUEST_LABELS: Record<TableRequestType, string> = {
   CALL_WAITER: 'Chamando',
   REQUEST_BILL: 'Conta',
-}
-
-function playCallAlert() {
-  try {
-    const ctx = new AudioContext()
-    const oscillator = ctx.createOscillator()
-    const gain = ctx.createGain()
-    oscillator.type = 'sine'
-    oscillator.frequency.value = 880
-    gain.gain.setValueAtTime(0.15, ctx.currentTime)
-    oscillator.connect(gain)
-    gain.connect(ctx.destination)
-    oscillator.start()
-    oscillator.stop(ctx.currentTime + 0.2)
-  } catch {
-    // Audio isn't critical to the feature; ignore if the browser blocks it.
-  }
 }
 
 interface StatPillProps {
@@ -170,14 +154,6 @@ export function TablesPage() {
     refetchInterval: POLL_INTERVAL_MS,
     refetchIntervalInBackground: true,
   })
-
-  const seenRequestIdsRef = useRef<Set<string>>(new Set())
-  useEffect(() => {
-    if (!pendingRequests) return
-    const hasNewRequest = pendingRequests.some((request) => !seenRequestIdsRef.current.has(request.id))
-    if (hasNewRequest) playCallAlert()
-    seenRequestIdsRef.current = new Set(pendingRequests.map((request) => request.id))
-  }, [pendingRequests])
 
   const pendingRequestsByTable = useMemo(() => {
     const map = new Map<string, TableRequest[]>()
@@ -259,6 +235,11 @@ export function TablesPage() {
   }, [tables, areas])
 
   const displayGroups = isOrganizingAreas ? organizeGroups : groupedTables
+
+  const areaMoveOptions = useMemo(
+    () => [...(areas ?? []).map((area) => ({ value: area.id, label: area.name })), { value: 'none', label: 'Sem área' }],
+    [areas],
+  )
 
   function findGroupAtPoint(x: number, y: number): string | null {
     for (const [groupId, el] of groupRefs.current.entries()) {
@@ -469,14 +450,18 @@ export function TablesPage() {
     openTableModal(table)
   }
 
-  function handleTableDragEnd(table: RestaurantTable, info: PanInfo) {
-    const targetGroupId = findGroupAtPoint(info.point.x, info.point.y)
-    setDragHoverGroupId(null)
-    if (!targetGroupId) return
+  function moveTableToArea(table: RestaurantTable, targetGroupId: string) {
     const currentGroupId = table.areaId ?? 'none'
     if (targetGroupId === currentGroupId) return
     const payload = targetGroupId === 'none' ? { clearArea: true } : { areaId: targetGroupId }
     updateMutation.mutate({ id: table.id, payload })
+  }
+
+  function handleTableDragEnd(table: RestaurantTable, info: PanInfo) {
+    const targetGroupId = findGroupAtPoint(info.point.x, info.point.y)
+    setDragHoverGroupId(null)
+    if (!targetGroupId) return
+    moveTableToArea(table, targetGroupId)
   }
 
   return (
@@ -606,7 +591,7 @@ export function TablesPage() {
         <div className="mb-4 flex flex-col gap-2 rounded-lg border border-brand-300 bg-brand-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-brand-500/30 dark:bg-brand-500/10">
           <span className="flex items-center gap-2 text-brand-800 dark:text-brand-400">
             <Move className="h-4 w-4" />
-            Arraste uma mesa pra área desejada. A mudança é salva na hora.
+            Arraste uma mesa ou use o menu no card pra escolher a área. A mudança é salva na hora.
           </span>
           <button
             type="button"
@@ -708,33 +693,52 @@ export function TablesPage() {
                       onDrag={(_, info) => setDragHoverGroupId(findGroupAtPoint(info.point.x, info.point.y))}
                       onDragEnd={(_, info) => handleTableDragEnd(table, info)}
                     >
-                      <button
-                        type="button"
-                        disabled={(!canChangeStatus && !canManage && !canOpenTab) || !isSelectableNow}
-                        onClick={() => handleTableClick(table)}
-                        className={`flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border-2 p-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}
-                      >
-                        <StatusIcon className="h-5 w-5" />
-                        <div className="text-xl font-bold leading-none">{table.number}</div>
-                        <div className="text-[11px] font-semibold tracking-wide uppercase">{STATUS_LABELS[table.status]}</div>
-                        {tab && table.status === 'OCCUPIED' && (
-                          delayLevel !== 'none' ? (
-                            <div
-                              className={`flex items-center gap-1 text-[11px] font-semibold ${
-                                delayLevel === 'critical'
-                                  ? 'text-red-900 dark:text-red-300'
-                                  : 'text-amber-900 dark:text-amber-300'
-                              }`}
-                            >
-                              <AlertTriangle className="h-3 w-3" />
-                              sem pedido há {minutesWithoutOrder} min
-                            </div>
-                          ) : (
-                            <div className="text-[11px] opacity-75">há {minutesSince(tab.openedAt)} min</div>
-                          )
-                        )}
-                        {!table.active && <div className="text-[11px]">Inativa</div>}
-                      </button>
+                      {canDrag ? (
+                        <div
+                          className={`flex h-full w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 p-3 text-center shadow-sm ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''}`}
+                        >
+                          <StatusIcon className="h-5 w-5" />
+                          <div className="text-xl font-bold leading-none">{table.number}</div>
+                          <div className="mt-1 w-full" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+                            <Dropdown
+                              compact
+                              value={table.areaId ?? 'none'}
+                              options={areaMoveOptions}
+                              onChange={(targetGroupId) => moveTableToArea(table, targetGroupId)}
+                              panelClassName="w-36"
+                              mobileTitle={`Mesa ${table.number} · Escolher área`}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={(!canChangeStatus && !canManage && !canOpenTab) || !isSelectableNow}
+                          onClick={() => handleTableClick(table)}
+                          className={`flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border-2 p-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}
+                        >
+                          <StatusIcon className="h-5 w-5" />
+                          <div className="text-xl font-bold leading-none">{table.number}</div>
+                          <div className="text-[11px] font-semibold tracking-wide uppercase">{STATUS_LABELS[table.status]}</div>
+                          {tab && table.status === 'OCCUPIED' && (
+                            delayLevel !== 'none' ? (
+                              <div
+                                className={`flex items-center gap-1 text-[11px] font-semibold ${
+                                  delayLevel === 'critical'
+                                    ? 'text-red-900 dark:text-red-300'
+                                    : 'text-amber-900 dark:text-amber-300'
+                                }`}
+                              >
+                                <AlertTriangle className="h-3 w-3" />
+                                sem pedido há {minutesWithoutOrder} min
+                              </div>
+                            ) : (
+                              <div className="text-[11px] opacity-75">há {minutesSince(tab.openedAt)} min</div>
+                            )
+                          )}
+                          {!table.active && <div className="text-[11px]">Inativa</div>}
+                        </button>
+                      )}
                       {!isOrganizingAreas && tableRequests.length > 0 && (
                         <div className="absolute -right-2 -top-2 z-10 flex flex-col items-end gap-1">
                           {tableRequests.map((request) => {
