@@ -178,7 +178,7 @@ export function PublicMenuPage() {
         {
           productId: product.id,
           productName: product.name,
-          unitPrice: product.price,
+          unitPrice: product.discountedPrice ?? product.price,
           quantity: 1,
           observation: '',
           selectedModifiers,
@@ -255,7 +255,7 @@ export function PublicMenuPage() {
       items.push({
         productId: product.id,
         productName: product.name,
-        unitPrice: product.price,
+        unitPrice: product.discountedPrice ?? product.price,
         quantity: historyItem.quantity,
         observation: historyItem.observation ?? '',
         selectedModifiers,

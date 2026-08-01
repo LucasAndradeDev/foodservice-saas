@@ -15,6 +15,7 @@ public class PublicMenuProductResponse {
     private String description;
     private String imageUrl;
     private BigDecimal price;
+    private BigDecimal discountedPrice;
     private Boolean soldOut;
     private Boolean availableNow;
     private Boolean featured;

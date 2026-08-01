@@ -49,7 +49,8 @@ export function ModifierSheet({ product, onClose, onConfirm }: ModifierSheetProp
       )
     : []
 
-  const totalPrice = (product?.price ?? 0) + selectedModifiers.reduce((sum, m) => sum + m.priceDelta, 0)
+  const basePrice = product?.discountedPrice ?? product?.price ?? 0
+  const totalPrice = basePrice + selectedModifiers.reduce((sum, m) => sum + m.priceDelta, 0)
 
   return (
     <AnimatePresence>

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { Clock, Flame, ImageOff, Minus, Plus, Star } from 'lucide-react'
+import { Clock, Flame, ImageOff, Minus, Percent, Plus, Star } from 'lucide-react'
 import type { PublicMenuProduct } from '../../api/publicMenu'
 import { currencyFormatter } from './utils'
 
@@ -36,12 +36,25 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
       <div className="flex-1">
         <div className="flex items-start justify-between gap-2">
           <span className="font-medium text-gray-800 dark:text-white">{product.name}</span>
-          <span className="shrink-0 text-base font-bold text-brand-600 dark:text-brand-400">
-            {currencyFormatter.format(product.price)}
+          <span className="shrink-0 text-right">
+            {product.discountedPrice !== null && (
+              <span className="mr-1 text-xs text-gray-400 line-through dark:text-stone-500">
+                {currencyFormatter.format(product.price)}
+              </span>
+            )}
+            <span className="text-base font-bold text-brand-600 dark:text-brand-400">
+              {currencyFormatter.format(product.discountedPrice ?? product.price)}
+            </span>
           </span>
         </div>
-        {!unavailable && (product.bestseller || product.featured) && (
+        {!unavailable && (product.bestseller || product.featured || product.discountedPrice !== null) && (
           <div className="mt-1 flex flex-wrap items-center gap-1">
+            {product.discountedPrice !== null && (
+              <span className="flex items-center gap-0.5 rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-semibold text-pink-700 dark:bg-pink-500/10 dark:text-pink-400">
+                <Percent className="h-2.5 w-2.5" />
+                Happy Hour
+              </span>
+            )}
             {product.bestseller && (
               <span className="flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-500/10 dark:text-orange-400">
                 <Flame className="h-2.5 w-2.5" />

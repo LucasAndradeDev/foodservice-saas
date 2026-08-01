@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 export interface DropdownOption<T extends string> {
   value: T
   label: string
+  icon?: LucideIcon
 }
 
 interface DropdownProps<T extends string> {
@@ -16,6 +17,8 @@ interface DropdownProps<T extends string> {
   panelClassName?: string
   /** Smaller trigger/panel, for embedding in tight spaces like cards. */
   compact?: boolean
+  /** Trigger spans the full width of its container instead of shrinking to content — for form fields. */
+  fullWidth?: boolean
   /** Heading shown in the full-screen mobile sheet. */
   mobileTitle?: string
 }
@@ -27,11 +30,14 @@ export function Dropdown<T extends string>({
   icon: Icon,
   panelClassName = 'w-48',
   compact = false,
+  fullWidth = false,
   mobileTitle,
 }: DropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  const currentLabel = options.find((option) => option.value === value)?.label ?? options[0]?.label
+  const selectedOption = options.find((option) => option.value === value) ?? options[0]
+  const currentLabel = selectedOption?.label
+  const TriggerIcon = selectedOption?.icon ?? Icon
 
   useEffect(() => {
     if (!isOpen) return
@@ -52,10 +58,10 @@ export function Dropdown<T extends string>({
         className={
           compact
             ? 'flex w-full items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:py-1 sm:text-[11px] dark:border-white/10 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-white/10'
-            : 'flex w-full items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:w-auto dark:border-white/10 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-white/5'
+            : `flex w-full items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-white/10 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-white/5 ${fullWidth ? '' : 'sm:w-auto'}`
         }
       >
-        {Icon && <Icon className={compact ? 'h-3 w-3 shrink-0 text-gray-400 dark:text-stone-500' : 'h-4 w-4 text-gray-400 dark:text-stone-500'} />}
+        {TriggerIcon && <TriggerIcon className={compact ? 'h-3 w-3 shrink-0 text-gray-400 dark:text-stone-500' : 'h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500'} />}
         <span className="flex-1 truncate text-left">{currentLabel}</span>
         <motion.span animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.15 }}>
           <ChevronDown className={compact ? 'h-3 w-3 shrink-0 text-gray-400 dark:text-stone-500' : 'h-4 w-4 text-gray-400 dark:text-stone-500'} />
@@ -73,6 +79,7 @@ export function Dropdown<T extends string>({
           >
             {options.map((option) => {
               const isSelected = option.value === value
+              const OptionIcon = option.icon
               return (
                 <button
                   key={option.value}
@@ -87,7 +94,10 @@ export function Dropdown<T extends string>({
                       : 'text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5'
                   }`}
                 >
-                  {option.label}
+                  <span className="flex min-w-0 items-center gap-2">
+                    {OptionIcon && <OptionIcon className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />}
+                    <span className="truncate">{option.label}</span>
+                  </span>
                   {isSelected && <Check className="h-4 w-4 shrink-0" />}
                 </button>
               )
@@ -123,6 +133,7 @@ export function Dropdown<T extends string>({
                 <div className="py-1">
                   {options.map((option) => {
                     const isSelected = option.value === value
+                    const OptionIcon = option.icon
                     return (
                       <button
                         key={option.value}
@@ -137,7 +148,10 @@ export function Dropdown<T extends string>({
                             : 'text-gray-700 dark:text-stone-300'
                         }`}
                       >
-                        {option.label}
+                        <span className="flex min-w-0 items-center gap-2.5">
+                          {OptionIcon && <OptionIcon className="h-5 w-5 shrink-0 text-gray-400 dark:text-stone-500" />}
+                          <span className="truncate">{option.label}</span>
+                        </span>
                         {isSelected && <Check className="h-5 w-5 shrink-0" />}
                       </button>
                     )
