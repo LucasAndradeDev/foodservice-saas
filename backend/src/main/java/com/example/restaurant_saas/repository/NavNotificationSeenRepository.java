@@ -10,5 +10,5 @@ import java.util.UUID;
 
 @Repository
 public interface NavNotificationSeenRepository extends JpaRepository<NavNotificationSeen, UUID> {
-    Optional<NavNotificationSeen> findByRestaurant_IdAndSection(UUID restaurantId, NavSection section);
+    Optional<NavNotificationSeen> findByRestaurant_IdAndUser_IdAndSection(UUID restaurantId, UUID userId, NavSection section);
 }

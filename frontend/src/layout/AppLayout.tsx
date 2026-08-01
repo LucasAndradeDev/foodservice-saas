@@ -13,23 +13,32 @@ import {
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { UserRole } from '../auth/types'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
-import { getNavNotificationStatus, markNavSectionSeen, type NavSection } from '../api/navNotifications'
+import { NotificationToastStack, type ToastItem } from '../components/NotificationToastStack'
+import { getNavNotificationStatus, markNavSectionSeen, type NavNotificationStatus, type NavSection } from '../api/navNotifications'
+import { playAlertTone } from '../utils/alertSound'
 import { Logo } from '../theme/Logo'
 import { ThemeToggleButton } from '../theme/ThemeToggleButton'
 
 const NAV_STATUS_POLL_MS = 4000
+const TOAST_DURATION_MS = 6000
 
 const SECTION_TO_STATUS_KEY = {
   KITCHEN: 'kitchen',
   TABLES: 'tables',
   CHECKOUT: 'checkout',
 } as const
+
+const SECTION_ALERT_INFO: Record<NavSection, { message: string; to: string }> = {
+  KITCHEN: { message: 'Novo pedido na cozinha', to: '/kitchen' },
+  TABLES: { message: 'Mesa chamando ou pedindo a conta', to: '/tables' },
+  CHECKOUT: { message: 'Comanda pronta pra fechar', to: '/checkout' },
+}
 
 const ROLE_LABELS: Record<string, string> = {
   OWNER: 'Proprietário',
@@ -93,6 +102,37 @@ export function AppLayout() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['navNotifications'] }),
   })
 
+  const [toasts, setToasts] = useState<ToastItem[]>([])
+  const previousStatusRef = useRef<NavNotificationStatus | null>(null)
+
+  useEffect(() => {
+    if (!notificationStatus) return
+    const previousStatus = previousStatusRef.current
+    previousStatusRef.current = notificationStatus
+
+    // Skip the very first load — otherwise pre-existing pending items would trigger a beep
+    // just from opening the app, instead of only on genuinely new activity.
+    if (!previousStatus) return
+
+    ;(Object.keys(SECTION_TO_STATUS_KEY) as NavSection[]).forEach((section) => {
+      const statusKey = SECTION_TO_STATUS_KEY[section]
+      const justBecamePending = !previousStatus[statusKey] && notificationStatus[statusKey]
+      if (!justBecamePending) return
+
+      playAlertTone(section)
+      const { message, to } = SECTION_ALERT_INFO[section]
+      const id = `${section}-${Date.now()}`
+      setToasts((prev) => [...prev, { id, message, to }])
+      window.setTimeout(() => {
+        setToasts((prev) => prev.filter((toast) => toast.id !== id))
+      }, TOAST_DURATION_MS)
+    })
+  }, [notificationStatus])
+
+  function dismissToast(id: string) {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id))
+  }
+
   useEffect(() => {
     const activeItem = PRIMARY_NAV_ITEMS.find((item) =>
       item.end ? location.pathname === item.to : location.pathname.startsWith(item.to),
@@ -120,6 +160,8 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-gray-50 sm:flex sm:h-screen sm:overflow-hidden dark:bg-stone-950">
+      <NotificationToastStack toasts={toasts} onDismiss={dismissToast} onNavigate={navigate} />
+
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-200 bg-white sm:flex dark:border-white/10 dark:bg-stone-900">
         <div className="flex items-center justify-center border-b border-gray-200 p-4 dark:border-white/10">
@@ -135,7 +177,7 @@ export function AppLayout() {
               <NavLink key={item.to} to={item.to} end={item.end} className={sidebarLinkClass}>
                 <item.icon className="h-5 w-5" />
                 {item.label}
-                {hasNotification(item) && <span className="ml-auto h-2 w-2 rounded-full bg-red-500" />}
+                {hasNotification(item) && <span className="ml-auto h-2 w-2 rounded-full bg-brand-600" />}
               </NavLink>
             ))}
           </nav>
@@ -220,7 +262,7 @@ export function AppLayout() {
             <span className="relative">
               <item.icon className="h-5 w-5" />
               {hasNotification(item) && (
-                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500" />
+                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-brand-600" />
               )}
             </span>
             {item.label}

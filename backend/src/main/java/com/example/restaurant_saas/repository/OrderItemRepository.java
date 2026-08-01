@@ -27,6 +27,18 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     boolean existsByOrder_Restaurant_IdAndStatusAndCreatedAtAfter(UUID restaurantId, ItemStatus status, OffsetDateTime after);
     boolean existsByOrder_Restaurant_IdAndStatusAndUpdatedAtAfter(UUID restaurantId, ItemStatus status, OffsetDateTime after);
 
+    /**
+     * True when some tab in the restaurant just finished being fully delivered (no items left
+     * PENDING/PREPARING/READY) after the given instant — i.e. it's newly ready to be paid out,
+     * regardless of whether the customer explicitly asked for the bill.
+     */
+    @Query("SELECT CASE WHEN COUNT(oi) > 0 THEN true ELSE false END FROM OrderItem oi " +
+            "WHERE oi.order.restaurant.id = :restaurantId AND oi.status = 'DELIVERED' " +
+            "AND oi.deliveredAt > :since AND oi.order.tab.status = 'OPEN' " +
+            "AND NOT EXISTS (SELECT 1 FROM OrderItem oi2 WHERE oi2.order.tab = oi.order.tab " +
+            "AND oi2.status NOT IN ('DELIVERED', 'CANCELLED'))")
+    boolean existsTabJustBecameReadyToClose(@Param("restaurantId") UUID restaurantId, @Param("since") OffsetDateTime since);
+
     @Query("SELECT oi.product.id, oi.product.name, SUM(oi.quantity), SUM(oi.quantity * oi.unitPrice), " +
             "SUM(CASE WHEN oi.unitCostPrice IS NOT NULL THEN oi.quantity ELSE 0 END), " +
             "SUM(CASE WHEN oi.unitCostPrice IS NOT NULL THEN oi.quantity * oi.unitCostPrice ELSE 0 END), " +

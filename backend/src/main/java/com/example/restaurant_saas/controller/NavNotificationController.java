@@ -22,16 +22,16 @@ public class NavNotificationController {
     @GetMapping("/status")
     @Operation(summary = "Get nav notification status", description = "Returns whether each navigation tab has unseen activity since it was last visited.")
     public ResponseEntity<NavNotificationStatusResponse> getStatus(@AuthenticationPrincipal UserDetailsImpl currentUser) {
-        return ResponseEntity.ok(navNotificationService.getStatus(currentUser.getRestaurantId()));
+        return ResponseEntity.ok(navNotificationService.getStatus(currentUser.getRestaurantId(), currentUser.getId()));
     }
 
     @PostMapping("/{section}/seen")
-    @Operation(summary = "Mark a nav section as seen", description = "Clears the unseen indicator for the given section for the whole restaurant.")
+    @Operation(summary = "Mark a nav section as seen", description = "Clears the unseen indicator for the given section for the current user.")
     public ResponseEntity<Void> markSeen(
             @AuthenticationPrincipal UserDetailsImpl currentUser,
             @PathVariable NavSection section
     ) {
-        navNotificationService.markSeen(currentUser.getRestaurantId(), section);
+        navNotificationService.markSeen(currentUser.getRestaurantId(), currentUser.getId(), section);
         return ResponseEntity.noContent().build();
     }
 }
