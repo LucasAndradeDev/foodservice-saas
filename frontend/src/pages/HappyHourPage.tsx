@@ -47,7 +47,15 @@ import type { DayOfWeek } from '../api/productAvailability'
 import type { DiscountType } from '../api/orders'
 import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
+import { SectionTabs } from '../components/SectionTabs'
 import { TimePicker } from '../components/TimePicker'
+
+const MANAGEMENT_TABS = [
+  { to: '/settings', label: 'Geral' },
+  { to: '/coupons', label: 'Cupons' },
+  { to: '/happy-hour', label: 'Happy Hour' },
+  { to: '/staff', label: 'Funcionários' },
+]
 
 const WEEK_DAYS: { value: DayOfWeek; shortLabel: string }[] = [
   { value: 'MONDAY', shortLabel: 'Seg' },
@@ -296,6 +304,8 @@ export function HappyHourPage() {
 
   return (
     <div>
+      <SectionTabs tabs={MANAGEMENT_TABS} />
+
       <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
         <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
           <Clock className="h-5 w-5 text-brand-600 dark:text-brand-400" />

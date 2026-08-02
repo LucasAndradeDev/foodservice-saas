@@ -4,6 +4,13 @@ import { useState, type FormEvent } from 'react'
 import { createCategory, listCategories, updateCategory, type Category } from '../api/categories'
 import { useAuth } from '../auth/AuthContext'
 import { Modal } from '../components/Modal'
+import { SectionTabs } from '../components/SectionTabs'
+
+const MENU_TABS = [
+  { to: '/products', label: 'Produtos' },
+  { to: '/categories', label: 'Categorias' },
+  { to: '/combos', label: 'Combos' },
+]
 
 export function CategoriesPage() {
   const { user } = useAuth()
@@ -73,6 +80,8 @@ export function CategoriesPage() {
 
   return (
     <div>
+      <SectionTabs tabs={MENU_TABS} />
+
       <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
         <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
           <Tag className="h-5 w-5 text-brand-600 dark:text-brand-400" />

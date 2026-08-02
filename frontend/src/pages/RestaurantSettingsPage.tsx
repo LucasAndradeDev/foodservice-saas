@@ -18,7 +18,15 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { getMyRestaurant, updateMyRestaurant, uploadRestaurantLogo } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
+import { SectionTabs } from '../components/SectionTabs'
 import { publicMenuUrl } from '../utils/publicMenuUrl'
+
+const MANAGEMENT_TABS = [
+  { to: '/settings', label: 'Geral' },
+  { to: '/coupons', label: 'Cupons' },
+  { to: '/happy-hour', label: 'Happy Hour' },
+  { to: '/staff', label: 'Funcionários' },
+]
 
 const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
@@ -172,6 +180,8 @@ export function RestaurantSettingsPage() {
 
   return (
     <div>
+      <SectionTabs tabs={MANAGEMENT_TABS} />
+
       <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs dark:border-white/10 dark:bg-stone-900 dark:text-white">
         <Store className="h-5 w-5 text-brand-600 dark:text-brand-400" />
         Configurações do restaurante

@@ -4,6 +4,13 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { deleteProduct, updateProduct, listProducts, type Product } from '../api/products'
 import { useAuth } from '../auth/AuthContext'
+import { SectionTabs } from '../components/SectionTabs'
+
+const MENU_TABS = [
+  { to: '/products', label: 'Produtos' },
+  { to: '/categories', label: 'Categorias' },
+  { to: '/combos', label: 'Combos' },
+]
 
 export function CombosPage() {
   const { user } = useAuth()
@@ -55,6 +62,8 @@ export function CombosPage() {
 
   return (
     <div>
+      <SectionTabs tabs={MENU_TABS} />
+
       <div className="mb-4 flex items-center justify-between gap-3">
         <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
           <Layers className="h-5 w-5 text-brand-600 dark:text-brand-400" />

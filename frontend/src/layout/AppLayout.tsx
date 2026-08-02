@@ -2,17 +2,12 @@ import {
   Banknote,
   BarChart3,
   ChefHat,
-  Clock,
   LayoutDashboard,
-  Layers,
   LogOut,
   MoreHorizontal,
   Package,
   Settings as SettingsIcon,
   Table2,
-  Tag,
-  Ticket,
-  Users,
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
@@ -58,25 +53,33 @@ interface NavItem {
   end?: boolean
   roles?: UserRole[]
   section?: NavSection
+  /** Extra path prefixes that should also highlight this item as active (e.g. pages reachable only via internal tabs). */
+  matchPrefixes?: string[]
+  /** Shorter label for the mobile bottom nav, where two-word labels wrap onto two lines. Defaults to `label`. */
+  mobileLabel?: string
 }
 
 const PRIMARY_NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/tables', label: 'Mesas', icon: Table2, section: 'TABLES' },
   { to: '/kitchen', label: 'Cozinha', icon: ChefHat, section: 'KITCHEN' },
-  { to: '/checkout', label: 'Fechar Conta', icon: Wallet, section: 'CHECKOUT' },
+  { to: '/checkout', label: 'Fechar Conta', mobileLabel: 'Conta', icon: Wallet, section: 'CHECKOUT' },
   { to: '/cash-register', label: 'Caixa', icon: Banknote, roles: ['OWNER', 'MANAGER', 'CASHIER'] },
 ]
 
-const MORE_NAV_ITEMS: NavItem[] = [
-  { to: '/categories', label: 'Categorias', icon: Tag },
-  { to: '/products', label: 'Produtos', icon: Package, end: true },
-  { to: '/combos', label: 'Combos', icon: Layers },
-  { to: '/coupons', label: 'Cupons', icon: Ticket, roles: ['OWNER', 'MANAGER'] },
-  { to: '/happy-hour', label: 'Happy Hour', icon: Clock, roles: ['OWNER', 'MANAGER'] },
+const MENU_NAV_ITEMS: NavItem[] = [
+  { to: '/products', label: 'Produtos', icon: Package, end: true, matchPrefixes: ['/categories', '/combos'] },
+]
+
+const MANAGEMENT_NAV_ITEMS: NavItem[] = [
   { to: '/reports', label: 'Relatórios', icon: BarChart3, roles: ['OWNER', 'MANAGER'] },
-  { to: '/settings', label: 'Configurações', icon: SettingsIcon, roles: ['OWNER', 'MANAGER'] },
-  { to: '/staff', label: 'Funcionários', icon: Users, roles: ['OWNER', 'MANAGER'] },
+  {
+    to: '/settings',
+    label: 'Configurações',
+    icon: SettingsIcon,
+    roles: ['OWNER', 'MANAGER'],
+    matchPrefixes: ['/coupons', '/happy-hour', '/staff'],
+  },
 ]
 
 function sidebarLinkClass({ isActive }: { isActive: boolean }) {
@@ -87,6 +90,12 @@ function sidebarLinkClass({ isActive }: { isActive: boolean }) {
   }`
 }
 
+function isNavItemActive(item: NavItem, pathname: string) {
+  const matchesOwnPath = item.end ? pathname === item.to : pathname.startsWith(item.to)
+  const matchesExtraPath = item.matchPrefixes?.some((prefix) => pathname.startsWith(prefix)) ?? false
+  return matchesOwnPath || matchesExtraPath
+}
+
 export function AppLayout() {
   const { user, restaurant, logout } = useAuth()
   const navigate = useNavigate()
@@ -95,7 +104,9 @@ export function AppLayout() {
   const [isMoreOpen, setIsMoreOpen] = useState(false)
 
   const visiblePrimaryItems = PRIMARY_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
-  const visibleMoreItems = MORE_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
+  const visibleMenuItems = MENU_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
+  const visibleManagementItems = MANAGEMENT_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
+  const visibleMoreItems = [...visibleMenuItems, ...visibleManagementItems]
 
   const { data: notificationStatus } = useQuery({
     queryKey: ['navNotifications'],
@@ -189,14 +200,40 @@ export function AppLayout() {
             ))}
           </nav>
 
-          {visibleMoreItems.length > 0 && (
+          {visibleMenuItems.length > 0 && (
             <>
               <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
-                Cadastros
+                Cardápio
+              </p>
+              <nav className="mb-6 flex flex-col gap-1">
+                {visibleMenuItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    className={() => sidebarLinkClass({ isActive: isNavItemActive(item, location.pathname) })}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.label}
+                  </NavLink>
+                ))}
+              </nav>
+            </>
+          )}
+
+          {visibleManagementItems.length > 0 && (
+            <>
+              <p className="mb-2 px-3 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
+                Gestão
               </p>
               <nav className="flex flex-col gap-1">
-                {visibleMoreItems.map((item) => (
-                  <NavLink key={item.to} to={item.to} end={item.end} className={sidebarLinkClass}>
+                {visibleManagementItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    className={() => sidebarLinkClass({ isActive: isNavItemActive(item, location.pathname) })}
+                  >
                     <item.icon className="h-5 w-5" />
                     {item.label}
                   </NavLink>
@@ -272,7 +309,7 @@ export function AppLayout() {
                 <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-brand-600" />
               )}
             </span>
-            {item.label}
+            <span className="whitespace-nowrap">{item.mobileLabel ?? item.label}</span>
           </NavLink>
         ))}
         {visibleMoreItems.length > 0 && (

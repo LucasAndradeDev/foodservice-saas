@@ -35,6 +35,13 @@ import {
 import { useAuth } from '../auth/AuthContext'
 import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
+import { SectionTabs } from '../components/SectionTabs'
+
+const MENU_TABS = [
+  { to: '/products', label: 'Produtos' },
+  { to: '/categories', label: 'Categorias' },
+  { to: '/combos', label: 'Combos' },
+]
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -279,6 +286,8 @@ export function ProductsPage() {
 
   return (
     <div>
+      <SectionTabs tabs={MENU_TABS} />
+
       <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
