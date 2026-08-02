@@ -1,24 +1,29 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.domain.entity.PasswordResetToken;
 import com.example.restaurant_saas.domain.entity.RefreshToken;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.ChangePasswordRequest;
+import com.example.restaurant_saas.dto.request.ForgotPasswordRequest;
 import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.RefreshTokenRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
+import com.example.restaurant_saas.dto.request.ResetPasswordRequest;
 import com.example.restaurant_saas.dto.response.AuthResponse;
 import com.example.restaurant_saas.dto.response.RestaurantResponse;
 import com.example.restaurant_saas.dto.response.UserResponse;
+import com.example.restaurant_saas.repository.PasswordResetTokenRepository;
 import com.example.restaurant_saas.repository.RefreshTokenRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.security.JwtService;
-import com.example.restaurant_saas.security.LoginRateLimitService;
+import com.example.restaurant_saas.security.RateLimitService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -31,21 +36,51 @@ import java.text.Normalizer;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
+    private static final String LOGIN_ACTION = "login";
+    private static final String FORGOT_PASSWORD_ACTION = "forgot-password";
+
     private final RestaurantRepository restaurantRepository;
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-    private final LoginRateLimitService loginRateLimitService;
+    private final RateLimitService rateLimitService;
+    private final EmailService emailService;
     private final HttpServletRequest httpRequest;
 
     @Value("${api.jwt.refresh-expiration-ms}")
     private long refreshExpirationMs;
+
+    @Value("${app.frontend-url}")
+    private String frontendUrl;
+
+    @Value("${security.login-rate-limit.max-attempts}")
+    private int loginMaxAttempts;
+
+    @Value("${security.login-rate-limit.window-minutes}")
+    private long loginWindowMinutes;
+
+    @Value("${security.login-rate-limit.block-minutes}")
+    private long loginBlockMinutes;
+
+    @Value("${security.forgot-password-rate-limit.max-attempts}")
+    private int forgotPasswordMaxAttempts;
+
+    @Value("${security.forgot-password-rate-limit.window-minutes}")
+    private long forgotPasswordWindowMinutes;
+
+    @Value("${security.forgot-password-rate-limit.block-minutes}")
+    private long forgotPasswordBlockMinutes;
+
+    @Value("${security.password-reset-token.expiration-minutes}")
+    private long passwordResetTokenExpirationMinutes;
 
     @Transactional
     public AuthResponse registerRestaurant(RegisterRestaurantRequest request) {
@@ -88,18 +123,18 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         String email = request.getEmail().toLowerCase().trim();
 
-        loginRateLimitService.checkAllowed(httpRequest, email);
+        rateLimitService.checkAllowed(LOGIN_ACTION, httpRequest, email);
 
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(email, request.getPassword())
             );
         } catch (AuthenticationException ex) {
-            loginRateLimitService.recordFailure(httpRequest, email);
+            rateLimitService.recordAttempt(LOGIN_ACTION, httpRequest, email, loginMaxAttempts, loginWindowMinutes, loginBlockMinutes);
             throw ex;
         }
 
-        loginRateLimitService.recordSuccess(httpRequest, email);
+        rateLimitService.reset(LOGIN_ACTION, httpRequest, email);
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid username or password."));
@@ -140,6 +175,80 @@ public class AuthService {
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+    }
+
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        String email = request.getEmail().toLowerCase().trim();
+
+        rateLimitService.checkAllowed(FORGOT_PASSWORD_ACTION, httpRequest, email);
+        // Count every call, not just successful ones, so it can't be used to enumerate
+        // registered emails by comparing rate-limit behavior across requests.
+        rateLimitService.recordAttempt(
+                FORGOT_PASSWORD_ACTION, httpRequest, email,
+                forgotPasswordMaxAttempts, forgotPasswordWindowMinutes, forgotPasswordBlockMinutes
+        );
+
+        userRepository.findByEmail(email).ifPresent(user -> {
+            passwordResetTokenRepository.deleteByUser(user);
+
+            PasswordResetToken resetToken = PasswordResetToken.builder()
+                    .user(user)
+                    .token(UUID.randomUUID().toString())
+                    .expiryDate(OffsetDateTime.now().plusMinutes(passwordResetTokenExpirationMinutes))
+                    .used(false)
+                    .build();
+            resetToken = passwordResetTokenRepository.save(resetToken);
+
+            String resetLink = frontendUrl + "/reset-password?token=" + resetToken.getToken();
+            try {
+                emailService.sendPasswordResetEmail(user.getEmail(), resetLink);
+            } catch (RuntimeException ex) {
+                // Swallow send failures: letting them propagate would turn a provider
+                // outage into a way to tell registered emails apart from unregistered
+                // ones (this branch only runs for registered emails, so an error here
+                // would surface as a 500 instead of the same generic response).
+                log.error("Failed to send password reset email to {}", user.getEmail(), ex);
+            }
+        });
+
+        // Always the same outcome regardless of whether the email is registered,
+        // so the response can't be used to discover which emails have accounts.
+    }
+
+    @Transactional
+    public AuthResponse resetPassword(ResetPasswordRequest request) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.getToken())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired reset link."));
+
+        if (Boolean.TRUE.equals(resetToken.getUsed()) || resetToken.getExpiryDate().isBefore(OffsetDateTime.now())) {
+            throw new IllegalArgumentException("Invalid or expired reset link.");
+        }
+
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+
+        try {
+            emailService.sendPasswordChangedNotification(user.getEmail());
+        } catch (RuntimeException ex) {
+            // The password was already changed successfully; a failed notification
+            // shouldn't fail the whole request.
+            log.error("Failed to send password changed notification to {}", user.getEmail(), ex);
+        }
+
+        // Force re-login everywhere: whoever reset the password might not be the
+        // same person still holding an old session on another device.
+        refreshTokenRepository.deleteByUser(user);
+        RefreshToken refreshToken = createRefreshToken(user);
+
+        UserDetailsImpl userDetails = new UserDetailsImpl(user);
+        String accessToken = jwtService.generateToken(userDetails);
+
+        return buildAuthResponse(accessToken, refreshToken.getToken(), user, user.getRestaurant());
     }
 
     @Transactional(readOnly = true)

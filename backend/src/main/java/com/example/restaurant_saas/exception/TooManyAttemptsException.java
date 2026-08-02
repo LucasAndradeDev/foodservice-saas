@@ -1,8 +1,8 @@
 package com.example.restaurant_saas.exception;
 
-public class TooManyLoginAttemptsException extends RuntimeException {
+public class TooManyAttemptsException extends RuntimeException {
 
-    public TooManyLoginAttemptsException(String message) {
+    public TooManyAttemptsException(String message) {
         super(message);
     }
 }

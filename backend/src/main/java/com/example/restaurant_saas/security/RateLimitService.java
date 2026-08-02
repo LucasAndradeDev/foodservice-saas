@@ -1,8 +1,7 @@
 package com.example.restaurant_saas.security;
 
-import com.example.restaurant_saas.exception.TooManyLoginAttemptsException;
+import com.example.restaurant_saas.exception.TooManyAttemptsException;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -10,37 +9,32 @@ import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * In-memory brute-force guard for the login endpoint, keyed by IP + email so a
- * shared IP (e.g. a restaurant's wifi) can't lock out other accounts, and a single
- * account can't be locked out by attempts from an unrelated IP.
+ * In-memory throttle for sensitive, unauthenticated endpoints (login, forgot-password),
+ * keyed by action + IP + identifier (e.g. email) so a shared IP (e.g. a restaurant's wifi)
+ * can't lock out other accounts, and a single account can't be locked out by attempts from
+ * an unrelated IP. Thresholds are supplied per call so each action can have its own policy.
  */
 @Component
-public class LoginRateLimitService {
+public class RateLimitService {
 
     private record Attempt(int count, Instant windowStart, Instant blockedUntil) {
     }
 
     private final ConcurrentHashMap<String, Attempt> attemptsByKey = new ConcurrentHashMap<>();
 
-    @Value("${security.login-rate-limit.max-attempts}")
-    private int maxAttempts;
-
-    @Value("${security.login-rate-limit.window-minutes}")
-    private long windowMinutes;
-
-    @Value("${security.login-rate-limit.block-minutes}")
-    private long blockMinutes;
-
-    public void checkAllowed(HttpServletRequest request, String email) {
-        Attempt attempt = attemptsByKey.get(key(request, email));
+    public void checkAllowed(String action, HttpServletRequest request, String identifier) {
+        Attempt attempt = attemptsByKey.get(key(action, request, identifier));
         if (attempt != null && attempt.blockedUntil() != null && Instant.now().isBefore(attempt.blockedUntil())) {
-            throw new TooManyLoginAttemptsException("Too many failed login attempts. Try again in a few minutes.");
+            throw new TooManyAttemptsException("Too many attempts. Try again in a few minutes.");
         }
     }
 
-    public void recordFailure(HttpServletRequest request, String email) {
+    public void recordAttempt(
+            String action, HttpServletRequest request, String identifier,
+            int maxAttempts, long windowMinutes, long blockMinutes
+    ) {
         Instant now = Instant.now();
-        attemptsByKey.compute(key(request, email), (key, existing) -> {
+        attemptsByKey.compute(key(action, request, identifier), (key, existing) -> {
             if (existing == null || now.isAfter(existing.windowStart().plus(Duration.ofMinutes(windowMinutes)))) {
                 return new Attempt(1, now, null);
             }
@@ -51,12 +45,12 @@ public class LoginRateLimitService {
         });
     }
 
-    public void recordSuccess(HttpServletRequest request, String email) {
-        attemptsByKey.remove(key(request, email));
+    public void reset(String action, HttpServletRequest request, String identifier) {
+        attemptsByKey.remove(key(action, request, identifier));
     }
 
-    private String key(HttpServletRequest request, String email) {
-        return resolveClientIp(request) + "|" + email;
+    private String key(String action, HttpServletRequest request, String identifier) {
+        return action + "|" + resolveClientIp(request) + "|" + identifier;
     }
 
     private String resolveClientIp(HttpServletRequest request) {

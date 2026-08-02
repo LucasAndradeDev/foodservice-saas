@@ -34,7 +34,13 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/register-restaurant", "/api/v1/auth/login", "/api/v1/auth/refresh-token").permitAll()
+                        .requestMatchers(
+                                "/api/v1/auth/register-restaurant",
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/refresh-token",
+                                "/api/v1/auth/forgot-password",
+                                "/api/v1/auth/reset-password"
+                        ).permitAll()
                         .requestMatchers("/api/v1/public/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health").permitAll()

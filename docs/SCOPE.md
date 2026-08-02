@@ -351,3 +351,4 @@ Não bloqueiam as prioridades de produto, mas vão precisar de atenção antes d
 - **Docker/deploy de produção** — grande parte já resolvida (ver `docs/DEPLOY.md`): backend e frontend no ar no Render, Dockerfile funcionando; falta só o teste end-to-end completo em produção.
 - **Logging estruturado / observabilidade** (Sentry ou equivalente) — hoje é só o log padrão do Spring Boot.
 - **Backup do banco de dados** — sem estratégia definida ainda.
+- **Verificação de email no cadastro** — identificado em 2026-08-01 durante o desenho da recuperação de senha: hoje o sistema aceita cadastro com email inventado, o que faz a recuperação de senha falhar silenciosamente pra essas contas. Adiado de propósito: escopo futuro, não bloqueia a recuperação de senha em si.

@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import {
   login as loginRequest,
   registerRestaurant as registerRestaurantRequest,
+  resetPassword as resetPasswordRequest,
   type AuthResponse,
   type RegisterRestaurantPayload,
 } from '../api/auth'
@@ -22,6 +23,7 @@ interface AuthContextValue {
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>
   registerRestaurant: (payload: RegisterRestaurantPayload) => Promise<void>
+  resetPassword: (token: string, newPassword: string) => Promise<void>
   updateRestaurant: (restaurant: Partial<StoredRestaurant>) => void
   logout: () => void
 }
@@ -67,6 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     applyAuthResponse(await registerRestaurantRequest(payload))
   }
 
+  async function resetPassword(token: string, newPassword: string) {
+    applyAuthResponse(await resetPasswordRequest(token, newPassword))
+  }
+
   function logout() {
     queryClient.clear()
     clearStoredAuth()
@@ -87,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: user !== null,
         login,
         registerRestaurant,
+        resetPassword,
         updateRestaurant,
         logout,
       }}

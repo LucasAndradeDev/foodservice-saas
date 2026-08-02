@@ -26,3 +26,11 @@ export interface RegisterRestaurantPayload {
 export function registerRestaurant(payload: RegisterRestaurantPayload) {
   return http.post<AuthResponse>('/auth/register-restaurant', payload).then((res) => res.data)
 }
+
+export function forgotPassword(email: string) {
+  return http.post<void>('/auth/forgot-password', { email }).then((res) => res.data)
+}
+
+export function resetPassword(token: string, newPassword: string) {
+  return http.post<AuthResponse>('/auth/reset-password', { token, newPassword }).then((res) => res.data)
+}

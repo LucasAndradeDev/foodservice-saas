@@ -1,9 +1,11 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.dto.request.ChangePasswordRequest;
+import com.example.restaurant_saas.dto.request.ForgotPasswordRequest;
 import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.RefreshTokenRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
+import com.example.restaurant_saas.dto.request.ResetPasswordRequest;
 import com.example.restaurant_saas.dto.response.AuthResponse;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.example.restaurant_saas.service.AuthService;
@@ -30,6 +32,18 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<AuthResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        AuthResponse response = authService.resetPassword(request);
         return ResponseEntity.ok(response);
     }
 

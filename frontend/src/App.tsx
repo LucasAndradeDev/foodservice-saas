@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
+import { AuthLayout } from './components/AuthLayout'
 import { AppLayout } from './layout/AppLayout'
 import { AllFeedbackPage } from './pages/AllFeedbackPage'
 import { AuthRoutes } from './pages/AuthRoutes'
@@ -11,6 +12,7 @@ import { ComboFormPage } from './pages/ComboFormPage'
 import { CouponsPage } from './pages/CouponsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DiningAreasPage } from './pages/DiningAreasPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { HappyHourPage } from './pages/HappyHourPage'
 import { KitchenPage } from './pages/KitchenPage'
 import { MenuImportPage } from './pages/MenuImportPage'
@@ -21,6 +23,7 @@ import { ProductsPage } from './pages/ProductsPage'
 import { PostMealFeedbackPage } from './pages/PostMealFeedbackPage'
 import { PublicMenuPage } from './pages/PublicMenuPage'
 import { ReportsPage } from './pages/ReportsPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { RestaurantSettingsPage } from './pages/RestaurantSettingsPage'
 import { StaffPage } from './pages/StaffPage'
 import { TabDetailPage } from './pages/TabDetailPage'
@@ -36,6 +39,22 @@ function App() {
           <Routes>
             <Route path="/login" element={<AuthRoutes />} />
             <Route path="/register" element={<AuthRoutes />} />
+            <Route
+              path="/forgot-password"
+              element={
+                <AuthLayout>
+                  <ForgotPasswordPage />
+                </AuthLayout>
+              }
+            />
+            <Route
+              path="/reset-password"
+              element={
+                <AuthLayout>
+                  <ResetPasswordPage />
+                </AuthLayout>
+              }
+            />
             <Route path="/menu/:slug" element={<PublicMenuPage />} />
             <Route path="/menu/:slug/:tableId" element={<PublicMenuPage />} />
             <Route path="/feedback/:slug/:tabId" element={<PostMealFeedbackPage />} />

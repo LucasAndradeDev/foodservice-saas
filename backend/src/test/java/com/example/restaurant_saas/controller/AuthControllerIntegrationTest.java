@@ -1,10 +1,14 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.domain.entity.PasswordResetToken;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.dto.request.ChangePasswordRequest;
+import com.example.restaurant_saas.dto.request.ForgotPasswordRequest;
 import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.RefreshTokenRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
+import com.example.restaurant_saas.dto.request.ResetPasswordRequest;
+import com.example.restaurant_saas.repository.PasswordResetTokenRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
@@ -34,6 +38,9 @@ class AuthControllerIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PasswordResetTokenRepository passwordResetTokenRepository;
 
     private RegisterRestaurantRequest registerRequest;
 
@@ -174,6 +181,137 @@ class AuthControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void forgotPassword_withRegisteredEmail_shouldGenerateResetToken() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated());
+
+        ForgotPasswordRequest forgotRequest = new ForgotPasswordRequest();
+        forgotRequest.setEmail(registerRequest.getOwnerEmail());
+
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(forgotRequest)))
+                .andExpect(status().isNoContent());
+
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        assertThat(passwordResetTokenRepository.findByUser(owner)).isPresent();
+    }
+
+    @Test
+    void forgotPassword_withUnregisteredEmail_shouldReturnSameGenericResponse() throws Exception {
+        ForgotPasswordRequest forgotRequest = new ForgotPasswordRequest();
+        forgotRequest.setEmail("doesnotexist+" + System.nanoTime() + "@test.com");
+
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(forgotRequest)))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void forgotPassword_afterTooManyAttempts_shouldReturn429() throws Exception {
+        ForgotPasswordRequest forgotRequest = new ForgotPasswordRequest();
+        forgotRequest.setEmail("rate-limited+" + System.nanoTime() + "@test.com");
+
+        for (int i = 0; i < 3; i++) {
+            mockMvc.perform(post("/api/v1/auth/forgot-password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(forgotRequest)))
+                    .andExpect(status().isNoContent());
+        }
+
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(forgotRequest)))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    void resetPassword_withValidToken_shouldAllowLoginWithNewPassword() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated());
+
+        ForgotPasswordRequest forgotRequest = new ForgotPasswordRequest();
+        forgotRequest.setEmail(registerRequest.getOwnerEmail());
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(forgotRequest)))
+                .andExpect(status().isNoContent());
+
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByUser(owner).orElseThrow();
+
+        ResetPasswordRequest resetRequest = new ResetPasswordRequest();
+        resetRequest.setToken(resetToken.getToken());
+        resetRequest.setNewPassword("brandNewPassword789");
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(resetRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.user.email").value(registerRequest.getOwnerEmail()));
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(registerRequest.getOwnerEmail());
+        loginRequest.setPassword("brandNewPassword789");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void resetPassword_withTokenUsedTwice_shouldReturn400OnSecondAttempt() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated());
+
+        ForgotPasswordRequest forgotRequest = new ForgotPasswordRequest();
+        forgotRequest.setEmail(registerRequest.getOwnerEmail());
+        mockMvc.perform(post("/api/v1/auth/forgot-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(forgotRequest)))
+                .andExpect(status().isNoContent());
+
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByUser(owner).orElseThrow();
+
+        ResetPasswordRequest resetRequest = new ResetPasswordRequest();
+        resetRequest.setToken(resetToken.getToken());
+        resetRequest.setNewPassword("firstNewPassword789");
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(resetRequest)))
+                .andExpect(status().isOk());
+
+        resetRequest.setNewPassword("secondNewPassword789");
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(resetRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void resetPassword_withInvalidToken_shouldReturn400() throws Exception {
+        ResetPasswordRequest resetRequest = new ResetPasswordRequest();
+        resetRequest.setToken("token-that-does-not-exist");
+        resetRequest.setNewPassword("someNewPassword789");
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(resetRequest)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

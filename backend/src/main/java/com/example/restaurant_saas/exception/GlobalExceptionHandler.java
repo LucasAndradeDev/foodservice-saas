@@ -27,8 +27,8 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
     }
 
-    @ExceptionHandler(TooManyLoginAttemptsException.class)
-    public ResponseEntity<Map<String, Object>> handleTooManyLoginAttempts(TooManyLoginAttemptsException ex) {
+    @ExceptionHandler(TooManyAttemptsException.class)
+    public ResponseEntity<Map<String, Object>> handleTooManyAttempts(TooManyAttemptsException ex) {
         Map<String, Object> body = new HashMap<>();
         body.put("timestamp", OffsetDateTime.now());
         body.put("status", HttpStatus.TOO_MANY_REQUESTS.value());

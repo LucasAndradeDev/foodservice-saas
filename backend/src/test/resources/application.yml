@@ -19,9 +19,16 @@ security:
     max-attempts: 5
     window-minutes: 15
     block-minutes: 15
+  forgot-password-rate-limit:
+    max-attempts: 3
+    window-minutes: 15
+    block-minutes: 30
+  password-reset-token:
+    expiration-minutes: 30
 
 app:
   upload-dir: ./target/test-uploads
+  frontend-url: http://localhost:5173
 
 gemini:
   api-key: test-key-not-used

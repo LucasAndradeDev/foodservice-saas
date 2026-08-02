@@ -75,6 +75,12 @@ export function LoginPage() {
           }
         />
 
+        <p className="-mt-3 mb-4 text-right text-sm">
+          <Link to="/forgot-password" className="font-medium text-brand-700 hover:underline dark:text-brand-400">
+            Esqueceu sua senha?
+          </Link>
+        </p>
+
         {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         <button
