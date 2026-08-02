@@ -345,8 +345,8 @@ O que falta, organizado por prioridade. **Reorganizado em 2026-07-28 a pedido do
 
 #### Gaps de infraestrutura identificados (2026-07-27, fora da lista de features acima)
 Não bloqueiam as prioridades de produto, mas vão precisar de atenção antes de abrir o produto pra clientes reais:
-- **Recuperação de senha** ("esqueci minha senha") — não existe hoje; só login, registro, refresh token e troca de senha autenticado.
-- [x] **Rate limiting no login** — resolvido em 2026-08-01: bloqueio em memória por IP+email (5 tentativas falhas em 15 min → bloqueio de 15 min), retorna 429. Ver `LoginRateLimitService`.
+- [x] **Recuperação de senha** ("esqueci minha senha") — resolvido em 2026-08-02: endpoints `forgot-password`/`reset-password` com token de uso único (expira em 30 min), sempre resposta genérica. Email via Brevo (`BREVO_API_KEY`/`BREVO_SENDER_EMAIL` no `.env`, remetente é um Gmail comum verificado, sem domínio próprio ainda); em dev/test sem chave configurada cai no `LogEmailService` (loga o link em vez de mandar email). Reset já loga o usuário direto e manda um email de aviso de "senha alterada".
+- [x] **Rate limiting no login** — resolvido em 2026-08-01: bloqueio em memória por IP+email (5 tentativas falhas em 15 min → bloqueio de 15 min), retorna 429. Generalizado em 2026-08-02 (`RateLimitService`) pra também proteger o forgot-password.
 - **Testes automatizados no frontend** — o backend tem suíte de integração sólida; o frontend não tem nenhum teste automatizado (nem Vitest, nem Playwright/Cypress).
 - **Docker/deploy de produção** — grande parte já resolvida (ver `docs/DEPLOY.md`): backend e frontend no ar no Render, Dockerfile funcionando; falta só o teste end-to-end completo em produção.
 - **Logging estruturado / observabilidade** (Sentry ou equivalente) — hoje é só o log padrão do Spring Boot.
