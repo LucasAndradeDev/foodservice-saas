@@ -1,4 +1,5 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CheckCircle2, ChevronDown, Clock, Lock, Pencil, Percent, Printer, Wallet } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
@@ -27,6 +28,13 @@ const timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute
 
 function isSameLocalDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+
+function extractErrorMessage(err: unknown, fallback: string) {
+  if (isAxiosError(err) && err.response?.data?.message) {
+    return err.response.data.message as string
+  }
+  return fallback
 }
 
 interface TabSummary {
@@ -112,7 +120,7 @@ export function CheckoutPage() {
       queryClient.invalidateQueries({ queryKey: ['tables'] })
       setJustPaidTabId(variables.id)
     },
-    onError: () => setError('Não foi possível fechar a conta. Tente novamente.'),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível fechar a conta. Tente novamente.')),
   })
 
   const tabDiscountMutation = useMutation({
@@ -200,7 +208,7 @@ export function CheckoutPage() {
     <div>
       <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs dark:border-white/10 dark:bg-stone-900 dark:text-white">
         <Wallet className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-        Caixa
+        Fechar Conta
       </h1>
 
       {isTabsLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}

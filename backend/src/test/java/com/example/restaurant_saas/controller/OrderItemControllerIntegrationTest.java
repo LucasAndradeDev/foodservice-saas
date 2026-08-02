@@ -9,6 +9,7 @@ import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
+import com.example.restaurant_saas.dto.request.OpenCashRegisterRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
@@ -75,7 +76,21 @@ class OrderItemControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
                 .andReturn();
-        return JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        String token = JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        // A test pays a tab in CASH; opening a session here keeps it green now that CASH
+        // payments require an open cash register.
+        openCashRegister(token);
+        return token;
+    }
+
+    private void openCashRegister(String token) throws Exception {
+        OpenCashRegisterRequest request = new OpenCashRegisterRequest();
+        request.setOpeningAmount(new BigDecimal("100.00"));
+        mockMvc.perform(post("/api/v1/cash-register/open")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
     }
 
     private String registerAndGetToken(RegisterRestaurantRequest request) throws Exception {

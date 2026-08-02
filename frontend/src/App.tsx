@@ -5,6 +5,7 @@ import { AuthLayout } from './components/AuthLayout'
 import { AppLayout } from './layout/AppLayout'
 import { AllFeedbackPage } from './pages/AllFeedbackPage'
 import { AuthRoutes } from './pages/AuthRoutes'
+import { CashRegisterPage } from './pages/CashRegisterPage'
 import { CategoriesPage } from './pages/CategoriesPage'
 import { CheckoutPage } from './pages/CheckoutPage'
 import { CombosPage } from './pages/CombosPage'
@@ -67,6 +68,7 @@ function App() {
                 <Route path="/tabs/:tabId" element={<TabDetailPage />} />
                 <Route path="/kitchen" element={<KitchenPage />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/cash-register" element={<CashRegisterPage />} />
                 <Route path="/categories" element={<CategoriesPage />} />
                 <Route path="/dining-areas" element={<DiningAreasPage />} />
                 <Route path="/coupons" element={<CouponsPage />} />

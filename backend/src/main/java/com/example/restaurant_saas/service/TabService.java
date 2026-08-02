@@ -7,6 +7,7 @@ import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
+import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.domain.enums.TableStatus;
 import com.example.restaurant_saas.domain.enums.UserRole;
@@ -44,6 +45,7 @@ public class TabService {
     private final RestaurantRepository restaurantRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderRepository orderRepository;
+    private final CashRegisterService cashRegisterService;
 
     @Transactional(readOnly = true)
     public List<TabResponse> listTabs(UUID restaurantId, TabStatus statusFilter) {
@@ -251,6 +253,10 @@ public class TabService {
             throw new IllegalArgumentException("Paid amount does not match the tab total.");
         }
 
+        if (request.getPaymentMethod() == PaymentMethod.CASH) {
+            cashRegisterService.requireOpenSession(restaurantId);
+        }
+
         OffsetDateTime now = OffsetDateTime.now();
         tab.setStatus(TabStatus.CLOSED);
         tab.setClosedAt(now);
@@ -297,6 +303,10 @@ public class TabService {
         BigDecimal total = afterDiscount.add(serviceChargeAmount);
         if (total.compareTo(request.getPaidAmount()) != 0) {
             throw new IllegalArgumentException("Paid amount does not match the tab total.");
+        }
+
+        if (request.getPaymentMethod() == PaymentMethod.CASH) {
+            cashRegisterService.requireOpenSession(restaurantId);
         }
 
         OffsetDateTime now = OffsetDateTime.now();

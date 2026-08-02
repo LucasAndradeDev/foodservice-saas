@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { motion } from 'framer-motion'
 import {
   ArrowLeft,
@@ -94,6 +95,13 @@ interface DraftItem {
   observation: string
   selectedModifiers: SelectedModifier[]
   comboSelections?: SelectedComboSlot[]
+}
+
+function extractErrorMessage(err: unknown, fallback: string) {
+  if (isAxiosError(err) && err.response?.data?.message) {
+    return err.response.data.message as string
+  }
+  return fallback
 }
 
 export function TabDetailPage() {
@@ -245,7 +253,8 @@ export function TabDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['tabs', tabId] })
       setIsCancellingPayment(false)
     },
-    onError: () => setError('Não foi possível corrigir o pagamento desta comanda. Confira se o valor bate com o total.'),
+    onError: (err) =>
+      setError(extractErrorMessage(err, 'Não foi possível corrigir o pagamento desta comanda. Confira se o valor bate com o total.')),
   })
 
   function openCancelPaymentModal() {

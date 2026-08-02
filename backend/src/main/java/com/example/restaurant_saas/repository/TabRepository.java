@@ -36,4 +36,10 @@ public interface TabRepository extends JpaRepository<Tab, UUID> {
             "AND t.openedAt < :rangeEnd AND t.closedAt > :rangeStart")
     List<Tab> findClosedTabsWithTablesOverlappingRange(
             @Param("restaurantId") UUID restaurantId, @Param("rangeStart") OffsetDateTime rangeStart, @Param("rangeEnd") OffsetDateTime rangeEnd);
+
+    @Query("SELECT COALESCE(SUM(t.paidAmount), 0) FROM Tab t " +
+            "WHERE t.restaurant.id = :restaurantId AND t.paymentMethod = 'CASH' " +
+            "AND t.paidAt >= :start AND t.paidAt < :end")
+    BigDecimal sumCashPaymentsByRestaurantIdAndPaidAtBetween(
+            @Param("restaurantId") UUID restaurantId, @Param("start") OffsetDateTime start, @Param("end") OffsetDateTime end);
 }

@@ -1,4 +1,5 @@
 import {
+  Banknote,
   BarChart3,
   ChefHat,
   Clock,
@@ -63,7 +64,8 @@ const PRIMARY_NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/tables', label: 'Mesas', icon: Table2, section: 'TABLES' },
   { to: '/kitchen', label: 'Cozinha', icon: ChefHat, section: 'KITCHEN' },
-  { to: '/checkout', label: 'Caixa', icon: Wallet, section: 'CHECKOUT' },
+  { to: '/checkout', label: 'Fechar Conta', icon: Wallet, section: 'CHECKOUT' },
+  { to: '/cash-register', label: 'Caixa', icon: Banknote, roles: ['OWNER', 'MANAGER', 'CASHIER'] },
 ]
 
 const MORE_NAV_ITEMS: NavItem[] = [
@@ -92,6 +94,7 @@ export function AppLayout() {
   const queryClient = useQueryClient()
   const [isMoreOpen, setIsMoreOpen] = useState(false)
 
+  const visiblePrimaryItems = PRIMARY_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
   const visibleMoreItems = MORE_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
 
   const { data: notificationStatus } = useQuery({
@@ -177,7 +180,7 @@ export function AppLayout() {
             Operação
           </p>
           <nav className="mb-6 flex flex-col gap-1">
-            {PRIMARY_NAV_ITEMS.map((item) => (
+            {visiblePrimaryItems.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end} className={sidebarLinkClass}>
                 <item.icon className="h-5 w-5" />
                 {item.label}
@@ -252,7 +255,7 @@ export function AppLayout() {
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-gray-200 bg-white sm:hidden dark:border-white/10 dark:bg-stone-900">
-        {PRIMARY_NAV_ITEMS.map((item) => (
+        {visiblePrimaryItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
