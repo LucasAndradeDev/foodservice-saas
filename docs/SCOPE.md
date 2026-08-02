@@ -297,7 +297,9 @@ Itens já entregues fora do roadmap original, puxados do backlog conforme o prod
 
 **Prioridade 1 do backlog anterior (discutido em 2026-07-25) concluída inteira** — todos os 6 itens de ganho rápido acima já foram entregues.
 
-O que falta, organizado por prioridade. **Reorganizado em 2026-07-28 a pedido do usuário**: a ordem agora reflete facilidade de implementação (do mais trivial ao mais difícil), não mais importância estratégica — por isso itens de peso como o pagamento online caíram pra Prioridade 5, apesar de ser pré-requisito do delivery. Cobrança do próprio SaaS fica de fora por ora, produto ainda em desenvolvimento (ver "Fora de escopo" no fim).
+O que falta, organizado por prioridade. **Reorganizado em 2026-08-02 a pedido do usuário**, em torno de um objetivo novo: **tornar o produto vendável** pro uso presencial + autoatendimento que já existe — em vez de só ordenar por facilidade de implementação (critério da reorg anterior, 2026-07-28). Cobrança/assinatura do próprio SaaS continua fora de escopo, decisão reconfirmada em 2026-08-02: os primeiros clientes entram por venda manual (contrato/PIX/boleto combinado por fora), sem fluxo de trial/plano dentro do sistema — ver "Fora de escopo" no fim.
+
+Nenhum dos itens que dependem de terceiro (gateway de pagamento, NFC-e, TEF, iFood, WhatsApp oficial) bloqueia a venda hoje: a obrigação fiscal (NFC-e) é do restaurante, não do SaaS, e a maioria resolve isso por fora; pagamento online só é pré-requisito de verdade pro delivery (ainda travado); TEF/iFood/WhatsApp são conveniências. Por isso caíram pra Prioridade 6, "só se um cliente concreto pedir", em vez de bloquear o lançamento.
 
 #### Prioridade 2 — trivial (sem migration nem entidade nova, só query ou campo simples)
 **Concluída inteira** ✅ 2026-07-29 — os 3 itens (relatório de horário de pico, ficha técnica/custo de produto, metas e comparativos) já foram entregues, ver lista de "já entregues" acima.
@@ -305,23 +307,29 @@ O que falta, organizado por prioridade. **Reorganizado em 2026-07-28 a pedido do
 #### Prioridade 3 — fácil (campo novo + lógica simples, reaproveita padrão já validado)
 **Concluída inteira** ✅ 2026-07-30 — os 2 itens (áreas do salão, avaliação pós-refeição) já foram entregues, ver lista de "já entregues" acima.
 
-#### Prioridade 4 — médio (entidade nova com fluxo próprio, mas contido)
+#### Prioridade 4 — fechar antes de vender
+Operação de dia a dia que um restaurante de verdade espera, mais a base mínima de infra pra sustentar cliente real (itens 🎯 abaixo são os mesmos da seção "Gaps de infraestrutura", só destacados aqui por virarem bloqueio de venda):
 8. **Abertura/fechamento de caixa com sangria** — hoje "faturamento do dia" é só soma de pagamentos; não existe abertura de turno com valor inicial, conferência de dinheiro físico no fechamento, nem sangria.
 9. **Divisão de conta** — hoje `paidAmount` precisa bater exatamente com o total (decisão explícita da Sprint 8); sem suporte a pagamento parcial/dividido.
+🎯 **Backup do banco de dados** — sem estratégia definida; risco real assim que houver dado de cliente pagante.
+🎯 **Decidir hospedagem definitiva do banco + teste end-to-end em produção** — banco está temporariamente no Postgres do Render (plano free expira depois de um tempo); ver `docs/DEPLOY.md`.
+🎯 **Verificação de email no cadastro** — hoje aceita email inventado, o que quebra silenciosamente a recuperação de senha pra essas contas.
 
-#### Prioridade 5 — difícil (integração externa, dinheiro real ou escopo maior)
-10. **Pagamento online — Pix e cartão via gateway** — hoje "Pix"/"Cartão" na comanda é só um registro manual de que o cliente pagou por fora (Pix direto pro banco do restaurante, ou maquininha do garçom); aqui é integrar um gateway de verdade (ex: Mercado Pago, PagSeguro, Asaas) que gera cobrança Pix real (QR Code) e cobra cartão online, com confirmação automática batendo na comanda. **Pré-requisito técnico pro delivery** (Prioridade 8) — não dá pra vender delivery sem cobrar o cliente à distância — mas já traz valor agora: cliente do autoatendimento (QR Code na mesa) pode pagar direto pelo celular, sem esperar o garçom.
-11. **Cardápio multilíngue** — inglês/espanhol pro cardápio digital, bom pra restaurante com público turista. Precisa de campo traduzido em cada produto/categoria e troca de idioma na tela pública — mais abrangente que os itens de Prioridade 4, mas não depende de terceiro.
+#### Prioridade 5 — ajuda a vender melhor, mas não bloqueia
+11. **Cardápio multilíngue** — inglês/espanhol pro cardápio digital, bom pra restaurante com público turista. Precisa de campo traduzido em cada produto/categoria e troca de idioma na tela pública.
 12. **Recibo digital** — enviar o recibo por WhatsApp/e-mail, além (ou em vez) da impressão física. Depende de integração com serviço externo (API do WhatsApp ou envio de e-mail).
 13. **Split de comanda por pessoa** — diferente da divisão de conta simples: atribui cada item da mesa a uma pessoa específica, pra fechar "cada um paga o que consumiu". Mais complexo que dividir em partes iguais.
 14. **Reserva de mesa** — agendamento com horário, evita mesa vazia "travada" ou cliente sem lugar. Fluxo novo inteiro (agendamento, notificação, conflito com mesa já ocupada).
+🎯 **Logging estruturado / observabilidade** (Sentry ou equivalente) — ajuda a dar suporte quando algo quebra pra um cliente real, mas não impede vender antes disso.
+🎯 **Testes automatizados no frontend** — qualidade/manutenção a longo prazo, não bloqueia venda.
 
-#### Prioridade 6 — integrações externas (maior esforço, dependem de terceiros)
+#### Prioridade 6 — só se um cliente concreto pedir (depende de terceiro, dinheiro real ou hardware)
+10. **Pagamento online — Pix e cartão via gateway** — hoje "Pix"/"Cartão" na comanda é só um registro manual de que o cliente pagou por fora (Pix direto pro banco do restaurante, ou maquininha do garçom); aqui é integrar um gateway de verdade (ex: Mercado Pago, PagSeguro, Asaas) que gera cobrança Pix real (QR Code) e cobra cartão online, com confirmação automática batendo na comanda. Só é pré-requisito de fato pro delivery (Prioridade 8) — pro presencial, o registro manual já resolve; mas já traz valor se um cliente quiser: autoatendimento (QR Code na mesa) pagando direto pelo celular, sem esperar o garçom.
 15. **Impressora térmica (ESC/POS)** via rede/USB — hoje a impressão é `window.print()` (Sprint 19), depende de driver do sistema.
-16. **Maquininha de cartão (TEF)** — integração com terminal físico de cartão usado pelo garçom/caixa; diferente do pagamento online da Prioridade 5, que é pro cliente pagar direto pelo celular.
+16. **Maquininha de cartão (TEF)** — integração com terminal físico de cartão usado pelo garçom/caixa; diferente do pagamento online acima, que é pro cliente pagar direto pelo celular.
 17. **Integração com WhatsApp** — compartilhamento e notificações mais amplas (além do recibo digital simples da Prioridade 5).
 18. **Integração com iFood**.
-19. **Impressão fiscal (NFC-e)** — bloqueador legal real pra operação formal, mas integração pesada (SEFAZ, certificado digital, homologação).
+19. **Impressão fiscal (NFC-e)** — a obrigação fiscal é do restaurante, não do SaaS; a maioria dos primeiros clientes resolve isso por fora (contador, emissor separado). Integração pesada (SEFAZ, certificado digital, homologação) — só entra se um cliente concreto precisar de emissão integrada.
 
 #### Prioridade 7 — bônus: escopo maior, só depois de validar com clientes reais
 20. **Controle de estoque**.
@@ -331,24 +339,24 @@ O que falta, organizado por prioridade. **Reorganizado em 2026-07-28 a pedido do
 24. **Multiunidade (redes de restaurantes)**.
 
 #### Prioridade 8 — Delivery (travado até o presencial estar completo)
-> **Decisão explícita do usuário (2026-07-27): não começar nada de Prioridade 8 enquanto qualquer item das Prioridades 2 a 7 (operação presencial) ainda estiver em aberto.** Delivery só entra depois que o fluxo de pedido presencial estiver todo redondo.
+> **Decisão explícita do usuário (2026-07-27): não começar nada de Prioridade 8 enquanto qualquer item das Prioridades 2 a 7 (operação presencial) ainda estiver em aberto.** Delivery só entra depois que o fluxo de pedido presencial estiver todo redondo. **Atualização 2026-08-02**: com a reorg em torno de "vendável", "presencial redondo" passa a significar a Prioridade 4 completa (não mais as Prioridades 5-7 inteiras, que agora são "não bloqueia"/"só se pedir"/"bônus") — se essa leitura não for a intenção, ajustar aqui.
 
 25. **Cadastro de endereço de entrega** — capturado no pedido (cardápio digital em modo delivery, sem mesa associada).
 26. **Cálculo de frete / raio de entrega** — por distância ou bairro atendido.
 27. **Status de entrega** — separando → saiu pra entrega → entregue; extensão do fluxo de status de item que já existe (`PENDING`/`PREPARING`/`READY`/`DELIVERED`).
 28. **Gestão de entregador** — próprio ou terceirizado, atribuição de pedido a entregador.
-29. **Comanda específica pra delivery** — endereço, contato do cliente, forma de pagamento (depende do pagamento online da Prioridade 5, já que não dá pra cobrar na entrega sem risco).
+29. **Comanda específica pra delivery** — endereço, contato do cliente, forma de pagamento (depende do pagamento online da Prioridade 6, já que não dá pra cobrar na entrega sem risco).
 
-#### Fora de escopo por enquanto (decisão explícita do usuário, 2026-07-25)
-- **Cobrança/assinatura do próprio SaaS** (planos, trial, gateway de pagamento) — o produto ainda está em desenvolvimento, não é hora de vender.
+#### Fora de escopo por enquanto (decisão explícita do usuário, 2026-07-25; reconfirmada em 2026-08-02)
+- **Cobrança/assinatura do próprio SaaS** (planos, trial, gateway de pagamento) — mesmo com o foco em tornar o produto vendável, os primeiros clientes entram por venda manual (contrato/PIX/boleto combinado por fora); construir cobrança automatizada antes de validar se alguém paga foi visto como prematuro.
 - **Onboarding self-service** — depende do item acima.
 
 #### Gaps de infraestrutura identificados (2026-07-27, fora da lista de features acima)
-Não bloqueiam as prioridades de produto, mas vão precisar de atenção antes de abrir o produto pra clientes reais:
+🎯 = também listado na Prioridade 4 ("fechar antes de vender") ou 5 ("ajuda a vender melhor") do backlog acima, por bloquear ou não bloquear a venda:
 - [x] **Recuperação de senha** ("esqueci minha senha") — resolvido em 2026-08-02: endpoints `forgot-password`/`reset-password` com token de uso único (expira em 30 min), sempre resposta genérica. Email via Brevo (`BREVO_API_KEY`/`BREVO_SENDER_EMAIL` no `.env`, remetente é um Gmail comum verificado, sem domínio próprio ainda); em dev/test sem chave configurada cai no `LogEmailService` (loga o link em vez de mandar email). Reset já loga o usuário direto e manda um email de aviso de "senha alterada".
 - [x] **Rate limiting no login** — resolvido em 2026-08-01: bloqueio em memória por IP+email (5 tentativas falhas em 15 min → bloqueio de 15 min), retorna 429. Generalizado em 2026-08-02 (`RateLimitService`) pra também proteger o forgot-password.
-- **Testes automatizados no frontend** — o backend tem suíte de integração sólida; o frontend não tem nenhum teste automatizado (nem Vitest, nem Playwright/Cypress).
-- **Docker/deploy de produção** — grande parte já resolvida (ver `docs/DEPLOY.md`): backend e frontend no ar no Render, Dockerfile funcionando; falta só o teste end-to-end completo em produção.
-- **Logging estruturado / observabilidade** (Sentry ou equivalente) — hoje é só o log padrão do Spring Boot.
-- **Backup do banco de dados** — sem estratégia definida ainda.
-- **Verificação de email no cadastro** — identificado em 2026-08-01 durante o desenho da recuperação de senha: hoje o sistema aceita cadastro com email inventado, o que faz a recuperação de senha falhar silenciosamente pra essas contas. Adiado de propósito: escopo futuro, não bloqueia a recuperação de senha em si.
+- 🎯 **Docker/deploy de produção** — grande parte já resolvida (ver `docs/DEPLOY.md`): backend e frontend no ar no Render, Dockerfile funcionando; falta o teste end-to-end completo em produção e decidir a hospedagem definitiva do banco (Prioridade 4 — bloqueia venda).
+- 🎯 **Backup do banco de dados** — sem estratégia definida ainda (Prioridade 4 — bloqueia venda).
+- 🎯 **Verificação de email no cadastro** — identificado em 2026-08-01 durante o desenho da recuperação de senha: hoje o sistema aceita cadastro com email inventado, o que faz a recuperação de senha falhar silenciosamente pra essas contas (Prioridade 4 — bloqueia venda).
+- 🎯 **Logging estruturado / observabilidade** (Sentry ou equivalente) — hoje é só o log padrão do Spring Boot (Prioridade 5 — não bloqueia venda).
+- 🎯 **Testes automatizados no frontend** — o backend tem suíte de integração sólida; o frontend não tem nenhum teste automatizado, nem Vitest nem Playwright/Cypress (Prioridade 5 — não bloqueia venda).
