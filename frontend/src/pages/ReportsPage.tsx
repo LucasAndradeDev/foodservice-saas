@@ -6,6 +6,7 @@ import { DateRangePicker } from '../components/DateRangePicker'
 import { FeedbackCard } from './reports/FeedbackCard'
 import { MonthlyGoalCard } from './reports/MonthlyGoalCard'
 import { PeakHoursHeatmap } from './reports/PeakHoursHeatmap'
+import { WaiterPerformanceCard } from './reports/WaiterPerformanceCard'
 import type { PaymentMethod } from '../api/tabs'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -316,6 +317,10 @@ export function ReportsPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="mb-6">
+            <WaiterPerformanceCard start={start} end={end} />
           </div>
 
           <div className="mb-6">

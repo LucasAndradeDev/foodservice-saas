@@ -25,6 +25,7 @@ import com.example.restaurant_saas.repository.ProductModifierOptionRepository;
 import com.example.restaurant_saas.repository.ProductRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.TabRepository;
+import com.example.restaurant_saas.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +50,7 @@ public class OrderService {
     private final TabRepository tabRepository;
     private final ProductRepository productRepository;
     private final RestaurantRepository restaurantRepository;
+    private final UserRepository userRepository;
     private final ProductModifierGroupRepository modifierGroupRepository;
     private final ProductModifierOptionRepository modifierOptionRepository;
     private final ProductAvailabilityWindowRepository availabilityWindowRepository;
@@ -68,7 +70,7 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse createOrder(UUID restaurantId, UUID tabId, CreateOrderRequest request) {
+    public OrderResponse createOrder(UUID restaurantId, UUID tabId, CreateOrderRequest request, UUID createdByUserId) {
         Tab tab = tabRepository.findByIdAndRestaurantId(tabId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tab not found."));
         if (tab.getStatus() != TabStatus.OPEN) {
@@ -78,6 +80,7 @@ public class OrderService {
         Order order = Order.builder()
                 .restaurant(restaurantRepository.getReferenceById(restaurantId))
                 .tab(tab)
+                .createdBy(createdByUserId != null ? userRepository.getReferenceById(createdByUserId) : null)
                 .build();
 
         Map<UUID, HappyHourRule> activeHappyHourRuleByCategory = happyHourRuleService.fetchActiveRulesByCategory(restaurantId);

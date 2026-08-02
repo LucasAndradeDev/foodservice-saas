@@ -4,6 +4,7 @@ import com.example.restaurant_saas.domain.entity.Order;
 import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
+import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.TabStatus;
@@ -149,10 +150,16 @@ public class OrderItemService {
             throw new IllegalArgumentException("Target tab is not open.");
         }
 
+        // Carries over the waiter who originally created the item so waiter-performance reporting still
+        // credits them after the move; if the batch spans items from different original creators, the
+        // first one wins (transfers are validated to be within a single tab, not a single order).
+        User originalCreatedBy = items.get(0).getOrder().getCreatedBy();
+
         OffsetDateTime now = OffsetDateTime.now();
         Order transferOrder = orderRepository.save(Order.builder()
                 .restaurant(restaurantRepository.getReferenceById(restaurantId))
                 .tab(targetTab)
+                .createdBy(originalCreatedBy)
                 .transferredFromTabId(sourceTab.getId())
                 .transferredBy(actingUserName)
                 .transferredAt(now)

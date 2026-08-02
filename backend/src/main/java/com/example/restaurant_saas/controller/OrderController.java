@@ -40,7 +40,7 @@ public class OrderController {
             @PathVariable UUID tabId,
             @Valid @RequestBody CreateOrderRequest request
     ) {
-        OrderResponse response = orderService.createOrder(currentUser.getRestaurantId(), tabId, request);
+        OrderResponse response = orderService.createOrder(currentUser.getRestaurantId(), tabId, request, currentUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.domain.entity.Order;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.domain.enums.UserRole;
@@ -12,6 +13,7 @@ import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
+import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
@@ -46,6 +48,9 @@ class OrderControllerIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
 
     @Autowired
     private JwtService jwtService;
@@ -323,6 +328,35 @@ class OrderControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void createOrder_asWaiter_shouldRecordCreatedByOnOrderEntity() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+
+        CreateOrderItemRequest item = new CreateOrderItemRequest();
+        item.setProductId(UUID.fromString(productId));
+        item.setQuantity(1);
+
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setItems(List.of(item));
+
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/orders")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        List<Order> orders = orderRepository.findByTabIdAndRestaurantId(UUID.fromString(tabId), owner.getRestaurant().getId());
+        org.junit.jupiter.api.Assertions.assertEquals(waiter.getId(), orders.get(0).getCreatedBy().getId());
     }
 
     @Test

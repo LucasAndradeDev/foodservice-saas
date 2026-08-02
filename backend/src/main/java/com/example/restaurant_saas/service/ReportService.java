@@ -1,8 +1,10 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.PostMealFeedback;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
+import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.dto.response.FeedbackEntryResponse;
 import com.example.restaurant_saas.dto.response.FeedbackPageResponse;
@@ -13,6 +15,8 @@ import com.example.restaurant_saas.dto.response.PeakHoursResponse;
 import com.example.restaurant_saas.dto.response.ReportComparisonResponse;
 import com.example.restaurant_saas.dto.response.ReportSummaryResponse;
 import com.example.restaurant_saas.dto.response.TopProductResponse;
+import com.example.restaurant_saas.dto.response.WaiterPerformanceResponse;
+import com.example.restaurant_saas.dto.response.WaiterPerformanceRowResponse;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.PostMealFeedbackRepository;
@@ -26,12 +30,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -171,6 +177,65 @@ public class ReportService {
                 .divide(previous, 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))
                 .setScale(1, RoundingMode.HALF_UP);
+    }
+
+    @Transactional(readOnly = true)
+    public WaiterPerformanceResponse getWaiterPerformance(UUID restaurantId, LocalDate start, LocalDate end) {
+        if (start.isAfter(end)) {
+            throw new IllegalArgumentException("Start date must not be after end date.");
+        }
+
+        OffsetDateTime rangeStart = start.atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime();
+        OffsetDateTime rangeEnd = end.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime();
+
+        Map<UUID, List<OrderItem>> itemsByWaiter = new HashMap<>();
+        for (OrderItem item : orderItemRepository.findForWaiterPerformance(restaurantId, rangeStart, rangeEnd)) {
+            User waiter = item.getOrder().getCreatedBy();
+            itemsByWaiter.computeIfAbsent(waiter != null ? waiter.getId() : null, key -> new ArrayList<>()).add(item);
+        }
+
+        List<WaiterPerformanceRowResponse> rows = new ArrayList<>();
+        WaiterPerformanceRowResponse selfServiceRow = null;
+        for (List<OrderItem> items : itemsByWaiter.values()) {
+            User waiter = items.get(0).getOrder().getCreatedBy();
+
+            BigDecimal totalSales = items.stream()
+                    .map(OrderItem::getNetSubtotal)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            long orderCount = items.stream().map(item -> item.getOrder().getId()).distinct().count();
+            // Uses the item's own createdAt, not the order's — same convention as
+            // fetchEstimatedWaitMinutesByProduct, and the only one that survives a transfer to another
+            // tab (which reassigns the item to a freshly created order whose createdAt is the transfer
+            // time, not when the item was originally placed).
+            List<Long> serviceMinutes = items.stream()
+                    .map(item -> Duration.between(item.getCreatedAt(), item.getDeliveredAt()).toMinutes())
+                    .toList();
+            Integer averageServiceTimeMinutes = serviceMinutes.isEmpty()
+                    ? null
+                    : (int) Math.round(serviceMinutes.stream().mapToLong(Long::longValue).average().orElse(0));
+
+            WaiterPerformanceRowResponse row = WaiterPerformanceRowResponse.builder()
+                    .waiterId(waiter != null ? waiter.getId() : null)
+                    .waiterName(waiter != null ? waiter.getName() : null)
+                    .active(waiter != null ? waiter.getActive() : null)
+                    .totalSales(totalSales)
+                    .orderCount(orderCount)
+                    .averageServiceTimeMinutes(averageServiceTimeMinutes)
+                    .build();
+
+            if (waiter == null) {
+                selfServiceRow = row;
+            } else {
+                rows.add(row);
+            }
+        }
+
+        rows.sort(Comparator.comparing(WaiterPerformanceRowResponse::getTotalSales).reversed());
+        if (selfServiceRow != null) {
+            rows.add(selfServiceRow);
+        }
+
+        return WaiterPerformanceResponse.builder().rows(rows).build();
     }
 
     @Transactional(readOnly = true)

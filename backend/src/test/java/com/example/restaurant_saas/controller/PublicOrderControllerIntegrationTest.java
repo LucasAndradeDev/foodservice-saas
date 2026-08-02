@@ -8,6 +8,8 @@ import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.dto.request.UpdateTableRequest;
+import com.example.restaurant_saas.repository.OrderRepository;
+import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +37,12 @@ class PublicOrderControllerIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private RestaurantRepository restaurantRepository;
 
     private RegisterRestaurantRequest registerRequest;
 
@@ -152,6 +160,26 @@ class PublicOrderControllerIntegrationTest {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("OCCUPIED"));
+    }
+
+    @Test
+    void selfOrder_shouldLeaveCreatedByNull() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String categoryId = createCategory(token, "Burgers");
+        String productId = createProduct(token, categoryId, "Cheeseburger", "25.90");
+        String tableId = createTable(token);
+
+        MvcResult result = mockMvc.perform(post("/api/v1/public/menu/" + slug + "/tables/" + tableId + "/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(selfOrderBody(productId)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String tabId = JsonPath.read(result.getResponse().getContentAsString(), "$.tabId");
+
+        UUID restaurantId = restaurantRepository.findBySlug(slug).orElseThrow().getId();
+        var orders = orderRepository.findByTabIdAndRestaurantId(UUID.fromString(tabId), restaurantId);
+        org.junit.jupiter.api.Assertions.assertNull(orders.get(0).getCreatedBy());
     }
 
     @Test

@@ -26,6 +26,6 @@ public class PublicOrderService {
 
         Tab tab = tabService.openOrGetTabForTable(restaurant.getId(), tableId);
 
-        return orderService.createOrder(restaurant.getId(), tab.getId(), request);
+        return orderService.createOrder(restaurant.getId(), tab.getId(), request, null);
     }
 }

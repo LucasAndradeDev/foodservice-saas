@@ -103,3 +103,20 @@ export function getFeedbackEntries(start: string, end: string, page: number, siz
     .get<FeedbackPage>('/reports/feedback/entries', { params: { start, end, page, size } })
     .then((res) => res.data)
 }
+
+export interface WaiterPerformanceRow {
+  waiterId: string | null
+  waiterName: string | null
+  active: boolean | null
+  totalSales: number
+  orderCount: number
+  averageServiceTimeMinutes: number | null
+}
+
+export interface WaiterPerformanceReport {
+  rows: WaiterPerformanceRow[]
+}
+
+export function getWaiterPerformance(start: string, end: string) {
+  return http.get<WaiterPerformanceReport>('/reports/waiters', { params: { start, end } }).then((res) => res.data)
+}

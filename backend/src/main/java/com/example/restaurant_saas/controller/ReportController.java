@@ -6,6 +6,7 @@ import com.example.restaurant_saas.dto.response.FeedbackReportResponse;
 import com.example.restaurant_saas.dto.response.MonthlyGoalResponse;
 import com.example.restaurant_saas.dto.response.PeakHoursResponse;
 import com.example.restaurant_saas.dto.response.ReportSummaryResponse;
+import com.example.restaurant_saas.dto.response.WaiterPerformanceResponse;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.example.restaurant_saas.service.GoalService;
 import com.example.restaurant_saas.service.ReportService;
@@ -98,6 +99,21 @@ public class ReportController {
             @RequestParam(defaultValue = "20") int size
     ) {
         return ResponseEntity.ok(reportService.getFeedbackEntries(currentUser.getRestaurantId(), start, end, page, size));
+    }
+
+    @GetMapping("/waiters")
+    @Operation(summary = "Get waiter performance", description = "Returns, per staff member who created at least one delivered order item, total net sales and average delivery time for tabs paid within the given date range (inclusive). Self-service (QR code) orders are grouped into a single row with a null waiterId, listed last.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Report returned"),
+            @ApiResponse(responseCode = "400", description = "start is after end"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
+    })
+    public ResponseEntity<WaiterPerformanceResponse> getWaiterPerformance(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
+    ) {
+        return ResponseEntity.ok(reportService.getWaiterPerformance(currentUser.getRestaurantId(), start, end));
     }
 
     @GetMapping("/goals")

@@ -108,6 +108,26 @@ class ReportControllerIntegrationTest {
         return jwtService.generateToken(new UserDetailsImpl(user));
     }
 
+    private User createWaiterNamed(User owner, String name) {
+        User user = User.builder()
+                .restaurant(owner.getRestaurant())
+                .name(name)
+                .email(name.toLowerCase() + "+" + System.nanoTime() + "@test.com")
+                .password(passwordEncoder.encode("password123"))
+                .role(UserRole.WAITER)
+                .active(true)
+                .build();
+        return userRepository.save(user);
+    }
+
+    private String getSlug(String token) throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.slug");
+    }
+
     private String createTableAndGetId(String token) throws Exception {
         CreateTableRequest request = new CreateTableRequest();
         MvcResult result = mockMvc.perform(post("/api/v1/tables")
@@ -824,6 +844,313 @@ class ReportControllerIntegrationTest {
         String yesterday = LocalDate.now().minusDays(1).toString();
 
         mockMvc.perform(get("/api/v1/reports/peak-hours")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", yesterday))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getWaiterPerformance_multipleWaitersOnSameTab_shouldAttributePerOrderNotPerTab() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User alice = createWaiterNamed(owner, "Alice");
+        User bob = createWaiterNamed(owner, "Bob");
+        String aliceToken = tokenFor(alice);
+        String bobToken = tokenFor(bob);
+
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productA = createProductAndGetId(ownerToken, categoryId, "Burger", "20.00");
+        String productB = createProductAndGetId(ownerToken, categoryId, "Soda", "10.00");
+
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        // Same tab, two different waiters each launching their own order (shift change / help during rush).
+        String itemAlice = createOrderAndGetItemIds(aliceToken, tabId, productA, 1).get(0);
+        String itemBob = createOrderAndGetItemIds(bobToken, tabId, productB, 1).get(0);
+        deliverItem(ownerToken, itemAlice);
+        deliverItem(ownerToken, itemBob);
+
+        payTab(ownerToken, tabId, "PIX", "30.00");
+        setTabPaidAt(tabId, LocalDate.now());
+
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/waiters")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rows", org.hamcrest.Matchers.hasSize(2)))
+                .andExpect(jsonPath("$.rows[0].waiterName").value("Alice"))
+                .andExpect(jsonPath("$.rows[0].totalSales").value(20.00))
+                .andExpect(jsonPath("$.rows[0].orderCount").value(1))
+                .andExpect(jsonPath("$.rows[1].waiterName").value("Bob"))
+                .andExpect(jsonPath("$.rows[1].totalSales").value(10.00))
+                .andExpect(jsonPath("$.rows[1].orderCount").value(1));
+    }
+
+    @Test
+    void getWaiterPerformance_selfServiceOrder_shouldAppearAsSeparateRow() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String slug = getSlug(ownerToken);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "15.00");
+        String tableId = createTableAndGetId(ownerToken);
+
+        CreateOrderItemRequest item = new CreateOrderItemRequest();
+        item.setProductId(UUID.fromString(productId));
+        item.setQuantity(1);
+        CreateOrderRequest selfOrderRequest = new CreateOrderRequest();
+        selfOrderRequest.setItems(List.of(item));
+
+        MvcResult selfOrderResult = mockMvc.perform(post("/api/v1/public/menu/" + slug + "/tables/" + tableId + "/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(selfOrderRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String tabId = JsonPath.read(selfOrderResult.getResponse().getContentAsString(), "$.tabId");
+        String itemId = JsonPath.read(selfOrderResult.getResponse().getContentAsString(), "$.items[0].id");
+
+        deliverItem(ownerToken, itemId);
+        payTab(ownerToken, tabId, "PIX", "15.00");
+        setTabPaidAt(tabId, LocalDate.now());
+
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/waiters")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rows", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.rows[0].waiterId").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.rows[0].waiterName").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.rows[0].totalSales").value(15.00));
+    }
+
+    @Test
+    void getWaiterPerformance_waiterAndSelfServiceOnDifferentTabs_selfServiceRowShouldBeListedLast() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createWaiterNamed(owner, "Diana");
+        String waiterToken = tokenFor(waiter);
+        String slug = getSlug(ownerToken);
+
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "50.00");
+
+        // Waiter-served tab: higher total than the self-service one below.
+        String waiterTableId = createTableAndGetId(ownerToken);
+        String waiterTabId = openTabAndGetId(ownerToken, waiterTableId);
+        String waiterItemId = createOrderAndGetItemIds(waiterToken, waiterTabId, productId, 1).get(0);
+        deliverItem(ownerToken, waiterItemId);
+        payTab(ownerToken, waiterTabId, "PIX", "50.00");
+        setTabPaidAt(waiterTabId, LocalDate.now());
+
+        // Self-service tab.
+        String selfServiceTableId = createTableAndGetId(ownerToken);
+        CreateOrderItemRequest item = new CreateOrderItemRequest();
+        item.setProductId(UUID.fromString(productId));
+        item.setQuantity(1);
+        CreateOrderRequest selfOrderRequest = new CreateOrderRequest();
+        selfOrderRequest.setItems(List.of(item));
+        MvcResult selfOrderResult = mockMvc.perform(post("/api/v1/public/menu/" + slug + "/tables/" + selfServiceTableId + "/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(selfOrderRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String selfServiceTabId = JsonPath.read(selfOrderResult.getResponse().getContentAsString(), "$.tabId");
+        String selfServiceItemId = JsonPath.read(selfOrderResult.getResponse().getContentAsString(), "$.items[0].id");
+        deliverItem(ownerToken, selfServiceItemId);
+        payTab(ownerToken, selfServiceTabId, "PIX", "50.00");
+        setTabPaidAt(selfServiceTabId, LocalDate.now());
+
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/waiters")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rows", org.hamcrest.Matchers.hasSize(2)))
+                .andExpect(jsonPath("$.rows[0].waiterName").value("Diana"))
+                .andExpect(jsonPath("$.rows[1].waiterName").value(org.hamcrest.Matchers.nullValue()));
+    }
+
+    @Test
+    void getWaiterPerformance_cancelledItem_shouldNotCountTowardSalesOrOrderCount() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createWaiterNamed(owner, "Carla");
+        String waiterToken = tokenFor(waiter);
+
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String deliveredProduct = createProductAndGetId(ownerToken, categoryId, "Burger", "20.00");
+        String cancelledProduct = createProductAndGetId(ownerToken, categoryId, "Soda", "10.00");
+
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        String deliveredItemId = createOrderAndGetItemIds(waiterToken, tabId, deliveredProduct, 1).get(0);
+        String cancelledItemId = createOrderAndGetItemIds(waiterToken, tabId, cancelledProduct, 1).get(0);
+
+        deliverItem(ownerToken, deliveredItemId);
+        updateItemStatus(ownerToken, cancelledItemId, ItemStatus.CANCELLED);
+
+        payTab(ownerToken, tabId, "PIX", "20.00");
+        setTabPaidAt(tabId, LocalDate.now());
+
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/waiters")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rows", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.rows[0].waiterName").value("Carla"))
+                .andExpect(jsonPath("$.rows[0].totalSales").value(20.00))
+                .andExpect(jsonPath("$.rows[0].orderCount").value(1));
+    }
+
+    @Test
+    void getWaiterPerformance_itemWithMultipleModifiers_shouldNotDoubleCountSales() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createWaiterNamed(owner, "Erica");
+        String waiterToken = tokenFor(waiter);
+
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Pizza", "40.00");
+
+        com.example.restaurant_saas.dto.request.ModifierOptionInput bacon =
+                new com.example.restaurant_saas.dto.request.ModifierOptionInput();
+        bacon.setName("Bacon");
+        bacon.setPriceDelta(new BigDecimal("5.00"));
+        com.example.restaurant_saas.dto.request.ModifierOptionInput cheese =
+                new com.example.restaurant_saas.dto.request.ModifierOptionInput();
+        cheese.setName("Cheese");
+        cheese.setPriceDelta(new BigDecimal("3.00"));
+
+        com.example.restaurant_saas.dto.request.CreateModifierGroupRequest groupRequest =
+                new com.example.restaurant_saas.dto.request.CreateModifierGroupRequest();
+        groupRequest.setName("Extras");
+        groupRequest.setSelectionType(com.example.restaurant_saas.domain.enums.ModifierSelectionType.MULTIPLE);
+        groupRequest.setRequired(false);
+        groupRequest.setOptions(List.of(bacon, cheese));
+
+        MvcResult groupResult = mockMvc.perform(post("/api/v1/products/" + productId + "/modifier-groups")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(groupRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String baconOptionId = JsonPath.read(groupResult.getResponse().getContentAsString(), "$.options[0].id");
+        String cheeseOptionId = JsonPath.read(groupResult.getResponse().getContentAsString(), "$.options[1].id");
+
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        CreateOrderItemRequest item = new CreateOrderItemRequest();
+        item.setProductId(UUID.fromString(productId));
+        item.setQuantity(1);
+        item.setSelectedOptionIds(List.of(UUID.fromString(baconOptionId), UUID.fromString(cheeseOptionId)));
+        CreateOrderRequest request = new CreateOrderRequest();
+        request.setItems(List.of(item));
+
+        MvcResult orderResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/orders")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.total").value(48.00))
+                .andReturn();
+        String itemId = JsonPath.read(orderResult.getResponse().getContentAsString(), "$.items[0].id");
+
+        deliverItem(ownerToken, itemId);
+        payTab(ownerToken, tabId, "PIX", "48.00");
+        setTabPaidAt(tabId, LocalDate.now());
+
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/waiters")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rows", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.rows[0].waiterName").value("Erica"))
+                .andExpect(jsonPath("$.rows[0].totalSales").value(48.00))
+                .andExpect(jsonPath("$.rows[0].orderCount").value(1));
+    }
+
+    @Test
+    void getWaiterPerformance_transferredItem_shouldKeepOriginalWaiterCredit() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createWaiterNamed(owner, "Fernanda");
+        String waiterToken = tokenFor(waiter);
+
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "22.00");
+
+        String sourceTableId = createTableAndGetId(ownerToken);
+        String sourceTabId = openTabAndGetId(ownerToken, sourceTableId);
+        String itemId = createOrderAndGetItemIds(waiterToken, sourceTabId, productId, 1).get(0);
+
+        String targetTableId = createTableAndGetId(ownerToken);
+        String targetTabId = openTabAndGetId(ownerToken, targetTableId);
+
+        com.example.restaurant_saas.dto.request.TransferItemsRequest transferRequest =
+                new com.example.restaurant_saas.dto.request.TransferItemsRequest();
+        transferRequest.setItemIds(List.of(UUID.fromString(itemId)));
+        transferRequest.setTargetTabId(UUID.fromString(targetTabId));
+        mockMvc.perform(post("/api/v1/order-items/transfer")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(transferRequest)))
+                .andExpect(status().isOk());
+
+        deliverItem(ownerToken, itemId);
+        payTab(ownerToken, targetTabId, "PIX", "22.00");
+        setTabPaidAt(targetTabId, LocalDate.now());
+
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/waiters")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.rows", org.hamcrest.Matchers.hasSize(1)))
+                .andExpect(jsonPath("$.rows[0].waiterName").value("Fernanda"))
+                .andExpect(jsonPath("$.rows[0].totalSales").value(22.00));
+    }
+
+    @Test
+    void getWaiterPerformance_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/waiters")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getWaiterPerformance_startAfterEnd_shouldReturnBadRequest() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String today = LocalDate.now().toString();
+        String yesterday = LocalDate.now().minusDays(1).toString();
+
+        mockMvc.perform(get("/api/v1/reports/waiters")
                         .header("Authorization", "Bearer " + ownerToken)
                         .param("start", today)
                         .param("end", yesterday))

@@ -54,4 +54,14 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     @Query("SELECT oi.product.id, oi.createdAt, oi.deliveredAt FROM OrderItem oi " +
             "WHERE oi.order.restaurant.id = :restaurantId AND oi.status = 'DELIVERED' AND oi.deliveredAt IS NOT NULL")
     List<Object[]> findDeliveredTimingsByRestaurant(@Param("restaurantId") UUID restaurantId);
+
+    @Query("SELECT oi FROM OrderItem oi " +
+            "JOIN FETCH oi.order o " +
+            "LEFT JOIN FETCH o.createdBy " +
+            "LEFT JOIN FETCH oi.modifiers " +
+            "WHERE o.restaurant.id = :restaurantId AND o.tab.status = 'CLOSED' " +
+            "AND o.tab.paidAt >= :start AND o.tab.paidAt < :end " +
+            "AND oi.status = 'DELIVERED' AND oi.deliveredAt IS NOT NULL AND oi.parentOrderItem IS NULL")
+    List<OrderItem> findForWaiterPerformance(
+            @Param("restaurantId") UUID restaurantId, @Param("start") OffsetDateTime start, @Param("end") OffsetDateTime end);
 }
