@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios'
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
@@ -25,8 +26,12 @@ export function LoginPage() {
     try {
       await login(email, password)
       navigate('/')
-    } catch {
-      setError('Email ou senha inválidos')
+    } catch (err) {
+      if (isAxiosError(err) && err.response?.status === 429) {
+        setError('Muitas tentativas de login. Aguarde alguns minutos e tente novamente.')
+      } else {
+        setError('Email ou senha inválidos')
+      }
     } finally {
       setIsSubmitting(false)
     }

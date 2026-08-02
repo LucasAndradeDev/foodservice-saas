@@ -346,8 +346,8 @@ O que falta, organizado por prioridade. **Reorganizado em 2026-07-28 a pedido do
 #### Gaps de infraestrutura identificados (2026-07-27, fora da lista de features acima)
 Não bloqueiam as prioridades de produto, mas vão precisar de atenção antes de abrir o produto pra clientes reais:
 - **Recuperação de senha** ("esqueci minha senha") — não existe hoje; só login, registro, refresh token e troca de senha autenticado.
-- **Rate limiting no login** — sem proteção contra força bruta.
+- [x] **Rate limiting no login** — resolvido em 2026-08-01: bloqueio em memória por IP+email (5 tentativas falhas em 15 min → bloqueio de 15 min), retorna 429. Ver `LoginRateLimitService`.
 - **Testes automatizados no frontend** — o backend tem suíte de integração sólida; o frontend não tem nenhum teste automatizado (nem Vitest, nem Playwright/Cypress).
-- **Docker/deploy de produção** — hoje só existe `docker-compose.yml` de desenvolvimento local (só o banco); sem Dockerfile da aplicação nem configuração de produção.
+- **Docker/deploy de produção** — grande parte já resolvida (ver `docs/DEPLOY.md`): backend e frontend no ar no Render, Dockerfile funcionando; falta só o teste end-to-end completo em produção.
 - **Logging estruturado / observabilidade** (Sentry ou equivalente) — hoje é só o log padrão do Spring Boot.
 - **Backup do banco de dados** — sem estratégia definida ainda.

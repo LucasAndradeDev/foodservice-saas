@@ -15,11 +15,14 @@ import com.example.restaurant_saas.repository.RefreshTokenRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.security.JwtService;
+import com.example.restaurant_saas.security.LoginRateLimitService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +41,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final LoginRateLimitService loginRateLimitService;
+    private final HttpServletRequest httpRequest;
 
     @Value("${api.jwt.refresh-expiration-ms}")
     private long refreshExpirationMs;
@@ -81,11 +86,22 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail().toLowerCase().trim(), request.getPassword())
-        );
+        String email = request.getEmail().toLowerCase().trim();
 
-        User user = userRepository.findByEmail(request.getEmail().toLowerCase().trim())
+        loginRateLimitService.checkAllowed(httpRequest, email);
+
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, request.getPassword())
+            );
+        } catch (AuthenticationException ex) {
+            loginRateLimitService.recordFailure(httpRequest, email);
+            throw ex;
+        }
+
+        loginRateLimitService.recordSuccess(httpRequest, email);
+
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid username or password."));
 
         UserDetailsImpl userDetails = new UserDetailsImpl(user);
