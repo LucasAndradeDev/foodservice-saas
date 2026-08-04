@@ -3,10 +3,10 @@ package com.example.restaurant_saas.controller;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
 import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
-import com.example.restaurant_saas.dto.request.CancelPaymentRequest;
 import com.example.restaurant_saas.dto.request.MergeTabRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
-import com.example.restaurant_saas.dto.request.PayTabRequest;
+import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
+import com.example.restaurant_saas.dto.request.VoidPaymentRequest;
 import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.example.restaurant_saas.service.TabService;
@@ -120,36 +120,37 @@ public class TabController {
         return ResponseEntity.ok(tabService.unmergeTab(currentUser.getRestaurantId(), id, request.getSourceTabId()));
     }
 
-    @PatchMapping("/{id}/pay")
+    @PostMapping("/{id}/payments")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
-    @Operation(summary = "Pay and close tab", description = "Registers the payment and closes an open tab in the same step, freeing all tables linked to it (OCCUPIED to FREE). The paid amount must match the tab's total exactly, and all order items must already be DELIVERED or CANCELLED. serviceChargePercentage is only honored for OWNER/MANAGER; other roles always get the restaurant's configured default (or none, if disabled).")
+    @Operation(summary = "Register one or more payments (split bill)", description = "Registers one or more payments in a single atomic call — e.g. a bill split across several people and/or payment methods. Works on an OPEN tab (closing it and freeing its tables once the sum of all active payments reaches the total), or, OWNER/MANAGER only, on a CLOSED tab left with a debt by a previous payment void. serviceChargePercentage is only honored on the tab's first payment (when its bill total is not yet locked), and only for OWNER/MANAGER; other roles always get the restaurant's configured default. The sum of the payments sent must not exceed the tab's remaining balance.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Tab paid and closed"),
-            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, already closed, or paid amount does not match the total"),
-            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission, or tab has order items not yet DELIVERED or CANCELLED")
+            @ApiResponse(responseCode = "200", description = "Payment(s) registered; tab closed if fully paid"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, tab is not open (and has no debt to complete), or the payments sent exceed the remaining balance"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission, tab has order items not yet DELIVERED or CANCELLED, or a non-OWNER/MANAGER tried to complete a closed tab's debt")
     })
-    public ResponseEntity<TabResponse> payTab(
+    public ResponseEntity<TabResponse> registerPayments(
             @AuthenticationPrincipal UserDetailsImpl currentUser,
             @PathVariable UUID id,
-            @Valid @RequestBody PayTabRequest request
+            @Valid @RequestBody RegisterPaymentsRequest request
     ) {
-        return ResponseEntity.ok(tabService.payTab(currentUser.getRestaurantId(), id, currentUser.getRole(), request));
+        return ResponseEntity.ok(tabService.registerPayments(currentUser.getRestaurantId(), id, currentUser.getRole(), currentUser.getId(), request));
     }
 
-    @PatchMapping("/{id}/cancel-payment")
+    @PatchMapping("/{id}/payments/{paymentId}/void")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
-    @Operation(summary = "Correct a payment recorded by mistake", description = "Replaces a closed tab's payment record (method, amount, service charge) with a corrected one in a single step — e.g. the wrong method was picked, or the amount didn't match. The tab stays CLOSED throughout and its tables are never touched: unlike unmerge, this isn't meant to resume service, and by the time someone reaches this action the table may already be free or serving someone else entirely. serviceChargePercentage is honored as sent, since this endpoint is already OWNER/MANAGER-only. Restricted to OWNER and MANAGER; a reason is required for audit.")
+    @Operation(summary = "Void a payment recorded by mistake", description = "Marks a single payment as VOIDED, keeping it in the tab's history for audit instead of overwriting it. Never reopens the tab or touches its tables, even if this leaves a CLOSED tab with an outstanding balance — by the time someone reaches this action the table may already be free or serving someone else entirely. A debt left behind this way is settled later through the payments-registration endpoint. Restricted to OWNER and MANAGER; a reason is required for audit.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Payment corrected"),
-            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, tab is not closed, reason missing, or corrected amount does not match the tab total"),
+            @ApiResponse(responseCode = "200", description = "Payment voided"),
+            @ApiResponse(responseCode = "400", description = "Tab or payment not found in this restaurant, or payment already voided"),
             @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER")
     })
-    public ResponseEntity<TabResponse> cancelPayment(
+    public ResponseEntity<TabResponse> voidPayment(
             @AuthenticationPrincipal UserDetailsImpl currentUser,
             @PathVariable UUID id,
-            @Valid @RequestBody CancelPaymentRequest request
+            @PathVariable UUID paymentId,
+            @Valid @RequestBody VoidPaymentRequest request
     ) {
-        return ResponseEntity.ok(tabService.cancelPayment(currentUser.getRestaurantId(), id, currentUser.getName(), request));
+        return ResponseEntity.ok(tabService.voidPayment(currentUser.getRestaurantId(), id, paymentId, currentUser.getId(), request));
     }
 
     @PatchMapping("/{id}/cancel")

@@ -11,7 +11,8 @@ import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.ModifierOptionInput;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
-import com.example.restaurant_saas.dto.request.PayTabRequest;
+import com.example.restaurant_saas.dto.request.PaymentEntryRequest;
+import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateModifierGroupRequest;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
@@ -460,16 +461,18 @@ class ProductModifierGroupControllerIntegrationTest {
         deliverItem(token, itemId);
 
         // Total must be 40.00 (base price) + 10.00 (size G delta) = 50.00, not the base price alone.
-        PayTabRequest payRequest = new PayTabRequest();
-        payRequest.setPaymentMethod(PaymentMethod.PIX);
-        payRequest.setPaidAmount(new BigDecimal("50.00"));
+        PaymentEntryRequest entry = new PaymentEntryRequest();
+        entry.setPaymentMethod(PaymentMethod.PIX);
+        entry.setAmount(new BigDecimal("50.00"));
+        RegisterPaymentsRequest payRequest = new RegisterPaymentsRequest();
+        payRequest.setPayments(List.of(entry));
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paidAmount").value(50.00));
+                .andExpect(jsonPath("$.amountPaid").value(50.00));
     }
 
     @Test

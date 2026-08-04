@@ -71,10 +71,16 @@ public class OrderService {
 
     @Transactional
     public OrderResponse createOrder(UUID restaurantId, UUID tabId, CreateOrderRequest request, UUID createdByUserId) {
-        Tab tab = tabRepository.findByIdAndRestaurantId(tabId, restaurantId)
+        // Locked (not a plain read) so this can't race a concurrent registerPayments/applyDiscount call:
+        // without the lock, an order could be inserted after another transaction already froze the
+        // tab's bill total, adding an item that's never actually billed.
+        Tab tab = tabRepository.findByIdAndRestaurantIdForUpdate(tabId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tab not found."));
         if (tab.getStatus() != TabStatus.OPEN) {
             throw new IllegalStateException("Tab is not open.");
+        }
+        if (tab.getBillTotal() != null) {
+            throw new IllegalStateException("Payment has already started for this tab.");
         }
 
         Order order = Order.builder()

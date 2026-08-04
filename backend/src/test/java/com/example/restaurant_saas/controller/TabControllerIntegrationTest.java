@@ -5,7 +5,6 @@ import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
 import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
-import com.example.restaurant_saas.dto.request.CancelPaymentRequest;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
@@ -14,9 +13,11 @@ import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.MergeTabRequest;
 import com.example.restaurant_saas.dto.request.OpenCashRegisterRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
+import com.example.restaurant_saas.dto.request.PaymentEntryRequest;
+import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
-import com.example.restaurant_saas.dto.request.PayTabRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
+import com.example.restaurant_saas.dto.request.VoidPaymentRequest;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.repository.UserRepository;
@@ -35,9 +36,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -196,36 +200,37 @@ class TabControllerIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    private String payTabRequestBody(String paymentMethod, String paidAmount) throws Exception {
-        return payTabRequestBody(paymentMethod, paidAmount, null);
+    private String registerPaymentsRequestBody(String paymentMethod, String amount) throws Exception {
+        return registerPaymentsRequestBody(paymentMethod, amount, null);
     }
 
-    private String payTabRequestBody(String paymentMethod, String paidAmount, String serviceChargePercentage) throws Exception {
-        PayTabRequest request = new PayTabRequest();
-        request.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
-        request.setPaidAmount(new BigDecimal(paidAmount));
+    private String registerPaymentsRequestBody(String paymentMethod, String amount, String serviceChargePercentage) throws Exception {
+        return registerPaymentsRequestBody(List.<String[]>of(new String[]{paymentMethod, amount}), serviceChargePercentage);
+    }
+
+    private String registerPaymentsRequestBody(List<String[]> methodAmountPairs) throws Exception {
+        return registerPaymentsRequestBody(methodAmountPairs, null);
+    }
+
+    private String registerPaymentsRequestBody(List<String[]> methodAmountPairs, String serviceChargePercentage) throws Exception {
+        RegisterPaymentsRequest request = new RegisterPaymentsRequest();
+        request.setPayments(methodAmountPairs.stream()
+                .map(pair -> {
+                    PaymentEntryRequest entry = new PaymentEntryRequest();
+                    entry.setPaymentMethod(PaymentMethod.valueOf(pair[0]));
+                    entry.setAmount(new BigDecimal(pair[1]));
+                    return entry;
+                })
+                .toList());
         if (serviceChargePercentage != null) {
             request.setServiceChargePercentage(new BigDecimal(serviceChargePercentage));
         }
         return objectMapper.writeValueAsString(request);
     }
 
-    private String cancelPaymentRequestBody(String reason, String paymentMethod, String paidAmount) throws Exception {
-        return cancelPaymentRequestBody(reason, paymentMethod, paidAmount, null);
-    }
-
-    private String cancelPaymentRequestBody(String reason, String paymentMethod, String paidAmount, String serviceChargePercentage) throws Exception {
-        CancelPaymentRequest request = new CancelPaymentRequest();
+    private String voidPaymentRequestBody(String reason) throws Exception {
+        VoidPaymentRequest request = new VoidPaymentRequest();
         request.setReason(reason);
-        if (paymentMethod != null) {
-            request.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
-        }
-        if (paidAmount != null) {
-            request.setPaidAmount(new BigDecimal(paidAmount));
-        }
-        if (serviceChargePercentage != null) {
-            request.setServiceChargePercentage(new BigDecimal(serviceChargePercentage));
-        }
         return objectMapper.writeValueAsString(request);
     }
 
@@ -240,7 +245,7 @@ class TabControllerIntegrationTest {
     }
 
     @Test
-    void payTab_withPendingItems_shouldBeForbidden() throws Exception {
+    void registerPayments_withPendingItems_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
@@ -248,15 +253,15 @@ class TabControllerIntegrationTest {
         String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
         createOrderAndGetFirstItemId(ownerToken, tabId, productId);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "25.90")))
+                        .content(registerPaymentsRequestBody("CASH", "25.90")))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    void payTab_withAllItemsDeliveredOrCancelled_shouldSucceedAndChargeOnlyDeliveredItems() throws Exception {
+    void registerPayments_withAllItemsDeliveredOrCancelled_shouldSucceedAndChargeOnlyDeliveredItems() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
@@ -271,19 +276,22 @@ class TabControllerIntegrationTest {
         String cancelledItemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
         updateItemStatus(ownerToken, cancelledItemId, ItemStatus.CANCELLED);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "25.90")))
+                        .content(registerPaymentsRequestBody("CASH", "25.90")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
-                .andExpect(jsonPath("$.paymentMethod").value("CASH"))
-                .andExpect(jsonPath("$.paidAmount").value(25.90))
-                .andExpect(jsonPath("$.paidAt").exists());
+                .andExpect(jsonPath("$.billTotal").value(25.90))
+                .andExpect(jsonPath("$.amountPaid").value(25.90))
+                .andExpect(jsonPath("$.remainingBalance").value(0))
+                .andExpect(jsonPath("$.payments[0].paymentMethod").value("CASH"))
+                .andExpect(jsonPath("$.payments[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$.payments[0].paidAt").exists());
     }
 
     @Test
-    void payTab_withAmountNotMatchingTotal_shouldReturn400() throws Exception {
+    void registerPayments_withAmountExceedingTotal_shouldReturn400() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
@@ -295,23 +303,47 @@ class TabControllerIntegrationTest {
         updateItemStatus(ownerToken, itemId, ItemStatus.READY);
         updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "10.00")))
+                        .content(registerPaymentsRequestBody("CASH", "30.00")))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void payTab_withEmptyTab_shouldSucceedWithZeroAmount() throws Exception {
+    void registerPayments_withAmountLessThanTotal_shouldLeaveTabOpenWithRemainingBalance() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerPaymentsRequestBody("CASH", "10.00")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.billTotal").value(25.90))
+                .andExpect(jsonPath("$.amountPaid").value(10.00))
+                .andExpect(jsonPath("$.remainingBalance").value(15.90));
+    }
+
+    @Test
+    void registerPayments_withEmptyTab_shouldSucceedWithZeroAmount() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("PIX", "0")))
+                        .content(registerPaymentsRequestBody("PIX", "0")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"));
     }
@@ -474,7 +506,7 @@ class TabControllerIntegrationTest {
     }
 
     @Test
-    void payTab_shouldFreeAllLinkedTables() throws Exception {
+    void registerPayments_shouldFreeAllLinkedTables() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String table1 = createTableAndGetId(ownerToken);
         String table2 = createTableAndGetId(ownerToken);
@@ -489,10 +521,10 @@ class TabControllerIntegrationTest {
                 .andReturn();
         String tabId = JsonPath.read(openResult.getResponse().getContentAsString(), "$.id");
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "0")))
+                        .content(registerPaymentsRequestBody("CASH", "0")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
                 .andExpect(jsonPath("$.closedAt").exists());
@@ -506,7 +538,7 @@ class TabControllerIntegrationTest {
     }
 
     @Test
-    void payTab_alreadyClosed_shouldReturn400() throws Exception {
+    void registerPayments_onAlreadyClosedTabWithNoDebt_shouldReturn400() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
 
@@ -520,21 +552,21 @@ class TabControllerIntegrationTest {
                 .andReturn();
         String tabId = JsonPath.read(openResult.getResponse().getContentAsString(), "$.id");
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "0")))
+                        .content(registerPaymentsRequestBody("CASH", "0")))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "0")))
+                        .content(registerPaymentsRequestBody("CASH", "0")))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void payTab_asKitchen_shouldBeForbidden() throws Exception {
+    void registerPayments_asKitchen_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
         User kitchen = createUserDirectly(owner, UserRole.KITCHEN);
@@ -551,10 +583,10 @@ class TabControllerIntegrationTest {
                 .andReturn();
         String tabId = JsonPath.read(openResult.getResponse().getContentAsString(), "$.id");
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + kitchenToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "0")))
+                        .content(registerPaymentsRequestBody("CASH", "0")))
                 .andExpect(status().isForbidden());
     }
 
@@ -582,10 +614,10 @@ class TabControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(secondRequest)))
                 .andExpect(status().isCreated());
 
-        mockMvc.perform(patch("/api/v1/tabs/" + firstTabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + firstTabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "0")))
+                        .content(registerPaymentsRequestBody("CASH", "0")))
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/tabs").param("status", "OPEN")
@@ -642,8 +674,9 @@ class TabControllerIntegrationTest {
                         .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
-                .andExpect(jsonPath("$.paymentMethod").doesNotExist())
-                .andExpect(jsonPath("$.paidAmount").doesNotExist());
+                .andExpect(jsonPath("$.billTotal").doesNotExist())
+                .andExpect(jsonPath("$.remainingBalance").doesNotExist())
+                .andExpect(jsonPath("$.payments").isEmpty());
 
         mockMvc.perform(get("/api/v1/tables/" + tableId)
                         .header("Authorization", "Bearer " + ownerToken))
@@ -803,10 +836,10 @@ class TabControllerIntegrationTest {
         updateItemStatus(ownerToken, itemId, ItemStatus.READY);
         updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "25.90")))
+                        .content(registerPaymentsRequestBody("CASH", "25.90")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
                 .andExpect(jsonPath("$.tables").isEmpty());
@@ -1005,10 +1038,10 @@ class TabControllerIntegrationTest {
                         .content(mergeTabRequestBody(sourceTabId)))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(patch("/api/v1/tabs/" + targetTabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + targetTabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "0")))
+                        .content(registerPaymentsRequestBody("CASH", "0")))
                 .andExpect(status().isOk());
 
         mockMvc.perform(patch("/api/v1/tabs/" + targetTabId + "/unmerge")
@@ -1054,12 +1087,12 @@ class TabControllerIntegrationTest {
                 .andExpect(jsonPath("$.discountReason").value("Cortesia do dono"))
                 .andExpect(jsonPath("$.discountAppliedBy").value("Owner"));
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "15.00")))
+                        .content(registerPaymentsRequestBody("CASH", "15.00")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paidAmount").value(15.00));
+                .andExpect(jsonPath("$.amountPaid").value(15.00));
     }
 
     @Test
@@ -1134,7 +1167,7 @@ class TabControllerIntegrationTest {
     }
 
     @Test
-    void payTab_withServiceCharge_shouldAddPercentageOnTopOfTotal() throws Exception {
+    void registerPayments_withServiceCharge_shouldAddPercentageOnTopOfTotal() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
@@ -1145,18 +1178,20 @@ class TabControllerIntegrationTest {
         updateItemStatus(ownerToken, itemId, ItemStatus.READY);
         updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "110.00", "10")))
+                        .content(registerPaymentsRequestBody("CASH", "110.00", "10")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paidAmount").value(110.00))
+                .andExpect(jsonPath("$.billTotal").value(110.00))
+                .andExpect(jsonPath("$.amountPaid").value(110.00))
+                .andExpect(jsonPath("$.remainingBalance").value(0))
                 .andExpect(jsonPath("$.serviceChargePercentage").value(10))
                 .andExpect(jsonPath("$.serviceChargeAmount").value(10.00));
     }
 
     @Test
-    void payTab_withServiceChargeOnDiscountedTotal_shouldComputeOverPostDiscountAmount() throws Exception {
+    void registerPayments_withServiceChargeOnDiscountedTotal_shouldComputeOverPostDiscountAmount() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
@@ -1174,32 +1209,32 @@ class TabControllerIntegrationTest {
                         .content(discountRequestBody(DiscountType.PERCENTAGE, "20", null)))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "88.00", "10")))
+                        .content(registerPaymentsRequestBody("CASH", "88.00", "10")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.paidAmount").value(88.00))
+                .andExpect(jsonPath("$.amountPaid").value(88.00))
                 .andExpect(jsonPath("$.serviceChargeAmount").value(8.00));
     }
 
     @Test
-    void payTab_withoutServiceCharge_shouldLeaveFieldsAbsent() throws Exception {
+    void registerPayments_withoutServiceCharge_shouldLeaveFieldsAbsent() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "0")))
+                        .content(registerPaymentsRequestBody("CASH", "0")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.serviceChargePercentage").doesNotExist())
                 .andExpect(jsonPath("$.serviceChargeAmount").doesNotExist());
     }
 
     @Test
-    void payTab_withServiceChargeOver100_shouldReturn400() throws Exception {
+    void registerPayments_withServiceChargeOver100_shouldReturn400() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
@@ -1210,15 +1245,15 @@ class TabControllerIntegrationTest {
         updateItemStatus(ownerToken, itemId, ItemStatus.READY);
         updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "200.00", "150")))
+                        .content(registerPaymentsRequestBody("CASH", "200.00", "150")))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void payTab_asWaiter_cannotWaiveOrOverrideServiceCharge_alwaysUsesRestaurantDefault() throws Exception {
+    void registerPayments_asWaiter_cannotWaiveOrOverrideServiceCharge_alwaysUsesRestaurantDefault() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
@@ -1231,25 +1266,34 @@ class TabControllerIntegrationTest {
         updateItemStatus(ownerToken, itemId, ItemStatus.READY);
         updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
 
-        // Restaurant default is 10% (enabled). Waiter tries to waive it by sending 0 and paying only the items total.
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        // Restaurant default is 10% (enabled). Waiter tries to waive it by sending serviceChargePercentage
+        // 0 along with a payment for just the items total; the forced default still gets baked into billTotal,
+        // so the payment is accepted as a partial payment (100 < 110) instead of matching a waived total.
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + waiterToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "100.00", "0")))
-                .andExpect(status().isBadRequest());
-
-        // Paying the amount that includes the forced 10% default succeeds, regardless of what was requested.
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
-                        .header("Authorization", "Bearer " + waiterToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "110.00", "0")))
+                        .content(registerPaymentsRequestBody("CASH", "100.00", "0")))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.billTotal").value(110.00))
                 .andExpect(jsonPath("$.serviceChargePercentage").value(10))
-                .andExpect(jsonPath("$.serviceChargeAmount").value(10.00));
+                .andExpect(jsonPath("$.serviceChargeAmount").value(10.00))
+                .andExpect(jsonPath("$.amountPaid").value(100.00))
+                .andExpect(jsonPath("$.remainingBalance").value(10.00));
+
+        // Completing the remaining forced service charge closes the tab.
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerPaymentsRequestBody("CASH", "10.00")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.amountPaid").value(110.00))
+                .andExpect(jsonPath("$.remainingBalance").value(0));
     }
 
     @Test
-    void payTab_withServiceChargeAmountMismatch_shouldReturn400() throws Exception {
+    void registerPayments_serviceChargePercentageOnlyHonoredOnFirstCall_shouldIgnoreOnLaterCalls() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
@@ -1260,78 +1304,141 @@ class TabControllerIntegrationTest {
         updateItemStatus(ownerToken, itemId, ItemStatus.READY);
         updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        // First call locks the bill total (100 + 10% service charge = 110), even though only half is paid now.
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "100.00", "10")))
-                .andExpect(status().isBadRequest());
+                        .content(registerPaymentsRequestBody("CASH", "50.00", "10")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.billTotal").value(110.00))
+                .andExpect(jsonPath("$.serviceChargePercentage").value(10))
+                .andExpect(jsonPath("$.remainingBalance").value(60.00));
+
+        // A later serviceChargePercentage is ignored: the bill total is already frozen.
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerPaymentsRequestBody("CASH", "60.00", "50")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.billTotal").value(110.00))
+                .andExpect(jsonPath("$.serviceChargePercentage").value(10))
+                .andExpect(jsonPath("$.amountPaid").value(110.00))
+                .andExpect(jsonPath("$.remainingBalance").value(0));
     }
 
     @Test
-    void cancelPayment_asOwner_shouldCorrectPaymentAndStayClosed() throws Exception {
+    void registerPayments_splitAcrossTwoMethodsSummingToTotal_shouldCloseTabAndFreeTables() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        String tableId = createTableAndGetId(ownerToken);
-        String tabId = openTabAndGetId(ownerToken, tableId);
+        String table1 = createTableAndGetId(ownerToken);
+        String table2 = createTableAndGetId(ownerToken);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        OpenTabRequest openRequest = new OpenTabRequest();
+        openRequest.setTableIds(List.of(UUID.fromString(table1), UUID.fromString(table2)));
+        MvcResult openResult = mockMvc.perform(post("/api/v1/tabs")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "0")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("CLOSED"));
+                        .content(objectMapper.writeValueAsString(openRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String tabId = JsonPath.read(openResult.getResponse().getContentAsString(), "$.id");
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel-payment")
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        MvcResult payResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(cancelPaymentRequestBody("Registrei a forma errada", "PIX", "0")))
+                        .content(registerPaymentsRequestBody(List.of(
+                                new String[]{"PIX", "15.90"},
+                                new String[]{"CASH", "10.00"}))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
-                .andExpect(jsonPath("$.closedAt").exists())
-                .andExpect(jsonPath("$.paymentMethod").value("PIX"))
-                .andExpect(jsonPath("$.paidAmount").value(0))
-                .andExpect(jsonPath("$.paidAt").exists())
-                .andExpect(jsonPath("$.paymentCancelledBy").value("Owner"))
-                .andExpect(jsonPath("$.paymentCancelledAt").exists())
-                .andExpect(jsonPath("$.paymentCancelReason").value("Registrei a forma errada"));
+                .andExpect(jsonPath("$.amountPaid").value(25.90))
+                .andExpect(jsonPath("$.remainingBalance").value(0))
+                .andExpect(jsonPath("$.payments.length()").value(2))
+                .andReturn();
 
-        // The table was already freed by the original payment; correcting the payment record
-        // doesn't touch it either way.
-        mockMvc.perform(get("/api/v1/tables/" + tableId)
+        List<String> statuses = JsonPath.read(payResult.getResponse().getContentAsString(), "$.payments[*].status");
+        List<String> methods = JsonPath.read(payResult.getResponse().getContentAsString(), "$.payments[*].paymentMethod");
+        assertTrue(statuses.stream().allMatch("ACTIVE"::equals));
+        assertTrue(methods.containsAll(List.of("PIX", "CASH")));
+
+        mockMvc.perform(get("/api/v1/tables/" + table1)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.status").value("FREE"));
+        mockMvc.perform(get("/api/v1/tables/" + table2)
                         .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(jsonPath("$.status").value("FREE"));
     }
 
     @Test
-    void cancelPayment_worksEvenWhenTableIsNowOccupiedByAnotherTab() throws Exception {
+    void registerPayments_partialThenCompletingCall_shouldCloseOnSecondCall() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "40.00");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "0")))
-                .andExpect(status().isOk());
+                        .content(registerPaymentsRequestBody("CASH", "20.00")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.billTotal").value(40.00))
+                .andExpect(jsonPath("$.amountPaid").value(20.00))
+                .andExpect(jsonPath("$.remainingBalance").value(20.00));
 
-        // A new group sits down at the same table before the mistake is noticed.
-        openTabAndGetId(ownerToken, tableId);
-
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel-payment")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(cancelPaymentRequestBody("Registrei a forma errada", "PIX", "0")))
+                        .content(registerPaymentsRequestBody("PIX", "20.00")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
-                .andExpect(jsonPath("$.paymentMethod").value("PIX"));
-
-        // Untouched: still belongs to the new group's tab.
-        mockMvc.perform(get("/api/v1/tables/" + tableId)
-                        .header("Authorization", "Bearer " + ownerToken))
-                .andExpect(jsonPath("$.status").value("OCCUPIED"));
+                .andExpect(jsonPath("$.closedAt").exists())
+                .andExpect(jsonPath("$.amountPaid").value(40.00))
+                .andExpect(jsonPath("$.remainingBalance").value(0))
+                .andExpect(jsonPath("$.payments.length()").value(2));
     }
 
     @Test
-    void cancelPayment_withAmountNotMatchingTotal_shouldReturn400() throws Exception {
+    void registerPayments_cashEntry_requiresOpenCashRegisterSession() throws Exception {
+        RegisterRestaurantRequest freshRestaurant = new RegisterRestaurantRequest();
+        freshRestaurant.setRestaurantName("No Register Diner");
+        freshRestaurant.setOwnerName("Fresh Owner");
+        freshRestaurant.setOwnerEmail("freshowner+" + System.nanoTime() + "@test.com");
+        freshRestaurant.setOwnerPassword("password123");
+        // Deliberately not calling openCashRegister here.
+        String ownerToken = registerAndGetToken(freshRestaurant);
+
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerPaymentsRequestBody("CASH", "25.90")))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void voidPayment_asOwner_thenReissue_shouldStayClosedWithSameClosedAt() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
@@ -1342,69 +1449,257 @@ class TabControllerIntegrationTest {
         updateItemStatus(ownerToken, itemId, ItemStatus.READY);
         updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        MvcResult payResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "25.90")))
-                .andExpect(status().isOk());
+                        .content(registerPaymentsRequestBody("CASH", "25.90")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andReturn();
+        String paymentId = JsonPath.read(payResult.getResponse().getContentAsString(), "$.payments[0].id");
+        String closedAt = JsonPath.read(payResult.getResponse().getContentAsString(), "$.closedAt");
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel-payment")
+        // Comparing closedAt across responses is done by parsing both into OffsetDateTime and comparing
+        // instants truncated to milliseconds (not raw string equality, and not exact isEqual): the same
+        // instant can come back serialized with a different offset (e.g. "-03:00" vs "Z"), AND Postgres'
+        // timestamptz only has microsecond precision, so a value read back after a DB round-trip is
+        // rounded relative to the sub-microsecond precision of the in-memory OffsetDateTime.now() the
+        // very first response returned before ever touching the database.
+        MvcResult voidResult = mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/payments/" + paymentId + "/void")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(cancelPaymentRequestBody("Valor errado", "PIX", "10.00")))
-                .andExpect(status().isBadRequest());
+                        .content(voidPaymentRequestBody("Registrei a forma errada")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.billTotal").value(25.90))
+                .andExpect(jsonPath("$.amountPaid").value(0))
+                .andExpect(jsonPath("$.remainingBalance").value(25.90))
+                .andReturn();
+        String closedAtAfterVoid = JsonPath.read(voidResult.getResponse().getContentAsString(), "$.closedAt");
+        assertTrue(truncatedToMillis(closedAt).isEqual(truncatedToMillis(closedAtAfterVoid)));
+
+        // The table was already freed by the original payment; voiding the payment record
+        // doesn't touch it either way.
+        mockMvc.perform(get("/api/v1/tables/" + tableId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.status").value("FREE"));
+
+        MvcResult reissueResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerPaymentsRequestBody("PIX", "25.90")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.amountPaid").value(25.90))
+                .andExpect(jsonPath("$.remainingBalance").value(0))
+                .andReturn();
+        String closedAtAfterReissue = JsonPath.read(reissueResult.getResponse().getContentAsString(), "$.closedAt");
+        assertTrue(truncatedToMillis(closedAt).isEqual(truncatedToMillis(closedAtAfterReissue)));
+    }
+
+    private static OffsetDateTime truncatedToMillis(String offsetDateTime) {
+        return OffsetDateTime.parse(offsetDateTime).truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
     }
 
     @Test
-    void cancelPayment_onOpenTab_shouldReturn400() throws Exception {
+    void voidPayment_worksEvenWhenTableIsNowOccupiedByAnotherTab() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel-payment")
+        MvcResult payResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(cancelPaymentRequestBody("Motivo qualquer", "PIX", "0")))
+                        .content(registerPaymentsRequestBody("CASH", "0")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andReturn();
+        String paymentId = JsonPath.read(payResult.getResponse().getContentAsString(), "$.payments[0].id");
+
+        // A new group sits down at the same table before the mistake is noticed.
+        openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/payments/" + paymentId + "/void")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(voidPaymentRequestBody("Registrei a forma errada")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"));
+
+        // Untouched: still belongs to the new group's tab.
+        mockMvc.perform(get("/api/v1/tables/" + tableId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.status").value("OCCUPIED"));
+    }
+
+    @Test
+    void voidPayment_alreadyVoided_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        MvcResult payResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerPaymentsRequestBody("CASH", "0")))
+                .andExpect(status().isOk())
+                .andReturn();
+        String paymentId = JsonPath.read(payResult.getResponse().getContentAsString(), "$.payments[0].id");
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/payments/" + paymentId + "/void")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(voidPaymentRequestBody("Primeiro cancelamento")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/payments/" + paymentId + "/void")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(voidPaymentRequestBody("Segunda tentativa")))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    void cancelPayment_asWaiter_shouldBeForbidden() throws Exception {
+    void voidPayment_nonexistentPayment_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/payments/" + UUID.randomUUID() + "/void")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(voidPaymentRequestBody("Motivo qualquer")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void voidPayment_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        MvcResult payResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "0")))
-                .andExpect(status().isOk());
+                        .content(registerPaymentsRequestBody("CASH", "0")))
+                .andExpect(status().isOk())
+                .andReturn();
+        String paymentId = JsonPath.read(payResult.getResponse().getContentAsString(), "$.payments[0].id");
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel-payment")
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/payments/" + paymentId + "/void")
                         .header("Authorization", "Bearer " + waiterToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(cancelPaymentRequestBody("Motivo qualquer", "PIX", "0")))
+                        .content(voidPaymentRequestBody("Motivo qualquer")))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    void cancelPayment_withoutReason_shouldReturn400() throws Exception {
+    void voidPayment_withoutReason_shouldReturn400() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        MvcResult payResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(payTabRequestBody("CASH", "0")))
-                .andExpect(status().isOk());
+                        .content(registerPaymentsRequestBody("CASH", "0")))
+                .andExpect(status().isOk())
+                .andReturn();
+        String paymentId = JsonPath.read(payResult.getResponse().getContentAsString(), "$.payments[0].id");
 
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/cancel-payment")
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/payments/" + paymentId + "/void")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(cancelPaymentRequestBody(null, "PIX", "0")))
+                        .content(voidPaymentRequestBody(null)))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void voidPayment_onOpenTabDroppingToZero_shouldKeepTabOpenWithFullRemainingBalance() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        MvcResult payResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerPaymentsRequestBody("CASH", "10.00")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.billTotal").value(25.90))
+                .andExpect(jsonPath("$.remainingBalance").value(15.90))
+                .andReturn();
+        String paymentId = JsonPath.read(payResult.getResponse().getContentAsString(), "$.payments[0].id");
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/payments/" + paymentId + "/void")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(voidPaymentRequestBody("Cliente desistiu do pagamento parcial")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.billTotal").doesNotExist())
+                .andExpect(jsonPath("$.remainingBalance").doesNotExist())
+                .andExpect(jsonPath("$.amountPaid").value(0));
+
+        // billTotal was cleared by the void, so a fresh discount can be applied again
+        // (it would have been blocked while a bill total was locked in).
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/discount")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(discountRequestBody(DiscountType.FIXED, "5.00", "Cortesia")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.discountType").value("FIXED"));
+    }
+
+    @Test
+    void voidPayment_completingClosedTabDebt_asWaiterOrCashier_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
+        String cashierToken = tokenFor(createUserDirectly(owner, UserRole.CASHIER));
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        MvcResult payResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerPaymentsRequestBody("CASH", "25.90")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andReturn();
+        String paymentId = JsonPath.read(payResult.getResponse().getContentAsString(), "$.payments[0].id");
+
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/payments/" + paymentId + "/void")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(voidPaymentRequestBody("Pagamento incorreto")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"));
+
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + waiterToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerPaymentsRequestBody("CASH", "25.90")))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + cashierToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerPaymentsRequestBody("CASH", "25.90")))
+                .andExpect(status().isForbidden());
     }
 }

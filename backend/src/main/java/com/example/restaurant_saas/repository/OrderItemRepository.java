@@ -46,7 +46,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
             "SUM(CASE WHEN oi.unitCostPrice IS NOT NULL THEN oi.quantity * oi.unitCostPrice ELSE 0 END), " +
             "SUM(CASE WHEN oi.unitCostPrice IS NOT NULL THEN oi.quantity * oi.unitPrice ELSE 0 END) FROM OrderItem oi " +
             "WHERE oi.order.restaurant.id = :restaurantId AND oi.order.tab.status = 'CLOSED' " +
-            "AND oi.order.tab.paidAt >= :start AND oi.order.tab.paidAt < :end " +
+            "AND oi.order.tab.closedAt >= :start AND oi.order.tab.closedAt < :end " +
             "GROUP BY oi.product.id, oi.product.name ORDER BY SUM(oi.quantity) DESC")
     List<Object[]> findTopSellingProducts(
             @Param("restaurantId") UUID restaurantId, @Param("start") OffsetDateTime start, @Param("end") OffsetDateTime end, Pageable pageable);
@@ -60,7 +60,7 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
             "LEFT JOIN FETCH o.createdBy " +
             "LEFT JOIN FETCH oi.modifiers " +
             "WHERE o.restaurant.id = :restaurantId AND o.tab.status = 'CLOSED' " +
-            "AND o.tab.paidAt >= :start AND o.tab.paidAt < :end " +
+            "AND o.tab.closedAt >= :start AND o.tab.closedAt < :end " +
             "AND oi.status = 'DELIVERED' AND oi.deliveredAt IS NOT NULL AND oi.parentOrderItem IS NULL")
     List<OrderItem> findForWaiterPerformance(
             @Param("restaurantId") UUID restaurantId, @Param("start") OffsetDateTime start, @Param("end") OffsetDateTime end);

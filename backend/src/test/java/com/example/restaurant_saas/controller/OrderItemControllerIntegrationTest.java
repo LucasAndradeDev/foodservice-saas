@@ -11,7 +11,8 @@ import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.OpenCashRegisterRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
-import com.example.restaurant_saas.dto.request.PayTabRequest;
+import com.example.restaurant_saas.dto.request.PaymentEntryRequest;
+import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.TransferItemsRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
@@ -779,10 +780,12 @@ class OrderItemControllerIntegrationTest {
                         .content(updateStatusRequestBody("DELIVERED")))
                 .andExpect(status().isOk());
 
-        PayTabRequest payRequest = new PayTabRequest();
-        payRequest.setPaymentMethod(PaymentMethod.CASH);
-        payRequest.setPaidAmount(new BigDecimal("25.90"));
-        mockMvc.perform(patch("/api/v1/tabs/" + setup.tabId() + "/pay")
+        PaymentEntryRequest entry = new PaymentEntryRequest();
+        entry.setPaymentMethod(PaymentMethod.CASH);
+        entry.setAmount(new BigDecimal("25.90"));
+        RegisterPaymentsRequest payRequest = new RegisterPaymentsRequest();
+        payRequest.setPayments(List.of(entry));
+        mockMvc.perform(post("/api/v1/tabs/" + setup.tabId() + "/payments")
                         .header("Authorization", "Bearer " + setup.ownerToken())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(payRequest)))

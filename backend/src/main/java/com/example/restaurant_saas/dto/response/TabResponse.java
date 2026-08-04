@@ -1,7 +1,6 @@
 package com.example.restaurant_saas.dto.response;
 
 import com.example.restaurant_saas.domain.enums.DiscountType;
-import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import lombok.Builder;
 import lombok.Data;
@@ -20,9 +19,10 @@ public class TabResponse {
     private OffsetDateTime openedAt;
     private OffsetDateTime lastOrderAt;
     private OffsetDateTime closedAt;
-    private PaymentMethod paymentMethod;
-    private BigDecimal paidAmount;
-    private OffsetDateTime paidAt;
+    private BigDecimal billTotal;
+    private BigDecimal amountPaid;
+    private BigDecimal remainingBalance;
+    private List<PaymentResponse> payments;
     private List<TabTableSummary> tables;
     private OffsetDateTime receiptPrintedAt;
     private DiscountType discountType;
@@ -32,7 +32,4 @@ public class TabResponse {
     private OffsetDateTime discountAppliedAt;
     private BigDecimal serviceChargePercentage;
     private BigDecimal serviceChargeAmount;
-    private String paymentCancelledBy;
-    private OffsetDateTime paymentCancelledAt;
-    private String paymentCancelReason;
 }

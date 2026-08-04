@@ -1,6 +1,7 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.entity.Order;
+import com.example.restaurant_saas.domain.entity.Payment;
 import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
@@ -13,12 +14,14 @@ import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.OpenCashRegisterRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
-import com.example.restaurant_saas.dto.request.PayTabRequest;
+import com.example.restaurant_saas.dto.request.PaymentEntryRequest;
+import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.SetMonthlyGoalRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.repository.OrderRepository;
+import com.example.restaurant_saas.repository.PaymentRepository;
 import com.example.restaurant_saas.repository.TabRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.security.JwtService;
@@ -60,6 +63,9 @@ class ReportControllerIntegrationTest {
 
     @Autowired
     private TabRepository tabRepository;
+
+    @Autowired
+    private PaymentRepository paymentRepository;
 
     @Autowired
     private OrderRepository orderRepository;
@@ -239,13 +245,23 @@ class ReportControllerIntegrationTest {
     }
 
     private void payTab(String token, String tabId, String paymentMethod, String paidAmount, String serviceChargePercentage) throws Exception {
-        PayTabRequest request = new PayTabRequest();
-        request.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
-        request.setPaidAmount(new BigDecimal(paidAmount));
+        registerPayments(token, tabId, List.of(paymentEntry(paymentMethod, paidAmount)), serviceChargePercentage);
+    }
+
+    private PaymentEntryRequest paymentEntry(String paymentMethod, String amount) {
+        PaymentEntryRequest entry = new PaymentEntryRequest();
+        entry.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
+        entry.setAmount(new BigDecimal(amount));
+        return entry;
+    }
+
+    private void registerPayments(String token, String tabId, List<PaymentEntryRequest> entries, String serviceChargePercentage) throws Exception {
+        RegisterPaymentsRequest request = new RegisterPaymentsRequest();
+        request.setPayments(entries);
         if (serviceChargePercentage != null) {
             request.setServiceChargePercentage(new BigDecimal(serviceChargePercentage));
         }
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -253,9 +269,9 @@ class ReportControllerIntegrationTest {
     }
 
     private void setTabPaidAt(String tabId, LocalDate paidDate) {
-        Tab tab = tabRepository.findById(UUID.fromString(tabId)).orElseThrow();
-        tab.setPaidAt(paidDate.atTime(12, 0).atZone(ZoneId.systemDefault()).toOffsetDateTime());
-        tabRepository.save(tab);
+        List<Payment> payments = paymentRepository.findByTabIdOrderByPaidAtDesc(UUID.fromString(tabId));
+        payments.forEach(payment -> payment.setPaidAt(paidDate.atTime(12, 0).atZone(ZoneId.systemDefault()).toOffsetDateTime()));
+        paymentRepository.saveAll(payments);
     }
 
     private void createPaidTabOn(String token, String productId, String amount, LocalDate paidDate) throws Exception {
@@ -581,6 +597,88 @@ class ReportControllerIntegrationTest {
                 .andExpect(jsonPath("$.totalRevenue").value(100.00))
                 .andExpect(jsonPath("$.closedTabsCount").value(1))
                 .andExpect(jsonPath("$.byPaymentMethod[0].total").value(100.00));
+    }
+
+    @Test
+    void getSummary_splitPaymentWithServiceCharge_shouldAttributeServiceChargeProportionally() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        // Item total 100.00 + 10% service charge = 10.00 -> billTotal 110.00.
+        String burgerId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "100.00");
+
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String itemId = createOrderAndGetItemIds(ownerToken, tabId, burgerId, 1).get(0);
+        deliverItem(ownerToken, itemId);
+
+        // Split the 110.00 bill 55/55 across two payment methods in a single call.
+        // Naively subtracting the full 10.00 service charge from each row would give
+        // 50.00 (PIX) and 45.00 (CASH) -> wrong. Proportional attribution gives each
+        // payment the same 50.00 net share (they contributed equally to the 110.00 gross),
+        // and the two shares add back up to exactly the 100.00 item total.
+        registerPayments(ownerToken, tabId,
+                List.of(paymentEntry("PIX", "55.00"), paymentEntry("CASH", "55.00")),
+                "10");
+
+        String today = LocalDate.now().toString();
+
+        MvcResult result = mockMvc.perform(get("/api/v1/reports/summary")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalRevenue").value(100.00))
+                .andExpect(jsonPath("$.closedTabsCount").value(1))
+                .andExpect(jsonPath("$.byPaymentMethod", org.hamcrest.Matchers.hasSize(2)))
+                .andReturn();
+        String body = result.getResponse().getContentAsString();
+
+        assertEquals(50.0, totalForPaymentMethod(body, "PIX"));
+        assertEquals(50.0, totalForPaymentMethod(body, "CASH"));
+    }
+
+    @Test
+    void getSummary_splitPaymentAcrossTwoMethods_shouldCountAsOneTabNotTwo() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productA = createProductAndGetId(ownerToken, categoryId, "Burger", "100.00");
+        String productB = createProductAndGetId(ownerToken, categoryId, "Pizza", "60.00");
+
+        // Tab 1: a plain single-method payment.
+        String table1 = createTableAndGetId(ownerToken);
+        String tab1 = openTabAndGetId(ownerToken, table1);
+        String item1 = createOrderAndGetItemIds(ownerToken, tab1, productA, 1).get(0);
+        deliverItem(ownerToken, item1);
+        payTab(ownerToken, tab1, "PIX", "100.00");
+
+        // Tab 2: paid via a split across two payment methods in a single call. With the old
+        // logic (summing per-payment-method tab counts) this tab would have been counted
+        // twice -- once under PIX, once under CASH -- inflating closedTabsCount to 3 and
+        // skewing averageTicket down. It must count as exactly ONE tab.
+        String table2 = createTableAndGetId(ownerToken);
+        String tab2 = openTabAndGetId(ownerToken, table2);
+        String item2 = createOrderAndGetItemIds(ownerToken, tab2, productB, 1).get(0);
+        deliverItem(ownerToken, item2);
+        registerPayments(ownerToken, tab2,
+                List.of(paymentEntry("PIX", "30.00"), paymentEntry("CASH", "30.00")),
+                null);
+
+        String today = LocalDate.now().toString();
+
+        mockMvc.perform(get("/api/v1/reports/summary")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .param("start", today)
+                        .param("end", today))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalRevenue").value(160.00))
+                .andExpect(jsonPath("$.closedTabsCount").value(2))
+                .andExpect(jsonPath("$.averageTicket").value(80.00));
+    }
+
+    private Double totalForPaymentMethod(String responseBody, String paymentMethod) {
+        List<Object> values = JsonPath.read(responseBody,
+                "$.byPaymentMethod[?(@.paymentMethod=='" + paymentMethod + "')].total");
+        return ((Number) values.get(0)).doubleValue();
     }
 
     @Test

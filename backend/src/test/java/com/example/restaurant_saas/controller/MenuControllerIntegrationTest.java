@@ -6,7 +6,8 @@ import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
-import com.example.restaurant_saas.dto.request.PayTabRequest;
+import com.example.restaurant_saas.dto.request.PaymentEntryRequest;
+import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -135,10 +137,12 @@ class MenuControllerIntegrationTest {
     }
 
     private void payTab(String token, String tabId, String paymentMethod, String paidAmount) throws Exception {
-        PayTabRequest request = new PayTabRequest();
-        request.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
-        request.setPaidAmount(new BigDecimal(paidAmount));
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        PaymentEntryRequest entry = new PaymentEntryRequest();
+        entry.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
+        entry.setAmount(new BigDecimal(paidAmount));
+        RegisterPaymentsRequest request = new RegisterPaymentsRequest();
+        request.setPayments(List.of(entry));
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))

@@ -4,8 +4,8 @@ import com.example.restaurant_saas.domain.entity.MonthlyGoal;
 import com.example.restaurant_saas.dto.request.SetMonthlyGoalRequest;
 import com.example.restaurant_saas.dto.response.MonthlyGoalResponse;
 import com.example.restaurant_saas.repository.MonthlyGoalRepository;
+import com.example.restaurant_saas.repository.PaymentRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
-import com.example.restaurant_saas.repository.TabRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +22,7 @@ import java.util.UUID;
 public class GoalService {
 
     private final MonthlyGoalRepository monthlyGoalRepository;
-    private final TabRepository tabRepository;
+    private final PaymentRepository paymentRepository;
     private final RestaurantRepository restaurantRepository;
 
     @Transactional(readOnly = true)
@@ -67,6 +67,6 @@ public class GoalService {
         ZoneId zone = ZoneId.systemDefault();
         OffsetDateTime rangeStart = normalizedMonth.atStartOfDay(zone).toOffsetDateTime();
         OffsetDateTime rangeEnd = monthEnd.plusDays(1).atStartOfDay(zone).toOffsetDateTime();
-        return tabRepository.sumPaidAmountByRestaurantIdAndPaidAtBetween(restaurantId, rangeStart, rangeEnd);
+        return paymentRepository.sumNetActiveAmountByRestaurantIdAndPaidAtBetween(restaurantId, rangeStart, rangeEnd);
     }
 }

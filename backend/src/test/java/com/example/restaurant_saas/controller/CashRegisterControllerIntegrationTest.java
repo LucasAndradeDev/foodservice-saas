@@ -12,7 +12,8 @@ import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.OpenCashRegisterRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
-import com.example.restaurant_saas.dto.request.PayTabRequest;
+import com.example.restaurant_saas.dto.request.PaymentEntryRequest;
+import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
@@ -203,13 +204,27 @@ class CashRegisterControllerIntegrationTest {
     }
 
     private void payTabInCash(String token, String tabId, String paidAmount) throws Exception {
-        PayTabRequest request = new PayTabRequest();
-        request.setPaymentMethod(PaymentMethod.CASH);
-        request.setPaidAmount(new BigDecimal(paidAmount));
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        registerPayments(token, tabId, List.of(paymentEntry(PaymentMethod.CASH, paidAmount)));
+    }
+
+    private PaymentEntryRequest paymentEntry(PaymentMethod paymentMethod, String amount) {
+        PaymentEntryRequest entry = new PaymentEntryRequest();
+        entry.setPaymentMethod(paymentMethod);
+        entry.setAmount(new BigDecimal(amount));
+        return entry;
+    }
+
+    private String registerPaymentsRequestBody(List<PaymentEntryRequest> entries) throws Exception {
+        RegisterPaymentsRequest request = new RegisterPaymentsRequest();
+        request.setPayments(entries);
+        return objectMapper.writeValueAsString(request);
+    }
+
+    private void registerPayments(String token, String tabId, List<PaymentEntryRequest> entries) throws Exception {
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(registerPaymentsRequestBody(entries)))
                 .andExpect(status().isOk());
     }
 
@@ -266,6 +281,30 @@ class CashRegisterControllerIntegrationTest {
                         .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.expectedAmount").value(125.00));
+    }
+
+    @Test
+    void getCurrentSession_afterSplitCashAndPixPayment_shouldOnlyReflectCashPortion() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        openCashRegister(ownerToken, "100.00");
+
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "80.00");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        deliverItem(ownerToken, itemId);
+
+        // Split the 80.00 bill: 30.00 in CASH, 50.00 in PIX, in a single call. Only the CASH
+        // portion should ever land in the physical drawer, so it's the only part that may
+        // affect expectedAmount -- the PIX 50.00 must not leak into the cash count.
+        registerPayments(ownerToken, tabId,
+                List.of(paymentEntry(PaymentMethod.CASH, "30.00"), paymentEntry(PaymentMethod.PIX, "50.00")));
+
+        mockMvc.perform(get("/api/v1/cash-register/current")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.expectedAmount").value(130.00));
     }
 
     @Test
@@ -415,13 +454,10 @@ class CashRegisterControllerIntegrationTest {
         String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
         deliverItem(ownerToken, itemId);
 
-        PayTabRequest request = new PayTabRequest();
-        request.setPaymentMethod(PaymentMethod.CASH);
-        request.setPaidAmount(new BigDecimal("25.00"));
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(registerPaymentsRequestBody(List.of(paymentEntry(PaymentMethod.CASH, "25.00")))))
                 .andExpect(status().isForbidden());
     }
 
@@ -450,13 +486,10 @@ class CashRegisterControllerIntegrationTest {
         String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
         deliverItem(ownerToken, itemId);
 
-        PayTabRequest request = new PayTabRequest();
-        request.setPaymentMethod(PaymentMethod.PIX);
-        request.setPaidAmount(new BigDecimal("25.00"));
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(registerPaymentsRequestBody(List.of(paymentEntry(PaymentMethod.PIX, "25.00")))))
                 .andExpect(status().isOk());
     }
 

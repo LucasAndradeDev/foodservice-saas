@@ -19,6 +19,7 @@ import com.example.restaurant_saas.dto.response.WaiterPerformanceResponse;
 import com.example.restaurant_saas.dto.response.WaiterPerformanceRowResponse;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
+import com.example.restaurant_saas.repository.PaymentRepository;
 import com.example.restaurant_saas.repository.PostMealFeedbackRepository;
 import com.example.restaurant_saas.repository.TabRepository;
 import lombok.RequiredArgsConstructor;
@@ -54,6 +55,7 @@ public class ReportService {
     private static final int SUMMARY_FEEDBACK_LIMIT = 5;
 
     private final TabRepository tabRepository;
+    private final PaymentRepository paymentRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderRepository orderRepository;
     private final PostMealFeedbackRepository postMealFeedbackRepository;
@@ -67,22 +69,22 @@ public class ReportService {
         OffsetDateTime rangeStart = start.atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime();
         OffsetDateTime rangeEnd = end.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime();
 
-        List<PaymentMethodTotalResponse> byPaymentMethod = tabRepository
-                .sumPaidAmountByRestaurantIdAndPaidAtBetweenGroupedByPaymentMethod(restaurantId, rangeStart, rangeEnd)
+        List<PaymentMethodTotalResponse> byPaymentMethod = paymentRepository
+                .sumNetActiveAmountGroupedByPaymentMethod(restaurantId, rangeStart, rangeEnd)
                 .stream()
                 .map(row -> PaymentMethodTotalResponse.builder()
-                        .paymentMethod((PaymentMethod) row[0])
+                        .paymentMethod(PaymentMethod.valueOf((String) row[0]))
                         .total((BigDecimal) row[1])
-                        .tabsCount((Long) row[2])
+                        .paymentsCount(((Number) row[2]).longValue())
                         .build())
                 .toList();
 
         BigDecimal totalRevenue = byPaymentMethod.stream()
                 .map(PaymentMethodTotalResponse::getTotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        long closedTabsCount = byPaymentMethod.stream()
-                .mapToLong(PaymentMethodTotalResponse::getTabsCount)
-                .sum();
+        // Counted distinct by tab (not summed per method) since a split payment can now put the same
+        // tab in more than one method bucket above.
+        long closedTabsCount = paymentRepository.countDistinctTabsWithActivePaymentBetween(restaurantId, rangeStart, rangeEnd);
         BigDecimal averageTicket = closedTabsCount == 0
                 ? BigDecimal.ZERO
                 : totalRevenue.divide(BigDecimal.valueOf(closedTabsCount), 2, RoundingMode.HALF_UP);
@@ -139,22 +141,10 @@ public class ReportService {
         OffsetDateTime previousRangeStart = previousStart.atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime();
         OffsetDateTime previousRangeEnd = previousEnd.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime();
 
-        List<PaymentMethodTotalResponse> previousByPaymentMethod = tabRepository
-                .sumPaidAmountByRestaurantIdAndPaidAtBetweenGroupedByPaymentMethod(restaurantId, previousRangeStart, previousRangeEnd)
-                .stream()
-                .map(row -> PaymentMethodTotalResponse.builder()
-                        .paymentMethod((PaymentMethod) row[0])
-                        .total((BigDecimal) row[1])
-                        .tabsCount((Long) row[2])
-                        .build())
-                .toList();
-
-        BigDecimal previousTotalRevenue = previousByPaymentMethod.stream()
-                .map(PaymentMethodTotalResponse::getTotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        long previousClosedTabsCount = previousByPaymentMethod.stream()
-                .mapToLong(PaymentMethodTotalResponse::getTabsCount)
-                .sum();
+        BigDecimal previousTotalRevenue = paymentRepository
+                .sumNetActiveAmountByRestaurantIdAndPaidAtBetween(restaurantId, previousRangeStart, previousRangeEnd);
+        long previousClosedTabsCount = paymentRepository
+                .countDistinctTabsWithActivePaymentBetween(restaurantId, previousRangeStart, previousRangeEnd);
         BigDecimal previousAverageTicket = previousClosedTabsCount == 0
                 ? BigDecimal.ZERO
                 : previousTotalRevenue.divide(BigDecimal.valueOf(previousClosedTabsCount), 2, RoundingMode.HALF_UP);

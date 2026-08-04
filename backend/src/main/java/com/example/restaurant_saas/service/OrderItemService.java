@@ -101,6 +101,9 @@ public class OrderItemService {
         if (item.getOrder().getTab().getStatus() != TabStatus.OPEN) {
             throw new IllegalArgumentException("Tab is not open.");
         }
+        if (item.getOrder().getTab().getBillTotal() != null) {
+            throw new IllegalStateException("Payment has already started for this tab.");
+        }
 
         if (request.getDiscountType() == null) {
             item.setDiscountType(null);
@@ -127,8 +130,8 @@ public class OrderItemService {
                         .orElseThrow(() -> new IllegalArgumentException("Order item not found.")))
                 .toList();
 
-        Tab sourceTab = items.get(0).getOrder().getTab();
-        if (items.stream().anyMatch(item -> !item.getOrder().getTab().getId().equals(sourceTab.getId()))) {
+        UUID sourceTabId = items.get(0).getOrder().getTab().getId();
+        if (items.stream().anyMatch(item -> !item.getOrder().getTab().getId().equals(sourceTabId))) {
             throw new IllegalArgumentException("All items must belong to the same tab.");
         }
         if (items.stream().anyMatch(item -> item.getStatus() == ItemStatus.CANCELLED)) {
@@ -137,17 +140,30 @@ public class OrderItemService {
         if (items.stream().anyMatch(item -> item.isComboHeader() || item.isComboChild())) {
             throw new IllegalArgumentException("Cannot transfer a combo item individually; combos must move as a whole order.");
         }
-        if (sourceTab.getStatus() != TabStatus.OPEN) {
-            throw new IllegalArgumentException("Source tab is not open.");
-        }
-        if (sourceTab.getId().equals(request.getTargetTabId())) {
+        if (sourceTabId.equals(request.getTargetTabId())) {
             throw new IllegalArgumentException("Cannot transfer items to the same tab.");
         }
 
-        Tab targetTab = tabRepository.findByIdAndRestaurantId(request.getTargetTabId(), restaurantId)
+        // Locked (not a plain read): items are about to move out of source and into target, which must
+        // not race a concurrent registerPayments/applyDiscount call freezing either tab's bill total —
+        // otherwise items could leave a tab its frozen total still accounts for, or arrive on one whose
+        // total was already computed without them.
+        Tab sourceTab = tabRepository.findByIdAndRestaurantIdForUpdate(sourceTabId, restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Tab not found."));
+        if (sourceTab.getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Source tab is not open.");
+        }
+        if (sourceTab.getBillTotal() != null) {
+            throw new IllegalStateException("Payment has already started for the source tab.");
+        }
+
+        Tab targetTab = tabRepository.findByIdAndRestaurantIdForUpdate(request.getTargetTabId(), restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Target tab not found."));
         if (targetTab.getStatus() != TabStatus.OPEN) {
             throw new IllegalArgumentException("Target tab is not open.");
+        }
+        if (targetTab.getBillTotal() != null) {
+            throw new IllegalStateException("Payment has already started for the target tab.");
         }
 
         // Carries over the waiter who originally created the item so waiter-performance reporting still

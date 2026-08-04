@@ -8,7 +8,8 @@ import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
-import com.example.restaurant_saas.dto.request.PayTabRequest;
+import com.example.restaurant_saas.dto.request.PaymentEntryRequest;
+import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -147,13 +148,15 @@ class DashboardControllerIntegrationTest {
     }
 
     private void payTab(String token, String tabId, String paymentMethod, String paidAmount, String serviceChargePercentage) throws Exception {
-        PayTabRequest request = new PayTabRequest();
-        request.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
-        request.setPaidAmount(new BigDecimal(paidAmount));
+        PaymentEntryRequest entry = new PaymentEntryRequest();
+        entry.setPaymentMethod(PaymentMethod.valueOf(paymentMethod));
+        entry.setAmount(new BigDecimal(paidAmount));
+        RegisterPaymentsRequest request = new RegisterPaymentsRequest();
+        request.setPayments(List.of(entry));
         if (serviceChargePercentage != null) {
             request.setServiceChargePercentage(new BigDecimal(serviceChargePercentage));
         }
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))

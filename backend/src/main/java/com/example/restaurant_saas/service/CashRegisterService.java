@@ -10,8 +10,8 @@ import com.example.restaurant_saas.dto.response.CashRegisterSessionResponse;
 import com.example.restaurant_saas.dto.response.CashWithdrawalResponse;
 import com.example.restaurant_saas.repository.CashRegisterSessionRepository;
 import com.example.restaurant_saas.repository.CashWithdrawalRepository;
+import com.example.restaurant_saas.repository.PaymentRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
-import com.example.restaurant_saas.repository.TabRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -31,7 +31,7 @@ public class CashRegisterService {
     private final CashWithdrawalRepository withdrawalRepository;
     private final RestaurantRepository restaurantRepository;
     private final UserRepository userRepository;
-    private final TabRepository tabRepository;
+    private final PaymentRepository paymentRepository;
 
     @Transactional(readOnly = true)
     public Optional<CashRegisterSessionResponse> getCurrentSession(UUID restaurantId) {
@@ -115,7 +115,7 @@ public class CashRegisterService {
     }
 
     private BigDecimal calculateExpectedAmount(CashRegisterSession session, OffsetDateTime until) {
-        BigDecimal cashPayments = tabRepository.sumCashPaymentsByRestaurantIdAndPaidAtBetween(
+        BigDecimal cashPayments = paymentRepository.sumActiveCashAmountByRestaurantIdAndPaidAtBetween(
                 session.getRestaurant().getId(), session.getOpenedAt(), until);
         BigDecimal withdrawals = withdrawalRepository.findBySessionIdOrderByWithdrawnAtDesc(session.getId()).stream()
                 .map(CashWithdrawal::getAmount)

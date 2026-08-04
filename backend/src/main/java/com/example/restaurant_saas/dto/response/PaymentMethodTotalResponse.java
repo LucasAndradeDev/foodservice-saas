@@ -11,5 +11,5 @@ import java.math.BigDecimal;
 public class PaymentMethodTotalResponse {
     private PaymentMethod paymentMethod;
     private BigDecimal total;
-    private long tabsCount;
+    private long paymentsCount;
 }

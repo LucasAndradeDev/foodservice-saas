@@ -1,7 +1,6 @@
 package com.example.restaurant_saas.domain.entity;
 
 import com.example.restaurant_saas.domain.enums.DiscountType;
-import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -45,15 +44,8 @@ public class Tab {
     @Column(name = "closed_at")
     private OffsetDateTime closedAt;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "payment_method", length = 20)
-    private PaymentMethod paymentMethod;
-
-    @Column(name = "paid_amount", precision = 10, scale = 2)
-    private BigDecimal paidAmount;
-
-    @Column(name = "paid_at")
-    private OffsetDateTime paidAt;
+    @Column(name = "bill_total", precision = 10, scale = 2)
+    private BigDecimal billTotal;
 
     @Column(name = "receipt_printed_at")
     private OffsetDateTime receiptPrintedAt;
@@ -79,15 +71,6 @@ public class Tab {
 
     @Column(name = "service_charge_amount", precision = 10, scale = 2)
     private BigDecimal serviceChargeAmount;
-
-    @Column(name = "payment_cancelled_by", length = 255)
-    private String paymentCancelledBy;
-
-    @Column(name = "payment_cancelled_at")
-    private OffsetDateTime paymentCancelledAt;
-
-    @Column(name = "payment_cancel_reason", length = 255)
-    private String paymentCancelReason;
 
     @ManyToMany
     @JoinTable(

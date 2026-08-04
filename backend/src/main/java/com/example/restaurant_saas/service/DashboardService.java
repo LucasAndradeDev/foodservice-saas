@@ -4,8 +4,8 @@ import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.TableStatus;
 import com.example.restaurant_saas.dto.response.DashboardResponse;
 import com.example.restaurant_saas.repository.OrderItemRepository;
+import com.example.restaurant_saas.repository.PaymentRepository;
 import com.example.restaurant_saas.repository.RestaurantTableRepository;
-import com.example.restaurant_saas.repository.TabRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +23,7 @@ public class DashboardService {
 
     private final RestaurantTableRepository tableRepository;
     private final OrderItemRepository orderItemRepository;
-    private final TabRepository tabRepository;
+    private final PaymentRepository paymentRepository;
 
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard(UUID restaurantId) {
@@ -34,7 +34,7 @@ public class DashboardService {
                 .freeTables(tableRepository.countByRestaurantIdAndStatus(restaurantId, TableStatus.FREE))
                 .occupiedTables(tableRepository.countByRestaurantIdAndStatus(restaurantId, TableStatus.OCCUPIED))
                 .ordersInPreparation(orderItemRepository.countByOrder_Restaurant_IdAndStatusIn(restaurantId, OPEN_STATUSES))
-                .revenueToday(tabRepository.sumPaidAmountByRestaurantIdAndPaidAtBetween(restaurantId, startOfDay, startOfNextDay))
+                .revenueToday(paymentRepository.sumNetActiveAmountByRestaurantIdAndPaidAtBetween(restaurantId, startOfDay, startOfNextDay))
                 .build();
     }
 }

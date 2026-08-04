@@ -8,7 +8,8 @@ import com.example.restaurant_saas.dto.request.CreatePostMealFeedbackRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
-import com.example.restaurant_saas.dto.request.PayTabRequest;
+import com.example.restaurant_saas.dto.request.PaymentEntryRequest;
+import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
@@ -168,10 +169,12 @@ class PublicFeedbackControllerIntegrationTest {
     }
 
     private void payTab(String token, String tabId, String paidAmount) throws Exception {
-        PayTabRequest request = new PayTabRequest();
-        request.setPaymentMethod(PaymentMethod.PIX);
-        request.setPaidAmount(new BigDecimal(paidAmount));
-        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/pay")
+        PaymentEntryRequest entry = new PaymentEntryRequest();
+        entry.setPaymentMethod(PaymentMethod.PIX);
+        entry.setAmount(new BigDecimal(paidAmount));
+        RegisterPaymentsRequest request = new RegisterPaymentsRequest();
+        request.setPayments(List.of(entry));
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
