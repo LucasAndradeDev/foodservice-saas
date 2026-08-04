@@ -9,6 +9,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -131,8 +132,15 @@ public class BackupService {
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception e) {
-            throw new BackupProcessingException("Failed to upload backup to Supabase Storage.", e);
+            throw new BackupProcessingException("Failed to upload backup to Supabase Storage: " + describe(e), e);
         }
+    }
+
+    private static String describe(Exception e) {
+        if (e instanceof RestClientResponseException responseException) {
+            return responseException.getStatusCode() + " " + responseException.getResponseBodyAsString();
+        }
+        return e.getMessage();
     }
 
     private int pruneOldBackups() {
@@ -154,7 +162,7 @@ public class BackupService {
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception e) {
-            throw new BackupProcessingException("Failed to prune old backups from Supabase Storage.", e);
+            throw new BackupProcessingException("Failed to prune old backups from Supabase Storage: " + describe(e), e);
         }
 
         return toDelete.size();
@@ -183,7 +191,7 @@ public class BackupService {
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to parse Supabase Storage list response.", e);
         } catch (Exception e) {
-            throw new BackupProcessingException("Failed to list existing backups from Supabase Storage.", e);
+            throw new BackupProcessingException("Failed to list existing backups from Supabase Storage: " + describe(e), e);
         }
     }
 }
