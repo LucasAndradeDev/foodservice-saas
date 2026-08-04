@@ -1,8 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import {
+  getMe,
   login as loginRequest,
   registerRestaurant as registerRestaurantRequest,
+  resendVerificationEmail as resendVerificationEmailRequest,
   resetPassword as resetPasswordRequest,
   type AuthResponse,
   type RegisterRestaurantPayload,
@@ -13,6 +15,7 @@ import {
   getStoredAuth,
   setStoredAuth,
   updateStoredRestaurant,
+  updateStoredUser,
   type StoredRestaurant,
   type StoredUser,
 } from './tokenStorage'
@@ -25,6 +28,8 @@ interface AuthContextValue {
   registerRestaurant: (payload: RegisterRestaurantPayload) => Promise<void>
   resetPassword: (token: string, newPassword: string) => Promise<void>
   updateRestaurant: (restaurant: Partial<StoredRestaurant>) => void
+  refreshUser: () => Promise<void>
+  resendVerificationEmail: () => Promise<void>
   logout: () => void
 }
 
@@ -85,6 +90,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (updated) setRestaurant(updated)
   }
 
+  async function refreshUser() {
+    const response = await getMe()
+    const updated = updateStoredUser(response.user)
+    if (updated) setUser(updated)
+  }
+
+  async function resendVerificationEmail() {
+    await resendVerificationEmailRequest()
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -95,6 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         registerRestaurant,
         resetPassword,
         updateRestaurant,
+        refreshUser,
+        resendVerificationEmail,
         logout,
       }}
     >

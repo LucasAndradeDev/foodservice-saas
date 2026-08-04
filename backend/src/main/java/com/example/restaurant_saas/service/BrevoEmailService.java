@@ -112,6 +112,21 @@ public class BrevoEmailService implements EmailService {
         send(toEmail, "Senha alterada - Morá", html);
     }
 
+    @Override
+    public void sendVerificationEmail(String toEmail, String verifyLink) {
+        String buttonRow = BUTTON_ROW.formatted(verifyLink, "Confirmar email");
+        String html = SHELL.formatted(
+                LOGO_HTML,
+                "📩",
+                "Confirme seu email",
+                "Falta pouco! Clique no botão abaixo para confirmar seu email e ativar sua conta Morá.",
+                buttonRow,
+                "Esse link expira em 24 horas. Se você não criou uma conta na Morá, pode ignorar este email."
+        );
+
+        send(toEmail, "Confirme seu email - Morá", html);
+    }
+
     private void send(String toEmail, String subject, String htmlContent) {
         Map<String, Object> body = Map.of(
                 "sender", Map.of("email", senderEmail, "name", senderName),

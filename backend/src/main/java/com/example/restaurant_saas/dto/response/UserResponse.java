@@ -15,4 +15,5 @@ public class UserResponse {
     private String email;
     private UserRole role;
     private Boolean active;
+    private Boolean emailVerified;
 }

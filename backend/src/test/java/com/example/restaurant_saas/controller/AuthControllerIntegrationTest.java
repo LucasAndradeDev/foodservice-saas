@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.domain.entity.EmailVerificationToken;
 import com.example.restaurant_saas.domain.entity.PasswordResetToken;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.dto.request.ChangePasswordRequest;
@@ -8,6 +9,8 @@ import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.RefreshTokenRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.ResetPasswordRequest;
+import com.example.restaurant_saas.dto.request.VerifyEmailRequest;
+import com.example.restaurant_saas.repository.EmailVerificationTokenRepository;
 import com.example.restaurant_saas.repository.PasswordResetTokenRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,6 +45,9 @@ class AuthControllerIntegrationTest {
     @Autowired
     private PasswordResetTokenRepository passwordResetTokenRepository;
 
+    @Autowired
+    private EmailVerificationTokenRepository emailVerificationTokenRepository;
+
     private RegisterRestaurantRequest registerRequest;
 
     @BeforeEach
@@ -66,7 +72,12 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.refreshToken").isNotEmpty())
                 .andExpect(jsonPath("$.user.email").value(registerRequest.getOwnerEmail()))
                 .andExpect(jsonPath("$.user.role").value("OWNER"))
+                .andExpect(jsonPath("$.user.emailVerified").value(false))
                 .andExpect(jsonPath("$.restaurant.name").value("Burger House"));
+
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        assertThat(owner.getEmailVerified()).isFalse();
+        assertThat(emailVerificationTokenRepository.findByUser(owner)).isPresent();
     }
 
     @Test
@@ -442,5 +453,122 @@ class AuthControllerIntegrationTest {
         String secondRestaurantId = JsonPath.read(secondResult.getResponse().getContentAsString(), "$.restaurant.id");
 
         assertThat(firstRestaurantId).isNotEqualTo(secondRestaurantId);
+    }
+
+    @Test
+    void verifyEmail_withValidToken_shouldMarkUserAsVerified() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated());
+
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        EmailVerificationToken token = emailVerificationTokenRepository.findByUser(owner).orElseThrow();
+
+        VerifyEmailRequest verifyRequest = new VerifyEmailRequest();
+        verifyRequest.setToken(token.getToken());
+
+        mockMvc.perform(post("/api/v1/auth/verify-email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(verifyRequest)))
+                .andExpect(status().isNoContent());
+
+        User verifiedOwner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        assertThat(verifiedOwner.getEmailVerified()).isTrue();
+    }
+
+    @Test
+    void verifyEmail_withTokenUsedTwice_shouldReturn400OnSecondAttempt() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated());
+
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        EmailVerificationToken token = emailVerificationTokenRepository.findByUser(owner).orElseThrow();
+
+        VerifyEmailRequest verifyRequest = new VerifyEmailRequest();
+        verifyRequest.setToken(token.getToken());
+
+        mockMvc.perform(post("/api/v1/auth/verify-email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(verifyRequest)))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/api/v1/auth/verify-email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(verifyRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void verifyEmail_withInvalidToken_shouldReturn400() throws Exception {
+        VerifyEmailRequest verifyRequest = new VerifyEmailRequest();
+        verifyRequest.setToken("token-that-does-not-exist");
+
+        mockMvc.perform(post("/api/v1/auth/verify-email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(verifyRequest)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void resendVerificationEmail_shouldReplaceExistingToken() throws Exception {
+        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
+
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        String firstToken = emailVerificationTokenRepository.findByUser(owner).orElseThrow().getToken();
+
+        mockMvc.perform(post("/api/v1/auth/resend-verification-email")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isNoContent());
+
+        String secondToken = emailVerificationTokenRepository.findByUser(owner).orElseThrow().getToken();
+        assertThat(secondToken).isNotEqualTo(firstToken);
+    }
+
+    @Test
+    void resendVerificationEmail_afterTooManyAttempts_shouldReturn429() throws Exception {
+        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
+
+        for (int i = 0; i < 3; i++) {
+            mockMvc.perform(post("/api/v1/auth/resend-verification-email")
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isNoContent());
+        }
+
+        mockMvc.perform(post("/api/v1/auth/resend-verification-email")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    void resendVerificationEmail_whenAlreadyVerified_shouldBeNoOpAndNotCountTowardsRateLimit() throws Exception {
+        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
+
+        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        owner.setEmailVerified(true);
+        userRepository.save(owner);
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/v1/auth/resend-verification-email")
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isNoContent());
+        }
     }
 }

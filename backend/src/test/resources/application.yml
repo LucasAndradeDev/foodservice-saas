@@ -25,6 +25,12 @@ security:
     block-minutes: 30
   password-reset-token:
     expiration-minutes: 30
+  email-verification-token:
+    expiration-minutes: 1440
+  resend-verification-rate-limit:
+    max-attempts: 3
+    window-minutes: 15
+    block-minutes: 30
 
 app:
   upload-dir: ./target/test-uploads

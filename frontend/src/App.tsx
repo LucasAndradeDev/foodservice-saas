@@ -30,6 +30,7 @@ import { StaffPage } from './pages/StaffPage'
 import { TabDetailPage } from './pages/TabDetailPage'
 import { TablesPage } from './pages/TablesPage'
 import { TabReceiptPrintPage } from './pages/TabReceiptPrintPage'
+import { VerifyEmailPage } from './pages/VerifyEmailPage'
 import { ThemeProvider } from './theme/ThemeContext'
 
 function App() {
@@ -53,6 +54,14 @@ function App() {
               element={
                 <AuthLayout>
                   <ResetPasswordPage />
+                </AuthLayout>
+              }
+            />
+            <Route
+              path="/verify-email"
+              element={
+                <AuthLayout>
+                  <VerifyEmailPage />
                 </AuthLayout>
               }
             />

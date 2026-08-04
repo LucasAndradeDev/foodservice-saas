@@ -43,6 +43,12 @@ security:
     block-minutes: ${FORGOT_PASSWORD_RATE_LIMIT_BLOCK_MINUTES:30}
   password-reset-token:
     expiration-minutes: ${PASSWORD_RESET_TOKEN_EXPIRATION_MINUTES:30}
+  email-verification-token:
+    expiration-minutes: ${EMAIL_VERIFICATION_TOKEN_EXPIRATION_MINUTES:1440}
+  resend-verification-rate-limit:
+    max-attempts: ${RESEND_VERIFICATION_RATE_LIMIT_MAX_ATTEMPTS:3}
+    window-minutes: ${RESEND_VERIFICATION_RATE_LIMIT_WINDOW_MINUTES:15}
+    block-minutes: ${RESEND_VERIFICATION_RATE_LIMIT_BLOCK_MINUTES:30}
 
 app:
   upload-dir: ${UPLOAD_DIR:./uploads}

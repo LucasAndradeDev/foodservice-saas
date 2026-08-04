@@ -7,6 +7,7 @@ export interface StoredUser {
   email: string
   role: UserRole
   active: boolean
+  emailVerified: boolean
 }
 
 export interface StoredRestaurant {
@@ -50,6 +51,14 @@ export function updateStoredRestaurant(restaurant: Partial<StoredRestaurant>): S
   if (!current) return null
   const updated = { ...current.restaurant, ...restaurant }
   setStoredAuth({ ...current, restaurant: updated })
+  return updated
+}
+
+export function updateStoredUser(user: Partial<StoredUser>): StoredUser | null {
+  const current = getStoredAuth()
+  if (!current) return null
+  const updated = { ...current.user, ...user }
+  setStoredAuth({ ...current, user: updated })
   return updated
 }
 

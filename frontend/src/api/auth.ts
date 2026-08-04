@@ -34,3 +34,15 @@ export function forgotPassword(email: string) {
 export function resetPassword(token: string, newPassword: string) {
   return http.post<AuthResponse>('/auth/reset-password', { token, newPassword }).then((res) => res.data)
 }
+
+export function getMe() {
+  return http.get<AuthResponse>('/auth/me').then((res) => res.data)
+}
+
+export function verifyEmail(token: string) {
+  return http.post<void>('/auth/verify-email', { token }).then((res) => res.data)
+}
+
+export function resendVerificationEmail() {
+  return http.post<void>('/auth/resend-verification-email').then((res) => res.data)
+}

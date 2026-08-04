@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.domain.entity.EmailVerificationToken;
 import com.example.restaurant_saas.domain.entity.PasswordResetToken;
 import com.example.restaurant_saas.domain.entity.RefreshToken;
 import com.example.restaurant_saas.domain.entity.Restaurant;
@@ -11,9 +12,11 @@ import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.RefreshTokenRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.ResetPasswordRequest;
+import com.example.restaurant_saas.dto.request.VerifyEmailRequest;
 import com.example.restaurant_saas.dto.response.AuthResponse;
 import com.example.restaurant_saas.dto.response.RestaurantResponse;
 import com.example.restaurant_saas.dto.response.UserResponse;
+import com.example.restaurant_saas.repository.EmailVerificationTokenRepository;
 import com.example.restaurant_saas.repository.PasswordResetTokenRepository;
 import com.example.restaurant_saas.repository.RefreshTokenRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
@@ -43,11 +46,13 @@ public class AuthService {
 
     private static final String LOGIN_ACTION = "login";
     private static final String FORGOT_PASSWORD_ACTION = "forgot-password";
+    private static final String RESEND_VERIFICATION_ACTION = "resend-verification";
 
     private final RestaurantRepository restaurantRepository;
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -82,6 +87,18 @@ public class AuthService {
     @Value("${security.password-reset-token.expiration-minutes}")
     private long passwordResetTokenExpirationMinutes;
 
+    @Value("${security.email-verification-token.expiration-minutes}")
+    private long emailVerificationTokenExpirationMinutes;
+
+    @Value("${security.resend-verification-rate-limit.max-attempts}")
+    private int resendVerificationMaxAttempts;
+
+    @Value("${security.resend-verification-rate-limit.window-minutes}")
+    private long resendVerificationWindowMinutes;
+
+    @Value("${security.resend-verification-rate-limit.block-minutes}")
+    private long resendVerificationBlockMinutes;
+
     @Transactional
     public AuthResponse registerRestaurant(RegisterRestaurantRequest request) {
         if (userRepository.existsByEmail(request.getOwnerEmail())) {
@@ -109,8 +126,11 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.getOwnerPassword()))
                 .role(UserRole.OWNER)
                 .active(true)
+                .emailVerified(false)
                 .build();
         owner = userRepository.save(owner);
+
+        sendVerificationEmail(owner);
 
         UserDetailsImpl userDetails = new UserDetailsImpl(owner);
         String accessToken = jwtService.generateToken(userDetails);
@@ -251,6 +271,62 @@ public class AuthService {
         return buildAuthResponse(accessToken, refreshToken.getToken(), user, user.getRestaurant());
     }
 
+    @Transactional
+    public void verifyEmail(VerifyEmailRequest request) {
+        EmailVerificationToken verificationToken = emailVerificationTokenRepository.findByToken(request.getToken())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid or expired verification link."));
+
+        if (Boolean.TRUE.equals(verificationToken.getUsed()) || verificationToken.getExpiryDate().isBefore(OffsetDateTime.now())) {
+            throw new IllegalArgumentException("Invalid or expired verification link.");
+        }
+
+        User user = verificationToken.getUser();
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        verificationToken.setUsed(true);
+        emailVerificationTokenRepository.save(verificationToken);
+    }
+
+    @Transactional
+    public void resendVerificationEmail(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
+
+        if (Boolean.TRUE.equals(user.getEmailVerified())) {
+            return;
+        }
+
+        rateLimitService.checkAllowed(RESEND_VERIFICATION_ACTION, httpRequest, user.getEmail());
+        rateLimitService.recordAttempt(
+                RESEND_VERIFICATION_ACTION, httpRequest, user.getEmail(),
+                resendVerificationMaxAttempts, resendVerificationWindowMinutes, resendVerificationBlockMinutes
+        );
+
+        sendVerificationEmail(user);
+    }
+
+    private void sendVerificationEmail(User user) {
+        emailVerificationTokenRepository.deleteByUser(user);
+
+        EmailVerificationToken verificationToken = EmailVerificationToken.builder()
+                .user(user)
+                .token(UUID.randomUUID().toString())
+                .expiryDate(OffsetDateTime.now().plusMinutes(emailVerificationTokenExpirationMinutes))
+                .used(false)
+                .build();
+        verificationToken = emailVerificationTokenRepository.save(verificationToken);
+
+        String verifyLink = frontendUrl + "/verify-email?token=" + verificationToken.getToken();
+        try {
+            emailService.sendVerificationEmail(user.getEmail(), verifyLink);
+        } catch (RuntimeException ex) {
+            // Account creation (or the resend action) already succeeded; a failed send
+            // shouldn't fail the whole request. The user can trigger another resend.
+            log.error("Failed to send verification email to {}", user.getEmail(), ex);
+        }
+    }
+
     @Transactional(readOnly = true)
     public AuthResponse getMe(UUID userId) {
         User user = userRepository.findById(userId)
@@ -296,6 +372,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .role(user.getRole())
                 .active(user.getActive())
+                .emailVerified(user.getEmailVerified())
                 .build();
 
         RestaurantResponse restaurantResp = RestaurantResponse.builder()

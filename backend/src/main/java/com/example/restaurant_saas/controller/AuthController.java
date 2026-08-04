@@ -6,6 +6,7 @@ import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.RefreshTokenRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.ResetPasswordRequest;
+import com.example.restaurant_saas.dto.request.VerifyEmailRequest;
 import com.example.restaurant_saas.dto.response.AuthResponse;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.example.restaurant_saas.service.AuthService;
@@ -66,5 +67,17 @@ public class AuthController {
     public ResponseEntity<AuthResponse> getMe(@AuthenticationPrincipal UserDetailsImpl currentUser) {
         AuthResponse response = authService.getMe(currentUser.getId());
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<Void> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        authService.verifyEmail(request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/resend-verification-email")
+    public ResponseEntity<Void> resendVerificationEmail(@AuthenticationPrincipal UserDetailsImpl currentUser) {
+        authService.resendVerificationEmail(currentUser.getId());
+        return ResponseEntity.noContent().build();
     }
 }

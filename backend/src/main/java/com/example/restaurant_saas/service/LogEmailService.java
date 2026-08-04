@@ -23,4 +23,9 @@ public class LogEmailService implements EmailService {
     public void sendPasswordChangedNotification(String toEmail) {
         log.info("Password changed notification for {}", toEmail);
     }
+
+    @Override
+    public void sendVerificationEmail(String toEmail, String verifyLink) {
+        log.info("Email verification requested for {}. Link: {}", toEmail, verifyLink);
+    }
 }

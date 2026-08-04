@@ -16,6 +16,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { UserRole } from '../auth/types'
 import { useAuth } from '../auth/AuthContext'
+import { EmailVerificationBanner } from '../components/EmailVerificationBanner'
 import { Modal } from '../components/Modal'
 import { NotificationToastStack, type ToastItem } from '../components/NotificationToastStack'
 import { getNavNotificationStatus, markNavSectionSeen, type NavNotificationStatus, type NavSection } from '../api/navNotifications'
@@ -25,6 +26,7 @@ import { ThemeToggleButton } from '../theme/ThemeToggleButton'
 
 const NAV_STATUS_POLL_MS = 4000
 const TOAST_DURATION_MS = 6000
+const EMAIL_VERIFICATION_POLL_MS = 10000
 
 const SECTION_TO_STATUS_KEY = {
   KITCHEN: 'kitchen',
@@ -97,7 +99,7 @@ function isNavItemActive(item: NavItem, pathname: string) {
 }
 
 export function AppLayout() {
-  const { user, restaurant, logout } = useAuth()
+  const { user, restaurant, logout, refreshUser } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
@@ -107,6 +109,18 @@ export function AppLayout() {
   const visibleMenuItems = MENU_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
   const visibleManagementItems = MANAGEMENT_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
   const visibleMoreItems = [...visibleMenuItems, ...visibleManagementItems]
+
+  // Polls /auth/me while the email isn't verified yet, so confirming it in another
+  // tab (e.g. clicking the link from a webmail tab) clears the banner here without
+  // the user having to manually reload this tab. Stops itself once verified, since
+  // `enabled` turns false as soon as refreshUser() flips user.emailVerified to true.
+  useQuery({
+    queryKey: ['emailVerificationStatus'],
+    queryFn: () => refreshUser(),
+    enabled: user?.emailVerified === false,
+    refetchInterval: EMAIL_VERIFICATION_POLL_MS,
+    refetchIntervalInBackground: true,
+  })
 
   const { data: notificationStatus } = useQuery({
     queryKey: ['navNotifications'],
@@ -267,6 +281,8 @@ export function AppLayout() {
       </aside>
 
       <div className="flex-1 sm:h-screen sm:overflow-y-auto">
+        <EmailVerificationBanner />
+
         {/* Mobile top bar */}
         <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:hidden dark:border-white/10 dark:bg-stone-900">
           <span className="font-semibold text-gray-800 dark:text-white">

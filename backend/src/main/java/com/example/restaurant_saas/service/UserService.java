@@ -120,6 +120,7 @@ public class UserService {
                 .email(user.getEmail())
                 .role(user.getRole())
                 .active(user.getActive())
+                .emailVerified(user.getEmailVerified())
                 .build();
     }
 }
