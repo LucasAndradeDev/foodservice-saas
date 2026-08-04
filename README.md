@@ -2,8 +2,6 @@
 
 SaaS de gestão de mesas, comandas e pedidos para restaurantes presenciais (hamburguerias, pizzarias, bares, churrascarias, casas de sushi etc). Cobre a operação completa do salão: mesas → cardápio/pedidos → cozinha → pagamento, incluindo autoatendimento via QR Code.
 
-Para o escopo completo do produto, regras de negócio e histórico de decisões, ver [`docs/SCOPE.md`](docs/SCOPE.md).
-
 ## Stack
 
 **Backend**
@@ -17,7 +15,7 @@ Para o escopo completo do produto, regras de negócio e histórico de decisões,
 
 **Infraestrutura**
 - Docker / Docker Compose (Postgres local)
-- Deploy em produção: Render (backend em Docker + frontend estático) — detalhes em [`docs/DEPLOY.md`](docs/DEPLOY.md)
+- Deploy em produção: Render (backend em Docker + frontend estático)
 - Storage de imagens: disco local em dev, Supabase Storage em produção
 
 ## Arquitetura
@@ -79,7 +77,7 @@ SPA sobe em `http://localhost:5173`, consumindo a API em `/api/v1`.
 cd backend
 ./mvnw test
 
-# frontend — sem suíte automatizada ainda (ver docs/SCOPE.md, gaps de infraestrutura)
+# frontend — sem suíte automatizada ainda
 ```
 
 ## Build de produção
@@ -94,11 +92,3 @@ cd backend
 cd frontend
 npm run build
 ```
-
-## Documentação adicional
-
-- [`docs/SCOPE.md`](docs/SCOPE.md) — escopo do produto, módulos, regras de negócio e backlog priorizado
-- [`docs/DEPLOY.md`](docs/DEPLOY.md) — infraestrutura de produção (Render/Supabase), variáveis de ambiente e problemas já resolvidos
-- [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md) — estratégia de backup do banco
-- [`docs/PIX_PAYMENT.md`](docs/PIX_PAYMENT.md) — desenho da integração de pagamento via Pix
-- [`docs/SPRINT*.md`](docs) — histórico de decisões por sprint
