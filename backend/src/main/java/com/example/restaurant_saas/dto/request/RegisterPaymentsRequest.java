@@ -1,7 +1,7 @@
 package com.example.restaurant_saas.dto.request;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -11,7 +11,9 @@ import java.util.List;
 @Data
 public class RegisterPaymentsRequest {
 
-    @NotEmpty(message = "At least one payment is required")
+    /** May be empty when the tab's bill total is zero (e.g. every item was cancelled/comped) —
+     * there's nothing to collect, but the tab still needs to close and free its tables. */
+    @NotNull(message = "Payments list is required")
     @Size(max = 50, message = "At most 50 payments per call")
     @Valid
     private List<PaymentEntryRequest> payments;

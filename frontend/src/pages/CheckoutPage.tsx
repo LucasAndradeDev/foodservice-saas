@@ -220,6 +220,7 @@ export function CheckoutPage() {
     : 0
   const amountPaid = selectedSummary?.tab.amountPaid ?? 0
   const remainingBalance = hasLockedTotal ? (selectedSummary?.tab.remainingBalance ?? 0) : finalTotal
+  const isZeroBalance = remainingBalance <= 0.001
   const entriesSum = roundCurrency(pendingEntries.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0))
   const amountLeftToAllocate = roundCurrency(remainingBalance - entriesSum)
 
@@ -266,12 +267,12 @@ export function CheckoutPage() {
     const entries = pendingEntries
       .map((entry) => ({ paymentMethod: entry.method, amount: Number(entry.amount) }))
       .filter((entry) => entry.amount > 0)
-    if (entries.length === 0) return
+    if (entries.length === 0 && !isZeroBalance) return
     setError(null)
     payMutation.mutate({
       id: selectedSummary.tab.id,
       entries,
-      chargePercentage: hasLockedTotal ? null : serviceChargePercentage,
+      chargePercentage: hasLockedTotal || isZeroBalance ? null : serviceChargePercentage,
     })
   }
 
@@ -438,7 +439,7 @@ export function CheckoutPage() {
             <>
               <p className="mb-4 flex items-center gap-1.5 text-sm font-medium text-green-700 dark:text-green-400">
                 <CheckCircle2 className="h-4 w-4" />
-                Pagamento confirmado.
+                {selectedSummary.tab.billTotal ? 'Pagamento confirmado.' : 'Comanda fechada.'}
               </p>
               {selectedSummary.tab.tables.length === 0 && restaurant?.slug && (
                 <div className="mb-4">
@@ -635,7 +636,7 @@ export function CheckoutPage() {
                 </div>
               )}
 
-              {canPay && !hasLockedTotal && (
+              {canPay && !hasLockedTotal && !isZeroBalance && (
                 <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-white/10 dark:bg-white/5">
                   {!isEditingServiceCharge || !canDiscount ? (
                     <div className="flex items-center justify-between">
@@ -736,7 +737,13 @@ export function CheckoutPage() {
                 </ul>
               )}
 
-              {canPay && (
+              {canPay && isZeroBalance && (
+                <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-stone-400">
+                  Nenhum valor a cobrar nesta comanda. Feche pra liberar a mesa.
+                </div>
+              )}
+
+              {canPay && !isZeroBalance && (
                 <>
                   <div className="mb-3">
                     <Dropdown<SplitChoice>
@@ -818,14 +825,16 @@ export function CheckoutPage() {
                 <button
                   type="button"
                   onClick={handleRegisterPayments}
-                  disabled={payMutation.isPending || entriesSum <= 0 || amountLeftToAllocate < -0.001}
+                  disabled={payMutation.isPending || (!isZeroBalance && (entriesSum <= 0 || amountLeftToAllocate < -0.001))}
                   className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
                 >
-                  {amountLeftToAllocate > 0.001
-                    ? `Registrar ${pendingEntries.length > 1 ? pendingEntries.length + ' pagamentos parciais' : 'pagamento parcial'}`
-                    : pendingEntries.length > 1
-                      ? `Confirmar ${pendingEntries.length} pagamentos`
-                      : 'Confirmar pagamento'}
+                  {isZeroBalance
+                    ? 'Fechar comanda'
+                    : amountLeftToAllocate > 0.001
+                      ? `Registrar ${pendingEntries.length > 1 ? pendingEntries.length + ' pagamentos parciais' : 'pagamento parcial'}`
+                      : pendingEntries.length > 1
+                        ? `Confirmar ${pendingEntries.length} pagamentos`
+                        : 'Confirmar pagamento'}
                 </button>
               )}
             </>
