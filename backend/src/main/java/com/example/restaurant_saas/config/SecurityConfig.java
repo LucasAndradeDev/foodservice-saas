@@ -43,6 +43,9 @@ public class SecurityConfig {
                                 "/api/v1/auth/verify-email"
                         ).permitAll()
                         .requestMatchers("/api/v1/public/**").permitAll()
+                        // Not actually open: BackupController checks its own X-Backup-Token header,
+                        // since the caller (GitHub Actions cron) has no user JWT to send.
+                        .requestMatchers("/api/v1/internal/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .anyRequest().authenticated()

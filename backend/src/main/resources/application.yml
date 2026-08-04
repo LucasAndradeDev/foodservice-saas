@@ -63,6 +63,11 @@ supabase:
   service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
   storage:
     bucket: ${SUPABASE_STORAGE_BUCKET:uploads}
+  backup-bucket: ${SUPABASE_BACKUP_BUCKET:backups}
+
+backup:
+  trigger-token: ${BACKUP_TRIGGER_TOKEN:}
+  retention-count: ${BACKUP_RETENTION_COUNT:14}
 
 brevo:
   api-key: ${BREVO_API_KEY:}

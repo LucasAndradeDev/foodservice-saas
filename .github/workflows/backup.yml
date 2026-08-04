@@ -1,0 +1,17 @@
+name: Database backup
+
+on:
+  schedule:
+    # 06:00 UTC ~= 03:00 America/Sao_Paulo
+    - cron: "0 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger-backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call backup endpoint
+        run: |
+          curl -f -X POST \
+            -H "X-Backup-Token: ${{ secrets.BACKUP_TRIGGER_TOKEN }}" \
+            "${{ vars.BACKEND_URL }}/api/v1/internal/backups"
