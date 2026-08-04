@@ -12,6 +12,7 @@ import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.ProductType;
+import com.example.restaurant_saas.dto.response.ComboCompositionResponse;
 import com.example.restaurant_saas.dto.response.ModifierGroupResponse;
 import com.example.restaurant_saas.dto.response.ModifierOptionResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuCategoryResponse;
@@ -73,15 +74,14 @@ public class MenuService {
     private final ProductModifierOptionRepository modifierOptionRepository;
     private final ProductAvailabilityWindowRepository availabilityWindowRepository;
     private final HappyHourRuleService happyHourRuleService;
+    private final ComboService comboService;
 
     @Transactional(readOnly = true)
     public PublicMenuResponse getPublicMenu(String slug, UUID tableId) {
         Restaurant restaurant = restaurantRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException("Menu not found."));
 
-        List<Product> activeProducts = productRepository.findByRestaurantIdAndActiveTrueOrderByCategoryNameAscNameAsc(restaurant.getId()).stream()
-                .filter(product -> product.getType() == ProductType.SIMPLE)
-                .toList();
+        List<Product> activeProducts = productRepository.findByRestaurantIdAndActiveTrueOrderByCategoryNameAscNameAsc(restaurant.getId());
         Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct =
                 fetchModifierGroupsByProduct(restaurant.getId(), activeProducts);
         Map<UUID, Integer> estimatedWaitMinutesByProduct = fetchEstimatedWaitMinutesByProduct(restaurant.getId());
@@ -89,11 +89,12 @@ public class MenuService {
         Map<UUID, List<ProductAvailabilityWindow>> availabilityWindowsByProduct =
                 fetchAvailabilityWindowsByProduct(restaurant.getId(), activeProducts);
         Map<UUID, HappyHourRule> activeHappyHourRuleByCategory = happyHourRuleService.fetchActiveRulesByCategory(restaurant.getId());
+        Map<UUID, ComboCompositionResponse> comboCompositionByProduct = fetchComboCompositions(restaurant.getId(), activeProducts);
 
         List<PublicMenuCategoryResponse> categories = categoryRepository
                 .findByRestaurantIdAndActiveTrueOrderByNameAsc(restaurant.getId())
                 .stream()
-                .map(category -> toCategoryResponse(category, activeProducts, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds, availabilityWindowsByProduct, activeHappyHourRuleByCategory))
+                .map(category -> toCategoryResponse(category, activeProducts, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds, availabilityWindowsByProduct, activeHappyHourRuleByCategory, comboCompositionByProduct))
                 .filter(category -> !category.getProducts().isEmpty())
                 .toList();
 
@@ -146,10 +147,10 @@ public class MenuService {
             Category category, List<Product> activeProducts, Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct,
             Map<UUID, Integer> estimatedWaitMinutesByProduct, Set<UUID> bestsellerProductIds,
             Map<UUID, List<ProductAvailabilityWindow>> availabilityWindowsByProduct,
-            Map<UUID, HappyHourRule> activeHappyHourRuleByCategory) {
+            Map<UUID, HappyHourRule> activeHappyHourRuleByCategory, Map<UUID, ComboCompositionResponse> comboCompositionByProduct) {
         List<PublicMenuProductResponse> products = activeProducts.stream()
                 .filter(product -> product.getCategory().getId().equals(category.getId()))
-                .map(product -> toProductResponse(product, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds, availabilityWindowsByProduct, activeHappyHourRuleByCategory))
+                .map(product -> toProductResponse(product, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds, availabilityWindowsByProduct, activeHappyHourRuleByCategory, comboCompositionByProduct))
                 .toList();
 
         return PublicMenuCategoryResponse.builder()
@@ -163,22 +164,32 @@ public class MenuService {
             Product product, Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct,
             Map<UUID, Integer> estimatedWaitMinutesByProduct, Set<UUID> bestsellerProductIds,
             Map<UUID, List<ProductAvailabilityWindow>> availabilityWindowsByProduct,
-            Map<UUID, HappyHourRule> activeHappyHourRuleByCategory) {
+            Map<UUID, HappyHourRule> activeHappyHourRuleByCategory, Map<UUID, ComboCompositionResponse> comboCompositionByProduct) {
         HappyHourRule happyHourRule = activeHappyHourRuleByCategory.get(product.getCategory().getId());
+        ComboCompositionResponse combo = comboCompositionByProduct.get(product.getId());
+        BigDecimal price = combo != null ? combo.getMinPrice() : product.getPrice();
         return PublicMenuProductResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
                 .description(product.getDescription())
                 .imageUrl(product.getImageUrl())
-                .price(product.getPrice())
-                .discountedPrice(happyHourRule != null ? applyDiscount(product.getPrice(), happyHourRule) : null)
+                .type(product.getType())
+                .price(price)
+                .discountedPrice(combo == null && happyHourRule != null ? applyDiscount(product.getPrice(), happyHourRule) : null)
                 .soldOut(isSoldOutToday(product))
                 .availableNow(isAvailableNow(availabilityWindowsByProduct.getOrDefault(product.getId(), List.of())))
                 .featured(product.getFeatured())
                 .bestseller(bestsellerProductIds.contains(product.getId()))
                 .estimatedWaitMinutes(estimatedWaitMinutesByProduct.get(product.getId()))
                 .modifierGroups(modifierGroupsByProduct.getOrDefault(product.getId(), List.of()))
+                .combo(combo)
                 .build();
+    }
+
+    private Map<UUID, ComboCompositionResponse> fetchComboCompositions(UUID restaurantId, List<Product> products) {
+        return products.stream()
+                .filter(product -> product.getType() == ProductType.COMBO)
+                .collect(Collectors.toMap(Product::getId, product -> comboService.getComposition(restaurantId, product.getId())));
     }
 
     private BigDecimal applyDiscount(BigDecimal price, HappyHourRule rule) {

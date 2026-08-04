@@ -1,6 +1,7 @@
 export type { SelectedModifier } from '../../utils/modifiers'
 export { modifiersTotal, sameModifiers } from '../../utils/modifiers'
 import type { SelectedModifier } from '../../utils/modifiers'
+import type { SelectedComboSlot } from '../../utils/combos'
 
 export interface CartItem {
   productId: string
@@ -9,6 +10,7 @@ export interface CartItem {
   quantity: number
   observation: string
   selectedModifiers: SelectedModifier[]
+  comboSelections?: SelectedComboSlot[]
 }
 
 export const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })

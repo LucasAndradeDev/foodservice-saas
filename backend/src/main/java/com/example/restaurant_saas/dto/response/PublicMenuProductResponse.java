@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.dto.response;
 
+import com.example.restaurant_saas.domain.enums.ProductType;
 import lombok.Builder;
 import lombok.Data;
 
@@ -14,6 +15,7 @@ public class PublicMenuProductResponse {
     private String name;
     private String description;
     private String imageUrl;
+    private ProductType type;
     private BigDecimal price;
     private BigDecimal discountedPrice;
     private Boolean soldOut;
@@ -22,4 +24,5 @@ public class PublicMenuProductResponse {
     private Boolean bestseller;
     private Integer estimatedWaitMinutes;
     private List<ModifierGroupResponse> modifierGroups;
+    private ComboCompositionResponse combo;
 }

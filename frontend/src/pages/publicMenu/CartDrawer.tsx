@@ -142,6 +142,18 @@ export function CartDrawer({
                           ))}
                         </div>
                       )}
+                      {item.comboSelections && item.comboSelections.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {item.comboSelections.map((selection) => (
+                            <span
+                              key={selection.slotId}
+                              className="rounded-full bg-white px-2 py-0.5 text-xs text-gray-600 ring-1 ring-gray-200 dark:bg-white/10 dark:text-stone-300 dark:ring-white/10"
+                            >
+                              {selection.productName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <div className="mt-3 flex items-center gap-2">
                         <div className="flex items-center gap-1 rounded-full border border-gray-200 bg-white p-1 dark:border-white/10 dark:bg-stone-900">
                           <button

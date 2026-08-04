@@ -5,9 +5,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getPublicMenu, redeemCoupon, removeCoupon, submitPublicOrder, type PublicMenuProduct } from '../api/publicMenu'
 import { createTableRequest, type TableRequestType } from '../api/tableRequests'
+import { sameComboSelections, type SelectedComboSlot } from '../utils/combos'
 import { CartDrawer } from './publicMenu/CartDrawer'
 import { CategoryNav } from './publicMenu/CategoryNav'
 import { getCategoryIcon } from './publicMenu/categoryIcons'
+import { ComboSheet } from './publicMenu/ComboSheet'
 import { MenuHero } from './publicMenu/MenuHero'
 import { ModifierSheet } from './publicMenu/ModifierSheet'
 import { OrderStatusPanel } from './publicMenu/OrderStatusPanel'
@@ -49,6 +51,7 @@ export function PublicMenuPage() {
   const [orderSuccess, setOrderSuccess] = useState(false)
   const [reorderNotice, setReorderNotice] = useState<string | null>(null)
   const [activeModifierProduct, setActiveModifierProduct] = useState<PublicMenuProduct | null>(null)
+  const [activeComboProduct, setActiveComboProduct] = useState<PublicMenuProduct | null>(null)
   const [requestedTypes, setRequestedTypes] = useState<Set<TableRequestType>>(new Set())
   const requestTimeoutsRef = useRef<Partial<Record<TableRequestType, number>>>({})
   const [couponCode, setCouponCode] = useState('')
@@ -112,6 +115,10 @@ export function PublicMenuPage() {
           quantity: item.quantity,
           observation: item.observation.trim() || undefined,
           selectedOptionIds: item.selectedModifiers.map((modifier) => modifier.optionId),
+          slotSelections: item.comboSelections?.map((selection) => ({
+            slotId: selection.slotId,
+            selectedProductId: selection.productId,
+          })),
         })),
       ),
     onSuccess: () => {
@@ -188,7 +195,9 @@ export function PublicMenuPage() {
   }
 
   function handleAddClick(product: PublicMenuProduct) {
-    if (product.modifierGroups.length > 0) {
+    if (product.type === 'COMBO') {
+      setActiveComboProduct(product)
+    } else if (product.modifierGroups.length > 0) {
       setActiveModifierProduct(product)
     } else {
       addToCart(product)
@@ -200,6 +209,33 @@ export function PublicMenuPage() {
       addToCart(activeModifierProduct, selectedModifiers)
     }
     setActiveModifierProduct(null)
+  }
+
+  function handleConfirmCombo(selections: SelectedComboSlot[], unitPrice: number) {
+    const product = activeComboProduct
+    if (!product) return
+    setOrderError(null)
+    setCart((prev) => {
+      const existingIndex = prev.findIndex(
+        (item) => item.productId === product.id && item.observation === '' && sameComboSelections(item.comboSelections ?? [], selections),
+      )
+      if (existingIndex !== -1) {
+        return prev.map((item, index) => (index === existingIndex ? { ...item, quantity: item.quantity + 1 } : item))
+      }
+      return [
+        ...prev,
+        {
+          productId: product.id,
+          productName: product.name,
+          unitPrice,
+          quantity: 1,
+          observation: '',
+          selectedModifiers: [],
+          comboSelections: selections,
+        },
+      ]
+    })
+    setActiveComboProduct(null)
   }
 
   function updateQuantity(index: number, delta: number) {
@@ -232,7 +268,7 @@ export function PublicMenuPage() {
     const items: CartItem[] = []
     menu.table.lastOrderItems.forEach((historyItem) => {
       const product = productsById.get(historyItem.productId)
-      if (!product || product.soldOut || !product.availableNow) {
+      if (!product || product.soldOut || !product.availableNow || product.type === 'COMBO') {
         skippedNames.push(historyItem.productName)
         return
       }
@@ -343,7 +379,7 @@ export function PublicMenuPage() {
                 <motion.div key={product.id} variants={itemVariants} transition={{ duration: 0.3 }}>
                   <ProductCard
                     product={product}
-                    quantity={product.modifierGroups.length > 0 ? 0 : (cartQuantities.get(product.id) ?? 0)}
+                    quantity={product.modifierGroups.length > 0 || product.type === 'COMBO' ? 0 : (cartQuantities.get(product.id) ?? 0)}
                     canOrder={canOrder}
                     onAdd={handleAddClick}
                     onIncrement={(productId) => updateQuantityByProductId(productId, 1)}
@@ -460,6 +496,12 @@ export function PublicMenuPage() {
         product={activeModifierProduct}
         onClose={() => setActiveModifierProduct(null)}
         onConfirm={handleConfirmModifiers}
+      />
+
+      <ComboSheet
+        product={activeComboProduct}
+        onClose={() => setActiveComboProduct(null)}
+        onConfirm={handleConfirmCombo}
       />
     </div>
   )

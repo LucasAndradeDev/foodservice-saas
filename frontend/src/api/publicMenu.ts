@@ -1,5 +1,6 @@
 import type { ItemStatus } from './orders'
 import type { ModifierGroup } from './productModifiers'
+import type { ComboComposition } from './combos'
 import { http } from './http'
 
 export interface PublicMenuProduct {
@@ -7,6 +8,7 @@ export interface PublicMenuProduct {
   name: string
   description: string | null
   imageUrl: string | null
+  type: 'SIMPLE' | 'COMBO'
   price: number
   discountedPrice: number | null
   soldOut: boolean
@@ -15,6 +17,7 @@ export interface PublicMenuProduct {
   bestseller: boolean
   estimatedWaitMinutes: number | null
   modifierGroups: ModifierGroup[]
+  combo: ComboComposition | null
 }
 
 export interface PublicMenuCategory {
@@ -69,6 +72,7 @@ export interface PublicOrderItemPayload {
   quantity: number
   observation?: string
   selectedOptionIds?: string[]
+  slotSelections?: { slotId: string; selectedProductId: string }[]
 }
 
 export function getPublicMenu(slug: string, tableId?: string) {
