@@ -6,6 +6,7 @@ import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
+import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.response.FeedbackEntryResponse;
 import com.example.restaurant_saas.dto.response.FeedbackPageResponse;
 import com.example.restaurant_saas.dto.response.FeedbackReportResponse;
@@ -181,6 +182,9 @@ public class ReportService {
         Map<UUID, List<OrderItem>> itemsByWaiter = new HashMap<>();
         for (OrderItem item : orderItemRepository.findForWaiterPerformance(restaurantId, rangeStart, rangeEnd)) {
             User waiter = item.getOrder().getCreatedBy();
+            if (waiter != null && waiter.getRole() != UserRole.WAITER) {
+                continue;
+            }
             itemsByWaiter.computeIfAbsent(waiter != null ? waiter.getId() : null, key -> new ArrayList<>()).add(item);
         }
 
