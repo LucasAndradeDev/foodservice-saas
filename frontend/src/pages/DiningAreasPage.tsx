@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Reorder } from 'framer-motion'
-import { GripVertical, MapPin, Pencil, Plus, Trash2 } from 'lucide-react'
+import { GripVertical, LayoutGrid, MapPin, Move, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   createDiningArea,
@@ -11,6 +11,7 @@ import {
   type DiningArea,
 } from '../api/diningAreas'
 import { useAuth } from '../auth/AuthContext'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Modal } from '../components/Modal'
 
 export function DiningAreasPage() {
@@ -30,8 +31,10 @@ export function DiningAreasPage() {
 
   const [editingArea, setEditingArea] = useState<DiningArea | null>(null)
   const [isCreating, setIsCreating] = useState(false)
+  const [areaPendingDelete, setAreaPendingDelete] = useState<DiningArea | null>(null)
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [pageError, setPageError] = useState<string | null>(null)
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['dining-areas'] })
@@ -58,8 +61,11 @@ export function DiningAreasPage() {
 
   const deleteMutation = useMutation({
     mutationFn: deleteDiningArea,
-    onSuccess: invalidate,
-    onError: () => window.alert('Não foi possível excluir. Mova as mesas dessa área antes de excluí-la.'),
+    onSuccess: () => {
+      invalidate()
+      setAreaPendingDelete(null)
+    },
+    onError: () => setPageError('Não foi possível excluir. Mova as mesas dessa área antes de excluí-la.'),
   })
 
   const reorderMutation = useMutation({
@@ -95,10 +101,13 @@ export function DiningAreasPage() {
   }
 
   function handleDelete(area: DiningArea) {
-    const confirmed = window.confirm(`Excluir a área "${area.name}"? Essa ação não pode ser desfeita.`)
-    if (confirmed) {
-      deleteMutation.mutate(area.id)
-    }
+    setPageError(null)
+    setAreaPendingDelete(area)
+  }
+
+  function confirmDelete() {
+    if (!areaPendingDelete) return
+    deleteMutation.mutate(areaPendingDelete.id)
   }
 
   function handleDragEnd() {
@@ -109,51 +118,74 @@ export function DiningAreasPage() {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
-          <MapPin className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-          Áreas do salão
-        </h1>
+      <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+            <MapPin className="h-5 w-5" />
+          </span>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Áreas do salão</h1>
+        </div>
         {canManage && (
           <button
             type="button"
             onClick={openCreateForm}
-            className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"
+            className="flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:bg-brand-700 hover:shadow-md active:scale-[0.98] sm:py-2.5 sm:text-sm"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
             Nova área
           </button>
         )}
       </div>
 
+      {pageError && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{pageError}</p>}
+
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {orderedAreas.length === 0 && !isLoading && (
-        <p className="text-sm text-gray-500 dark:text-stone-400">
-          Nenhuma área cadastrada. Sem áreas, as mesas aparecem numa única grade.
-        </p>
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-16 text-center dark:border-white/10 dark:bg-white/5">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-300 shadow-sm dark:bg-stone-800 dark:text-stone-600">
+            <LayoutGrid className="h-7 w-7" />
+          </span>
+          <p className="text-sm text-gray-500 dark:text-stone-400">
+            Nenhuma área cadastrada. Sem áreas, as mesas aparecem numa única grade.
+          </p>
+          {canManage && (
+            <button
+              type="button"
+              onClick={openCreateForm}
+              className="mt-1 flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+            >
+              <Plus className="h-4 w-4" />
+              Criar primeira área
+            </button>
+          )}
+        </div>
       )}
 
       {orderedAreas.length > 0 && (
         <>
-          <p className="mb-2 text-xs text-gray-500 dark:text-stone-400">
-            Arraste para reordenar como as áreas aparecem na tela de Mesas.
+          <p className="mb-3 flex items-center gap-2 px-1 text-xs font-medium text-gray-500 dark:text-stone-400">
+            <Move className="h-3.5 w-3.5" />
+            Arraste pra reordenar como as áreas aparecem na tela de Mesas.
           </p>
           <Reorder.Group
             axis="y"
             values={orderedAreas}
             onReorder={setOrderedAreas}
-            className="flex flex-col gap-2"
+            className="flex flex-col gap-2.5"
           >
-            {orderedAreas.map((area) => (
+            {orderedAreas.map((area, index) => (
               <Reorder.Item
                 key={area.id}
                 value={area}
                 onDragEnd={handleDragEnd}
-                className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-stone-900"
+                className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-stone-900"
               >
-                <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-gray-300 active:cursor-grabbing dark:text-stone-600" />
-                <span className="flex-1 text-sm font-medium text-gray-800 dark:text-white">{area.name}</span>
+                <GripVertical className="h-5 w-5 shrink-0 cursor-grab text-gray-300 active:cursor-grabbing dark:text-stone-600" />
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-400">
+                  {index + 1}
+                </span>
+                <span className="flex-1 text-sm font-semibold text-gray-900 dark:text-white">{area.name}</span>
                 {canManage && (
                   <div className="flex items-center gap-1">
                     <button
@@ -161,7 +193,7 @@ export function DiningAreasPage() {
                       onClick={() => openEditForm(area)}
                       title="Editar"
                       aria-label="Editar"
-                      className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+                      className="rounded-xl p-2.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -170,7 +202,7 @@ export function DiningAreasPage() {
                       onClick={() => handleDelete(area)}
                       title="Excluir"
                       aria-label="Excluir"
-                      className="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-stone-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                      className="rounded-xl p-2.5 text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-stone-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -196,7 +228,7 @@ export function DiningAreasPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Salão interno, Varanda"
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+              className="mb-4 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
             {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -204,12 +236,25 @@ export function DiningAreasPage() {
             <button
               type="submit"
               disabled={createMutation.isPending || updateMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+              className="w-full rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
             >
               Salvar
             </button>
           </form>
         </Modal>
+      )}
+
+      {areaPendingDelete && (
+        <ConfirmDialog
+          title="Excluir área"
+          message={`Excluir a área "${areaPendingDelete.name}"? Essa ação não pode ser desfeita.`}
+          confirmLabel="Excluir"
+          cancelLabel="Voltar"
+          danger
+          isLoading={deleteMutation.isPending}
+          onConfirm={confirmDelete}
+          onCancel={() => setAreaPendingDelete(null)}
+        />
       )}
     </div>
   )

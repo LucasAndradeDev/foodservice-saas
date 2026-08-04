@@ -6,6 +6,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string
   cancelLabel?: string
   danger?: boolean
+  isLoading?: boolean
   onConfirm: () => void
   onCancel: () => void
 }
@@ -16,6 +17,7 @@ export function ConfirmDialog({
   confirmLabel = 'Confirmar',
   cancelLabel = 'Voltar',
   danger = false,
+  isLoading = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -40,18 +42,19 @@ export function ConfirmDialog({
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white">{title}</h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-stone-400">{message}</p>
 
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
             <button
               type="button"
               onClick={onCancel}
-              className="rounded-md border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+              className="rounded-xl border border-gray-200 px-4 py-3 text-base font-semibold text-gray-700 transition hover:bg-gray-50 sm:py-2.5 sm:text-sm dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
             >
               {cancelLabel}
             </button>
             <button
               type="button"
               onClick={onConfirm}
-              className={`rounded-md px-4 py-2 text-sm font-medium text-white ${
+              disabled={isLoading}
+              className={`rounded-xl px-4 py-3 text-base font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-50 sm:py-2.5 sm:text-sm ${
                 danger ? 'bg-brand-700 hover:bg-brand-800' : 'bg-brand-600 hover:bg-brand-700'
               }`}
             >

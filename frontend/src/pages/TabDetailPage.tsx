@@ -54,6 +54,7 @@ import {
   type Tab,
 } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Modal } from '../components/Modal'
 import { getCategoryIcon } from './publicMenu/categoryIcons'
 import { formatTableLabel } from '../utils/tableLabel'
@@ -166,6 +167,8 @@ export function TabDetailPage() {
   const [comboSlotSelections, setComboSlotSelections] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [isMerging, setIsMerging] = useState(false)
+  const [isConfirmingCancel, setIsConfirmingCancel] = useState(false)
+  const [tabPendingMerge, setTabPendingMerge] = useState<Tab | null>(null)
   const [pendingUndo, setPendingUndo] = useState<{ sourceTabId: string; label: string } | null>(null)
   const pendingUndoTimeoutRef = useRef<number | null>(null)
   const [discountingItem, setDiscountingItem] = useState<OrderItem | null>(null)
@@ -618,11 +621,13 @@ export function TabDetailPage() {
   }
 
   function handleCancelTab() {
-    const confirmed = window.confirm('Cancelar essa comanda? As mesas voltam a ficar livres.')
-    if (confirmed) {
-      setError(null)
-      cancelMutation.mutate()
-    }
+    setIsConfirmingCancel(true)
+  }
+
+  function confirmCancelTab() {
+    setIsConfirmingCancel(false)
+    setError(null)
+    cancelMutation.mutate()
   }
 
   function openMergeModal() {
@@ -631,14 +636,14 @@ export function TabDetailPage() {
   }
 
   function handleMergeTab(sourceTab: Tab) {
-    const label = formatTableLabel(sourceTab.tables.map((t) => t.number))
-    const confirmed = window.confirm(
-      `Mesclar com ${label}? Os pedidos dessa comanda serão movidos pra cá, e ela será encerrada.`,
-    )
-    if (confirmed) {
-      setError(null)
-      mergeMutation.mutate(sourceTab.id)
-    }
+    setTabPendingMerge(sourceTab)
+  }
+
+  function confirmMergeTab() {
+    if (!tabPendingMerge) return
+    setError(null)
+    mergeMutation.mutate(tabPendingMerge.id)
+    setTabPendingMerge(null)
   }
 
   if (isTabLoading || isOrdersLoading || !tab) {
@@ -696,48 +701,51 @@ export function TabDetailPage() {
         </div>
 
         {isOpen && canOrder && (
-          <div className="flex flex-wrap gap-2">
-            {orders?.length === 0 && (
-              <button
-                type="button"
-                onClick={handleCancelTab}
-                disabled={cancelMutation.isPending}
-                className="flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
-              >
-                <Ban className="h-4 w-4" />
-                Cancelar comanda
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={openMergeModal}
-              className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
-            >
-              <GitMerge className="h-4 w-4" />
-              Mesclar comanda
-            </button>
-            {allItems.some((item) => item.status !== 'CANCELLED') && (
-              <button
-                type="button"
-                onClick={toggleTransferSelectionMode}
-                className={`flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm ${
-                  isSelectingForTransfer
-                    ? 'border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-400'
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5'
-                }`}
-              >
-                <ArrowRightLeft className="h-4 w-4" />
-                {isSelectingForTransfer ? 'Cancelar seleção' : 'Transferir itens'}
-              </button>
-            )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
             <button
               type="button"
               onClick={openAddItemForm}
-              className="flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+              className="flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:bg-brand-700 hover:shadow-md active:scale-[0.98] sm:order-last sm:py-2.5 sm:text-sm"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-5 w-5 sm:h-4 sm:w-4" />
               Adicionar item
             </button>
+
+            <div className="flex flex-wrap gap-2">
+              {allItems.some((item) => item.status !== 'CANCELLED') && (
+                <button
+                  type="button"
+                  onClick={toggleTransferSelectionMode}
+                  className={`flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-3 text-base font-semibold transition-all active:scale-[0.98] sm:flex-none sm:py-2.5 sm:text-sm ${
+                    isSelectingForTransfer
+                      ? 'border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-400'
+                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10'
+                  }`}
+                >
+                  <ArrowRightLeft className="h-4 w-4" />
+                  {isSelectingForTransfer ? 'Cancelar seleção' : 'Transferir itens'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={openMergeModal}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-semibold text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.98] sm:flex-none sm:py-2.5 sm:text-sm dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10"
+              >
+                <GitMerge className="h-4 w-4" />
+                Mesclar comanda
+              </button>
+              {orders?.length === 0 && (
+                <button
+                  type="button"
+                  onClick={handleCancelTab}
+                  disabled={cancelMutation.isPending}
+                  className="flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-base font-medium text-red-600 transition-all hover:bg-red-50 active:scale-[0.98] disabled:opacity-50 sm:py-2.5 sm:text-sm dark:text-red-400 dark:hover:bg-red-500/10"
+                >
+                  <Ban className="h-4 w-4" />
+                  Cancelar comanda
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -1265,13 +1273,13 @@ export function TabDetailPage() {
           )}
           <ul className="mb-4 divide-y divide-gray-100 dark:divide-white/10">
             {freeTables?.map((table) => (
-              <li key={table.id} className="flex items-center justify-between py-2 text-sm">
+              <li key={table.id} className="flex items-center justify-between gap-3 py-3 text-sm">
                 <span>Mesa {table.number}</span>
                 <button
                   type="button"
                   onClick={() => addTableMutation.mutate(table.id)}
                   disabled={addTableMutation.isPending}
-                  className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+                  className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
                 >
                   Adicionar a esta comanda
                 </button>
@@ -1290,13 +1298,13 @@ export function TabDetailPage() {
             {otherOpenTabs
               ?.filter((t) => t.id !== tabId)
               .map((otherTab) => (
-                <li key={otherTab.id} className="flex items-center justify-between py-2 text-sm">
+                <li key={otherTab.id} className="flex items-center justify-between gap-3 py-3 text-sm">
                   <span>{formatTableLabel(otherTab.tables.map((t) => t.number))}</span>
                   <button
                     type="button"
                     onClick={() => handleMergeTab(otherTab)}
                     disabled={mergeMutation.isPending}
-                    className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+                    className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
                   >
                     Mesclar aqui
                   </button>
@@ -1304,6 +1312,31 @@ export function TabDetailPage() {
               ))}
           </ul>
         </Modal>
+      )}
+
+      {isConfirmingCancel && (
+        <ConfirmDialog
+          title="Cancelar comanda"
+          message="Cancelar essa comanda? As mesas voltam a ficar livres."
+          confirmLabel="Cancelar comanda"
+          cancelLabel="Voltar"
+          danger
+          isLoading={cancelMutation.isPending}
+          onConfirm={confirmCancelTab}
+          onCancel={() => setIsConfirmingCancel(false)}
+        />
+      )}
+
+      {tabPendingMerge && (
+        <ConfirmDialog
+          title="Mesclar comanda"
+          message={`Mesclar com ${formatTableLabel(tabPendingMerge.tables.map((t) => t.number))}? Os pedidos dessa comanda serão movidos pra cá, e ela será encerrada.`}
+          confirmLabel="Mesclar"
+          cancelLabel="Voltar"
+          isLoading={mergeMutation.isPending}
+          onConfirm={confirmMergeTab}
+          onCancel={() => setTabPendingMerge(null)}
+        />
       )}
 
       {isPickingTransferTarget && (
@@ -1326,13 +1359,13 @@ export function TabDetailPage() {
             {otherOpenTabs
               ?.filter((t) => t.id !== tabId)
               .map((otherTab) => (
-                <li key={otherTab.id} className="flex items-center justify-between py-2 text-sm">
+                <li key={otherTab.id} className="flex items-center justify-between gap-3 py-3 text-sm">
                   <span>{formatTableLabel(otherTab.tables.map((t) => t.number))}</span>
                   <button
                     type="button"
                     onClick={() => handleTransferToTab(otherTab)}
                     disabled={transferItemsMutation.isPending}
-                    className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+                    className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
                   >
                     Transferir pra cá
                   </button>
