@@ -40,14 +40,16 @@ import {
   addTableToTab,
   applyTabDiscount,
   cancelTab,
-  cancelTabPayment,
   computeDiscountAmount,
   getTab,
   listTabs,
   mergeTabs,
   PAYMENT_METHOD_LABELS,
+  registerPayments,
   roundCurrency,
   unmergeTabs,
+  voidPayment,
+  type Payment,
   type PaymentMethod,
   type Tab,
 } from '../api/tabs'
@@ -170,10 +172,11 @@ export function TabDetailPage() {
   const [discountKind, setDiscountKind] = useState<DiscountType>('FIXED')
   const [discountValue, setDiscountValue] = useState('')
   const [discountReason, setDiscountReason] = useState('')
-  const [isCancellingPayment, setIsCancellingPayment] = useState(false)
-  const [cancelPaymentReason, setCancelPaymentReason] = useState('')
-  const [cancelPaymentMethod, setCancelPaymentMethod] = useState<PaymentMethod>('PIX')
-  const [cancelServiceChargeInput, setCancelServiceChargeInput] = useState('')
+  const [voidingPayment, setVoidingPayment] = useState<Payment | null>(null)
+  const [voidReason, setVoidReason] = useState('')
+  const [isCompletingPayment, setIsCompletingPayment] = useState(false)
+  const [completePaymentMethod, setCompletePaymentMethod] = useState<PaymentMethod>('PIX')
+  const [completePaymentAmount, setCompletePaymentAmount] = useState('')
   const [isSelectingForTransfer, setIsSelectingForTransfer] = useState(false)
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
   const [isPickingTransferTarget, setIsPickingTransferTarget] = useState(false)
@@ -237,41 +240,53 @@ export function TabDetailPage() {
     onError: () => setError('Não foi possível cancelar a comanda.'),
   })
 
-  const cancelPaymentMutation = useMutation({
-    mutationFn: ({
-      reason,
-      method,
-      amount,
-      chargePercentage,
-    }: {
-      reason: string
-      method: PaymentMethod
-      amount: number
-      chargePercentage: number | null
-    }) => cancelTabPayment(tabId!, reason, method, amount, chargePercentage ?? undefined),
+  const voidPaymentMutation = useMutation({
+    mutationFn: ({ paymentId, reason }: { paymentId: string; reason: string }) => voidPayment(tabId!, paymentId, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tabs', tabId] })
-      setIsCancellingPayment(false)
+      setVoidingPayment(null)
+      setVoidReason('')
     },
-    onError: (err) =>
-      setError(extractErrorMessage(err, 'Não foi possível corrigir o pagamento desta comanda. Confira se o valor bate com o total.')),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível anular esse pagamento.')),
   })
 
-  function openCancelPaymentModal() {
-    if (!tab) return
+  function openVoidPaymentModal(payment: Payment) {
     setError(null)
-    setCancelPaymentReason('')
-    setCancelPaymentMethod(tab.paymentMethod ?? 'PIX')
-    setCancelServiceChargeInput(tab.serviceChargePercentage != null ? String(tab.serviceChargePercentage) : '')
-    setIsCancellingPayment(true)
+    setVoidReason('')
+    setVoidingPayment(payment)
   }
 
-  function handleCancelPayment(event: FormEvent) {
+  function handleVoidPayment(event: FormEvent) {
     event.preventDefault()
-    const reason = cancelPaymentReason.trim()
+    if (!voidingPayment) return
+    const reason = voidReason.trim()
     if (!reason) return
-    const chargePercentage = cancelServiceChargeInput.trim() ? Number(cancelServiceChargeInput) : null
-    cancelPaymentMutation.mutate({ reason, method: cancelPaymentMethod, amount: cancelPaymentTotal, chargePercentage })
+    voidPaymentMutation.mutate({ paymentId: voidingPayment.id, reason })
+  }
+
+  const completePaymentMutation = useMutation({
+    mutationFn: ({ method, amount }: { method: PaymentMethod; amount: number }) =>
+      registerPayments(tabId!, [{ paymentMethod: method, amount }]),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tabs', tabId] })
+      setIsCompletingPayment(false)
+    },
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível registrar o pagamento. Confira se o valor não excede o saldo em aberto.')),
+  })
+
+  function openCompletePaymentModal() {
+    if (!tab) return
+    setError(null)
+    setCompletePaymentMethod('PIX')
+    setCompletePaymentAmount(tab.remainingBalance != null ? String(tab.remainingBalance) : '')
+    setIsCompletingPayment(true)
+  }
+
+  function handleCompletePayment(event: FormEvent) {
+    event.preventDefault()
+    const amount = Number(completePaymentAmount)
+    if (!amount || amount <= 0) return
+    completePaymentMutation.mutate({ method: completePaymentMethod, amount })
   }
 
   function invalidateTabQueries() {
@@ -637,11 +652,8 @@ export function TabDetailPage() {
   const tabDiscountAmount = computeDiscountAmount(tab.discountType, tab.discountValue, grandTotal)
   const grandTotalAfterDiscount = roundCurrency(grandTotal - tabDiscountAmount)
   const isOpen = tab.status === 'OPEN'
-
-  const cancelServiceChargePercentage = cancelServiceChargeInput.trim() ? Number(cancelServiceChargeInput) : null
-  const cancelAfterDiscount = grandTotalAfterDiscount
-  const cancelServiceChargeAmount = roundCurrency((cancelAfterDiscount * (cancelServiceChargePercentage ?? 0)) / 100)
-  const cancelPaymentTotal = roundCurrency(cancelAfterDiscount + cancelServiceChargeAmount)
+  const activePayments = tab.payments.filter((payment) => payment.status === 'ACTIVE')
+  const hasOutstandingBalance = tab.status === 'CLOSED' && (tab.remainingBalance ?? 0) > 0
 
   return (
     <div>
@@ -729,18 +741,6 @@ export function TabDetailPage() {
           </div>
         )}
 
-        {tab.status === 'CLOSED' && canDiscount && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={openCancelPaymentModal}
-              className="flex items-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
-            >
-              <Pencil className="h-4 w-4" />
-              Corrigir pagamento
-            </button>
-          </div>
-        )}
       </div>
 
       {pendingUndo && (
@@ -969,9 +969,76 @@ export function TabDetailPage() {
               Total da comanda
             </span>
             <span className="text-xl font-semibold text-brand-700 dark:text-brand-400">
-              {currencyFormatter.format(grandTotalAfterDiscount)}
+              {currencyFormatter.format(tab.billTotal ?? grandTotalAfterDiscount)}
             </span>
           </div>
+          {tab.serviceChargePercentage != null && (
+            <div className="mt-1 flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
+              <span>Taxa de serviço ({tab.serviceChargePercentage}%)</span>
+              <span>{currencyFormatter.format(tab.serviceChargeAmount ?? 0)}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {(activePayments.length > 0 || tab.payments.length > 0 || hasOutstandingBalance) && (
+        <div className="mt-4 rounded-xl border border-gray-200 bg-white px-5 py-4 shadow-sm dark:border-white/10 dark:bg-stone-900">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white">
+            <Wallet className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+            Pagamentos
+          </h2>
+          <ul className="mb-3 divide-y divide-gray-100 dark:divide-white/10">
+            {tab.payments.map((payment) => (
+              <li key={payment.id} className="flex items-start justify-between gap-2 py-2 text-sm">
+                <div>
+                  <span
+                    className={
+                      payment.status === 'VOIDED'
+                        ? 'text-gray-400 line-through dark:text-stone-600'
+                        : 'text-gray-800 dark:text-white'
+                    }
+                  >
+                    {PAYMENT_METHOD_LABELS[payment.paymentMethod]} — {currencyFormatter.format(payment.amount)}
+                  </span>
+                  <div className="mt-0.5 text-xs text-gray-400 dark:text-stone-500">
+                    {new Date(payment.paidAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    {payment.createdByName && ` · ${payment.createdByName}`}
+                  </div>
+                  {payment.status === 'VOIDED' && (
+                    <div className="mt-0.5 text-xs text-red-500 dark:text-red-400">
+                      Anulado{payment.voidedByName && ` por ${payment.voidedByName}`}
+                      {payment.voidReason && `: ${payment.voidReason}`}
+                    </div>
+                  )}
+                </div>
+                {payment.status === 'ACTIVE' && canDiscount && (
+                  <button
+                    type="button"
+                    onClick={() => openVoidPaymentModal(payment)}
+                    className="shrink-0 text-xs text-red-600 hover:underline dark:text-red-400"
+                  >
+                    Anular
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {hasOutstandingBalance && (
+            <div className="flex items-center justify-between text-sm font-semibold text-amber-700 dark:text-amber-400">
+              <span>Saldo em aberto</span>
+              <span>{currencyFormatter.format(tab.remainingBalance ?? 0)}</span>
+            </div>
+          )}
+          {hasOutstandingBalance && canDiscount && (
+            <button
+              type="button"
+              onClick={openCompletePaymentModal}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-brand-600 px-3 py-2 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-brand-500/10"
+            >
+              <Pencil className="h-4 w-4" />
+              Completar pagamento
+            </button>
+          )}
         </div>
       )}
 
@@ -1359,35 +1426,55 @@ export function TabDetailPage() {
         </Modal>
       )}
 
-      {isCancellingPayment && (
-        <Modal title="Corrigir pagamento" onClose={() => setIsCancellingPayment(false)}>
-          <form onSubmit={handleCancelPayment}>
+      {voidingPayment && (
+        <Modal title="Anular pagamento" onClose={() => setVoidingPayment(null)}>
+          <form onSubmit={handleVoidPayment}>
             <p className="mb-3 text-sm text-gray-500 dark:text-stone-400">
-              Substitui o pagamento registrado por um corrigido. A comanda continua fechada e a mesa não é mexida —
-              use isso pra corrigir forma ou valor errados, não pra retomar o atendimento.
+              {PAYMENT_METHOD_LABELS[voidingPayment.paymentMethod]} — {currencyFormatter.format(voidingPayment.amount)}. Fica
+              registrado no histórico como anulado, em vez de sumir — a mesa e o status da comanda não são mexidos.
             </p>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="cancel-payment-reason">
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="void-payment-reason">
               Motivo
             </label>
             <input
-              id="cancel-payment-reason"
+              id="void-payment-reason"
               type="text"
               required
               maxLength={255}
-              value={cancelPaymentReason}
-              onChange={(e) => setCancelPaymentReason(e.target.value)}
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
               placeholder="Ex.: registrei a forma de pagamento errada"
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="cancel-payment-method">
-              Forma de pagamento correta
+            {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={voidPaymentMutation.isPending}
+              className="w-full rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+            >
+              Confirmar anulação
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {isCompletingPayment && (
+        <Modal title="Completar pagamento" onClose={() => setIsCompletingPayment(false)}>
+          <form onSubmit={handleCompletePayment}>
+            <p className="mb-3 text-sm text-gray-500 dark:text-stone-400">
+              Saldo em aberto: {currencyFormatter.format(tab.remainingBalance ?? 0)}
+            </p>
+
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="complete-payment-method">
+              Forma de pagamento
             </label>
             <select
-              id="cancel-payment-method"
-              value={cancelPaymentMethod}
-              onChange={(e) => setCancelPaymentMethod(e.target.value as PaymentMethod)}
+              id="complete-payment-method"
+              value={completePaymentMethod}
+              onChange={(e) => setCompletePaymentMethod(e.target.value as PaymentMethod)}
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             >
               {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => (
@@ -1397,42 +1484,29 @@ export function TabDetailPage() {
               ))}
             </select>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="cancel-service-charge">
-              Taxa de serviço (%) <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="complete-payment-amount">
+              Valor
             </label>
             <input
-              id="cancel-service-charge"
+              id="complete-payment-amount"
               type="number"
-              min="0"
-              max="100"
+              required
+              min="0.01"
               step="0.01"
-              value={cancelServiceChargeInput}
-              onChange={(e) => setCancelServiceChargeInput(e.target.value)}
-              placeholder="Sem taxa de serviço"
+              max={tab.remainingBalance ?? undefined}
+              value={completePaymentAmount}
+              onChange={(e) => setCompletePaymentAmount(e.target.value)}
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
-
-            <div className="mb-4 space-y-1 border-t border-gray-200 pt-3 dark:border-white/10">
-              {cancelServiceChargePercentage != null && (
-                <div className="flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
-                  <span>Subtotal</span>
-                  <span>{currencyFormatter.format(cancelAfterDiscount)}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between text-base font-semibold text-gray-800 dark:text-white">
-                <span>Total corrigido</span>
-                <span>{currencyFormatter.format(cancelPaymentTotal)}</span>
-              </div>
-            </div>
 
             {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
             <button
               type="submit"
-              disabled={cancelPaymentMutation.isPending}
-              className="w-full rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              disabled={completePaymentMutation.isPending}
+              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
             >
-              Confirmar correção
+              Registrar pagamento
             </button>
           </form>
         </Modal>

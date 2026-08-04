@@ -60,7 +60,8 @@ export function TabReceiptPrintPage() {
     .filter((item) => item.status !== 'CANCELLED')
     .reduce((sum, item) => sum + item.netSubtotal, 0)
   const tabDiscountAmount = computeDiscountAmount(tab.discountType, tab.discountValue, itemsTotal)
-  const total = tab.paidAmount ?? itemsTotal - tabDiscountAmount
+  const total = tab.billTotal ?? itemsTotal - tabDiscountAmount
+  const activePayments = tab.payments.filter((payment) => payment.status === 'ACTIVE')
 
   return (
     <div className="flex min-h-screen justify-center bg-gray-100 py-6 print:block print:min-h-0 print:bg-white print:py-0" style={{ colorScheme: 'light' }}>
@@ -138,10 +139,14 @@ export function TabReceiptPrintPage() {
           <span className="tabular-nums">{currencyFormatter.format(total)}</span>
         </div>
 
-        {tab.paidAt && tab.paymentMethod && (
-          <div className="mt-1.5 text-xs text-gray-600">
-            Pago via {PAYMENT_METHOD_LABELS[tab.paymentMethod]}
-            {tab.paidAmount !== null && ` — ${currencyFormatter.format(tab.paidAmount)}`}
+        {activePayments.length > 0 && (
+          <div className="mt-1.5 space-y-0.5 text-xs text-gray-600">
+            {activePayments.map((payment) => (
+              <div key={payment.id} className="flex items-center justify-between gap-2">
+                <span>Pago via {PAYMENT_METHOD_LABELS[payment.paymentMethod]}</span>
+                <span className="tabular-nums">{currencyFormatter.format(payment.amount)}</span>
+              </div>
+            ))}
           </div>
         )}
 

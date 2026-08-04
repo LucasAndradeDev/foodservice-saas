@@ -1,7 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, ChevronDown, Clock, Lock, Pencil, Percent, Printer, Wallet } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Clock, Lock, Pencil, Percent, Printer, Users, Wallet, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listOrders, type DiscountType, type OrderItem } from '../api/orders'
@@ -9,7 +9,7 @@ import {
   applyTabDiscount,
   computeDiscountAmount,
   listTabs,
-  payTab,
+  registerPayments,
   PAYMENT_METHOD_LABELS,
   roundCurrency,
   type PaymentMethod,
@@ -17,11 +17,38 @@ import {
 } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
+import { Dropdown, type DropdownOption } from '../components/Dropdown'
 import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
 import { QrCodeCard } from '../components/QrCodeCard'
 import { formatTableLabel } from '../utils/tableLabel'
 import { feedbackUrl } from '../utils/publicMenuUrl'
+
+let entrySeq = 0
+function nextEntryId() {
+  entrySeq += 1
+  return `entry-${entrySeq}`
+}
+
+interface PendingEntry {
+  id: string
+  method: PaymentMethod
+  amount: string
+}
+
+const PAYMENT_METHOD_OPTIONS: DropdownOption<PaymentMethod>[] = (Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => ({
+  value: method,
+  label: PAYMENT_METHOD_LABELS[method],
+}))
+
+type SplitChoice = 'single' | '2' | '3' | '4'
+
+const SPLIT_OPTIONS: DropdownOption<SplitChoice>[] = [
+  { value: 'single', label: 'Pagamento único' },
+  { value: '2', label: 'Dividir em 2x' },
+  { value: '3', label: 'Dividir em 3x' },
+  { value: '4', label: 'Dividir em 4x' },
+]
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' })
@@ -101,7 +128,7 @@ export function CheckoutPage() {
 
   const [showClosedToday, setShowClosedToday] = useState(false)
   const [selectedSummary, setSelectedSummary] = useState<TabSummary | null>(null)
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('PIX')
+  const [pendingEntries, setPendingEntries] = useState<PendingEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [justPaidTabId, setJustPaidTabId] = useState<string | null>(null)
   const [isEditingDiscount, setIsEditingDiscount] = useState(false)
@@ -113,14 +140,26 @@ export function CheckoutPage() {
   const [serviceChargeInput, setServiceChargeInput] = useState('')
 
   const payMutation = useMutation({
-    mutationFn: ({ id, method, amount, chargePercentage }: { id: string; method: PaymentMethod; amount: number; chargePercentage: number | null }) =>
-      payTab(id, method, amount, chargePercentage ?? undefined),
-    onSuccess: (_, variables) => {
+    mutationFn: ({
+      id,
+      entries,
+      chargePercentage,
+    }: {
+      id: string
+      entries: { paymentMethod: PaymentMethod; amount: number }[]
+      chargePercentage: number | null
+    }) => registerPayments(id, entries, chargePercentage ?? undefined),
+    onSuccess: (updatedTab, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tabs'] })
       queryClient.invalidateQueries({ queryKey: ['tables'] })
-      setJustPaidTabId(variables.id)
+      setSelectedSummary((prev) => (prev ? { ...prev, tab: updatedTab } : prev))
+      if (updatedTab.status === 'CLOSED') {
+        setJustPaidTabId(variables.id)
+      } else {
+        setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(updatedTab.remainingBalance ?? 0) }])
+      }
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível fechar a conta. Tente novamente.')),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível registrar o pagamento. Tente novamente.')),
   })
 
   const tabDiscountMutation = useMutation({
@@ -131,6 +170,8 @@ export function CheckoutPage() {
       setSelectedSummary((prev) => {
         if (!prev) return prev
         const total = roundCurrency(prev.itemsTotal - computeDiscountAmount(updatedTab.discountType, updatedTab.discountValue, prev.itemsTotal))
+        const chargeAmount = roundCurrency((total * (serviceChargePercentage ?? 0)) / 100)
+        setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(roundCurrency(total + chargeAmount)) }])
         return { ...prev, tab: updatedTab, total }
       })
       setIsEditingDiscount(false)
@@ -141,13 +182,21 @@ export function CheckoutPage() {
   function handleCardClick(summary: TabSummary) {
     if (summary.isReady) {
       setSelectedSummary(summary)
-      setPaymentMethod('PIX')
       setError(null)
       setIsEditingDiscount(false)
-      const defaultCharge = restaurant?.serviceChargeEnabled ? restaurant.serviceChargePercentage : null
-      setServiceChargePercentage(defaultCharge)
-      setServiceChargeInput(String(restaurant?.serviceChargePercentage ?? 10))
       setIsEditingServiceCharge(false)
+      setServiceChargeInput(String(restaurant?.serviceChargePercentage ?? 10))
+      if (summary.tab.billTotal != null) {
+        // A previous partial payment already locked this tab's total; the service charge can no
+        // longer be changed, so mirror what the backend already froze instead of the restaurant default.
+        setServiceChargePercentage(summary.tab.serviceChargePercentage)
+        setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(summary.tab.remainingBalance ?? 0) }])
+      } else {
+        const defaultCharge = restaurant?.serviceChargeEnabled ? restaurant.serviceChargePercentage : null
+        setServiceChargePercentage(defaultCharge)
+        const chargeAmount = roundCurrency((summary.total * (defaultCharge ?? 0)) / 100)
+        setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(roundCurrency(summary.total + chargeAmount)) }])
+      }
     } else {
       navigate(`/tabs/${summary.tab.id}`)
     }
@@ -158,28 +207,90 @@ export function CheckoutPage() {
     setJustPaidTabId(null)
   }
 
+  const hasLockedTotal = selectedSummary?.tab.billTotal != null
   const serviceChargeAmount = selectedSummary
-    ? roundCurrency((selectedSummary.total * (serviceChargePercentage ?? 0)) / 100)
+    ? hasLockedTotal
+      ? (selectedSummary.tab.serviceChargeAmount ?? 0)
+      : roundCurrency((selectedSummary.total * (serviceChargePercentage ?? 0)) / 100)
     : 0
-  const finalTotal = selectedSummary ? roundCurrency(selectedSummary.total + serviceChargeAmount) : 0
+  const finalTotal = selectedSummary
+    ? hasLockedTotal
+      ? (selectedSummary.tab.billTotal ?? 0)
+      : roundCurrency(selectedSummary.total + serviceChargeAmount)
+    : 0
+  const amountPaid = selectedSummary?.tab.amountPaid ?? 0
+  const remainingBalance = hasLockedTotal ? (selectedSummary?.tab.remainingBalance ?? 0) : finalTotal
+  const entriesSum = roundCurrency(pendingEntries.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0))
+  const amountLeftToAllocate = roundCurrency(remainingBalance - entriesSum)
 
-  function handleConfirmPayment() {
+  function handleSplitEqually(parts: number) {
+    const share = roundCurrency(remainingBalance / parts)
+    const entries: PendingEntry[] = Array.from({ length: parts }, (_, index) => ({
+      id: nextEntryId(),
+      method: 'PIX' as PaymentMethod,
+      // Last share absorbs the rounding remainder so the sum always matches remainingBalance exactly.
+      amount: String(index === parts - 1 ? roundCurrency(remainingBalance - share * (parts - 1)) : share),
+    }))
+    setPendingEntries(entries)
+  }
+
+  function handleSplitChoiceChange(choice: SplitChoice) {
+    if (choice === 'single') {
+      setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(remainingBalance) }])
+    } else {
+      handleSplitEqually(Number(choice))
+    }
+  }
+
+  function addEntry() {
+    setPendingEntries((prev) => [
+      ...prev,
+      { id: nextEntryId(), method: 'PIX', amount: amountLeftToAllocate > 0 ? String(amountLeftToAllocate) : '' },
+    ])
+  }
+
+  function removeEntry(id: string) {
+    setPendingEntries((prev) => prev.filter((entry) => entry.id !== id))
+  }
+
+  function updateEntryAmount(id: string, amount: string) {
+    setPendingEntries((prev) => prev.map((entry) => (entry.id === id ? { ...entry, amount } : entry)))
+  }
+
+  function updateEntryMethod(id: string, method: PaymentMethod) {
+    setPendingEntries((prev) => prev.map((entry) => (entry.id === id ? { ...entry, method } : entry)))
+  }
+
+  function handleRegisterPayments() {
     if (!selectedSummary) return
+    const entries = pendingEntries
+      .map((entry) => ({ paymentMethod: entry.method, amount: Number(entry.amount) }))
+      .filter((entry) => entry.amount > 0)
+    if (entries.length === 0) return
     setError(null)
-    payMutation.mutate({ id: selectedSummary.tab.id, method: paymentMethod, amount: finalTotal, chargePercentage: serviceChargePercentage })
+    payMutation.mutate({
+      id: selectedSummary.tab.id,
+      entries,
+      chargePercentage: hasLockedTotal ? null : serviceChargePercentage,
+    })
   }
 
   function handleApplyServiceCharge(event: FormEvent) {
     event.preventDefault()
+    if (!selectedSummary) return
     const value = Number(serviceChargeInput)
     if (!value || value < 0 || value > 100) return
     setServiceChargePercentage(value)
     setIsEditingServiceCharge(false)
+    const chargeAmount = roundCurrency((selectedSummary.total * value) / 100)
+    setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(roundCurrency(selectedSummary.total + chargeAmount)) }])
   }
 
   function handleRemoveServiceCharge() {
+    if (!selectedSummary) return
     setServiceChargePercentage(null)
     setIsEditingServiceCharge(false)
+    setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(selectedSummary.total) }])
   }
 
   function openDiscountForm() {
@@ -304,11 +415,11 @@ export function CheckoutPage() {
                         </span>
                         <div className="mt-3 flex flex-1 items-end justify-between">
                           <span className="text-lg font-semibold text-gray-800 dark:text-white">
-                            {tab.paidAmount != null && currencyFormatter.format(tab.paidAmount)}
+                            {currencyFormatter.format(tab.billTotal ?? tab.amountPaid)}
                           </span>
-                          <span className="flex items-center gap-1 text-xs font-medium text-gray-400 opacity-0 transition group-hover:text-red-600 group-hover:opacity-100 dark:text-stone-500 dark:group-hover:text-red-400">
+                          <span className="flex items-center gap-1 text-xs font-medium text-gray-400 opacity-0 transition group-hover:text-brand-600 group-hover:opacity-100 dark:text-stone-500 dark:group-hover:text-brand-400">
                             <Pencil className="h-3.5 w-3.5" />
-                            Corrigir pagamento
+                            Ver pagamentos
                           </span>
                         </div>
                       </Link>
@@ -351,7 +462,7 @@ export function CheckoutPage() {
                   to={`/tabs/${selectedSummary.tab.id}`}
                   className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-center text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
                 >
-                  Ver comanda / corrigir pagamento
+                  Ver comanda / pagamentos
                 </Link>
               )}
               <button
@@ -524,7 +635,7 @@ export function CheckoutPage() {
                 </div>
               )}
 
-              {canPay && (
+              {canPay && !hasLockedTotal && (
                 <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-white/10 dark:bg-white/5">
                   {!isEditingServiceCharge || !canDiscount ? (
                     <div className="flex items-center justify-between">
@@ -588,7 +699,7 @@ export function CheckoutPage() {
               )}
 
               <div className="mb-4 space-y-1 border-t border-gray-200 pt-3 dark:border-white/10">
-                {serviceChargePercentage != null && (
+                {serviceChargePercentage != null && !hasLockedTotal && (
                   <div className="flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
                     <span>Subtotal</span>
                     <span>{currencyFormatter.format(selectedSummary.total)}</span>
@@ -598,34 +709,123 @@ export function CheckoutPage() {
                   <span>Total</span>
                   <span>{currencyFormatter.format(finalTotal)}</span>
                 </div>
+                {amountPaid > 0 && (
+                  <>
+                    <div className="flex items-center justify-between text-sm text-green-700 dark:text-green-400">
+                      <span>Já pago</span>
+                      <span>{currencyFormatter.format(amountPaid)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm font-semibold text-amber-700 dark:text-amber-400">
+                      <span>Restante</span>
+                      <span>{currencyFormatter.format(remainingBalance)}</span>
+                    </div>
+                  </>
+                )}
               </div>
 
-              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="paymentMethod">
-                Forma de pagamento
-              </label>
-              <select
-                id="paymentMethod"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-              >
-                {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => (
-                  <option key={method} value={method}>
-                    {PAYMENT_METHOD_LABELS[method]}
-                  </option>
-                ))}
-              </select>
+              {selectedSummary.tab.payments.filter((p) => p.status === 'ACTIVE').length > 0 && (
+                <ul className="mb-4 space-y-1 rounded-lg border border-gray-200 p-3 text-xs text-gray-600 dark:border-white/10 dark:text-stone-400">
+                  {selectedSummary.tab.payments
+                    .filter((p) => p.status === 'ACTIVE')
+                    .map((payment) => (
+                      <li key={payment.id} className="flex items-center justify-between">
+                        <span>{PAYMENT_METHOD_LABELS[payment.paymentMethod]}</span>
+                        <span>{currencyFormatter.format(payment.amount)}</span>
+                      </li>
+                    ))}
+                </ul>
+              )}
+
+              {canPay && (
+                <>
+                  <div className="mb-3">
+                    <Dropdown<SplitChoice>
+                      value={pendingEntries.length >= 2 && pendingEntries.length <= 4 ? (String(pendingEntries.length) as SplitChoice) : 'single'}
+                      options={SPLIT_OPTIONS}
+                      onChange={handleSplitChoiceChange}
+                      icon={Users}
+                    />
+                  </div>
+
+                  <ul className="mb-2 space-y-2">
+                    {pendingEntries.map((entry, index) => (
+                      <li key={entry.id} className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <Dropdown<PaymentMethod>
+                            value={entry.method}
+                            options={PAYMENT_METHOD_OPTIONS}
+                            onChange={(method) => updateEntryMethod(entry.id, method)}
+                            fullWidth
+                            panelClassName="w-full"
+                            mobileTitle={`Forma de pagamento ${index + 1}`}
+                          />
+                        </div>
+                        <input
+                          aria-label={`Valor ${index + 1}`}
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={entry.amount}
+                          onChange={(e) => updateEntryAmount(entry.id, e.target.value)}
+                          className="w-28 rounded-md border border-gray-300 px-2 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                        />
+                        {pendingEntries.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeEntry(entry.id)}
+                            aria-label="Remover este pagamento"
+                            className="shrink-0 text-gray-400 hover:text-red-600 dark:text-stone-500 dark:hover:text-red-400"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button
+                    type="button"
+                    onClick={addEntry}
+                    className="mb-3 text-sm text-brand-600 hover:underline dark:text-brand-400"
+                  >
+                    + Adicionar outro pagamento
+                  </button>
+
+                  <div className="mb-4 space-y-1 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm dark:border-white/10 dark:bg-white/5">
+                    <div className="flex items-center justify-between font-medium text-gray-800 dark:text-white">
+                      <span>Você está registrando</span>
+                      <span>{currencyFormatter.format(entriesSum)}</span>
+                    </div>
+                    {amountLeftToAllocate > 0.001 && (
+                      <div className="flex items-center justify-between text-xs text-amber-700 dark:text-amber-400">
+                        <span>Fica faltando (comanda continua aberta)</span>
+                        <span>{currencyFormatter.format(amountLeftToAllocate)}</span>
+                      </div>
+                    )}
+                    {amountLeftToAllocate < -0.001 && (
+                      <div className="flex items-center justify-between text-xs text-red-600 dark:text-red-400">
+                        <span>Passou do restante em</span>
+                        <span>{currencyFormatter.format(-amountLeftToAllocate)}</span>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
 
               {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
               {canPay && (
                 <button
                   type="button"
-                  onClick={handleConfirmPayment}
-                  disabled={payMutation.isPending}
+                  onClick={handleRegisterPayments}
+                  disabled={payMutation.isPending || entriesSum <= 0 || amountLeftToAllocate < -0.001}
                   className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
                 >
-                  Confirmar pagamento
+                  {amountLeftToAllocate > 0.001
+                    ? `Registrar ${pendingEntries.length > 1 ? pendingEntries.length + ' pagamentos parciais' : 'pagamento parcial'}`
+                    : pendingEntries.length > 1
+                      ? `Confirmar ${pendingEntries.length} pagamentos`
+                      : 'Confirmar pagamento'}
                 </button>
               )}
             </>

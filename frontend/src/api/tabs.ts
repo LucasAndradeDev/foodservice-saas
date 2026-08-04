@@ -3,6 +3,7 @@ import type { ApplyDiscountPayload, DiscountType } from './orders'
 
 export type TabStatus = 'OPEN' | 'CLOSED' | 'MERGED'
 export type PaymentMethod = 'PIX' | 'CASH' | 'DEBIT_CARD' | 'CREDIT_CARD'
+export type PaymentStatus = 'ACTIVE' | 'VOIDED'
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   PIX: 'Pix',
@@ -16,6 +17,18 @@ export interface TabTableSummary {
   number: number
 }
 
+export interface Payment {
+  id: string
+  paymentMethod: PaymentMethod
+  amount: number
+  status: PaymentStatus
+  paidAt: string
+  createdByName: string | null
+  voidedByName: string | null
+  voidedAt: string | null
+  voidReason: string | null
+}
+
 export interface Tab {
   id: string
   restaurantId: string
@@ -23,9 +36,10 @@ export interface Tab {
   openedAt: string
   lastOrderAt: string | null
   closedAt: string | null
-  paymentMethod: PaymentMethod | null
-  paidAmount: number | null
-  paidAt: string | null
+  billTotal: number | null
+  amountPaid: number
+  remainingBalance: number | null
+  payments: Payment[]
   tables: TabTableSummary[]
   receiptPrintedAt: string | null
   discountType: DiscountType | null
@@ -35,9 +49,6 @@ export interface Tab {
   discountAppliedAt: string | null
   serviceChargePercentage: number | null
   serviceChargeAmount: number | null
-  paymentCancelledBy: string | null
-  paymentCancelledAt: string | null
-  paymentCancelReason: string | null
 }
 
 /** Rounds to cents, avoiding binary floating-point artifacts (e.g. 51.3 + 38.9 === 90.19999999999999 in JS). */
@@ -80,20 +91,17 @@ export function unmergeTabs(targetTabId: string, sourceTabId: string) {
   return http.patch<Tab>(`/tabs/${targetTabId}/unmerge`, { sourceTabId }).then((res) => res.data)
 }
 
-export function payTab(id: string, paymentMethod: PaymentMethod, paidAmount: number, serviceChargePercentage?: number) {
-  return http.patch<Tab>(`/tabs/${id}/pay`, { paymentMethod, paidAmount, serviceChargePercentage }).then((res) => res.data)
+export interface PaymentEntry {
+  paymentMethod: PaymentMethod
+  amount: number
 }
 
-export function cancelTabPayment(
-  id: string,
-  reason: string,
-  paymentMethod: PaymentMethod,
-  paidAmount: number,
-  serviceChargePercentage?: number,
-) {
-  return http
-    .patch<Tab>(`/tabs/${id}/cancel-payment`, { reason, paymentMethod, paidAmount, serviceChargePercentage })
-    .then((res) => res.data)
+export function registerPayments(id: string, payments: PaymentEntry[], serviceChargePercentage?: number) {
+  return http.post<Tab>(`/tabs/${id}/payments`, { payments, serviceChargePercentage }).then((res) => res.data)
+}
+
+export function voidPayment(id: string, paymentId: string, reason: string) {
+  return http.patch<Tab>(`/tabs/${id}/payments/${paymentId}/void`, { reason }).then((res) => res.data)
 }
 
 export function markTabReceiptPrinted(id: string) {

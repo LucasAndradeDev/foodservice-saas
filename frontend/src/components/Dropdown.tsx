@@ -51,7 +51,7 @@ export function Dropdown<T extends string>({
   }, [isOpen])
 
   return (
-    <div className="relative inline-block" ref={containerRef}>
+    <div className={`relative ${fullWidth ? 'block w-full' : 'inline-block'}`} ref={containerRef}>
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
