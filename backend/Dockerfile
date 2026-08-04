@@ -13,9 +13,11 @@ RUN mvn -q -DskipTests package
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# pg_dump, used by the /api/v1/internal/backups endpoint. Version must match the Postgres
-# server (16, see docker-compose.yml / the Render Postgres instance).
-RUN apk add --no-cache postgresql16-client
+# pg_dump, used by the /api/v1/internal/backups endpoint. pg_dump refuses to run against a
+# NEWER server major version than itself, so this has to track whatever's newest in production
+# (Render Postgres is 18.x today), not the docker-compose dev database (16.x) - a newer client
+# dumping an older server works fine, so this one binary covers both.
+RUN apk add --no-cache postgresql18-client
 
 COPY --from=build /app/target/*.jar app.jar
 
