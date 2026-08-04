@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { motion, type PanInfo } from 'framer-motion'
+import { AnimatePresence, motion, type PanInfo } from 'framer-motion'
 import {
   AlertTriangle,
   Bell,
@@ -15,9 +15,11 @@ import {
   Users,
   UtensilsCrossed,
   Wallet,
+  X,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import {
   acknowledgeTableRequest,
@@ -51,22 +53,28 @@ const STATUS_LABELS: Record<TableStatus, string> = {
   CLOSING: 'Fechando',
 }
 
-const STATUS_STYLES: Record<TableStatus, string> = {
-  FREE: 'border-green-300 bg-gradient-to-br from-green-50 to-white text-green-800 dark:border-green-500/30 dark:from-green-500/10 dark:to-stone-900 dark:text-green-400',
-  OCCUPIED: 'border-red-300 bg-gradient-to-br from-red-50 to-white text-red-800 dark:border-red-500/30 dark:from-red-500/10 dark:to-stone-900 dark:text-red-400',
-  CLOSING: 'border-amber-300 bg-gradient-to-br from-amber-50 to-white text-amber-800 dark:border-amber-500/30 dark:from-amber-500/10 dark:to-stone-900 dark:text-amber-400',
+const STATUS_CARD_STYLES: Record<TableStatus, string> = {
+  FREE: 'border-green-200 bg-white hover:border-green-300 dark:border-green-500/20 dark:bg-stone-900 dark:hover:border-green-500/40',
+  OCCUPIED: 'border-red-200 bg-gradient-to-br from-red-50 to-white dark:border-red-500/20 dark:from-red-500/10 dark:to-stone-900',
+  CLOSING: 'border-amber-200 bg-gradient-to-br from-amber-50 to-white dark:border-amber-500/20 dark:from-amber-500/10 dark:to-stone-900',
+}
+
+const STATUS_BADGE_STYLES: Record<TableStatus, string> = {
+  FREE: 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400',
+  OCCUPIED: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
+  CLOSING: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
+}
+
+const STATUS_LABEL_STYLES: Record<TableStatus, string> = {
+  FREE: 'text-green-700 dark:text-green-400',
+  OCCUPIED: 'text-red-700 dark:text-red-400',
+  CLOSING: 'text-amber-700 dark:text-amber-400',
 }
 
 const STATUS_ICONS: Record<TableStatus, LucideIcon> = {
   FREE: CheckCircle2,
   OCCUPIED: Flame,
   CLOSING: Clock,
-}
-
-const STATUS_PILL_STYLES: Record<TableStatus, string> = {
-  FREE: 'border-green-200 bg-green-50 text-green-800 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-400',
-  OCCUPIED: 'border-red-200 bg-red-50 text-red-800 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400',
-  CLOSING: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400',
 }
 
 const POLL_INTERVAL_MS = 4000
@@ -85,15 +93,19 @@ interface StatPillProps {
   icon: LucideIcon
   label: string
   value: number
-  className: string
+  badgeClassName: string
 }
 
-function StatPill({ icon: Icon, label, value, className }: StatPillProps) {
+function StatPill({ icon: Icon, label, value, badgeClassName }: StatPillProps) {
   return (
-    <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 ${className}`}>
-      <Icon className="h-4 w-4" />
-      <span className="text-lg font-semibold leading-none">{value}</span>
-      <span className="text-xs font-medium">{label}</span>
+    <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-2.5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${badgeClassName}`}>
+        <Icon className="h-4 w-4" />
+      </span>
+      <div className="leading-tight">
+        <div className="text-base font-bold text-gray-900 dark:text-white">{value}</div>
+        <div className="text-[11px] font-medium text-gray-500 dark:text-stone-400">{label}</div>
+      </div>
     </div>
   )
 }
@@ -254,6 +266,7 @@ export function TablesPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [isBulkCreating, setIsBulkCreating] = useState(false)
   const [isSelectingTables, setIsSelectingTables] = useState(false)
+  const [isMultiTableMode, setIsMultiTableMode] = useState(false)
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false)
   const moreMenuRef = useRef<HTMLDivElement>(null)
   const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(new Set())
@@ -277,6 +290,15 @@ export function TablesPage() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isMoreMenuOpen])
+
+  useEffect(() => {
+    if (!selectedTable) return
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') closeTableModal()
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [selectedTable])
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['tables'] })
@@ -326,6 +348,7 @@ export function TablesPage() {
       invalidate()
       queryClient.invalidateQueries({ queryKey: ['tabs'] })
       setIsSelectingTables(false)
+      setIsMultiTableMode(false)
       setSelectedTableIds(new Set())
       navigate(`/tabs/${tab.id}`)
     },
@@ -405,12 +428,20 @@ export function TablesPage() {
   function startSelectingTables() {
     setError(null)
     setSelectedTableIds(new Set())
+    setIsMultiTableMode(false)
     setIsSelectingTables(true)
   }
 
   function cancelSelectingTables() {
     setIsSelectingTables(false)
+    setIsMultiTableMode(false)
     setSelectedTableIds(new Set())
+  }
+
+  function enableMultiTableMode() {
+    setError(null)
+    setSelectedTableIds(new Set())
+    setIsMultiTableMode(true)
   }
 
   function toggleTableSelection(table: RestaurantTable) {
@@ -439,7 +470,13 @@ export function TablesPage() {
   function handleTableClick(table: RestaurantTable) {
     if (isOrganizingAreas) return
     if (isSelectingTables) {
-      toggleTableSelection(table)
+      if (table.status !== 'FREE') return
+      if (isMultiTableMode) {
+        toggleTableSelection(table)
+      } else {
+        setError(null)
+        openTabMutation.mutate([table.id])
+      }
       return
     }
     const tab = tableTabMap.get(table.id)
@@ -465,130 +502,184 @@ export function TablesPage() {
   }
 
   return (
-    <div>
-      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
-        <div className="flex items-center justify-between gap-3">
-          <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
-            <LayoutGrid className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-            Mesas
-          </h1>
-          {canManage && !isSelectingTables && !isOrganizingAreas && (
-            <div className="relative" ref={moreMenuRef}>
+    <div className={isSelectingTables ? 'pb-24' : undefined}>
+      <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+            <LayoutGrid className="h-5 w-5" />
+          </span>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Mesas</h1>
+        </div>
+
+        {!isSelectingTables && !isOrganizingAreas && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            {canOpenTab && (
               <button
                 type="button"
-                onClick={() => setIsMoreMenuOpen((open) => !open)}
-                title="Mais ações"
-                aria-label="Mais ações"
-                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
+                onClick={startSelectingTables}
+                className="flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:bg-brand-700 hover:shadow-md active:scale-[0.98] sm:py-2.5 sm:text-sm"
               >
-                <MoreVertical className="h-5 w-5" />
+                <Users className="h-5 w-5 sm:h-4 sm:w-4" />
+                Abrir comanda
               </button>
+            )}
+            <div className="flex gap-2">
+              {canOpenTab && (
+                <button
+                  type="button"
+                  onClick={openCounterTab}
+                  disabled={openTabMutation.isPending}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-base font-semibold text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.98] disabled:opacity-50 sm:flex-none sm:py-2.5 sm:text-sm dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10"
+                >
+                  <Coffee className="h-5 w-5 sm:h-4 sm:w-4" />
+                  Balcão
+                </button>
+              )}
+              {canManage && (
+                <div className="relative" ref={moreMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsMoreMenuOpen((open) => !open)}
+                    title="Mais ações"
+                    aria-label="Mais ações"
+                    className="rounded-xl border border-gray-200 p-3.5 text-gray-500 hover:bg-gray-50 hover:text-gray-700 sm:p-2.5 dark:border-white/10 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
 
-              {isMoreMenuOpen && (
-                <div className="absolute right-0 z-10 mt-1 w-48 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-stone-800">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      openBulkForm()
-                      setIsMoreMenuOpen(false)
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-                  >
-                    <Layers className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-                    Criar em lote
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      openCreateForm()
-                      setIsMoreMenuOpen(false)
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-                  >
-                    <Plus className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-                    Nova mesa
-                  </button>
-                  {areas && areas.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsOrganizingAreas(true)
-                        setIsMoreMenuOpen(false)
-                      }}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-                    >
-                      <Move className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-                      Organizar mesas
-                    </button>
+                  <AnimatePresence>
+                    {isMoreMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                        transition={{ duration: 0.15, ease: 'easeOut' }}
+                        className="absolute right-0 z-10 mt-1.5 hidden w-48 overflow-hidden rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-lg sm:block dark:border-white/10 dark:bg-stone-800"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            openBulkForm()
+                            setIsMoreMenuOpen(false)
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
+                        >
+                          <Layers className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+                          Criar em lote
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            openCreateForm()
+                            setIsMoreMenuOpen(false)
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
+                        >
+                          <Plus className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+                          Nova mesa
+                        </button>
+                        {areas && areas.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsOrganizingAreas(true)
+                              setIsMoreMenuOpen(false)
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
+                          >
+                            <Move className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+                            Organizar mesas
+                          </button>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {createPortal(
+                    <AnimatePresence>
+                      {isMoreMenuOpen && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="fixed inset-0 z-40 flex items-end bg-black/30 sm:hidden"
+                          onClick={() => setIsMoreMenuOpen(false)}
+                        >
+                          <motion.div
+                            initial={{ y: '100%' }}
+                            animate={{ y: 0 }}
+                            exit={{ y: '100%' }}
+                            transition={{ duration: 0.2, ease: 'easeOut' }}
+                            className="w-full overflow-hidden rounded-t-2xl bg-white pb-[env(safe-area-inset-bottom)] shadow-lg dark:bg-stone-900"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="border-b border-gray-100 px-4 py-3 text-sm font-semibold text-gray-800 dark:border-white/10 dark:text-white">
+                              Mais ações
+                            </div>
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  openBulkForm()
+                                  setIsMoreMenuOpen(false)
+                                }}
+                                className="flex w-full items-center gap-2.5 px-4 py-3.5 text-left text-base text-gray-700 dark:text-stone-300"
+                              >
+                                <Layers className="h-5 w-5 shrink-0 text-gray-400 dark:text-stone-500" />
+                                Criar em lote
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  openCreateForm()
+                                  setIsMoreMenuOpen(false)
+                                }}
+                                className="flex w-full items-center gap-2.5 px-4 py-3.5 text-left text-base text-gray-700 dark:text-stone-300"
+                              >
+                                <Plus className="h-5 w-5 shrink-0 text-gray-400 dark:text-stone-500" />
+                                Nova mesa
+                              </button>
+                              {areas && areas.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsOrganizingAreas(true)
+                                    setIsMoreMenuOpen(false)
+                                  }}
+                                  className="flex w-full items-center gap-2.5 px-4 py-3.5 text-left text-base text-gray-700 dark:text-stone-300"
+                                >
+                                  <Move className="h-5 w-5 shrink-0 text-gray-400 dark:text-stone-500" />
+                                  Organizar mesas
+                                </button>
+                              )}
+                            </div>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>,
+                    document.body,
                   )}
                 </div>
               )}
             </div>
-          )}
-        </div>
-
-        {canOpenTab && !isSelectingTables && !isOrganizingAreas && (
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={startSelectingTables}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2.5 text-sm font-medium text-brand-700 hover:bg-brand-100 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/20"
-            >
-              <Users className="h-4 w-4" />
-              Abrir comanda
-            </button>
-            <button
-              type="button"
-              onClick={openCounterTab}
-              disabled={openTabMutation.isPending}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10"
-            >
-              <Coffee className="h-4 w-4" />
-              Balcão
-            </button>
           </div>
         )}
       </div>
 
       {tables && tables.length > 0 && (
         <div className="mb-6 flex flex-wrap gap-3">
-          <StatPill icon={CheckCircle2} label="livres" value={statusCounts.FREE} className={STATUS_PILL_STYLES.FREE} />
-          <StatPill icon={Flame} label="ocupadas" value={statusCounts.OCCUPIED} className={STATUS_PILL_STYLES.OCCUPIED} />
+          <StatPill icon={CheckCircle2} label="livres" value={statusCounts.FREE} badgeClassName={STATUS_BADGE_STYLES.FREE} />
+          <StatPill icon={Flame} label="ocupadas" value={statusCounts.OCCUPIED} badgeClassName={STATUS_BADGE_STYLES.OCCUPIED} />
           {statusCounts.CLOSING > 0 && (
-            <StatPill icon={Clock} label="fechando" value={statusCounts.CLOSING} className={STATUS_PILL_STYLES.CLOSING} />
+            <StatPill icon={Clock} label="fechando" value={statusCounts.CLOSING} badgeClassName={STATUS_BADGE_STYLES.CLOSING} />
           )}
         </div>
       )}
 
-      {isSelectingTables && (
-        <div className="mb-4 flex flex-col gap-2 rounded-lg border border-brand-300 bg-brand-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-brand-500/30 dark:bg-brand-500/10">
-          <span className="flex items-center gap-2 text-brand-800 dark:text-brand-400">
-            <Users className="h-4 w-4" />
-            Selecione uma ou mais mesas livres ({selectedTableIds.size} selecionada
-            {selectedTableIds.size === 1 ? '' : 's'})
-          </span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={cancelSelectingTables}
-              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-white/5"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={confirmOpenTab}
-              disabled={selectedTableIds.size === 0 || openTabMutation.isPending}
-              className="rounded-md bg-brand-600 px-3 py-1.5 font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
-              Abrir comanda
-            </button>
-          </div>
-        </div>
-      )}
 
       {isOrganizingAreas && (
-        <div className="mb-4 flex flex-col gap-2 rounded-lg border border-brand-300 bg-brand-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-brand-500/30 dark:bg-brand-500/10">
+        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-brand-200 bg-brand-50 px-5 py-4 text-sm shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-brand-500/30 dark:bg-brand-500/10">
           <span className="flex items-center gap-2 text-brand-800 dark:text-brand-400">
             <Move className="h-4 w-4" />
             Arraste uma mesa ou use o menu no card pra escolher a área. A mudança é salva na hora.
@@ -596,7 +687,7 @@ export function TablesPage() {
           <button
             type="button"
             onClick={() => setIsOrganizingAreas(false)}
-            className="rounded-md bg-brand-600 px-3 py-1.5 font-medium text-white hover:bg-brand-700"
+            className="rounded-xl bg-brand-600 px-4 py-2 font-semibold text-white shadow-sm transition hover:bg-brand-700"
           >
             Concluir
           </button>
@@ -616,9 +707,11 @@ export function TablesPage() {
                 key={tab.id}
                 type="button"
                 onClick={() => navigate(`/tabs/${tab.id}`)}
-                className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-stone-900 dark:text-stone-300"
+                className="flex items-center gap-2.5 rounded-full border border-gray-200 bg-white py-2 pl-2 pr-4 text-sm font-medium text-gray-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-stone-900 dark:text-stone-300"
               >
-                <Coffee className="h-4 w-4 text-brand-600 dark:text-brand-400" />
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-400">
+                  <Coffee className="h-3.5 w-3.5" />
+                </span>
                 Balcão · aberta às{' '}
                 {new Date(tab.openedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 <span className="text-gray-400 dark:text-stone-500">· há {minutesSince(tab.openedAt)} min</span>
@@ -631,14 +724,16 @@ export function TablesPage() {
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {tables && tables.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 py-16 text-center dark:border-white/10 dark:bg-white/5">
-          <UtensilsCrossed className="h-10 w-10 text-gray-300 dark:text-stone-600" />
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-16 text-center dark:border-white/10 dark:bg-white/5">
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-gray-300 shadow-sm dark:bg-stone-800 dark:text-stone-600">
+            <UtensilsCrossed className="h-7 w-7" />
+          </span>
           <p className="text-sm text-gray-500 dark:text-stone-400">Nenhuma mesa cadastrada ainda.</p>
           {canManage && (
             <button
               type="button"
               onClick={openCreateForm}
-              className="mt-1 flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+              className="mt-1 flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
             >
               <Plus className="h-4 w-4" />
               Criar primeira mesa
@@ -649,30 +744,35 @@ export function TablesPage() {
 
       {tables && tables.length > 0 && (
         <div className="space-y-6">
-          {displayGroups.map((group) => (
-            <div
-              key={group.id}
-              ref={(el) => {
-                if (el) groupRefs.current.set(group.id, el)
-                else groupRefs.current.delete(group.id)
-              }}
-              className={`rounded-xl transition-colors ${
-                isOrganizingAreas && dragHoverGroupId === group.id
-                  ? 'bg-brand-50 ring-2 ring-brand-400 dark:bg-brand-500/10'
-                  : ''
-              }`}
-            >
+          {displayGroups.map((group, groupIndex) => (
+            <Fragment key={group.id}>
+              {groupIndex > 0 && showGroupHeaders && <hr className="border-gray-200 dark:border-white/10" />}
+              <div
+                ref={(el) => {
+                  if (el) groupRefs.current.set(group.id, el)
+                  else groupRefs.current.delete(group.id)
+                }}
+                className={`rounded-xl transition-colors ${
+                  isOrganizingAreas && dragHoverGroupId === group.id
+                    ? 'bg-brand-50 ring-2 ring-brand-400 dark:bg-brand-500/10'
+                    : ''
+                }`}
+              >
               {(showGroupHeaders || isOrganizingAreas) && (
-                <p className="mb-2 px-1 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
-                  {group.name}
-                </p>
+                <div className="mb-3 flex items-center gap-2 px-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
+                  <p className="text-xs font-bold tracking-wider text-gray-500 uppercase dark:text-stone-400">
+                    {group.name}
+                  </p>
+                  <span className="text-[11px] font-medium text-gray-400 dark:text-stone-600">({group.tables.length})</span>
+                </div>
               )}
               {isOrganizingAreas && group.tables.length === 0 ? (
                 <div className="flex items-center justify-center rounded-xl border border-dashed border-gray-300 py-6 text-xs text-gray-400 dark:border-white/10 dark:text-stone-500">
                   Arraste mesas aqui
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-6">
                   {group.tables.map((table) => {
                   const isSelected = selectedTableIds.has(table.id)
                   const isSelectableNow = !isSelectingTables || table.status === 'FREE'
@@ -695,10 +795,12 @@ export function TablesPage() {
                     >
                       {canDrag ? (
                         <div
-                          className={`flex h-full w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 p-3 text-center shadow-sm ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''}`}
+                          className={`flex h-full w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 p-3 text-center shadow-sm ${STATUS_CARD_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''}`}
                         >
-                          <StatusIcon className="h-5 w-5" />
-                          <div className="text-xl font-bold leading-none">{table.number}</div>
+                          <span className={`flex h-8 w-8 items-center justify-center rounded-full ${STATUS_BADGE_STYLES[table.status]}`}>
+                            <StatusIcon className="h-4 w-4" />
+                          </span>
+                          <div className="text-xl font-extrabold leading-none text-gray-900 dark:text-white">{table.number}</div>
                           <div className="mt-1 w-full" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
                             <Dropdown
                               compact
@@ -715,11 +817,15 @@ export function TablesPage() {
                           type="button"
                           disabled={(!canChangeStatus && !canManage && !canOpenTab) || !isSelectableNow}
                           onClick={() => handleTableClick(table)}
-                          className={`flex h-full w-full flex-col items-center justify-center gap-1 rounded-xl border-2 p-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${STATUS_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}
+                          className={`group flex h-full w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 p-4 text-center shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg active:scale-[0.97] disabled:cursor-default disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-sm ${STATUS_CARD_STYLES[table.status]} ${!table.active ? 'opacity-50 grayscale' : ''} ${isSelected ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}
                         >
-                          <StatusIcon className="h-5 w-5" />
-                          <div className="text-xl font-bold leading-none">{table.number}</div>
-                          <div className="text-[11px] font-semibold tracking-wide uppercase">{STATUS_LABELS[table.status]}</div>
+                          <span className={`flex h-9 w-9 items-center justify-center rounded-full transition-transform group-hover:scale-105 ${STATUS_BADGE_STYLES[table.status]}`}>
+                            <StatusIcon className="h-5 w-5" />
+                          </span>
+                          <div className="text-2xl font-extrabold leading-none text-gray-900 dark:text-white">{table.number}</div>
+                          <div className={`text-[10px] font-bold tracking-wider uppercase ${STATUS_LABEL_STYLES[table.status]}`}>
+                            {STATUS_LABELS[table.status]}
+                          </div>
                           {tab && table.status === 'OCCUPIED' && (
                             delayLevel !== 'none' ? (
                               <div
@@ -766,7 +872,8 @@ export function TablesPage() {
                 })}
               </div>
               )}
-            </div>
+              </div>
+            </Fragment>
           ))}
         </div>
       )}
@@ -849,103 +956,201 @@ export function TablesPage() {
         </Modal>
       )}
 
-      {selectedTable && (
-        <Modal title={`Mesa ${selectedTable.number}`} onClose={closeTableModal}>
-          <form onSubmit={handleTableSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editNumber">
-              Número
-            </label>
-            <input
-              id="editNumber"
-              type="number"
-              min="1"
-              disabled={!canManage}
-              value={editNumber}
-              onChange={(e) => setEditNumber(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+      <AnimatePresence>
+        {selectedTable && (
+          <>
+            <motion.div
+              key="table-panel-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={closeTableModal}
+              className="fixed inset-0 z-30 bg-black/30 sm:hidden"
             />
-
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editStatus">
-              Status
-            </label>
-            <select
-              id="editStatus"
-              disabled={!canChangeStatus}
-              value={editStatus}
-              onChange={(e) => setEditStatus(e.target.value as TableStatus)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+            <motion.aside
+              key="table-panel"
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+              className="fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-stone-900 sm:w-[420px]"
             >
-              {(Object.keys(STATUS_LABELS) as TableStatus[]).map((status) => (
-                <option key={status} value={status}>
-                  {STATUS_LABELS[status]}
-                </option>
-              ))}
-            </select>
+              <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-6 py-5 dark:border-white/10">
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-extrabold ${STATUS_BADGE_STYLES[selectedTable.status]}`}
+                  >
+                    {selectedTable.number}
+                  </span>
+                  <div>
+                    <p className="text-base font-bold text-gray-900 dark:text-white">Mesa {selectedTable.number}</p>
+                    <p className={`text-xs font-bold tracking-wide uppercase ${STATUS_LABEL_STYLES[selectedTable.status]}`}>
+                      {STATUS_LABELS[selectedTable.status]}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeTableModal}
+                  aria-label="Fechar"
+                  className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-stone-500 dark:hover:bg-white/5 dark:hover:text-stone-300"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editArea">
-              Área
-            </label>
-            <select
-              id="editArea"
-              disabled={!canManage}
-              value={editAreaId}
-              onChange={(e) => setEditAreaId(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-            >
-              <option value="">Sem área</option>
-              {areas?.map((area) => (
-                <option key={area.id} value={area.id}>
-                  {area.name}
-                </option>
-              ))}
-            </select>
+              <div className="flex-1 overflow-y-auto px-6 py-5">
+                <form onSubmit={handleTableSubmit}>
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editNumber">
+                    Número
+                  </label>
+                  <input
+                    id="editNumber"
+                    type="number"
+                    min="1"
+                    disabled={!canManage}
+                    value={editNumber}
+                    onChange={(e) => setEditNumber(e.target.value)}
+                    className="mb-4 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                  />
 
-            {canManage && (
-              <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">
-                <input
-                  type="checkbox"
-                  checked={editActive}
-                  onChange={(e) => setEditActive(e.target.checked)}
-                />
-                Mesa ativa
-              </label>
-            )}
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editStatus">
+                    Status
+                  </label>
+                  <select
+                    id="editStatus"
+                    disabled={!canChangeStatus}
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as TableStatus)}
+                    className="mb-4 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                  >
+                    {(Object.keys(STATUS_LABELS) as TableStatus[]).map((status) => (
+                      <option key={status} value={status}>
+                        {STATUS_LABELS[status]}
+                      </option>
+                    ))}
+                  </select>
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editArea">
+                    Área
+                  </label>
+                  <select
+                    id="editArea"
+                    disabled={!canManage}
+                    value={editAreaId}
+                    onChange={(e) => setEditAreaId(e.target.value)}
+                    className="mb-4 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                  >
+                    <option value="">Sem área</option>
+                    {areas?.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.name}
+                      </option>
+                    ))}
+                  </select>
 
-            {(canManage || canChangeStatus) && (
-              <button
-                type="submit"
-                disabled={updateMutation.isPending || statusMutation.isPending}
-                className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-              >
-                Salvar
-              </button>
-            )}
+                  {canManage && (
+                    <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">
+                      <input
+                        type="checkbox"
+                        checked={editActive}
+                        onChange={(e) => setEditActive(e.target.checked)}
+                      />
+                      Mesa ativa
+                    </label>
+                  )}
 
-            {canManage && selectedTable.status === 'FREE' && (
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={deleteMutation.isPending}
-                className="mt-2 w-full rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
-              >
-                Excluir mesa
-              </button>
-            )}
-          </form>
+                  {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-          {restaurant?.slug && (
-            <div className="mt-6 border-t border-gray-100 pt-6 dark:border-white/10">
-              <QrCodeCard
-                title={`Autoatendimento · Mesa ${selectedTable.number}`}
-                url={publicMenuUrl(restaurant.slug, selectedTable.id)}
-                helperText="Clique com o botão direito pra salvar e imprimir nessa mesa"
-              />
+                  {(canManage || canChangeStatus) && (
+                    <button
+                      type="submit"
+                      disabled={updateMutation.isPending || statusMutation.isPending}
+                      className="w-full rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
+                    >
+                      Salvar
+                    </button>
+                  )}
+
+                  {canManage && selectedTable.status === 'FREE' && (
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleteMutation.isPending}
+                      className="mt-2 w-full rounded-xl border border-red-200 px-3 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
+                    >
+                      Excluir mesa
+                    </button>
+                  )}
+                </form>
+
+                {restaurant?.slug && (
+                  <div className="mt-6 border-t border-gray-100 pt-6 dark:border-white/10">
+                    <QrCodeCard
+                      title={`Autoatendimento · Mesa ${selectedTable.number}`}
+                      url={publicMenuUrl(restaurant.slug, selectedTable.id)}
+                      helperText="Clique com o botão direito pra salvar e imprimir nessa mesa"
+                    />
+                  </div>
+                )}
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isSelectingTables && (
+          <motion.div
+            key="table-selection-toolbar"
+            initial={{ y: 24, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 24, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+            className="fixed inset-x-0 bottom-20 z-30 flex justify-center px-4 sm:bottom-6"
+          >
+            <div className="flex w-full max-w-lg flex-col items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/95 px-5 py-4 text-center shadow-2xl shadow-black/10 backdrop-blur-md dark:border-white/10 dark:bg-stone-900/95 sm:flex-row sm:justify-between sm:text-left">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400">
+                  <Users className="h-4 w-4" />
+                </span>
+                <span className="text-sm font-medium text-gray-800 dark:text-white">
+                  {isMultiTableMode
+                    ? `Selecione as mesas que vão juntar na comanda (${selectedTableIds.size} selecionada${selectedTableIds.size === 1 ? '' : 's'})`
+                    : 'Toque numa mesa livre pra abrir a comanda'}
+                </span>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={cancelSelectingTables}
+                  className="rounded-full px-4 py-3 text-base font-medium text-gray-500 hover:bg-gray-100 sm:py-2 sm:text-sm dark:text-stone-400 dark:hover:bg-white/5"
+                >
+                  Cancelar
+                </button>
+                {isMultiTableMode ? (
+                  <button
+                    type="button"
+                    onClick={confirmOpenTab}
+                    disabled={selectedTableIds.size === 0 || openTabMutation.isPending}
+                    className="rounded-full bg-brand-600 px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-brand-700 disabled:opacity-50 sm:py-2 sm:text-sm"
+                  >
+                    Abrir comanda
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={enableMultiTableMode}
+                    className="rounded-full border border-brand-300 bg-white px-4 py-3 text-base font-medium text-brand-700 hover:bg-brand-50 sm:py-2 sm:text-sm dark:border-brand-500/30 dark:bg-transparent dark:text-brand-400 dark:hover:bg-brand-500/10"
+                  >
+                    Juntar várias mesas
+                  </button>
+                )}
+              </div>
             </div>
-          )}
-        </Modal>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
