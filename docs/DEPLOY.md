@@ -1,6 +1,6 @@
 # Deploy — Status e guia de referência
 
-Documenta a infraestrutura de produção (Render + Supabase) montada em 2026-07-29/30: o que já está pronto, o que falta, e os problemas que já apareceram no caminho (pra não repetir o mesmo debug numa próxima sessão). Este arquivo **nunca deve conter segredos reais** (senha, chaves) — só nomes de variável e onde encontrar o valor.
+Documenta a infraestrutura de produção (Render + Neon + Supabase) montada em 2026-07-29/30 (backend/frontend) e 2026-08-05 (banco): o que já está pronto, o que falta, e os problemas que já apareceram no caminho (pra não repetir o mesmo debug numa próxima sessão). Este arquivo **nunca deve conter segredos reais** (senha, chaves) — só nomes de variável e onde encontrar o valor.
 
 **URLs reais em produção** (o Render adicionou sufixo aleatório porque os nomes "limpos" já estavam em uso):
 - Backend: https://mora-backend-ubuw.onrender.com
@@ -12,10 +12,11 @@ Documenta a infraestrutura de produção (Render + Supabase) montada em 2026-07-
 |---|---|---|
 | Backend (Spring Boot) | Render — Web Service, Docker, plano free | API, regras de negócio |
 | Frontend (React/Vite) | Render — Static Site, plano free (sem campo `plan`) | build estático servido direto |
-| Banco (Postgres) | Render — Postgres, plano free (`mora-db`) | dados da aplicação (temporariamente aqui, ver problema #6) |
+| Banco (Postgres) | Neon — plano free (`mora-db`, região `us-east-2`/Ohio) | dados da aplicação |
 | Storage de imagens | Supabase Storage (bucket `uploads`, público) | fotos de produto/logo |
 
-> **2026-07-30**: banco temporariamente movido do Supabase pro Postgres do próprio Render (mesma plataforma do backend, rede interna) por causa do circuit breaker recorrente do Supavisor (problema #4). Storage de imagens continua no Supabase — só o banco mudou. Plano free do Postgres do Render expira depois de um tempo (checar prazo exato no dashboard) — serve pra destravar o teste agora, não é decisão definitiva de produção.
+> **2026-07-30**: banco temporariamente movido do Supabase pro Postgres do próprio Render, por causa do circuit breaker recorrente do Supavisor (problema #4).
+> **2026-08-05**: banco migrado do Postgres do Render pro **Neon** (plano free, decisão final — ver seção "Hospedagem definitiva do banco" abaixo). Motivo: o Postgres free do Render expira 30 dias depois de criado, e o Neon free não tem esse prazo. Migração feita com `pg_dump`/`psql` (via Docker, imagem `postgres:18-alpine` pra bater com a versão de produção — ambos Render e Neon rodam Postgres 18.x), dados conferidos por contagem de linhas nas tabelas principais antes de trocar as variáveis de ambiente. Storage de imagens continua no Supabase — só o banco mudou.
 
 Frontend e backend ficam em domínios `onrender.com` diferentes. Em vez de CORS, o frontend usa uma regra de **Rewrite** (`/api/* → URL do backend/api/*`) configurada no painel do Render — o navegador nunca sabe que é cross-origin, e o código do frontend continua usando a base relativa `/api/v1` sem mudança nenhuma.
 
@@ -30,9 +31,9 @@ Frontend e backend ficam em domínios `onrender.com` diferentes. Em vez de CORS,
 
 | Variável | De onde vem |
 |---|---|
-| `SPRING_DATASOURCE_URL` | Manual: criar/abrir o database `mora-db` no Render → página **Info** → pegar **Hostname** (interno) e **Port**. Formato: `jdbc:postgresql://<hostname-interno>:<port>/mora?sslmode=require` |
-| `SPRING_DATASOURCE_USERNAME` | Automático via `fromDatabase` no `render.yaml` (property `user`) — não precisa preencher a mão |
-| `SPRING_DATASOURCE_PASSWORD` | Automático via `fromDatabase` no `render.yaml` (property `password`) — não precisa preencher a mão |
+| `SPRING_DATASOURCE_URL` | Manual: projeto `mora-db` no [Neon](https://neon.tech) → botão **Connect** → connection string **pooled** (host com sufixo `-pooler`). Montar como `jdbc:postgresql://<host-pooler>/<database>?sslmode=require` — **sem** usuário/senha embutidos na URL (ver problema #2) |
+| `SPRING_DATASOURCE_USERNAME` | Mesmo modal **Connect** do Neon, campo do usuário (ex. `neondb_owner`) |
+| `SPRING_DATASOURCE_PASSWORD` | Mesmo modal **Connect** do Neon, campo da senha |
 | `JWT_SECRET` | gerado localmente (`openssl rand -base64 64`), só pra produção, não reaproveitar a de dev |
 | `GEMINI_API_KEY` | https://aistudio.google.com/apikey |
 | `SUPABASE_URL` | Supabase → Settings → API → Project URL |
@@ -46,7 +47,8 @@ Frontend e backend ficam em domínios `onrender.com` diferentes. Em vez de CORS,
 - [x] `server.port` lendo `PORT` (Render injeta essa variável)
 - [x] `render.yaml` com os dois serviços
 - [x] Upload trocado pra Supabase Storage em produção
-- [x] Banco trocado pro Postgres do Render (`mora-db`) — backend sobe com sucesso, `/actuator/health` responde `{"status":"UP"}`
+- [x] Dados migrados do Postgres do Render pro Neon (`mora-db`, plano free, definitivo) via `pg_dump`/`psql`, contagem de linhas conferida
+- [x] Variáveis `SPRING_DATASOURCE_*` do `mora-backend` atualizadas no painel do Render pra apontar pro Neon, redeploy feito e confirmado (`/actuator/health` UP, `/api/v1/public/menu/tatu-bola` retornando dados reais do Neon)
 - [x] Regra de Rewrite (`/api/*` → `https://mora-backend-ubuw.onrender.com/api/*`) configurada no `mora-frontend`
 - [x] Frontend carregando e se comunicando com o backend em produção
 - [x] Teste end-to-end completo em produção ✅ 2026-08-04 (login, abrir mesa, adicionar item, enviar pra cozinha, avançar status até entregue, fechar conta com pagamento Pix incluindo taxa de serviço, upload de foto de produto pro Supabase Storage — todos os passos funcionaram na conta de teste "Tatu Bola")
@@ -65,20 +67,23 @@ Frontend e backend ficam em domínios `onrender.com` diferentes. Em vez de CORS,
 10. Testar direto a rota raiz `/` do backend dá 403 — é o Spring Security bloqueando por padrão, não indica que o serviço está fora do ar. Usar `/actuator/health` pra checar se subiu.
 11. Rewrite configurado sem o `*` no final (`/api/` em vez de `/api/*`) não pega os subcaminhos reais que o frontend chama (`/api/v1/...`) — sempre incluir o wildcard nos dois campos (Source e Destination).
 
-## Hospedagem definitiva do banco — decisão pendente (pesquisado em 2026-08-04)
+## Hospedagem definitiva do banco — decisão tomada (2026-08-05)
 
-**Prazo real, não "quando sobrar tempo"**: banco free do Render (`mora-db`, criado em 2026-07-29/30) expira **30 dias depois de criado** (~28-29/08/2026), com mais **14 dias de carência** antes de apagar os dados de vez (~11-12/09/2026). Fonte: [changelog do Render](https://render.com/changelog/free-postgresql-instances-now-expire-after-30-days-previously-90).
+Pesquisa inicial em 2026-08-04 (Render pago vs. Supabase Pro, ambos com custo mensal) foi substituída pela escolha de usar o **Neon**, que não estava no comparativo original:
 
-**Custos das duas opções**:
-- **Ficar no Render** (upgrade da mesma instância, sem migração): plano pago mais barato é **Basic-256mb, $6/mês**, mais disco à parte (~$0,30/GB/mês, em blocos mínimos de 5GB que não dá pra reduzir depois — uns $1,50/mês). Total: **~$7-8/mês**.
-- **Voltar pro Supabase**: **Pro plan, $25/mês** — inclui backup diário de 7 dias, mas isso já ficou redundante depois que o próprio backend passou a fazer backup (ver `docs/BACKUP_RESTORE.md`). E o Supabase já causou os problemas #3/#4 desta página (circuit breaker do Supavisor, IPv4/IPv6) — voltar reabre esse risco.
+- **Neon free tier**: **$0/mês**. Sem prazo de expiração automática do banco (diferente do Postgres free do Render, que expira 30 dias após criado). Serverless, autosuspend quando sem tráfego (cold start no primeiro request depois de idle — aceitável pro volume atual do projeto).
+- Motivo de trocar do Render: o `mora-db` do Render (criado em 2026-07-29/30) expiraria em ~28-29/08/2026, com 14 dias de carência até apagar os dados de vez (~11-12/09/2026) — fonte: [changelog do Render](https://render.com/changelog/free-postgresql-instances-now-expire-after-30-days-previously-90). Ficar no Render exigiria upgrade pago (~$7-8/mês); o Neon free resolve sem custo.
+- Supabase Pro ($25/mês) descartado pelo mesmo motivo da decisão anterior: mais caro, e reabre os problemas #3/#4 desta página (circuit breaker do Supavisor, IPv4/IPv6).
 
-**Recomendação**: ficar no Render e fazer upgrade do `mora-db` pro Basic-256mb antes de 28/08/2026 — mais barato, não exige migrar nada, e evita reabrir os problemas já resolvidos com o Supabase.
+**Migração feita em 2026-08-05**: `pg_dump` do Render (`--no-owner --no-privileges --no-comments`, pra não carregar o role `mora` que não existe no Neon) → `psql` no Neon, ambos rodando dentro do Docker com a imagem `postgres:18-alpine` (mesma versão major do servidor, ver [[project_postgres_prod_version_mismatch]] na memória). Contagem de linhas em `restaurants`, `users`, `restaurant_tables`, `tabs` e `products` conferida igual nos dois bancos antes de cortar o Render.
+
+O `mora-db` do Render **ainda não foi apagado** — só depois de confirmar que o backend em produção está estável rodando contra o Neon por alguns dias.
 
 ## Próximos passos
 
-1. Fazer o upgrade do `mora-db` pro plano pago antes do prazo acima (ver seção "Hospedagem definitiva do banco")
-2. Considerar Dockerfile/deploy também pro ambiente de staging, se fizer sentido mais pra frente
+1. Testar mais a fundo em produção (login, abrir mesa, pedido, pagamento) — confirmado até agora só leitura (`/actuator/health` e o cardápio público de "Tatu Bola" respondendo com dados reais do Neon); falta confirmar escrita (criar pedido, fechar comanda etc.)
+2. Depois de alguns dias estável, apagar o `mora-db` antigo no painel do Render (ação manual, não faz parte do Blueprint)
+3. Considerar Dockerfile/deploy também pro ambiente de staging, se fizer sentido mais pra frente
 
 ## Como retomar em um chat novo
 
