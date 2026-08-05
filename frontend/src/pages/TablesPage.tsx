@@ -976,7 +976,7 @@ export function TablesPage() {
               transition={{ type: 'spring', stiffness: 380, damping: 38 }}
               className="fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-gray-200 bg-white shadow-2xl dark:border-white/10 dark:bg-stone-900 sm:w-[420px]"
             >
-              <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-6 py-5 dark:border-white/10">
+              <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4 dark:border-white/10">
                 <div className="flex items-center gap-3">
                   <span
                     className={`flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-extrabold ${STATUS_BADGE_STYLES[selectedTable.status]}`}
@@ -1000,7 +1000,7 @@ export function TablesPage() {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-6 py-5">
+              <div className="flex-1 overflow-y-auto px-5 py-4">
                 <form onSubmit={handleTableSubmit}>
                   <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editNumber">
                     Número
@@ -1012,7 +1012,7 @@ export function TablesPage() {
                     disabled={!canManage}
                     value={editNumber}
                     onChange={(e) => setEditNumber(e.target.value)}
-                    className="mb-4 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                    className="mb-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
                   />
 
                   <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editStatus">
@@ -1023,7 +1023,7 @@ export function TablesPage() {
                     disabled={!canChangeStatus}
                     value={editStatus}
                     onChange={(e) => setEditStatus(e.target.value as TableStatus)}
-                    className="mb-4 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                    className="mb-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
                   >
                     {EDITABLE_STATUSES.map((status) => (
                       <option key={status} value={status}>
@@ -1040,7 +1040,7 @@ export function TablesPage() {
                     disabled={!canManage}
                     value={editAreaId}
                     onChange={(e) => setEditAreaId(e.target.value)}
-                    className="mb-4 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                    className="mb-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
                   >
                     <option value="">Sem área</option>
                     {areas?.map((area) => (
@@ -1051,7 +1051,7 @@ export function TablesPage() {
                   </select>
 
                   {canManage && (
-                    <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">
+                    <label className="mb-3 flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">
                       <input
                         type="checkbox"
                         checked={editActive}
@@ -1061,7 +1061,7 @@ export function TablesPage() {
                     </label>
                   )}
 
-                  {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
+                  {error && <p className="mb-3 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
                   {(canManage || canChangeStatus) && (
                     <Button
@@ -1078,7 +1078,7 @@ export function TablesPage() {
                       type="button"
                       onClick={handleDelete}
                       disabled={deleteMutation.isPending}
-                      className="mt-2 w-full rounded-xl border border-red-200 px-3 py-2.5 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
+                      className="mt-2 w-full rounded-xl border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
                     >
                       Excluir mesa
                     </button>
@@ -1086,8 +1086,9 @@ export function TablesPage() {
                 </form>
 
                 {restaurant?.slug && (
-                  <div className="mt-6 border-t border-gray-100 pt-6 dark:border-white/10">
+                  <div className="mt-4 border-t border-gray-100 pt-4 dark:border-white/10">
                     <QrCodeCard
+                      compact
                       title={`Autoatendimento · Mesa ${selectedTable.number}`}
                       url={publicMenuUrl(restaurant.slug, selectedTable.id)}
                       helperText="Clique com o botão direito pra salvar e imprimir nessa mesa"

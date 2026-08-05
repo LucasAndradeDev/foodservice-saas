@@ -22,8 +22,7 @@ import {
   Tag,
   Trash2,
 } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { listCategories } from '../api/categories'
 import {
@@ -35,6 +34,7 @@ import {
   type Product,
 } from '../api/products'
 import { useAuth } from '../auth/AuthContext'
+import { ActionMenu, type ActionMenuEntry } from '../components/ActionMenu'
 import { Button } from '../components/Button'
 import { Dropdown } from '../components/Dropdown'
 import { Table, TableHead, TableRow } from '../components/Table'
@@ -467,6 +467,7 @@ export function ProductsPage() {
                           onToggleSoldOut={() => toggleSoldOut(product)}
                           onToggleFeatured={() => toggleFeatured(product)}
                           onDelete={() => handleDelete(product)}
+                          align="end"
                         />
                       </motion.div>
                     )}
@@ -728,45 +729,32 @@ function ProductActionButtons({
   align = 'start',
 }: ProductActionButtonsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const menuWidth = 256
 
-  useEffect(() => {
-    if (!isMenuOpen) return
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(event.target as Node) &&
-        !triggerRef.current?.contains(event.target as Node)
-      ) {
-        setIsMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isMenuOpen])
-
-  useLayoutEffect(() => {
-    if (!isMenuOpen || !triggerRef.current) return
-    // Rendered via portal (see below) so the desktop table's `overflow-hidden` wrapper — needed
-    // to keep its rounded corners — never gets a chance to clip this menu, no matter how short
-    // the table is or how close to its bottom edge the row sits.
-    const estimatedMenuHeight = 260
-    const rect = triggerRef.current.getBoundingClientRect()
-    const openUpward = window.innerHeight - rect.bottom < estimatedMenuHeight
-    const left = align === 'end' ? rect.right - menuWidth : rect.left
-    setMenuPosition({
-      top: openUpward ? rect.top - estimatedMenuHeight : rect.bottom + 4,
-      left: Math.min(Math.max(left, 8), window.innerWidth - menuWidth - 8),
-    })
-  }, [isMenuOpen, align])
-
-  function runAndClose(action: () => void) {
-    action()
-    setIsMenuOpen(false)
-  }
+  const items: ActionMenuEntry[] = [
+    { key: 'modifiers', label: 'Modificadores', icon: ListChecks, to: `/products/${product.id}/modifiers` },
+    {
+      key: 'availability',
+      label: 'Horários de disponibilidade',
+      icon: CalendarClock,
+      to: `/products/${product.id}/availability`,
+    },
+    { key: 'active', label: product.active ? 'Desativar' : 'Ativar', icon: Power, onClick: onToggleActive },
+    {
+      key: 'soldOut',
+      label: product.soldOutToday ? 'Remover "esgotado hoje"' : 'Marcar como esgotado hoje',
+      icon: Ban,
+      onClick: onToggleSoldOut,
+    },
+    {
+      key: 'featured',
+      label: product.featured ? 'Remover destaque' : 'Marcar como destaque',
+      icon: Star,
+      onClick: onToggleFeatured,
+    },
+    { divider: true },
+    { key: 'delete', label: 'Excluir', icon: Trash2, onClick: onDelete, tone: 'danger' },
+  ]
 
   return (
     <div className={`flex items-center gap-1 ${align === 'end' ? 'justify-end' : ''}`}>
@@ -775,9 +763,9 @@ function ProductActionButtons({
         onClick={onEdit}
         title="Editar"
         aria-label="Editar"
-        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+        className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
       >
-        <Pencil className="h-4 w-4" />
+        <Pencil className="h-[18px] w-[18px]" />
       </button>
 
       <button
@@ -786,71 +774,20 @@ function ProductActionButtons({
         onClick={() => setIsMenuOpen((open) => !open)}
         title="Mais ações"
         aria-label="Mais ações"
-        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
+        className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
       >
-        <MoreVertical className="h-4 w-4" />
+        <MoreVertical className="h-[18px] w-[18px]" />
       </button>
 
-      {isMenuOpen &&
-        menuPosition &&
-        createPortal(
-          <div
-            ref={menuRef}
-            style={{ top: menuPosition.top, left: menuPosition.left, width: menuWidth }}
-            className="fixed z-50 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-stone-800"
-          >
-            <Link
-              to={`/products/${product.id}/modifiers`}
-              onClick={() => setIsMenuOpen(false)}
-              className="flex items-center gap-2 whitespace-nowrap px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-            >
-              <ListChecks className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-              Modificadores
-            </Link>
-            <Link
-              to={`/products/${product.id}/availability`}
-              onClick={() => setIsMenuOpen(false)}
-              className="flex items-center gap-2 whitespace-nowrap px-3 py-2 text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-            >
-              <CalendarClock className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-              Horários de disponibilidade
-            </Link>
-            <button
-              type="button"
-              onClick={() => runAndClose(onToggleActive)}
-              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-            >
-              <Power className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-              {product.active ? 'Desativar' : 'Ativar'}
-            </button>
-            <button
-              type="button"
-              onClick={() => runAndClose(onToggleSoldOut)}
-              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-            >
-              <Ban className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-              {product.soldOutToday ? 'Remover "esgotado hoje"' : 'Marcar como esgotado hoje'}
-            </button>
-            <button
-              type="button"
-              onClick={() => runAndClose(onToggleFeatured)}
-              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-            >
-              <Star className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-              {product.featured ? 'Remover destaque' : 'Marcar como destaque'}
-            </button>
-            <div className="my-1 border-t border-gray-100 dark:border-white/10" />
-            <button
-              type="button"
-              onClick={() => runAndClose(onDelete)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
-            >
-              <Trash2 className="h-4 w-4" />
-              Excluir
-            </button>
-          </div>,
-          document.body,
-        )}
+      <ActionMenu
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        triggerRef={triggerRef}
+        items={items}
+        align={align}
+        mobileTitle={product.name}
+        width={256}
+      />
     </div>
   )
 }
@@ -877,27 +814,25 @@ function BulkActionsMenu({
   onDelete,
 }: BulkActionsMenuProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
-  useEffect(() => {
-    if (!isMenuOpen) return
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isMenuOpen])
-
-  function runAndClose(action: () => void) {
-    action()
-    setIsMenuOpen(false)
-  }
+  const items: ActionMenuEntry[] = [
+    { key: 'activate', label: 'Ativar selecionados', icon: Power, onClick: onActivate },
+    { key: 'deactivate', label: 'Desativar selecionados', icon: Power, onClick: onDeactivate },
+    { divider: true },
+    { key: 'soldOut', label: 'Marcar como esgotado hoje', icon: Ban, onClick: onMarkSoldOut },
+    { key: 'unmarkSoldOut', label: 'Remover "esgotado hoje"', icon: Ban, onClick: onUnmarkSoldOut },
+    { divider: true },
+    { key: 'featured', label: 'Marcar como destaque', icon: Star, onClick: onMarkFeatured },
+    { key: 'unmarkFeatured', label: 'Remover destaque', icon: Star, onClick: onUnmarkFeatured },
+    { divider: true },
+    { key: 'delete', label: 'Excluir selecionados', icon: Trash2, onClick: onDelete, tone: 'danger' },
+  ]
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setIsMenuOpen((open) => !open)}
         disabled={disabled}
@@ -907,69 +842,15 @@ function BulkActionsMenu({
         Ações em massa
       </button>
 
-      {isMenuOpen && (
-        <div className="absolute right-0 z-10 mt-1 w-64 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-stone-800">
-          <button
-            type="button"
-            onClick={() => runAndClose(onActivate)}
-            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-          >
-            <Power className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-            Ativar selecionados
-          </button>
-          <button
-            type="button"
-            onClick={() => runAndClose(onDeactivate)}
-            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-          >
-            <Power className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-            Desativar selecionados
-          </button>
-          <div className="my-1 border-t border-gray-100 dark:border-white/10" />
-          <button
-            type="button"
-            onClick={() => runAndClose(onMarkSoldOut)}
-            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-          >
-            <Ban className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-            Marcar como esgotado hoje
-          </button>
-          <button
-            type="button"
-            onClick={() => runAndClose(onUnmarkSoldOut)}
-            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-          >
-            <Ban className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-            Remover "esgotado hoje"
-          </button>
-          <div className="my-1 border-t border-gray-100 dark:border-white/10" />
-          <button
-            type="button"
-            onClick={() => runAndClose(onMarkFeatured)}
-            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-          >
-            <Star className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-            Marcar como destaque
-          </button>
-          <button
-            type="button"
-            onClick={() => runAndClose(onUnmarkFeatured)}
-            className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-          >
-            <Star className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-            Remover destaque
-          </button>
-          <div className="my-1 border-t border-gray-100 dark:border-white/10" />
-          <button
-            type="button"
-            onClick={() => runAndClose(onDelete)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
-          >
-            <Trash2 className="h-4 w-4" />
-            Excluir selecionados
-          </button>
-        </div>
-      )}
+      <ActionMenu
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        triggerRef={triggerRef}
+        items={items}
+        align="end"
+        mobileTitle="Ações em massa"
+        width={256}
+      />
     </div>
   )
 }

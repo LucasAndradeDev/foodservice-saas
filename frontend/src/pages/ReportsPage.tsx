@@ -158,7 +158,7 @@ export function ReportsPage() {
   )
 
   function presetButtonClasses(preset: keyof typeof presetRanges) {
-    return `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+    return `rounded-lg px-3 py-2 text-center text-sm font-medium whitespace-nowrap transition-colors ${
       activePreset === preset
         ? 'bg-brand-600 text-white shadow-sm'
         : 'border border-gray-200 bg-gray-50 text-gray-700 dark:text-stone-300 hover:bg-gray-100 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10'
@@ -180,7 +180,7 @@ export function ReportsPage() {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
             <button type="button" onClick={() => applyPreset('today')} className={presetButtonClasses('today')}>
               Hoje
             </button>

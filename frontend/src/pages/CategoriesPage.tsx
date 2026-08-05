@@ -85,7 +85,7 @@ export function CategoriesPage() {
     <div>
       <SectionTabs tabs={MENU_TABS} />
 
-      <div className="mb-5 flex items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
             <Tag className="h-5 w-5" />
@@ -93,7 +93,7 @@ export function CategoriesPage() {
           <h1 className="text-lg font-bold text-gray-900 dark:text-white">Categorias</h1>
         </div>
         {canManage && (
-          <Button type="button" onClick={openCreateForm}>
+          <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
             <Plus className="h-4 w-4" />
             Nova categoria
           </Button>
@@ -130,6 +130,7 @@ export function CategoriesPage() {
                     category={category}
                     onEdit={() => openEditForm(category)}
                     onToggleActive={() => toggleActive(category)}
+                    align="end"
                   />
                 )}
               </Card>
@@ -223,18 +224,18 @@ function CategoryActionButtons({ category, onEdit, onToggleActive, align = 'star
         onClick={onEdit}
         title="Editar"
         aria-label="Editar"
-        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+        className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
       >
-        <Pencil className="h-4 w-4" />
+        <Pencil className="h-[18px] w-[18px]" />
       </button>
       <button
         type="button"
         onClick={onToggleActive}
         title={category.active ? 'Desativar' : 'Ativar'}
         aria-label={category.active ? 'Desativar' : 'Ativar'}
-        className={`rounded-md p-1.5 hover:bg-gray-100 dark:hover:bg-white/5 ${category.active ? 'text-gray-500 hover:text-amber-700 dark:text-stone-400 dark:hover:text-amber-400' : 'text-gray-400 hover:text-green-700 dark:text-stone-500 dark:hover:text-green-400'}`}
+        className={`rounded-md p-2 hover:bg-gray-100 dark:hover:bg-white/5 ${category.active ? 'text-gray-500 hover:text-amber-700 dark:text-stone-400 dark:hover:text-amber-400' : 'text-gray-400 hover:text-green-700 dark:text-stone-500 dark:hover:text-green-400'}`}
       >
-        <Power className="h-4 w-4" />
+        <Power className="h-[18px] w-[18px]" />
       </button>
     </div>
   )

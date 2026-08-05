@@ -113,8 +113,8 @@ export function PeakHoursHeatmap({ title, cells, metric, unitLabel, rangeStart, 
         </div>
       </div>
 
-      <div className="overflow-x-auto p-3">
-        <div className="grid min-w-[420px] gap-0.5" style={{ gridTemplateColumns: '2.5rem repeat(7, 1fr)' }}>
+      <div className="p-2 sm:p-3">
+        <div className="grid gap-[3px] sm:gap-0.5" style={{ gridTemplateColumns: '1.75rem repeat(7, 1fr)' }}>
           <div />
           {DAY_ORDER.map((day) => {
             const sampleCount = sampleCountByDay.get(day) ?? 0
@@ -132,7 +132,7 @@ export function PeakHoursHeatmap({ title, cells, metric, unitLabel, rangeStart, 
           {HOURS.map((hour) => (
             <div key={hour} className="contents">
               <div
-                className={`flex items-center justify-end pr-2 text-xs text-gray-400 dark:text-stone-500 ${
+                className={`flex items-center justify-end pr-1 text-[10px] text-gray-400 sm:pr-2 sm:text-xs dark:text-stone-500 ${
                   hour % 6 === 0 ? 'pt-1.5 font-medium text-gray-500 dark:text-stone-400' : ''
                 }`}
               >

@@ -13,6 +13,7 @@ import {
 } from '../api/reservations'
 import { useAuth } from '../auth/AuthContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { DatePicker } from '../components/DatePicker'
 import { DateTimePicker } from '../components/DateTimePicker'
 import { Modal } from '../components/Modal'
 
@@ -142,12 +143,7 @@ export function ReservationsPage() {
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="rounded-xl border border-gray-200 px-3 py-2 text-sm dark:border-white/10 dark:bg-stone-800 dark:text-white"
-        />
+        <DatePicker value={date} onChange={setDate} />
         <button
           type="button"
           onClick={() => changeDay(1)}

@@ -62,6 +62,9 @@ interface NavItem {
   matchPrefixes?: string[]
   /** Shorter label for the mobile bottom nav, where two-word labels wrap onto two lines. Defaults to `label`. */
   mobileLabel?: string
+  /** Still shown in the desktop sidebar, but tucked into "Mais" on the mobile bottom nav — keeps
+   * that row down to the handful of screens staff reach for constantly, on every shift/role. */
+  mobileOverflow?: boolean
 }
 
 const PRIMARY_NAV_ITEMS: NavItem[] = [
@@ -69,12 +72,13 @@ const PRIMARY_NAV_ITEMS: NavItem[] = [
   { to: '/tables', label: 'Mesas', icon: Table2, section: 'TABLES' },
   { to: '/kitchen', label: 'Cozinha', icon: ChefHat, section: 'KITCHEN' },
   { to: '/checkout', label: 'Fechar Conta', mobileLabel: 'Conta', icon: Wallet, section: 'CHECKOUT' },
-  { to: '/cash-register', label: 'Caixa', icon: Banknote, roles: ['OWNER', 'MANAGER', 'CASHIER'] },
+  { to: '/cash-register', label: 'Caixa', icon: Banknote, roles: ['OWNER', 'MANAGER', 'CASHIER'], mobileOverflow: true },
   {
     to: '/reservations',
     label: 'Reservas',
     icon: CalendarClock,
     roles: ['OWNER', 'MANAGER', 'WAITER', 'CASHIER'],
+    mobileOverflow: true,
   },
 ]
 
@@ -118,7 +122,14 @@ export function AppLayout() {
   const visiblePrimaryItems = PRIMARY_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
   const visibleMenuItems = MENU_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
   const visibleManagementItems = MANAGEMENT_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
-  const visibleMoreItems = [...visibleMenuItems, ...visibleManagementItems]
+  // The mobile bottom nav only has room for the screens staff reach for constantly; the rest
+  // (still in the desktop sidebar via visiblePrimaryItems) fold into "Mais" on mobile.
+  const mobileBottomNavItems = visiblePrimaryItems.filter((item) => !item.mobileOverflow)
+  const visibleMoreItems = [
+    ...visiblePrimaryItems.filter((item) => item.mobileOverflow),
+    ...visibleMenuItems,
+    ...visibleManagementItems,
+  ]
 
   // Polls /auth/me while the email isn't verified yet, so confirming it in another
   // tab (e.g. clicking the link from a webmail tab) clears the banner here without
@@ -331,7 +342,7 @@ export function AppLayout() {
 
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-gray-200 bg-white sm:hidden dark:border-white/10 dark:bg-stone-900">
-        {visiblePrimaryItems.map((item) => (
+        {mobileBottomNavItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

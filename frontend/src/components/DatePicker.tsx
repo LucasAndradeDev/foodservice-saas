@@ -12,50 +12,43 @@ import {
   WEEKDAY_LABELS,
 } from '../utils/calendarGrid'
 
-interface DateRangePickerProps {
-  start: string
-  end: string
-  onChange: (range: { start: string; end: string }) => void
+interface DatePickerProps {
+  /** yyyy-mm-dd */
+  value: string
+  onChange: (value: string) => void
   /** yyyy-mm-dd — dates after this are disabled. */
   maxDate?: string
+  className?: string
 }
 
 function getCellClasses({
   disabled,
   inMonth,
   isSelected,
-  inRange,
   isToday,
 }: {
   disabled: boolean
   inMonth: boolean
   isSelected: boolean
-  inRange: boolean
   isToday: boolean
 }) {
   if (isSelected) return 'bg-brand-600 text-white font-semibold hover:bg-brand-600'
   if (disabled) return 'cursor-default text-gray-300 dark:text-stone-700'
-  if (inRange) {
-    return 'bg-brand-50 text-gray-700 hover:bg-brand-100 dark:bg-brand-500/10 dark:text-stone-200 dark:hover:bg-brand-500/20'
-  }
   const base = inMonth ? 'text-gray-700 dark:text-stone-300' : 'text-gray-300 dark:text-stone-600'
   const ring = isToday ? 'ring-1 ring-inset ring-brand-400' : ''
   return `${base} hover:bg-gray-100 dark:hover:bg-white/10 ${ring}`
 }
 
-export function DateRangePicker({ start, end, onChange, maxDate }: DateRangePickerProps) {
+/** Single-date picker, styled to match DateRangePicker's calendar — including its mobile bottom sheet. */
+export function DatePicker({ value, onChange, maxDate, className }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [viewDate, setViewDate] = useState(() => parseDateInput(start))
-  const [pendingStart, setPendingStart] = useState<Date | null>(null)
+  const [viewDate, setViewDate] = useState(() => parseDateInput(value))
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!isOpen) return
-    setViewDate(parseDateInput(start))
-    setPendingStart(null)
-    // Only reset the view when the picker opens, not on every start change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen])
+    setViewDate(parseDateInput(value))
+  }, [isOpen, value])
 
   useEffect(() => {
     if (!isOpen) return
@@ -69,8 +62,7 @@ export function DateRangePicker({ start, end, onChange, maxDate }: DateRangePick
   }, [isOpen])
 
   const maxDateObj = maxDate ? parseDateInput(maxDate) : null
-  const startDate = parseDateInput(start)
-  const endDate = parseDateInput(end)
+  const selectedDate = parseDateInput(value)
 
   function isDisabled(date: Date) {
     return maxDateObj !== null && date.getTime() > maxDateObj.getTime()
@@ -78,21 +70,13 @@ export function DateRangePicker({ start, end, onChange, maxDate }: DateRangePick
 
   function handleDayClick(date: Date) {
     if (isDisabled(date)) return
-    if (!pendingStart) {
-      setPendingStart(date)
-      onChange({ start: toDateInputValue(date), end: toDateInputValue(date) })
-      return
-    }
-    const range = date.getTime() < pendingStart.getTime() ? { start: date, end: pendingStart } : { start: pendingStart, end: date }
-    onChange({ start: toDateInputValue(range.start), end: toDateInputValue(range.end) })
-    setPendingStart(null)
+    onChange(toDateInputValue(date))
     setIsOpen(false)
   }
 
   function handleToday() {
     const now = maxDateObj ?? new Date()
-    onChange({ start: toDateInputValue(now), end: toDateInputValue(now) })
-    setPendingStart(null)
+    onChange(toDateInputValue(now))
     setIsOpen(false)
   }
 
@@ -102,7 +86,6 @@ export function DateRangePicker({ start, end, onChange, maxDate }: DateRangePick
 
   const cells = buildCalendarGrid(viewDate.getFullYear(), viewDate.getMonth())
   const monthLabel = `${MONTH_LABELS[viewDate.getMonth()]} de ${viewDate.getFullYear()}`
-  const triggerLabel = start === end ? formatDateDisplay(start) : `${formatDateDisplay(start)} até ${formatDateDisplay(end)}`
 
   function renderCalendar(size: 'sm' | 'lg') {
     const cellTextClass = size === 'lg' ? 'text-base' : 'text-sm'
@@ -133,22 +116,24 @@ export function DateRangePicker({ start, end, onChange, maxDate }: DateRangePick
         </div>
         <div className={`grid grid-cols-7 ${gapClass}`}>
           {WEEKDAY_LABELS.map((label, index) => (
-            <div key={index} className={`flex items-center justify-center py-1 font-medium text-gray-400 dark:text-stone-500 ${weekdayTextClass}`}>
+            <div
+              key={index}
+              className={`flex items-center justify-center py-1 font-medium text-gray-400 dark:text-stone-500 ${weekdayTextClass}`}
+            >
               {label}
             </div>
           ))}
           {cells.map(({ date, inMonth }, index) => {
             const disabled = isDisabled(date)
             const isToday = isSameDay(date, maxDateObj ?? new Date())
-            const isSelected = isSameDay(date, startDate) || isSameDay(date, endDate)
-            const inRange = date.getTime() > startDate.getTime() && date.getTime() < endDate.getTime()
+            const isSelected = isSameDay(date, selectedDate)
             return (
               <button
                 key={index}
                 type="button"
                 disabled={disabled}
                 onClick={() => handleDayClick(date)}
-                className={`aspect-square w-full rounded-full transition-colors ${cellTextClass} ${getCellClasses({ disabled, inMonth, isSelected, inRange, isToday })}`}
+                className={`aspect-square w-full rounded-full transition-colors ${cellTextClass} ${getCellClasses({ disabled, inMonth, isSelected, isToday })}`}
               >
                 {date.getDate()}
               </button>
@@ -160,14 +145,14 @@ export function DateRangePicker({ start, end, onChange, maxDate }: DateRangePick
   }
 
   return (
-    <div className="relative inline-block" ref={containerRef}>
+    <div className={`relative inline-block ${className ?? ''}`} ref={containerRef}>
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-100 sm:w-auto sm:justify-start dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10"
+        className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-white/10 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-white/5"
       >
         <Calendar className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />
-        <span className="truncate">{triggerLabel}</span>
+        <span>{formatDateDisplay(value)}</span>
       </button>
 
       <AnimatePresence>
@@ -177,7 +162,7 @@ export function DateRangePicker({ start, end, onChange, maxDate }: DateRangePick
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.97 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="absolute right-0 z-10 mt-1.5 hidden w-72 rounded-xl border border-gray-200 bg-white p-4 shadow-lg sm:block dark:border-white/10 dark:bg-stone-800"
+            className="absolute left-1/2 z-20 mt-1.5 hidden w-72 -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-lg sm:block dark:border-white/10 dark:bg-stone-800"
           >
             {renderCalendar('sm')}
             <button
@@ -207,11 +192,11 @@ export function DateRangePicker({ start, end, onChange, maxDate }: DateRangePick
                 animate={{ y: 0 }}
                 exit={{ y: '100%' }}
                 transition={{ duration: 0.2, ease: 'easeOut' }}
-                className="w-full overflow-y-auto rounded-t-2xl bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-lg dark:bg-stone-900"
+                className="max-h-[75vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-lg dark:bg-stone-900"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold text-gray-800 dark:text-white">Selecionar período</h2>
+                  <h2 className="text-sm font-semibold text-gray-800 dark:text-white">Selecionar data</h2>
                   <button
                     type="button"
                     onClick={() => setIsOpen(false)}

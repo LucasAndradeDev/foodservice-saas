@@ -225,7 +225,55 @@ export function CashRegisterPage() {
             <History className="h-4 w-4 text-gray-400 dark:text-stone-500" />
             Histórico de turnos
           </div>
-          <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-xs dark:border-white/10 dark:bg-stone-900">
+          {/* Mobile: stacked cards, no horizontal scroll needed */}
+          <div className="space-y-2 sm:hidden">
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                className="rounded-xl border border-gray-200 bg-white p-3 text-sm shadow-xs dark:border-white/10 dark:bg-stone-900"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-gray-700 dark:text-stone-300">
+                      {dateTimeFormatter.format(new Date(session.openedAt))}
+                    </div>
+                    <div className="text-xs text-gray-400 dark:text-stone-500">{session.openedByName ?? '—'}</div>
+                  </div>
+                  {session.closedAt ? (
+                    <div className="text-right">
+                      <div className="text-gray-700 dark:text-stone-300">
+                        {dateTimeFormatter.format(new Date(session.closedAt))}
+                      </div>
+                      <div className="text-xs text-gray-400 dark:text-stone-500">{session.closedByName ?? '—'}</div>
+                    </div>
+                  ) : (
+                    <span className="text-xs font-medium text-sage-600 dark:text-sage-400">Em aberto</span>
+                  )}
+                </div>
+                <div className="mt-2 grid grid-cols-3 gap-2 border-t border-gray-100 pt-2 dark:border-white/10">
+                  <div>
+                    <div className="text-xs text-gray-400 dark:text-stone-500">Inicial</div>
+                    <div className="text-gray-700 dark:text-stone-300">{currencyFormatter.format(session.openingAmount)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400 dark:text-stone-500">Contado</div>
+                    <div className="text-gray-700 dark:text-stone-300">
+                      {session.countedAmount != null ? currencyFormatter.format(session.countedAmount) : '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400 dark:text-stone-500">Diferença</div>
+                    <div className={session.differenceAmount ? 'text-gold-600 dark:text-gold-400' : 'text-gray-700 dark:text-stone-300'}>
+                      {session.differenceAmount != null ? currencyFormatter.format(session.differenceAmount) : '—'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-xs sm:block dark:border-white/10 dark:bg-stone-900">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-xs text-gray-500 dark:border-white/10 dark:text-stone-400">

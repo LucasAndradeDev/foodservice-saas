@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Circle, Layers, MoreVertical, Package, Pencil, Plus, Tag, Trash2 } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { ArrowRightLeft, CheckCircle2, Circle, Layers, MoreVertical, Package, Pencil, Plus, Power, Tag, Trash2 } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { deleteProduct, updateProduct, listProducts, type Product } from '../api/products'
 import { useAuth } from '../auth/AuthContext'
+import { ActionMenu, type ActionMenuEntry } from '../components/ActionMenu'
 import { Card } from '../components/Card'
 import { SectionTabs } from '../components/SectionTabs'
 import { Table, TableHead, TableRow } from '../components/Table'
@@ -204,43 +204,20 @@ interface ComboActionButtonsProps {
 
 function ComboActionButtons({ combo, onToggleActive, onConvertToSimple, onDelete }: ComboActionButtonsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const menuWidth = 224
 
-  useEffect(() => {
-    if (!isMenuOpen) return
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(event.target as Node) &&
-        !triggerRef.current?.contains(event.target as Node)
-      ) {
-        setIsMenuOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isMenuOpen])
-
-  useLayoutEffect(() => {
-    if (!isMenuOpen || !triggerRef.current) return
-    // Rendered via portal (see below) so the table's `overflow-hidden` wrapper — needed to keep
-    // its rounded corners — never gets a chance to clip this menu, no matter how short the table is.
-    const estimatedMenuHeight = 160
-    const rect = triggerRef.current.getBoundingClientRect()
-    const openUpward = window.innerHeight - rect.bottom < estimatedMenuHeight
-    setMenuPosition({
-      top: openUpward ? rect.top - estimatedMenuHeight : rect.bottom + 4,
-      left: Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8),
-    })
-  }, [isMenuOpen])
-
-  function runAndClose(action: () => void) {
-    action()
-    setIsMenuOpen(false)
-  }
+  const items: ActionMenuEntry[] = [
+    { key: 'active', label: combo.active ? 'Desativar' : 'Ativar', icon: Power, onClick: onToggleActive },
+    {
+      key: 'convert',
+      label: 'Transformar em produto simples',
+      icon: ArrowRightLeft,
+      onClick: onConvertToSimple,
+      tone: 'warning',
+    },
+    { divider: true },
+    { key: 'delete', label: 'Excluir', icon: Trash2, onClick: onDelete, tone: 'danger' },
+  ]
 
   return (
     <div className="flex items-center justify-end gap-1">
@@ -248,9 +225,9 @@ function ComboActionButtons({ combo, onToggleActive, onConvertToSimple, onDelete
         to={`/combos/${combo.id}`}
         title="Editar"
         aria-label="Editar"
-        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+        className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
       >
-        <Pencil className="h-4 w-4" />
+        <Pencil className="h-[18px] w-[18px]" />
       </Link>
 
       <button
@@ -259,45 +236,20 @@ function ComboActionButtons({ combo, onToggleActive, onConvertToSimple, onDelete
         onClick={() => setIsMenuOpen((open) => !open)}
         title="Mais ações"
         aria-label="Mais ações"
-        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
+        className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
       >
-        <MoreVertical className="h-4 w-4" />
+        <MoreVertical className="h-[18px] w-[18px]" />
       </button>
 
-      {isMenuOpen &&
-        menuPosition &&
-        createPortal(
-          <div
-            ref={menuRef}
-            style={{ top: menuPosition.top, left: menuPosition.left, width: menuWidth }}
-            className="fixed z-50 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-stone-800"
-          >
-            <button
-              type="button"
-              onClick={() => runAndClose(onToggleActive)}
-              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
-            >
-              {combo.active ? 'Desativar' : 'Ativar'}
-            </button>
-            <button
-              type="button"
-              onClick={() => runAndClose(onConvertToSimple)}
-              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-500/10"
-            >
-              Transformar em produto simples
-            </button>
-            <div className="my-1 border-t border-gray-100 dark:border-white/10" />
-            <button
-              type="button"
-              onClick={() => runAndClose(onDelete)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
-            >
-              <Trash2 className="h-4 w-4" />
-              Excluir
-            </button>
-          </div>,
-          document.body,
-        )}
+      <ActionMenu
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        triggerRef={triggerRef}
+        items={items}
+        align="end"
+        mobileTitle={combo.name}
+        width={224}
+      />
     </div>
   )
 }

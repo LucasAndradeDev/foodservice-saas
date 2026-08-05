@@ -6,21 +6,25 @@ interface QrCodeCardProps {
   title: string
   url: string
   helperText?: string
+  /** Tighter padding and a smaller QR code — for space-constrained contexts like a side drawer. */
+  compact?: boolean
 }
 
-export function QrCodeCard({ title, url, helperText }: QrCodeCardProps) {
+export function QrCodeCard({ title, url, helperText, compact = false }: QrCodeCardProps) {
   const [linkCopied, setLinkCopied] = useState(false)
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
-      <div className="flex items-center gap-2 border-b border-gray-100 bg-gradient-to-r from-brand-50 to-white px-6 py-4 dark:border-white/10 dark:from-stone-900 dark:to-stone-900">
+      <div
+        className={`flex items-center gap-2 border-b border-gray-100 bg-gradient-to-r from-brand-50 to-white dark:border-white/10 dark:from-stone-900 dark:to-stone-900 ${compact ? 'px-4 py-3' : 'px-6 py-4'}`}
+      >
         <QrCode className="h-5 w-5 text-brand-600 dark:text-brand-400" />
         <h2 className="text-sm font-semibold text-gray-800 dark:text-white">{title}</h2>
       </div>
 
-      <div className="flex flex-col items-center gap-4 p-6">
+      <div className={`flex flex-col items-center ${compact ? 'gap-3 p-4' : 'gap-4 p-6'}`}>
         <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-md">
-          <QRCodeCanvas value={url} size={168} />
+          <QRCodeCanvas value={url} size={compact ? 128 : 168} />
         </div>
         <p className="max-w-xs text-center text-xs text-gray-400 dark:text-stone-500">
           {helperText ?? 'Clique com o botão direito pra salvar e imprimir'}

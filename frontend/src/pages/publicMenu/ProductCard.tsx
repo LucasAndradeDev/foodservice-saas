@@ -104,21 +104,23 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
           </span>
         ) : (
           canOrder && (
-            <div className="mt-2">
+            <div className="mt-2 flex justify-end">
               <AnimatePresence mode="wait" initial={false}>
                 {quantity === 0 ? (
                   <motion.button
                     key="add"
                     type="button"
                     layout
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
                     transition={{ duration: 0.15 }}
                     onClick={() => onAdd(product)}
-                    className="rounded-full border border-brand-600 px-3 py-1 text-xs font-medium text-brand-600 hover:bg-gray-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-white/5"
+                    aria-label="Adicionar"
+                    title="Adicionar"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white shadow-sm transition hover:bg-brand-700 active:scale-95 dark:bg-brand-500 dark:hover:bg-brand-600"
                   >
-                    Adicionar
+                    <Plus className="h-5 w-5" />
                   </motion.button>
                 ) : (
                   <motion.div
@@ -128,24 +130,24 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15 }}
-                    className="flex w-fit items-center gap-3 rounded-full border border-brand-600 px-2 py-1 dark:border-brand-400"
+                    className="flex w-fit items-center gap-3 rounded-full bg-brand-600 px-2.5 py-1.5 text-white shadow-sm dark:bg-brand-500"
                   >
                     <button
                       type="button"
                       onClick={() => onDecrement(product.id)}
-                      className="flex h-5 w-5 items-center justify-center text-brand-600 dark:text-brand-400"
+                      aria-label="Diminuir quantidade"
+                      className="flex h-6 w-6 items-center justify-center"
                     >
-                      <Minus className="h-3.5 w-3.5" />
+                      <Minus className="h-4 w-4" />
                     </button>
-                    <span className="min-w-[1ch] text-center text-xs font-semibold text-gray-800 dark:text-white">
-                      {quantity}
-                    </span>
+                    <span className="min-w-[1ch] text-center text-sm font-semibold">{quantity}</span>
                     <button
                       type="button"
                       onClick={() => onIncrement(product.id)}
-                      className="flex h-5 w-5 items-center justify-center text-brand-600 dark:text-brand-400"
+                      aria-label="Aumentar quantidade"
+                      className="flex h-6 w-6 items-center justify-center"
                     >
-                      <Plus className="h-3.5 w-3.5" />
+                      <Plus className="h-4 w-4" />
                     </button>
                   </motion.div>
                 )}

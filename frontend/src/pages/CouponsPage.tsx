@@ -169,14 +169,14 @@ export function CouponsPage() {
     <div>
       <SectionTabs tabs={MANAGEMENT_TABS} />
 
-      <div className="mb-5 flex items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
             <Ticket className="h-5 w-5" />
           </span>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Cupons de desconto</h1>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Cupons</h1>
         </div>
-        <Button type="button" onClick={openCreateForm}>
+        <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
           <Plus className="h-4 w-4" />
           Novo cupom
         </Button>
@@ -210,7 +210,78 @@ export function CouponsPage() {
           )}
 
           {filteredCoupons.length > 0 && (
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
+            <>
+              {/* Mobile: stacked cards, no horizontal scroll needed */}
+              <div className="space-y-2 sm:hidden">
+                {filteredCoupons.map((coupon) => {
+                  const status = getCouponStatus(coupon)
+                  const StatusIcon = status.icon
+                  return (
+                    <div
+                      key={coupon.id}
+                      className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900"
+                    >
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <span className="font-medium text-gray-800 dark:text-white">{coupon.code}</span>
+                        <span className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs ${status.className}`}>
+                          <StatusIcon className="h-3 w-3" />
+                          {status.label}
+                        </span>
+                      </div>
+                      <div className="mb-3 grid grid-cols-3 gap-2 text-sm">
+                        <div>
+                          <div className="text-xs text-gray-400 dark:text-stone-500">Desconto</div>
+                          <div className="text-gray-700 dark:text-stone-300">
+                            {formatDiscount(coupon.discountType, coupon.discountValue)}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-400 dark:text-stone-500">Validade</div>
+                          <div className="text-gray-700 dark:text-stone-300">
+                            {coupon.expiresAt ? dateFormatter.format(new Date(coupon.expiresAt)) : 'Sem validade'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-400 dark:text-stone-500">Usos</div>
+                          <div className="text-gray-700 dark:text-stone-300">{formatUsage(coupon)}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end gap-1 border-t border-gray-100 pt-2 dark:border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(coupon)}
+                          title="Editar"
+                          aria-label="Editar"
+                          className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+                        >
+                          <Pencil className="h-[18px] w-[18px]" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleActive(coupon)}
+                          title={coupon.active ? 'Desativar' : 'Ativar'}
+                          aria-label={coupon.active ? 'Desativar' : 'Ativar'}
+                          className={`rounded-md p-2 hover:bg-gray-100 dark:hover:bg-white/5 ${coupon.active ? 'text-gray-500 hover:text-gold-700 dark:text-stone-400 dark:hover:text-gold-400' : 'text-gray-400 hover:text-sage-700 dark:text-stone-500 dark:hover:text-sage-400'}`}
+                        >
+                          <Power className="h-[18px] w-[18px]" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCouponToDelete(coupon)}
+                          title="Excluir"
+                          aria-label="Excluir"
+                          className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-wine-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-wine-400"
+                        >
+                          <Trash2 className="h-[18px] w-[18px]" />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Desktop: table */}
+              <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block dark:border-white/10 dark:bg-stone-900">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <TableHead>
@@ -278,7 +349,8 @@ export function CouponsPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
+              </div>
+            </>
           )}
         </>
       )}
