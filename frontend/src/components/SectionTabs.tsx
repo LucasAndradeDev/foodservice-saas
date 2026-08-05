@@ -73,11 +73,11 @@ export function SectionTabs({ tabs }: { tabs: SectionTab[] }) {
               ref={(el) => {
                 if (pathname === tab.to) activeRef.current = el
               }}
-              className="relative shrink-0 outline-none"
+              className="relative min-w-0 flex-1 outline-none sm:flex-none sm:shrink-0"
             >
               {({ isActive }) => (
                 <span
-                  className={`relative -mb-px flex items-center gap-1.5 whitespace-nowrap rounded-t-xl border border-b-0 px-3 py-2 text-[13px] font-medium transition-colors sm:px-4 sm:py-2.5 sm:text-sm ${
+                  className={`relative -mb-px flex w-full items-center justify-center gap-1.5 rounded-t-xl border border-b-0 px-2 py-2 text-[13px] font-medium transition-colors sm:w-auto sm:px-4 sm:py-2.5 sm:text-sm ${
                     isActive
                       ? 'border-gray-200 bg-white text-brand-700 shadow-[0_-2px_6px_-2px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-stone-900 dark:text-brand-400'
                       : 'border-transparent text-gray-500 hover:bg-gray-100/70 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200'
@@ -90,7 +90,7 @@ export function SectionTabs({ tabs }: { tabs: SectionTab[] }) {
                       }`}
                     />
                   )}
-                  {tab.label}
+                  <span className="min-w-0 truncate">{tab.label}</span>
                 </span>
               )}
             </NavLink>

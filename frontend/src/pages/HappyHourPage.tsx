@@ -61,6 +61,11 @@ const MANAGEMENT_TABS = [
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 
+const DISCOUNT_TYPE_OPTIONS: { value: DiscountType; label: string }[] = [
+  { value: 'PERCENTAGE', label: 'Percentual' },
+  { value: 'FIXED', label: 'Valor fixo' },
+]
+
 const WEEK_DAYS: { value: DayOfWeek; shortLabel: string }[] = [
   { value: 'MONDAY', shortLabel: 'Seg' },
   { value: 'TUESDAY', shortLabel: 'Ter' },
@@ -501,18 +506,14 @@ export function HappyHourPage() {
 
             <div className="mb-1.5 grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="discountType">
-                  Tipo
-                </label>
-                <select
-                  id="discountType"
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">Tipo</label>
+                <Dropdown<DiscountType>
                   value={discountType}
-                  onChange={(e) => setDiscountType(e.target.value as DiscountType)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-                >
-                  <option value="PERCENTAGE">Percentual</option>
-                  <option value="FIXED">Valor fixo</option>
-                </select>
+                  onChange={setDiscountType}
+                  options={DISCOUNT_TYPE_OPTIONS}
+                  fullWidth
+                  mobileTitle="Tipo de desconto"
+                />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="discountValue">

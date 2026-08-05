@@ -428,8 +428,10 @@ export function ComboFormPage() {
                           groups={productSelectGroups}
                           placeholder="Selecione um produto"
                         />
-                        <QuantityStepper value={item.quantity} onChange={(val) => updateFixedItemRow(index, { quantity: val })} />
-                        <RemoveButton onClick={() => removeFixedItemRow(index)} label="Remover" />
+                        <div className="flex items-center justify-between gap-2 md:justify-start">
+                          <QuantityStepper value={item.quantity} onChange={(val) => updateFixedItemRow(index, { quantity: val })} />
+                          <RemoveButton onClick={() => removeFixedItemRow(index)} label="Remover" />
+                        </div>
                       </ItemRow>
                     ))}
                     {fixedItems.length === 0 && (
@@ -447,8 +449,8 @@ export function ComboFormPage() {
                   />
                   <div className="space-y-3">
                     {slots.map((slot, slotIndex) => (
-                      <div key={slotIndex} className="overflow-hidden rounded-lg border border-gray-200 dark:border-white/10">
-                        <div className="flex items-center gap-2 border-b border-gray-200 bg-gray-50 p-2.5 dark:border-white/10 dark:bg-white/5">
+                      <div key={slotIndex} className="rounded-lg border border-gray-200 dark:border-white/10">
+                        <div className="flex items-center gap-2 rounded-t-lg border-b border-gray-200 bg-gray-50 p-2.5 dark:border-white/10 dark:bg-white/5">
                           <IconSelect
                             value={slot.categoryId}
                             onChange={(categoryId) => updateSlotCategory(slotIndex, categoryId)}
@@ -469,11 +471,13 @@ export function ComboFormPage() {
                                 groups={productSelectGroups}
                                 placeholder="Selecione um produto"
                               />
-                              <QuantityStepper
-                                value={option.quantity}
-                                onChange={(val) => updateSlotOption(slotIndex, optionIndex, { quantity: val })}
-                              />
-                              <RemoveButton onClick={() => removeSlotOption(slotIndex, optionIndex)} label="Remover opção" />
+                              <div className="flex items-center justify-between gap-2 md:justify-start">
+                                <QuantityStepper
+                                  value={option.quantity}
+                                  onChange={(val) => updateSlotOption(slotIndex, optionIndex, { quantity: val })}
+                                />
+                                <RemoveButton onClick={() => removeSlotOption(slotIndex, optionIndex)} label="Remover opção" />
+                              </div>
                             </ItemRow>
                           ))}
                           {slot.categoryId !== '' && slot.options.length === 0 && (
@@ -571,7 +575,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: LucideIcon; titl
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
         <Icon className="h-4 w-4" />
       </div>
-      <div>
+      <div className="min-w-0 flex-1">
         <h2 className="text-sm font-semibold text-gray-800 dark:text-white">{title}</h2>
         {subtitle && <p className="mt-0.5 text-xs text-gray-500 dark:text-stone-400">{subtitle}</p>}
       </div>
@@ -581,7 +585,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: LucideIcon; titl
 
 function ItemRow({ children }: { children: ReactNode }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50/60 p-2 dark:border-white/5 dark:bg-white/[0.03]">
+    <div className="flex flex-col gap-2 rounded-lg border border-gray-100 bg-gray-50/60 p-2 md:flex-row md:items-center dark:border-white/5 dark:bg-white/[0.03]">
       {children}
     </div>
   )

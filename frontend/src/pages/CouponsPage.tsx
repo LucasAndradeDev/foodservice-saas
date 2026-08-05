@@ -5,6 +5,7 @@ import { createCoupon, deleteCoupon, listCoupons, updateCoupon, type Coupon } fr
 import type { DiscountType } from '../api/orders'
 import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { DatePicker } from '../components/DatePicker'
 import { Dropdown } from '../components/Dropdown'
 import { TableHead, TableRow } from '../components/Table'
 import { Modal } from '../components/Modal'
@@ -28,6 +29,11 @@ function formatUsage(coupon: Coupon) {
 }
 
 type CouponStatusLabel = 'Ativo' | 'Inativo' | 'Expirado' | 'Esgotado'
+
+const DISCOUNT_TYPE_OPTIONS: { value: DiscountType; label: string }[] = [
+  { value: 'PERCENTAGE', label: 'Percentual' },
+  { value: 'FIXED', label: 'Valor fixo' },
+]
 
 const STATUS_FILTER_OPTIONS: { value: 'all' | CouponStatusLabel; label: string }[] = [
   { value: 'all', label: 'Todos' },
@@ -378,18 +384,14 @@ export function CouponsPage() {
 
             <div className="mb-4 grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="discountType">
-                  Tipo
-                </label>
-                <select
-                  id="discountType"
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">Tipo</label>
+                <Dropdown<DiscountType>
                   value={discountType}
-                  onChange={(e) => setDiscountType(e.target.value as DiscountType)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-                >
-                  <option value="PERCENTAGE">Percentual</option>
-                  <option value="FIXED">Valor fixo</option>
-                </select>
+                  onChange={setDiscountType}
+                  options={DISCOUNT_TYPE_OPTIONS}
+                  fullWidth
+                  mobileTitle="Tipo de desconto"
+                />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="discountValue">
@@ -411,16 +413,10 @@ export function CouponsPage() {
 
             <div className="mb-4 grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="expiresAt">
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">
                   Validade <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
                 </label>
-                <input
-                  id="expiresAt"
-                  type="date"
-                  value={expiresAt}
-                  onChange={(e) => setExpiresAt(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-                />
+                <DatePicker value={expiresAt} onChange={setExpiresAt} placeholder="Sem validade" allowClear className="block w-full" />
               </div>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="maxUses">

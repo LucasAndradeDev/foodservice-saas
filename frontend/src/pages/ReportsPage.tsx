@@ -158,7 +158,7 @@ export function ReportsPage() {
   )
 
   function presetButtonClasses(preset: keyof typeof presetRanges) {
-    return `rounded-lg px-3 py-2 text-center text-sm font-medium whitespace-nowrap transition-colors ${
+    return `rounded-lg px-2 py-2 text-center text-xs font-medium leading-tight transition-colors sm:px-3 sm:text-sm sm:whitespace-nowrap ${
       activePreset === preset
         ? 'bg-brand-600 text-white shadow-sm'
         : 'border border-gray-200 bg-gray-50 text-gray-700 dark:text-stone-300 hover:bg-gray-100 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10'

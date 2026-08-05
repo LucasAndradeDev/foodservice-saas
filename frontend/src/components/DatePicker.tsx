@@ -13,12 +13,16 @@ import {
 } from '../utils/calendarGrid'
 
 interface DatePickerProps {
-  /** yyyy-mm-dd */
+  /** yyyy-mm-dd, or '' when optional and unset. */
   value: string
   onChange: (value: string) => void
   /** yyyy-mm-dd — dates after this are disabled. */
   maxDate?: string
   className?: string
+  /** Shown on the trigger when value is ''. */
+  placeholder?: string
+  /** Shows a "Remover data" action to clear an optional date back to ''. */
+  allowClear?: boolean
 }
 
 function getCellClasses({
@@ -40,15 +44,15 @@ function getCellClasses({
 }
 
 /** Single-date picker, styled to match DateRangePicker's calendar — including its mobile bottom sheet. */
-export function DatePicker({ value, onChange, maxDate, className }: DatePickerProps) {
+export function DatePicker({ value, onChange, maxDate, className, placeholder, allowClear }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [viewDate, setViewDate] = useState(() => parseDateInput(value))
+  const [viewDate, setViewDate] = useState(() => parseDateInput(value || maxDate || toDateInputValue(new Date())))
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!isOpen) return
-    setViewDate(parseDateInput(value))
-  }, [isOpen, value])
+    setViewDate(parseDateInput(value || maxDate || toDateInputValue(new Date())))
+  }, [isOpen, value, maxDate])
 
   useEffect(() => {
     if (!isOpen) return
@@ -62,7 +66,7 @@ export function DatePicker({ value, onChange, maxDate, className }: DatePickerPr
   }, [isOpen])
 
   const maxDateObj = maxDate ? parseDateInput(maxDate) : null
-  const selectedDate = parseDateInput(value)
+  const selectedDate = value ? parseDateInput(value) : null
 
   function isDisabled(date: Date) {
     return maxDateObj !== null && date.getTime() > maxDateObj.getTime()
@@ -77,6 +81,11 @@ export function DatePicker({ value, onChange, maxDate, className }: DatePickerPr
   function handleToday() {
     const now = maxDateObj ?? new Date()
     onChange(toDateInputValue(now))
+    setIsOpen(false)
+  }
+
+  function handleClear() {
+    onChange('')
     setIsOpen(false)
   }
 
@@ -126,7 +135,7 @@ export function DatePicker({ value, onChange, maxDate, className }: DatePickerPr
           {cells.map(({ date, inMonth }, index) => {
             const disabled = isDisabled(date)
             const isToday = isSameDay(date, maxDateObj ?? new Date())
-            const isSelected = isSameDay(date, selectedDate)
+            const isSelected = selectedDate !== null && isSameDay(date, selectedDate)
             return (
               <button
                 key={index}
@@ -149,10 +158,12 @@ export function DatePicker({ value, onChange, maxDate, className }: DatePickerPr
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
-        className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-white/10 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-white/5"
+        className="flex w-full items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-white/10 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-white/5"
       >
         <Calendar className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />
-        <span>{formatDateDisplay(value)}</span>
+        <span className={value ? undefined : 'text-gray-400 dark:text-stone-500'}>
+          {value ? formatDateDisplay(value) : (placeholder ?? 'Selecionar data')}
+        </span>
       </button>
 
       <AnimatePresence>
@@ -165,13 +176,24 @@ export function DatePicker({ value, onChange, maxDate, className }: DatePickerPr
             className="absolute left-1/2 z-20 mt-1.5 hidden w-72 -translate-x-1/2 rounded-xl border border-gray-200 bg-white p-4 shadow-lg sm:block dark:border-white/10 dark:bg-stone-800"
           >
             {renderCalendar('sm')}
-            <button
-              type="button"
-              onClick={handleToday}
-              className="mt-3 w-full rounded-lg border border-gray-200 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
-            >
-              Hoje
-            </button>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={handleToday}
+                className="flex-1 rounded-lg border border-gray-200 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+              >
+                Hoje
+              </button>
+              {allowClear && value && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="flex-1 rounded-lg border border-gray-200 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+                >
+                  Remover data
+                </button>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -207,13 +229,24 @@ export function DatePicker({ value, onChange, maxDate, className }: DatePickerPr
                   </button>
                 </div>
                 {renderCalendar('lg')}
-                <button
-                  type="button"
-                  onClick={handleToday}
-                  className="mt-4 w-full rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
-                >
-                  Hoje
-                </button>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToday}
+                    className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+                  >
+                    Hoje
+                  </button>
+                  {allowClear && value && (
+                    <button
+                      type="button"
+                      onClick={handleClear}
+                      className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+                    >
+                      Remover data
+                    </button>
+                  )}
+                </div>
               </motion.div>
             </motion.div>
           )}
