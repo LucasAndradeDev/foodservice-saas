@@ -5,6 +5,7 @@ import {
   ChefHat,
   LayoutDashboard,
   LogOut,
+  MessageCircle,
   MoreHorizontal,
   Package,
   Settings as SettingsIcon,
@@ -20,6 +21,7 @@ import { useAuth } from '../auth/AuthContext'
 import { EmailVerificationBanner } from '../components/EmailVerificationBanner'
 import { Modal } from '../components/Modal'
 import { NotificationToastStack, type ToastItem } from '../components/NotificationToastStack'
+import { SupportModal } from '../components/SupportModal'
 import { getNavNotificationStatus, markNavSectionSeen, type NavNotificationStatus, type NavSection } from '../api/navNotifications'
 import { playAlertTone } from '../utils/alertSound'
 import { Logo } from '../theme/Logo'
@@ -111,6 +113,7 @@ export function AppLayout() {
   const location = useLocation()
   const queryClient = useQueryClient()
   const [isMoreOpen, setIsMoreOpen] = useState(false)
+  const [isSupportOpen, setIsSupportOpen] = useState(false)
 
   const visiblePrimaryItems = PRIMARY_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
   const visibleMenuItems = MENU_NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role)))
@@ -197,6 +200,11 @@ export function AppLayout() {
     navigate(to)
   }
 
+  function handleMoreSupport() {
+    setIsMoreOpen(false)
+    setIsSupportOpen(true)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 sm:flex sm:h-screen sm:overflow-hidden dark:bg-stone-950">
       <NotificationToastStack toasts={toasts} onDismiss={dismissToast} onNavigate={navigate} />
@@ -276,6 +284,14 @@ export function AppLayout() {
             </div>
             <ThemeToggleButton />
           </div>
+          <button
+            type="button"
+            onClick={() => setIsSupportOpen(true)}
+            className="mb-2 flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+          >
+            <MessageCircle className="h-4 w-4" />
+            Fale conosco
+          </button>
           <button
             type="button"
             onClick={handleLogout}
@@ -361,9 +377,19 @@ export function AppLayout() {
                 {item.label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={handleMoreSupport}
+              className="flex items-center gap-3 py-3 text-left text-sm text-gray-700 dark:text-stone-300"
+            >
+              <MessageCircle className="h-5 w-5 text-gray-500 dark:text-stone-400" />
+              Fale conosco
+            </button>
           </div>
         </Modal>
       )}
+
+      {isSupportOpen && <SupportModal onClose={() => setIsSupportOpen(false)} />}
     </div>
   )
 }
