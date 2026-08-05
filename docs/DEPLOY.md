@@ -49,7 +49,7 @@ Frontend e backend ficam em domínios `onrender.com` diferentes. Em vez de CORS,
 - [x] Banco trocado pro Postgres do Render (`mora-db`) — backend sobe com sucesso, `/actuator/health` responde `{"status":"UP"}`
 - [x] Regra de Rewrite (`/api/*` → `https://mora-backend-ubuw.onrender.com/api/*`) configurada no `mora-frontend`
 - [x] Frontend carregando e se comunicando com o backend em produção
-- [ ] Teste end-to-end completo em produção (login, abrir mesa, pedido, upload de foto) — só validado que a comunicação frontend↔backend funciona, falta percorrer os fluxos de verdade
+- [x] Teste end-to-end completo em produção ✅ 2026-08-04 (login, abrir mesa, adicionar item, enviar pra cozinha, avançar status até entregue, fechar conta com pagamento Pix incluindo taxa de serviço, upload de foto de produto pro Supabase Storage — todos os passos funcionaram na conta de teste "Tatu Bola")
 
 ## Problemas conhecidos (e como foram resolvidos)
 
@@ -77,9 +77,8 @@ Frontend e backend ficam em domínios `onrender.com` diferentes. Em vez de CORS,
 
 ## Próximos passos
 
-1. Percorrer o fluxo end-to-end de verdade em produção (login, abrir mesa, pedido, upload de foto)
-2. Fazer o upgrade do `mora-db` pro plano pago antes do prazo acima (ver seção "Hospedagem definitiva do banco")
-3. Considerar Dockerfile/deploy também pro ambiente de staging, se fizer sentido mais pra frente
+1. Fazer o upgrade do `mora-db` pro plano pago antes do prazo acima (ver seção "Hospedagem definitiva do banco")
+2. Considerar Dockerfile/deploy também pro ambiente de staging, se fizer sentido mais pra frente
 
 ## Como retomar em um chat novo
 
