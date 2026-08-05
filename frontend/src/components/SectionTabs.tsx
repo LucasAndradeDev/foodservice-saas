@@ -73,7 +73,7 @@ export function SectionTabs({ tabs }: { tabs: SectionTab[] }) {
               ref={(el) => {
                 if (pathname === tab.to) activeRef.current = el
               }}
-              className="relative min-w-0 flex-1 outline-none sm:flex-none sm:shrink-0"
+              className="relative grow shrink-0 outline-none sm:grow-0"
             >
               {({ isActive }) => (
                 <span
@@ -90,7 +90,7 @@ export function SectionTabs({ tabs }: { tabs: SectionTab[] }) {
                       }`}
                     />
                   )}
-                  <span className="min-w-0 truncate">{tab.label}</span>
+                  <span className="whitespace-nowrap">{tab.label}</span>
                 </span>
               )}
             </NavLink>

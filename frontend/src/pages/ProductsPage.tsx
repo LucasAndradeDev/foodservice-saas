@@ -303,7 +303,7 @@ export function ProductsPage() {
           {canManage && (
             <Button type="button" onClick={openCreateForm}>
               <Plus className="h-4 w-4" />
-              Novo produto
+              <span className="hidden sm:inline">Novo produto</span>
             </Button>
           )}
         </div>

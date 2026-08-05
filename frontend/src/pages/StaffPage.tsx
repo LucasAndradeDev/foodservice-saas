@@ -113,16 +113,16 @@ export function StaffPage() {
     <div>
       <SectionTabs tabs={MANAGEMENT_TABS} />
 
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
-        <div className="flex items-center gap-3">
+      <div className="mb-5 flex items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+        <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
             <Users className="h-5 w-5" />
           </span>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Funcionários</h1>
+          <h1 className="truncate text-lg font-bold text-gray-900 dark:text-white">Funcionários</h1>
         </div>
         <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
           <Plus className="h-4 w-4" />
-          Novo funcionário
+          <span className="hidden sm:inline">Novo funcionário</span>
         </Button>
       </div>
 

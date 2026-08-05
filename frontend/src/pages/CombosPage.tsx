@@ -80,7 +80,7 @@ export function CombosPage() {
             className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"
           >
             <Plus className="h-4 w-4" />
-            Novo combo
+            <span className="hidden sm:inline">Novo combo</span>
           </Link>
         )}
       </div>
