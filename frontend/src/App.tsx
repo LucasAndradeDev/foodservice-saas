@@ -22,6 +22,7 @@ import { ProductAvailabilityPage } from './pages/ProductAvailabilityPage'
 import { ProductModifiersPage } from './pages/ProductModifiersPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { PostMealFeedbackPage } from './pages/PostMealFeedbackPage'
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { PublicMenuPage } from './pages/PublicMenuPage'
 import { PublicReservationStatusPage } from './pages/PublicReservationStatusPage'
 import { ReportsPage } from './pages/ReportsPage'
@@ -32,6 +33,7 @@ import { StaffPage } from './pages/StaffPage'
 import { TabDetailPage } from './pages/TabDetailPage'
 import { TablesPage } from './pages/TablesPage'
 import { TabReceiptPrintPage } from './pages/TabReceiptPrintPage'
+import { TermsOfServicePage } from './pages/TermsOfServicePage'
 import { VerifyEmailPage } from './pages/VerifyEmailPage'
 import { ThemeProvider } from './theme/ThemeContext'
 
@@ -67,6 +69,8 @@ function App() {
                 </AuthLayout>
               }
             />
+            <Route path="/terms" element={<TermsOfServicePage />} />
+            <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/menu/:slug" element={<PublicMenuPage />} />
             <Route path="/menu/:slug/:tableId" element={<PublicMenuPage />} />
             <Route path="/feedback/:slug/:tabId" element={<PostMealFeedbackPage />} />

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarClock, ShoppingBag, Ticket } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getPublicMenu, redeemCoupon, removeCoupon, submitPublicOrder, type PublicMenuProduct } from '../api/publicMenu'
 import { createTableRequest, type TableRequestType } from '../api/tableRequests'
 import { sameComboSelections, type SelectedComboSlot } from '../utils/combos'
@@ -407,6 +407,16 @@ export function PublicMenuPage() {
           )
         })}
       </main>
+
+      <footer className="mx-auto max-w-2xl px-4 pb-2 pt-6 text-center text-xs text-gray-400 dark:text-stone-600">
+        <Link to="/terms" target="_blank" className="hover:underline">
+          Termos de Uso
+        </Link>
+        {' · '}
+        <Link to="/privacy" target="_blank" className="hover:underline">
+          Política de Privacidade
+        </Link>
+      </footer>
 
       <AnimatePresence>
         {orderSuccess && (

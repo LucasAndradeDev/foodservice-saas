@@ -4,6 +4,7 @@ import com.example.restaurant_saas.domain.enums.UserRole;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Data
@@ -16,4 +17,5 @@ public class UserResponse {
     private UserRole role;
     private Boolean active;
     private Boolean emailVerified;
+    private OffsetDateTime termsAcceptedAt;
 }

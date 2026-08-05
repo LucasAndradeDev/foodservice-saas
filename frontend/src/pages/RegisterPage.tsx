@@ -17,6 +17,7 @@ export function RegisterPage() {
   const [confirmOwnerEmail, setConfirmOwnerEmail] = useState('')
   const [ownerPassword, setOwnerPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [termsAccepted, setTermsAccepted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -33,6 +34,11 @@ export function RegisterPage() {
       return
     }
 
+    if (!termsAccepted) {
+      setError('Você precisa aceitar os Termos de Uso e a Política de Privacidade para continuar.')
+      return
+    }
+
     setIsSubmitting(true)
     try {
       await registerRestaurant({
@@ -43,6 +49,7 @@ export function RegisterPage() {
         ownerName,
         ownerEmail,
         ownerPassword,
+        termsAccepted,
       })
       navigate('/')
     } catch {
@@ -155,11 +162,30 @@ export function RegisterPage() {
           }
         />
 
+        <label className="mb-4 flex items-start gap-2 text-sm text-gray-600 dark:text-stone-400">
+          <input
+            type="checkbox"
+            checked={termsAccepted}
+            onChange={(e) => setTermsAccepted(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-stone-600 dark:bg-stone-800"
+          />
+          <span>
+            Li e aceito os{' '}
+            <Link to="/terms" target="_blank" className="font-medium text-brand-700 hover:underline dark:text-brand-400">
+              Termos de Uso
+            </Link>{' '}
+            e a{' '}
+            <Link to="/privacy" target="_blank" className="font-medium text-brand-700 hover:underline dark:text-brand-400">
+              Política de Privacidade
+            </Link>
+          </span>
+        </label>
+
         {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || !termsAccepted}
           className="mt-2 w-full rounded-lg bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
         >
           {isSubmitting ? 'Cadastrando...' : 'Cadastrar'}

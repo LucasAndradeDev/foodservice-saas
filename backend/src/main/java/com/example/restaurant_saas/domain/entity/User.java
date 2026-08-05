@@ -48,6 +48,9 @@ public class User {
     @Builder.Default
     private Boolean emailVerified = true;
 
+    @Column(name = "terms_accepted_at")
+    private OffsetDateTime termsAcceptedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

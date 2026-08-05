@@ -21,6 +21,7 @@ export interface RegisterRestaurantPayload {
   ownerName: string
   ownerEmail: string
   ownerPassword: string
+  termsAccepted: boolean
 }
 
 export function registerRestaurant(payload: RegisterRestaurantPayload) {

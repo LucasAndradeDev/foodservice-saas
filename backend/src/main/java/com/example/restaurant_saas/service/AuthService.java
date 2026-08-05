@@ -127,6 +127,7 @@ public class AuthService {
                 .role(UserRole.OWNER)
                 .active(true)
                 .emailVerified(false)
+                .termsAcceptedAt(request.isTermsAccepted() ? OffsetDateTime.now() : null)
                 .build();
         owner = userRepository.save(owner);
 
@@ -373,6 +374,7 @@ public class AuthService {
                 .role(user.getRole())
                 .active(user.getActive())
                 .emailVerified(user.getEmailVerified())
+                .termsAcceptedAt(user.getTermsAcceptedAt())
                 .build();
 
         RestaurantResponse restaurantResp = RestaurantResponse.builder()
