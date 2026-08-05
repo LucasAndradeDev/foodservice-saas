@@ -4,6 +4,7 @@ import com.example.restaurant_saas.domain.enums.ReservationStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.OffsetDateTime;
@@ -13,6 +14,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "reservations")
+@Filter(name = "tenantFilter", condition = "restaurant_id = :tenantId")
 @Getter
 @Setter
 @NoArgsConstructor

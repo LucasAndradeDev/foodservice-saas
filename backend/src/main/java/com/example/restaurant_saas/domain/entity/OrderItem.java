@@ -5,6 +5,7 @@ import com.example.restaurant_saas.domain.enums.ItemStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
@@ -16,6 +17,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "order_items")
+@Filter(name = "tenantFilter", condition = "order_id in (select o.id from orders o where o.restaurant_id = :tenantId)")
 @Getter
 @Setter
 @NoArgsConstructor

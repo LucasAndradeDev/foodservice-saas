@@ -4,6 +4,7 @@ import com.example.restaurant_saas.domain.enums.DiscountType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
@@ -15,6 +16,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "happy_hour_rules")
+@Filter(name = "tenantFilter", condition = "restaurant_id = :tenantId")
 @Getter
 @Setter
 @NoArgsConstructor

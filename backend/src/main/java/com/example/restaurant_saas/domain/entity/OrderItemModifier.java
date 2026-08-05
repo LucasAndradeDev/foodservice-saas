@@ -3,6 +3,7 @@ package com.example.restaurant_saas.domain.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Filter;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -10,6 +11,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "order_item_modifiers")
+@Filter(name = "tenantFilter", condition = "restaurant_id = :tenantId")
 @Getter
 @Setter
 @NoArgsConstructor

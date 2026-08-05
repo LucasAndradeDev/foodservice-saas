@@ -3,6 +3,7 @@ package com.example.restaurant_saas.domain.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.DayOfWeek;
@@ -12,6 +13,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "product_availability_windows")
+@Filter(name = "tenantFilter", condition = "restaurant_id = :tenantId")
 @Getter
 @Setter
 @NoArgsConstructor
