@@ -354,7 +354,7 @@ export function PublicMenuPage() {
 
       {menu.table?.discountAppliedLabel && (
         <div className="mx-auto max-w-2xl px-4 pt-3">
-          <div className="flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2 text-sm font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+          <div className="flex items-center gap-2 rounded-xl bg-sage-100 px-3 py-2 text-sm font-medium text-sage-700 dark:bg-sage-500/10 dark:text-sage-400">
             <Ticket className="h-4 w-4 shrink-0" />
             {menu.table.discountAppliedLabel}
           </div>
@@ -400,7 +400,7 @@ export function PublicMenuPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-x-0 top-4 z-30 mx-auto w-fit rounded-full bg-green-600 px-4 py-2 text-sm text-white shadow-lg"
+            className="fixed inset-x-0 top-4 z-30 mx-auto w-fit rounded-full bg-sage-600 px-4 py-2 text-sm text-white shadow-lg"
           >
             Pedido enviado! Já foi pra cozinha.
           </motion.div>
@@ -414,7 +414,7 @@ export function PublicMenuPage() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-x-4 top-4 z-30 mx-auto w-fit max-w-md rounded-2xl bg-amber-500 px-4 py-2 text-center text-sm text-white shadow-lg"
+            className="fixed inset-x-4 top-4 z-30 mx-auto w-fit max-w-md rounded-2xl bg-gold-500 px-4 py-2 text-center text-sm text-white shadow-lg"
           >
             {reorderNotice}
           </motion.div>

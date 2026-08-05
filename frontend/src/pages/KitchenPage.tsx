@@ -36,10 +36,10 @@ const STATUS_LABELS: Record<ItemStatus, string> = {
 
 const STATUS_STYLES: Record<ItemStatus, string> = {
   PENDING: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-stone-400',
-  PREPARING: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
-  READY: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-  DELIVERED: 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400',
-  CANCELLED: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400',
+  PREPARING: 'bg-gold-100 text-gold-700 dark:bg-gold-500/10 dark:text-gold-400',
+  READY: 'bg-teal-100 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
+  DELIVERED: 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400',
+  CANCELLED: 'bg-wine-100 text-wine-700 dark:bg-wine-500/10 dark:text-wine-400',
 }
 
 const STATUS_ICONS: Record<ItemStatus, LucideIcon> = {
@@ -260,7 +260,7 @@ export function KitchenPage() {
                           {group.label}
                         </span>
                         {group.delayLevel === 'critical' && (
-                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-600 dark:text-red-400" />
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-wine-600 dark:text-wine-400" />
                         )}
                         {group.delayLevel === 'warning' && (
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -374,7 +374,7 @@ function KitchenItemCard({
             <span
               className={
                 delayLevel === 'critical'
-                  ? 'font-semibold text-red-600 dark:text-red-400'
+                  ? 'font-semibold text-wine-600 dark:text-wine-400'
                   : delayLevel === 'warning'
                     ? 'font-semibold text-amber-600 dark:text-amber-400'
                     : ''
@@ -386,7 +386,7 @@ function KitchenItemCard({
               <StatusIcon className="h-3 w-3" />
               {STATUS_LABELS[item.status]}
             </span>
-            {delayLevel === 'critical' && <AlertTriangle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />}
+            {delayLevel === 'critical' && <AlertTriangle className="h-3.5 w-3.5 text-wine-600 dark:text-wine-400" />}
             {delayLevel === 'warning' && <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />}
           </div>
           <div className="mt-1.5 flex items-center gap-1.5 text-base font-semibold text-gray-800 dark:text-white">
@@ -416,7 +416,7 @@ function KitchenItemCard({
               <button
                 type="button"
                 onClick={() => onAdvance(item.id, 'PREPARING')}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 sm:flex-none"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-gold-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-gold-700 sm:flex-none"
               >
                 <PlayCircle className="h-4 w-4" />
                 Iniciar preparo
@@ -426,7 +426,7 @@ function KitchenItemCard({
               <button
                 type="button"
                 onClick={() => onAdvance(item.id, 'READY')}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-amber-700 sm:flex-none"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 sm:flex-none"
               >
                 <PackageCheck className="h-4 w-4" />
                 Marcar pronto
@@ -436,7 +436,7 @@ function KitchenItemCard({
               <button
                 type="button"
                 onClick={() => onAdvance(item.id, 'DELIVERED')}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-green-700 sm:flex-none"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-sage-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-sage-700 sm:flex-none"
               >
                 <Send className="h-4 w-4" />
                 Marcar entregue

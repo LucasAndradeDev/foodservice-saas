@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Pencil, Target } from 'lucide-react'
 import { useState } from 'react'
 import { getMonthlyGoal, setMonthlyGoal } from '../../api/reports'
+import { Button } from '../../components/Button'
+import { Card } from '../../components/Card'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -56,10 +58,10 @@ export function MonthlyGoalCard() {
 
   const progress = data?.progressPercentage ?? null
   const progressWidth = progress === null ? 0 : Math.min(progress, 100)
-  const progressColor = progress !== null && progress >= 100 ? 'bg-green-500' : 'bg-brand-600'
+  const progressColor = progress !== null && progress >= 100 ? 'bg-sage-500' : 'bg-brand-600'
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900">
+    <Card className="p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-stone-300">
           <Target className="h-4 w-4 text-brand-600 dark:text-brand-400" />
@@ -100,14 +102,9 @@ export function MonthlyGoalCard() {
             placeholder="Ex: 50000"
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
           />
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={mutation.isPending}
-            className="shrink-0 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
-          >
+          <Button type="button" onClick={handleSave} disabled={mutation.isPending} className="shrink-0">
             Salvar
-          </button>
+          </Button>
           <button
             type="button"
             onClick={() => setIsEditing(false)}
@@ -148,6 +145,6 @@ export function MonthlyGoalCard() {
           <p className="mt-1 text-xs text-gray-400 dark:text-stone-500">{progress}% da meta</p>
         </div>
       )}
-    </div>
+    </Card>
   )
 }

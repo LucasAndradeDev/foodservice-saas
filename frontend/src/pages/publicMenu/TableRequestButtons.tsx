@@ -33,7 +33,7 @@ export function TableRequestButtons({
           disabled={(isPending && pendingType === 'REQUEST_BILL') || requestedTypes.has('REQUEST_BILL')}
           className={`flex items-center gap-2 rounded-full border bg-white/90 px-4 py-2 text-sm font-medium shadow-xl backdrop-blur-md transition-colors duration-150 dark:bg-stone-900/90 ${
             requestedTypes.has('REQUEST_BILL')
-              ? 'border-green-600 bg-green-50 text-green-700 dark:border-green-500 dark:bg-green-500/10 dark:text-green-400'
+              ? 'border-sage-600 bg-sage-100 text-sage-700 dark:border-sage-500 dark:bg-sage-500/10 dark:text-sage-400'
               : 'border-brand-600 text-brand-600 hover:bg-gray-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-stone-800'
           }`}
         >
@@ -56,7 +56,7 @@ export function TableRequestButtons({
         disabled={(isPending && pendingType === 'CALL_WAITER') || requestedTypes.has('CALL_WAITER')}
         className={`flex items-center gap-2 rounded-full border bg-white/90 px-4 py-2 text-sm font-medium shadow-xl backdrop-blur-md transition-colors duration-150 dark:bg-stone-900/90 ${
           requestedTypes.has('CALL_WAITER')
-            ? 'border-green-600 bg-green-50 text-green-700 dark:border-green-500 dark:bg-green-500/10 dark:text-green-400'
+            ? 'border-sage-600 bg-sage-100 text-sage-700 dark:border-sage-500 dark:bg-sage-500/10 dark:text-sage-400'
             : 'border-brand-600 text-brand-600 hover:bg-gray-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-stone-800'
         }`}
       >

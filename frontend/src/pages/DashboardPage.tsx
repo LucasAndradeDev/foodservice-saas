@@ -56,19 +56,19 @@ export function DashboardPage() {
           icon={CheckCircle2}
           label="Mesas livres"
           value={data.freeTables}
-          accentClassName="text-green-700 dark:text-green-400"
+          accentClassName="text-sage-700 dark:text-sage-400"
         />
         <StatTile
           icon={Flame}
           label="Mesas ocupadas"
           value={data.occupiedTables}
-          accentClassName="text-red-700 dark:text-red-400"
+          accentClassName="text-brand-700 dark:text-brand-400"
         />
         <StatTile
           icon={UtensilsCrossed}
           label="Pedidos em preparo"
           value={data.ordersInPreparation}
-          accentClassName="text-amber-700 dark:text-amber-400"
+          accentClassName="text-gold-700 dark:text-gold-400"
         />
       </div>
     </div>

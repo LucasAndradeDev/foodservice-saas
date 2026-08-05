@@ -95,11 +95,11 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
           </span>
         )}
         {product.soldOut ? (
-          <span className="mt-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+          <span className="mt-2 inline-block rounded-full bg-gold-100 px-3 py-1 text-xs font-medium text-gold-700 dark:bg-gold-500/10 dark:text-gold-400">
             Esgotado hoje
           </span>
         ) : !product.availableNow ? (
-          <span className="mt-2 inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+          <span className="mt-2 inline-block rounded-full bg-gold-100 px-3 py-1 text-xs font-medium text-gold-700 dark:bg-gold-500/10 dark:text-gold-400">
             Fora do horário
           </span>
         ) : (

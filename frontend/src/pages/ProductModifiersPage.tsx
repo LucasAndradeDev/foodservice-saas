@@ -13,6 +13,7 @@ import {
   type SelectionType,
 } from '../api/productModifiers'
 import { getProduct } from '../api/products'
+import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -351,15 +352,11 @@ export function ProductModifiersPage() {
               Adicionar opção
             </button>
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={createMutation.isPending || updateMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="w-full">
               Salvar
-            </button>
+            </Button>
           </form>
         </Modal>
       )}

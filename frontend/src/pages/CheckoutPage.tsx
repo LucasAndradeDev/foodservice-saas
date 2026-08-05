@@ -17,6 +17,7 @@ import {
 } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '../components/Button'
 import { Dropdown, type DropdownOption } from '../components/Dropdown'
 import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
@@ -466,13 +467,9 @@ export function CheckoutPage() {
                   Ver comanda / pagamentos
                 </Link>
               )}
-              <button
-                type="button"
-                onClick={handleCloseModal}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
-              >
+              <Button type="button" variant="secondary" onClick={handleCloseModal} className="w-full">
                 Fechar
-              </button>
+              </Button>
             </>
           ) : (
             <>
@@ -810,7 +807,7 @@ export function CheckoutPage() {
                       </div>
                     )}
                     {amountLeftToAllocate < -0.001 && (
-                      <div className="flex items-center justify-between text-xs text-red-600 dark:text-red-400">
+                      <div className="flex items-center justify-between text-xs text-wine-600 dark:text-wine-400">
                         <span>Passou do restante em</span>
                         <span>{currencyFormatter.format(-amountLeftToAllocate)}</span>
                       </div>
@@ -819,14 +816,14 @@ export function CheckoutPage() {
                 </>
               )}
 
-              {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+              {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
               {canPay && (
-                <button
+                <Button
                   type="button"
                   onClick={handleRegisterPayments}
                   disabled={payMutation.isPending || (!isZeroBalance && (entriesSum <= 0 || amountLeftToAllocate < -0.001))}
-                  className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                  className="w-full"
                 >
                   {isZeroBalance
                     ? 'Fechar comanda'
@@ -835,7 +832,7 @@ export function CheckoutPage() {
                       : pendingEntries.length > 1
                         ? `Confirmar ${pendingEntries.length} pagamentos`
                         : 'Confirmar pagamento'}
-                </button>
+                </Button>
               )}
             </>
           )}

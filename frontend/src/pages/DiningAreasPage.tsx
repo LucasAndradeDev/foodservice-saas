@@ -137,7 +137,7 @@ export function DiningAreasPage() {
         )}
       </div>
 
-      {pageError && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{pageError}</p>}
+      {pageError && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{pageError}</p>}
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
@@ -231,7 +231,7 @@ export function DiningAreasPage() {
               className="mb-4 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
             <button
               type="submit"

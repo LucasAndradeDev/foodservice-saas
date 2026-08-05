@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, MessageSquare } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { getFeedbackReport } from '../../api/reports'
+import { Card } from '../../components/Card'
 import { StarRating } from '../../components/StarRating'
 import { formatTableLabel } from '../../utils/tableLabel'
 
@@ -19,7 +20,7 @@ export function FeedbackCard({ start, end }: FeedbackCardProps) {
   })
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
+    <Card className="overflow-hidden">
       <h2 className="flex items-center gap-2 border-b border-gray-100 px-4 py-3 text-sm font-medium text-gray-700 dark:border-white/10 dark:text-stone-300">
         <MessageSquare className="h-4 w-4 text-brand-600 dark:text-brand-400" />
         Avaliação pós-refeição
@@ -59,6 +60,6 @@ export function FeedbackCard({ start, end }: FeedbackCardProps) {
           )}
         </>
       )}
-    </div>
+    </Card>
   )
 }

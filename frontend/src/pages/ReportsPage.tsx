@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Receipt, TrendingDown, TrendingUp, Wallet, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { getPeakHours, getReportSummary } from '../api/reports'
+import { Card } from '../components/Card'
 import { DateRangePicker } from '../components/DateRangePicker'
+import { TableHead, TableRow } from '../components/Table'
 import { FeedbackCard } from './reports/FeedbackCard'
 import { MonthlyGoalCard } from './reports/MonthlyGoalCard'
 import { PeakHoursHeatmap } from './reports/PeakHoursHeatmap'
@@ -83,7 +85,7 @@ function ChangeLine({
   const Icon = isPositive ? TrendingUp : TrendingDown
   return (
     <div
-      className={`mt-1 flex items-start gap-1 text-xs ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+      className={`mt-1 flex items-start gap-1 text-xs ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-wine-600 dark:text-wine-400'}`}
     >
       <Icon className="mt-0.5 h-3 w-3 shrink-0" />
       <span>
@@ -236,7 +238,7 @@ export function ReportsPage() {
           </div>
 
           <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-stone-900 shadow-sm">
+            <Card className="overflow-hidden">
               <h2 className="border-b border-gray-100 dark:border-white/10 px-4 py-3 text-sm font-medium text-gray-700 dark:text-stone-300">
                 Faturamento por forma de pagamento
               </h2>
@@ -244,34 +246,34 @@ export function ReportsPage() {
                 <p className="px-4 py-3 text-sm text-gray-500 dark:text-stone-400">Nenhuma comanda fechada no período.</p>
               ) : (
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-left dark:bg-white/5 text-gray-500 dark:text-stone-400">
+                  <TableHead>
                     <tr>
                       <th className="px-4 py-2 font-medium">Forma de pagamento</th>
                       <th className="px-4 py-2 font-medium">Comandas</th>
                       <th className="px-4 py-2 font-medium">Total</th>
                     </tr>
-                  </thead>
+                  </TableHead>
                   <tbody>
                     {data.byPaymentMethod.map((row) => (
-                      <tr key={row.paymentMethod} className="border-t border-gray-100 dark:border-white/10">
+                      <TableRow key={row.paymentMethod}>
                         <td className="px-4 py-2 text-gray-800 dark:text-white">{PAYMENT_METHOD_LABELS[row.paymentMethod]}</td>
                         <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{row.tabsCount}</td>
                         <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{currencyFormatter.format(row.total)}</td>
-                      </tr>
+                      </TableRow>
                     ))}
                   </tbody>
                 </table>
               )}
-            </div>
+            </Card>
 
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-stone-900 shadow-sm">
+            <Card className="overflow-hidden">
               <h2 className="border-b border-gray-100 dark:border-white/10 px-4 py-3 text-sm font-medium text-gray-700 dark:text-stone-300">Produtos mais vendidos</h2>
               {data.topProducts.length === 0 ? (
                 <p className="px-4 py-3 text-sm text-gray-500 dark:text-stone-400">Nenhuma venda no período.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50 text-left dark:bg-white/5 text-gray-500 dark:text-stone-400">
+                    <TableHead>
                       <tr>
                         <th className="px-4 py-2 font-medium">Produto</th>
                         <th className="px-4 py-2 font-medium">Qtd.</th>
@@ -279,13 +281,13 @@ export function ReportsPage() {
                         <th className="px-4 py-2 font-medium">Margem</th>
                         <th className="px-4 py-2 font-medium">Margem %</th>
                       </tr>
-                    </thead>
+                    </TableHead>
                     <tbody>
                       {data.topProducts.map((product) => {
                         const hasCostData = product.marginPercentage !== null
                         const partialCostData = hasCostData && product.costQuantityCovered < product.quantitySold
                         return (
-                          <tr key={product.productId} className="border-t border-gray-100 dark:border-white/10">
+                          <TableRow key={product.productId}>
                             <td className="px-4 py-2 text-gray-800 dark:text-white">{product.productName}</td>
                             <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{product.quantitySold}</td>
                             <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{currencyFormatter.format(product.revenue)}</td>
@@ -296,7 +298,7 @@ export function ReportsPage() {
                                   {partialCostData && (
                                     <span
                                       title="Preço de custo não cadastrado para todas as vendas do período"
-                                      className="ml-1 text-amber-500 dark:text-amber-400"
+                                      className="ml-1 text-gold-500 dark:text-gold-400"
                                     >
                                       *
                                     </span>
@@ -309,14 +311,14 @@ export function ReportsPage() {
                             <td className="px-4 py-2 text-gray-600 dark:text-stone-400">
                               {hasCostData ? `${product.marginPercentage}%` : <span className="text-gray-400 dark:text-stone-500">—</span>}
                             </td>
-                          </tr>
+                          </TableRow>
                         )
                       })}
                     </tbody>
                   </table>
                 </div>
               )}
-            </div>
+            </Card>
           </div>
 
           <div className="mb-6">

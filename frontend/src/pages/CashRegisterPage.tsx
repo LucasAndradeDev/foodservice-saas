@@ -9,6 +9,7 @@ import {
   listCashRegisterSessions,
   openCashRegister,
 } from '../api/cashRegister'
+import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -135,21 +136,17 @@ export function CashRegisterPage() {
             <Lock className="h-4 w-4" />
             Caixa fechado.
           </div>
-          <button
-            type="button"
-            onClick={openOpeningForm}
-            className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"
-          >
+          <Button type="button" onClick={openOpeningForm}>
             <Unlock className="h-4 w-4" />
             Abrir caixa
-          </button>
+          </Button>
         </div>
       )}
 
       {currentSession && (
-        <div className="rounded-xl border border-green-300 bg-white p-4 shadow-sm dark:border-green-500/30 dark:bg-stone-900">
+        <div className="rounded-xl border border-sage-300 bg-white p-4 shadow-sm dark:border-sage-500/30 dark:bg-stone-900">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+            <span className="flex items-center gap-1.5 rounded-full bg-sage-100 px-2 py-0.5 text-xs font-medium text-sage-700 dark:bg-sage-500/10 dark:text-sage-400">
               <Unlock className="h-3 w-3" />
               Caixa aberto
             </span>
@@ -246,7 +243,7 @@ export function CashRegisterPage() {
                           <div className="text-xs text-gray-400 dark:text-stone-500">{session.closedByName ?? '—'}</div>
                         </>
                       ) : (
-                        <span className="text-green-600 dark:text-green-400">Em aberto</span>
+                        <span className="text-sage-600 dark:text-sage-400">Em aberto</span>
                       )}
                     </td>
                     <td className="px-4 py-2 text-gray-700 dark:text-stone-300">
@@ -257,7 +254,7 @@ export function CashRegisterPage() {
                     </td>
                     <td
                       className={`px-4 py-2 ${
-                        session.differenceAmount ? 'text-amber-600 dark:text-amber-400' : 'text-gray-700 dark:text-stone-300'
+                        session.differenceAmount ? 'text-gold-600 dark:text-gold-400' : 'text-gray-700 dark:text-stone-300'
                       }`}
                     >
                       {session.differenceAmount != null ? currencyFormatter.format(session.differenceAmount) : '—'}
@@ -288,15 +285,11 @@ export function CashRegisterPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={openMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={openMutation.isPending} className="w-full">
               Abrir
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -333,15 +326,11 @@ export function CashRegisterPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={withdrawalMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={withdrawalMutation.isPending} className="w-full">
               Registrar sangria
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -384,15 +373,11 @@ export function CashRegisterPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={closeMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={closeMutation.isPending} className="w-full">
               Fechar caixa
-            </button>
+            </Button>
           </form>
         </Modal>
       )}

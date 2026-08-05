@@ -27,4 +27,37 @@
   --color-brand-700: #93341a;
   --color-brand-800: #762a16;
   --color-brand-900: #5f2313;
+
+  /* Semantic status palette (redesign proposal, 2026-08-04) — livre/sucesso, reservada/info, atenção, crítico */
+  --color-sage-100: #dee8df;
+  --color-sage-200: #c3d8c6;
+  --color-sage-300: #a0c0a6;
+  --color-sage-400: #7ca684;
+  --color-sage-500: #5f8d68;
+  --color-sage-600: #4f7358;
+  --color-sage-700: #3d5b44;
+
+  --color-teal-100: #dce9e9;
+  --color-teal-200: #bfd9d9;
+  --color-teal-300: #97c0c0;
+  --color-teal-400: #6da5a6;
+  --color-teal-500: #438788;
+  --color-teal-600: #2e6669;
+  --color-teal-700: #1f4c4e;
+
+  --color-gold-100: #f3e4c4;
+  --color-gold-200: #e7cc94;
+  --color-gold-300: #d8af61;
+  --color-gold-400: #c99b3d;
+  --color-gold-500: #b98726;
+  --color-gold-600: #9c701e;
+  --color-gold-700: #7e5a18;
+
+  --color-wine-100: #f2dbe0;
+  --color-wine-200: #e3b4c0;
+  --color-wine-300: #cd8496;
+  --color-wine-400: #b85f73;
+  --color-wine-500: #a94a5e;
+  --color-wine-600: #a23b4e;
+  --color-wine-700: #7e2e3d;
 }

@@ -4,8 +4,10 @@ import { useState, type FormEvent } from 'react'
 import type { UserRole } from '../auth/types'
 import { createUser, listUsers, updateUser, type StaffMember } from '../api/users'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 import { SectionTabs } from '../components/SectionTabs'
+import { Table, TableHead, TableRow } from '../components/Table'
 
 const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral' },
@@ -116,14 +118,10 @@ export function StaffPage() {
           <Users className="h-5 w-5 text-brand-600 dark:text-brand-400" />
           Funcionários
         </h1>
-        <button
-          type="button"
-          onClick={openCreateForm}
-          className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"
-        >
+        <Button type="button" onClick={openCreateForm}>
           <Plus className="h-4 w-4" />
           Novo funcionário
-        </button>
+        </Button>
       </div>
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
@@ -148,7 +146,7 @@ export function StaffPage() {
                   <span
                     className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                       row.active
-                        ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                        ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
                         : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                     }`}
                   >
@@ -175,9 +173,9 @@ export function StaffPage() {
           </div>
 
           {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block dark:border-white/10 dark:bg-stone-900">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
+          <div className="hidden sm:block">
+            <Table>
+              <TableHead>
                 <tr>
                   <th className="px-4 py-2 font-medium">Nome</th>
                   <th className="px-4 py-2 font-medium">Email</th>
@@ -185,10 +183,10 @@ export function StaffPage() {
                   <th className="px-4 py-2 font-medium">Status</th>
                   <th className="px-4 py-2" />
                 </tr>
-              </thead>
+              </TableHead>
               <tbody>
                 {staff.map((row) => (
-                  <tr key={row.id} className="border-t border-gray-100 dark:border-white/10">
+                  <TableRow key={row.id}>
                     <td className="px-4 py-2 text-gray-800 dark:text-white">
                       {row.name} {row.id === user?.id && <span className="text-gray-400 dark:text-stone-500">(você)</span>}
                     </td>
@@ -198,7 +196,7 @@ export function StaffPage() {
                       <span
                         className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                           row.active
-                            ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                            ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
                             : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                         }`}
                       >
@@ -219,10 +217,10 @@ export function StaffPage() {
                         </button>
                       )}
                     </td>
-                  </tr>
+                  </TableRow>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         </>
       )}
@@ -284,15 +282,11 @@ export function StaffPage() {
               ))}
             </select>
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={createMutation.isPending} className="w-full">
               Cadastrar
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -334,15 +328,11 @@ export function StaffPage() {
               Funcionário ativo
             </label>
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={updateMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={updateMutation.isPending} className="w-full">
               Salvar
-            </button>
+            </Button>
           </form>
         </Modal>
       )}

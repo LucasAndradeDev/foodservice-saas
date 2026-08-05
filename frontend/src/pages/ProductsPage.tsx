@@ -33,7 +33,9 @@ import {
   type Product,
 } from '../api/products'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '../components/Button'
 import { Dropdown } from '../components/Dropdown'
+import { Table, TableHead, TableRow } from '../components/Table'
 import { Modal } from '../components/Modal'
 import { SectionTabs } from '../components/SectionTabs'
 
@@ -295,14 +297,10 @@ export function ProductsPage() {
             Produtos
           </h1>
           {canManage && (
-            <button
-              type="button"
-              onClick={openCreateForm}
-              className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"
-            >
+            <Button type="button" onClick={openCreateForm}>
               <Plus className="h-4 w-4" />
               Novo produto
-            </button>
+            </Button>
           )}
         </div>
 
@@ -345,8 +343,8 @@ export function ProductsPage() {
         </div>
       )}
 
-      {listError && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{listError}</p>}
-      {bulkError && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{bulkError}</p>}
+      {listError && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{listError}</p>}
+      {bulkError && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{bulkError}</p>}
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
@@ -422,7 +420,7 @@ export function ProductsPage() {
                     <span
                       className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                         product.active
-                          ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                          ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
                           : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                       }`}
                     >
@@ -430,13 +428,13 @@ export function ProductsPage() {
                       {product.active ? 'Ativo' : 'Inativo'}
                     </span>
                     {product.soldOutToday && (
-                      <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                      <span className="flex items-center gap-1 rounded-full bg-gold-100 px-2 py-0.5 text-xs text-gold-700 dark:bg-gold-500/10 dark:text-gold-400">
                         <Ban className="h-3 w-3" />
                         Esgotado hoje
                       </span>
                     )}
                     {!product.soldOutToday && !product.availableNow && (
-                      <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                      <span className="flex items-center gap-1 rounded-full bg-gold-100 px-2 py-0.5 text-xs text-gold-700 dark:bg-gold-500/10 dark:text-gold-400">
                         <CalendarClock className="h-3 w-3" />
                         Fora do horário
                       </span>
@@ -475,9 +473,9 @@ export function ProductsPage() {
           </div>
 
           {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block dark:border-white/10 dark:bg-stone-900">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
+          <div className="hidden sm:block">
+            <Table>
+              <TableHead>
                 <tr>
                   {canManage && <th className="w-10 px-4 py-2" />}
                   <th className="px-4 py-2 font-medium">Nome</th>
@@ -486,10 +484,10 @@ export function ProductsPage() {
                   <th className="px-4 py-2 font-medium">Status</th>
                   {canManage && <th className="w-24 px-4 py-2" />}
                 </tr>
-              </thead>
+              </TableHead>
               <tbody>
                 {products.map((product) => (
-                  <tr key={product.id} className="border-t border-gray-100 dark:border-white/10">
+                  <TableRow key={product.id}>
                     {canManage && (
                       <td className="px-4 py-2">
                         <button type="button" onClick={() => toggleSelect(product.id)}>
@@ -514,7 +512,7 @@ export function ProductsPage() {
                         <span
                           className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                             product.active
-                              ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                              ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
                               : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                           }`}
                         >
@@ -522,13 +520,13 @@ export function ProductsPage() {
                           {product.active ? 'Ativo' : 'Inativo'}
                         </span>
                         {product.soldOutToday && (
-                          <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                          <span className="flex items-center gap-1 rounded-full bg-gold-100 px-2 py-0.5 text-xs text-gold-700 dark:bg-gold-500/10 dark:text-gold-400">
                             <Ban className="h-3 w-3" />
                             Esgotado hoje
                           </span>
                         )}
                         {!product.soldOutToday && !product.availableNow && (
-                          <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                          <span className="flex items-center gap-1 rounded-full bg-gold-100 px-2 py-0.5 text-xs text-gold-700 dark:bg-gold-500/10 dark:text-gold-400">
                             <CalendarClock className="h-3 w-3" />
                             Fora do horário
                           </span>
@@ -565,10 +563,10 @@ export function ProductsPage() {
                         </AnimatePresence>
                       </td>
                     )}
-                  </tr>
+                  </TableRow>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         </>
       )}
@@ -681,15 +679,11 @@ export function ProductsPage() {
               Marcar como destaque no cardápio digital
             </label>
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={createMutation.isPending || updateMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="w-full">
               Salvar
-            </button>
+            </Button>
           </form>
         </Modal>
       )}

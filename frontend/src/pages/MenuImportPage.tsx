@@ -9,6 +9,8 @@ import {
   type MenuImportProductPayload,
 } from '../api/menuImport'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '../components/Button'
+import { Table, TableHead, TableRow } from '../components/Table'
 
 interface DraftRow {
   tempId: string
@@ -181,7 +183,7 @@ export function MenuImportPage() {
             />
           </label>
 
-          {extractError && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{extractError}</p>}
+          {extractError && <p className="mt-4 text-sm text-wine-600 dark:text-wine-400">{extractError}</p>}
         </div>
       )}
 
@@ -313,9 +315,9 @@ export function MenuImportPage() {
               </div>
 
               {/* Desktop: table */}
-              <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block dark:border-white/10 dark:bg-stone-900">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHead>
                     <tr>
                       <th className="px-4 py-2 font-medium">Produto</th>
                       <th className="px-4 py-2 font-medium">Descrição</th>
@@ -323,10 +325,10 @@ export function MenuImportPage() {
                       <th className="px-4 py-2 font-medium">Preço</th>
                       <th className="px-4 py-2" />
                     </tr>
-                  </thead>
+                  </TableHead>
                   <tbody>
                     {draftRows.map((row, index) => (
-                      <tr key={row.tempId} className="border-t border-gray-100 dark:border-white/10">
+                      <TableRow key={row.tempId}>
                         <td className="px-4 py-2 align-top">
                           <input
                             type="text"
@@ -335,7 +337,7 @@ export function MenuImportPage() {
                             className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                           />
                           {row.duplicate && (
-                            <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                            <span className="mt-1 inline-block rounded-full bg-gold-100 px-2 py-0.5 text-xs text-gold-700 dark:bg-gold-500/10 dark:text-gold-400">
                               Possível duplicata
                             </span>
                           )}
@@ -374,30 +376,25 @@ export function MenuImportPage() {
                             onClick={() => removeRow(index)}
                             title="Remover"
                             aria-label="Remover"
-                            className="rounded-md p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-700 dark:text-stone-400 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                            className="rounded-md p-1.5 text-gray-500 hover:bg-wine-100 hover:text-wine-700 dark:text-stone-400 dark:hover:bg-wine-500/10 dark:hover:text-wine-400"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </td>
-                      </tr>
+                      </TableRow>
                     ))}
                   </tbody>
-                </table>
+                </Table>
               </div>
             </>
           )}
 
-          {extractError && <p className="mt-4 text-sm text-red-600 dark:text-red-400">{extractError}</p>}
+          {extractError && <p className="mt-4 text-sm text-wine-600 dark:text-wine-400">{extractError}</p>}
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <button
-              type="button"
-              onClick={handleConfirm}
-              disabled={!canConfirm}
-              className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="button" onClick={handleConfirm} disabled={!canConfirm}>
               {commitMutation.isPending ? 'Importando...' : 'Confirmar importação'}
-            </button>
+            </Button>
             <button
               type="button"
               onClick={startOver}

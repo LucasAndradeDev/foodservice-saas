@@ -91,7 +91,7 @@ export function ModifierSheet({ product, onClose, onConfirm }: ModifierSheetProp
                   <div className="mb-1 flex items-center gap-2">
                     <span className="font-medium text-gray-800 dark:text-white">{group.name}</span>
                     {group.required && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                      <span className="rounded-full bg-gold-100 px-2 py-0.5 text-xs text-gold-700 dark:bg-gold-500/10 dark:text-gold-400">
                         Obrigatório
                       </span>
                     )}

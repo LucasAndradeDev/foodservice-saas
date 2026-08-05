@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { deleteProduct, updateProduct, listProducts, type Product } from '../api/products'
 import { useAuth } from '../auth/AuthContext'
+import { Card } from '../components/Card'
 import { SectionTabs } from '../components/SectionTabs'
+import { Table, TableHead, TableRow } from '../components/Table'
 
 const MENU_TABS = [
   { to: '/products', label: 'Produtos' },
@@ -80,7 +82,7 @@ export function CombosPage() {
         )}
       </div>
 
-      {listError && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{listError}</p>}
+      {listError && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{listError}</p>}
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
@@ -99,10 +101,7 @@ export function CombosPage() {
           {/* Mobile: stacked cards */}
           <div className="space-y-2 sm:hidden">
             {combos.map((combo) => (
-              <div
-                key={combo.id}
-                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900"
-              >
+              <Card key={combo.id} className="p-4">
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <Link
@@ -118,7 +117,7 @@ export function CombosPage() {
                   <span
                     className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                       combo.active
-                        ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                        ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
                         : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                     }`}
                   >
@@ -134,24 +133,24 @@ export function CombosPage() {
                     onDelete={() => handleDelete(combo)}
                   />
                 )}
-              </div>
+              </Card>
             ))}
           </div>
 
           {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block dark:border-white/10 dark:bg-stone-900">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
+          <div className="hidden sm:block">
+            <Table>
+              <TableHead>
                 <tr>
                   <th className="px-4 py-2 font-medium">Nome</th>
                   <th className="px-4 py-2 font-medium">Desconto</th>
                   <th className="px-4 py-2 font-medium">Status</th>
                   {canManage && <th className="w-16 px-4 py-2" />}
                 </tr>
-              </thead>
+              </TableHead>
               <tbody>
                 {combos.map((combo) => (
-                  <tr key={combo.id} className="border-t border-gray-100 dark:border-white/10">
+                  <TableRow key={combo.id}>
                     <td className="px-4 py-2 text-gray-800 dark:text-white">
                       <Link to={`/combos/${combo.id}`} className="hover:underline">
                         {combo.name}
@@ -164,7 +163,7 @@ export function CombosPage() {
                       <span
                         className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                           combo.active
-                            ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                            ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
                             : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                         }`}
                       >
@@ -182,10 +181,10 @@ export function CombosPage() {
                         />
                       </td>
                     )}
-                  </tr>
+                  </TableRow>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         </>
       )}

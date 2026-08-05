@@ -3,6 +3,7 @@ import { CheckCircle2, X } from 'lucide-react'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getFeedbackContext, submitFeedback } from '../api/postMealFeedback'
+import { Button } from '../components/Button'
 import { StarRating } from '../components/StarRating'
 import { formatTableLabel } from '../utils/tableLabel'
 import { MenuHero } from './publicMenu/MenuHero'
@@ -96,14 +97,14 @@ export function PostMealFeedbackPage() {
               <p className="mb-4 text-sm text-red-600">Não foi possível enviar sua avaliação. Tente novamente.</p>
             )}
 
-            <button
+            <Button
               type="button"
               disabled={rating === 0 || submitMutation.isPending}
               onClick={() => submitMutation.mutate()}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+              className="w-full"
             >
               Enviar avaliação
-            </button>
+            </Button>
           </div>
         )}
       </main>

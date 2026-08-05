@@ -104,7 +104,7 @@ export function OrderStatusPanel({ items, lifted, hasLastOrder, onReorder }: Ord
                         {item.quantity}x {item.productName}
                       </span>
                       {item.status === 'CANCELLED' && (
-                        <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700 dark:bg-red-500/10 dark:text-red-400">
+                        <span className="flex items-center gap-1 rounded-full bg-wine-100 px-2 py-0.5 text-xs text-wine-700 dark:bg-wine-500/10 dark:text-wine-400">
                           <Ban className="h-3 w-3" />
                           Cancelado
                         </span>

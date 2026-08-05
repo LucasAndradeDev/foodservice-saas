@@ -18,6 +18,7 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { getMyRestaurant, updateMyRestaurant, uploadRestaurantLogo } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '../components/Button'
 import { SectionTabs } from '../components/SectionTabs'
 import { publicMenuUrl } from '../utils/publicMenuUrl'
 
@@ -551,17 +552,13 @@ export function RestaurantSettingsPage() {
           </div>
         </div>
 
-        {error && <p className="mt-6 text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {error && <p className="mt-6 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
         {success && <p className="mt-6 text-sm text-green-600 dark:text-green-400">Configurações salvas.</p>}
 
         {canManage && (
-          <button
-            type="submit"
-            disabled={updateMutation.isPending}
-            className="mt-6 w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 lg:w-auto lg:px-8"
-          >
+          <Button type="submit" disabled={updateMutation.isPending} className="mt-6 w-full lg:w-auto lg:px-8">
             Salvar
-          </button>
+          </Button>
         )}
       </form>
     </div>

@@ -3,8 +3,10 @@ import { CheckCircle2, Circle, Clock, Filter, Pencil, Plus, Power, Ticket, Trash
 import { useState, type FormEvent } from 'react'
 import { createCoupon, deleteCoupon, listCoupons, updateCoupon, type Coupon } from '../api/coupons'
 import type { DiscountType } from '../api/orders'
+import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Dropdown } from '../components/Dropdown'
+import { TableHead, TableRow } from '../components/Table'
 import { Modal } from '../components/Modal'
 import { SectionTabs } from '../components/SectionTabs'
 
@@ -40,12 +42,12 @@ function getCouponStatus(coupon: Coupon): { label: CouponStatusLabel; className:
     return { label: 'Inativo', className: 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400', icon: Circle }
   }
   if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
-    return { label: 'Expirado', className: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400', icon: Clock }
+    return { label: 'Expirado', className: 'bg-gold-100 text-gold-700 dark:bg-gold-500/10 dark:text-gold-400', icon: Clock }
   }
   if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
-    return { label: 'Esgotado', className: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400', icon: XCircle }
+    return { label: 'Esgotado', className: 'bg-wine-100 text-wine-700 dark:bg-wine-500/10 dark:text-wine-400', icon: XCircle }
   }
-  return { label: 'Ativo', className: 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400', icon: CheckCircle2 }
+  return { label: 'Ativo', className: 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400', icon: CheckCircle2 }
 }
 
 export function CouponsPage() {
@@ -172,19 +174,15 @@ export function CouponsPage() {
           <Ticket className="h-5 w-5 text-brand-600 dark:text-brand-400" />
           Cupons de desconto
         </h1>
-        <button
-          type="button"
-          onClick={openCreateForm}
-          className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"
-        >
+        <Button type="button" onClick={openCreateForm}>
           <Plus className="h-4 w-4" />
           Novo cupom
-        </button>
+        </Button>
       </div>
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
-      {listError && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{listError}</p>}
+      {listError && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{listError}</p>}
 
       {coupons && coupons.length === 0 && (
         <p className="text-sm text-gray-500 dark:text-stone-400">
@@ -213,7 +211,7 @@ export function CouponsPage() {
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
+                  <TableHead>
                     <tr>
                       <th className="px-4 py-2 font-medium">Código</th>
                       <th className="px-4 py-2 font-medium">Desconto</th>
@@ -222,13 +220,13 @@ export function CouponsPage() {
                       <th className="px-4 py-2 font-medium">Status</th>
                       <th className="px-4 py-2" />
                     </tr>
-                  </thead>
+                  </TableHead>
                   <tbody>
                     {filteredCoupons.map((coupon) => {
                       const status = getCouponStatus(coupon)
                       const StatusIcon = status.icon
                       return (
-                        <tr key={coupon.id} className="border-t border-gray-100 dark:border-white/10">
+                        <TableRow key={coupon.id}>
                           <td className="px-4 py-2 font-medium text-gray-800 dark:text-white">{coupon.code}</td>
                           <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{formatDiscount(coupon.discountType, coupon.discountValue)}</td>
                           <td className="px-4 py-2 text-gray-600 dark:text-stone-400">
@@ -257,7 +255,7 @@ export function CouponsPage() {
                                 onClick={() => toggleActive(coupon)}
                                 title={coupon.active ? 'Desativar' : 'Ativar'}
                                 aria-label={coupon.active ? 'Desativar' : 'Ativar'}
-                                className={`rounded-md p-1.5 hover:bg-gray-100 dark:hover:bg-white/5 ${coupon.active ? 'text-gray-500 hover:text-amber-700 dark:text-stone-400 dark:hover:text-amber-400' : 'text-gray-400 hover:text-green-700 dark:text-stone-500 dark:hover:text-green-400'}`}
+                                className={`rounded-md p-1.5 hover:bg-gray-100 dark:hover:bg-white/5 ${coupon.active ? 'text-gray-500 hover:text-gold-700 dark:text-stone-400 dark:hover:text-gold-400' : 'text-gray-400 hover:text-sage-700 dark:text-stone-500 dark:hover:text-sage-400'}`}
                               >
                                 <Power className="h-4 w-4" />
                               </button>
@@ -266,13 +264,13 @@ export function CouponsPage() {
                                 onClick={() => setCouponToDelete(coupon)}
                                 title="Excluir"
                                 aria-label="Excluir"
-                                className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-red-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-red-400"
+                                className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-wine-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-wine-400"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
                             </div>
                           </td>
-                        </tr>
+                        </TableRow>
                       )
                     })}
                   </tbody>
@@ -373,15 +371,11 @@ export function CouponsPage() {
               </p>
             )}
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={createMutation.isPending || updateMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="w-full">
               Salvar
-            </button>
+            </Button>
           </form>
         </Modal>
       )}

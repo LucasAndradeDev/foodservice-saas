@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { DayOfWeek, PeakHourCell } from '../../api/reports'
+import { Card } from '../../components/Card'
 
 const DAY_ORDER: DayOfWeek[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
 
@@ -71,7 +72,7 @@ export function PeakHoursHeatmap({ title, cells, metric, unitLabel, rangeStart, 
   const maxValue = Math.max(0, ...cells.map((cell) => cell[metric]))
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
+    <Card className="overflow-hidden">
       <div className="border-b border-gray-100 px-4 py-3 dark:border-white/10">
         <h2 className="text-sm font-medium text-gray-700 dark:text-stone-300">{title}</h2>
         <p className="mt-0.5 text-xs text-gray-400 dark:text-stone-500">
@@ -167,6 +168,6 @@ export function PeakHoursHeatmap({ title, cells, metric, unitLabel, rangeStart, 
           ))}
         </div>
       </div>
-    </div>
+    </Card>
   )
 }

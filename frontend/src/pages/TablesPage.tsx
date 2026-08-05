@@ -41,6 +41,7 @@ import { listDiningAreas } from '../api/diningAreas'
 import { listTabs, openTab, type Tab } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '../components/Button'
 import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
 import { QrCodeCard } from '../components/QrCodeCard'
@@ -54,21 +55,21 @@ const STATUS_LABELS: Record<TableStatus, string> = {
 }
 
 const STATUS_CARD_STYLES: Record<TableStatus, string> = {
-  FREE: 'border-green-200 bg-white hover:border-green-300 dark:border-green-500/20 dark:bg-stone-900 dark:hover:border-green-500/40',
-  OCCUPIED: 'border-red-200 bg-gradient-to-br from-red-50 to-white dark:border-red-500/20 dark:from-red-500/10 dark:to-stone-900',
-  CLOSING: 'border-amber-200 bg-gradient-to-br from-amber-50 to-white dark:border-amber-500/20 dark:from-amber-500/10 dark:to-stone-900',
+  FREE: 'border-sage-200 bg-white hover:border-sage-300 dark:border-sage-500/20 dark:bg-stone-900 dark:hover:border-sage-500/40',
+  OCCUPIED: 'border-brand-200 bg-gradient-to-br from-brand-50 to-white dark:border-brand-500/20 dark:from-brand-500/10 dark:to-stone-900',
+  CLOSING: 'border-gold-200 bg-gradient-to-br from-gold-100 to-white dark:border-gold-500/20 dark:from-gold-500/10 dark:to-stone-900',
 }
 
 const STATUS_BADGE_STYLES: Record<TableStatus, string> = {
-  FREE: 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400',
-  OCCUPIED: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
-  CLOSING: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400',
+  FREE: 'bg-sage-100 text-sage-700 dark:bg-sage-500/20 dark:text-sage-400',
+  OCCUPIED: 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400',
+  CLOSING: 'bg-gold-100 text-gold-700 dark:bg-gold-500/20 dark:text-gold-400',
 }
 
 const STATUS_LABEL_STYLES: Record<TableStatus, string> = {
-  FREE: 'text-green-700 dark:text-green-400',
-  OCCUPIED: 'text-red-700 dark:text-red-400',
-  CLOSING: 'text-amber-700 dark:text-amber-400',
+  FREE: 'text-sage-700 dark:text-sage-400',
+  OCCUPIED: 'text-brand-700 dark:text-brand-400',
+  CLOSING: 'text-gold-700 dark:text-gold-400',
 }
 
 const STATUS_ICONS: Record<TableStatus, LucideIcon> = {
@@ -684,17 +685,13 @@ export function TablesPage() {
             <Move className="h-4 w-4" />
             Arraste uma mesa ou use o menu no card pra escolher a área. A mudança é salva na hora.
           </span>
-          <button
-            type="button"
-            onClick={() => setIsOrganizingAreas(false)}
-            className="rounded-xl bg-brand-600 px-4 py-2 font-semibold text-white shadow-sm transition hover:bg-brand-700"
-          >
+          <Button type="button" onClick={() => setIsOrganizingAreas(false)}>
             Concluir
-          </button>
+          </Button>
         </div>
       )}
 
-      {error && !selectedTable && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && !selectedTable && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
       {canOpenTab && counterTabs.length > 0 && (
         <div className="mb-6">
@@ -730,14 +727,10 @@ export function TablesPage() {
           </span>
           <p className="text-sm text-gray-500 dark:text-stone-400">Nenhuma mesa cadastrada ainda.</p>
           {canManage && (
-            <button
-              type="button"
-              onClick={openCreateForm}
-              className="mt-1 flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
-            >
+            <Button type="button" onClick={openCreateForm} className="mt-1">
               <Plus className="h-4 w-4" />
               Criar primeira mesa
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -910,15 +903,11 @@ export function TablesPage() {
               ))}
             </select>
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={createMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={createMutation.isPending} className="w-full">
               Salvar
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -943,15 +932,11 @@ export function TablesPage() {
               As mesas serão numeradas em sequência, a partir do próximo número disponível.
             </p>
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={bulkMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={bulkMutation.isPending} className="w-full">
               Criar
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -1060,16 +1045,16 @@ export function TablesPage() {
                     </label>
                   )}
 
-                  {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+                  {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
                   {(canManage || canChangeStatus) && (
-                    <button
+                    <Button
                       type="submit"
                       disabled={updateMutation.isPending || statusMutation.isPending}
-                      className="w-full rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
+                      className="w-full"
                     >
                       Salvar
-                    </button>
+                    </Button>
                   )}
 
                   {canManage && selectedTable.status === 'FREE' && (

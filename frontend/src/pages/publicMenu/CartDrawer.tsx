@@ -82,14 +82,14 @@ export function CartDrawer({
             </div>
 
             {discountAppliedLabel ? (
-              <div className="mb-4 flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2 text-sm font-medium text-green-700 dark:bg-green-500/10 dark:text-green-400">
+              <div className="mb-4 flex items-center gap-2 rounded-xl bg-sage-100 px-3 py-2 text-sm font-medium text-sage-700 dark:bg-sage-500/10 dark:text-sage-400">
                 <Ticket className="h-4 w-4 shrink-0" />
                 <span className="flex-1">{discountAppliedLabel}</span>
                 <button
                   type="button"
                   onClick={onRemoveCoupon}
                   disabled={isRemovingCoupon}
-                  className="shrink-0 text-xs font-semibold text-green-800 underline hover:text-green-900 disabled:opacity-50 dark:text-green-300 dark:hover:text-green-200"
+                  className="shrink-0 text-xs font-semibold text-sage-700 underline hover:text-sage-600 disabled:opacity-50 dark:text-sage-300 dark:hover:text-sage-200"
                 >
                   Remover
                 </button>
@@ -113,7 +113,7 @@ export function CartDrawer({
                     Aplicar
                   </button>
                 </div>
-                {couponError && <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">{couponError}</p>}
+                {couponError && <p className="mt-1.5 text-xs text-wine-600 dark:text-wine-400">{couponError}</p>}
               </div>
             )}
 
@@ -178,7 +178,7 @@ export function CartDrawer({
                           type="button"
                           onClick={() => onRemove(index)}
                           aria-label="Remover item"
-                          className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-red-500 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                          className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-wine-500 hover:bg-wine-100 dark:text-wine-400 dark:hover:bg-wine-500/10"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -202,7 +202,7 @@ export function CartDrawer({
                         <span>Subtotal</span>
                         <span>{currencyFormatter.format(cartSubtotal)}</span>
                       </div>
-                      <div className="mb-1 flex items-center justify-between text-sm text-green-700 dark:text-green-400">
+                      <div className="mb-1 flex items-center justify-between text-sm text-sage-700 dark:text-sage-400">
                         <span>Desconto</span>
                         <span>-{currencyFormatter.format(cartDiscountAmount)}</span>
                       </div>
@@ -213,7 +213,7 @@ export function CartDrawer({
                     <span className="text-xl font-bold text-gray-900 dark:text-white">{currencyFormatter.format(cartTotal)}</span>
                   </div>
 
-                  {orderError && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{orderError}</p>}
+                  {orderError && <p className="mb-3 text-sm text-wine-600 dark:text-wine-400">{orderError}</p>}
 
                   <button
                     type="button"

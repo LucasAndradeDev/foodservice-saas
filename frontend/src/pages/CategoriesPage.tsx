@@ -3,8 +3,11 @@ import { CheckCircle2, Circle, Pencil, Plus, Power, Tag } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { createCategory, listCategories, updateCategory, type Category } from '../api/categories'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '../components/Button'
+import { Card } from '../components/Card'
 import { Modal } from '../components/Modal'
 import { SectionTabs } from '../components/SectionTabs'
+import { Table, TableHead, TableRow } from '../components/Table'
 
 const MENU_TABS = [
   { to: '/products', label: 'Produtos' },
@@ -88,14 +91,10 @@ export function CategoriesPage() {
           Categorias
         </h1>
         {canManage && (
-          <button
-            type="button"
-            onClick={openCreateForm}
-            className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700"
-          >
+          <Button type="button" onClick={openCreateForm}>
             <Plus className="h-4 w-4" />
             Nova categoria
-          </button>
+          </Button>
         )}
       </div>
 
@@ -110,16 +109,13 @@ export function CategoriesPage() {
           {/* Mobile: stacked cards */}
           <div className="space-y-2 sm:hidden">
             {categories.map((category) => (
-              <div
-                key={category.id}
-                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900"
-              >
+              <Card key={category.id} className="p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-medium text-gray-800 dark:text-white">{category.name}</span>
                   <span
                     className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                       category.active
-                        ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                        ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
                         : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                     }`}
                   >
@@ -134,29 +130,29 @@ export function CategoriesPage() {
                     onToggleActive={() => toggleActive(category)}
                   />
                 )}
-              </div>
+              </Card>
             ))}
           </div>
 
           {/* Desktop: table */}
-          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:block dark:border-white/10 dark:bg-stone-900">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400">
+          <div className="hidden sm:block">
+            <Table>
+              <TableHead>
                 <tr>
                   <th className="px-4 py-2 font-medium">Nome</th>
                   <th className="px-4 py-2 font-medium">Status</th>
                   {canManage && <th className="px-4 py-2" />}
                 </tr>
-              </thead>
+              </TableHead>
               <tbody>
                 {categories.map((category) => (
-                  <tr key={category.id} className="border-t border-gray-100 dark:border-white/10">
+                  <TableRow key={category.id}>
                     <td className="px-4 py-2 text-gray-800 dark:text-white">{category.name}</td>
                     <td className="px-4 py-2">
                       <span
                         className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                           category.active
-                            ? 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400'
+                            ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
                             : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
                         }`}
                       >
@@ -174,10 +170,10 @@ export function CategoriesPage() {
                         />
                       </td>
                     )}
-                  </tr>
+                  </TableRow>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         </>
       )}
@@ -198,15 +194,11 @@ export function CategoriesPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={createMutation.isPending || updateMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="w-full">
               Salvar
-            </button>
+            </Button>
           </form>
         </Modal>
       )}

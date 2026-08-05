@@ -45,6 +45,7 @@ import {
 import { listCategories } from '../api/categories'
 import type { DayOfWeek } from '../api/productAvailability'
 import type { DiscountType } from '../api/orders'
+import { Button } from '../components/Button'
 import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
 import { SectionTabs } from '../components/SectionTabs'
@@ -311,15 +312,15 @@ export function HappyHourPage() {
           <Clock className="h-5 w-5 text-brand-600 dark:text-brand-400" />
           Happy Hour
         </h1>
-        <button
+        <Button
           type="button"
           onClick={openCreateForm}
           disabled={!categories || categories.length === 0}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+          className="shrink-0"
         >
           <Plus className="h-4 w-4" />
           Nova regra
-        </button>
+        </Button>
       </div>
       <p className="mb-4 text-sm text-gray-500 dark:text-stone-400">
         Desconto automático por categoria, em dias e horários específicos. Aparece no cardápio digital e é aplicado
@@ -546,15 +547,11 @@ export function HappyHourPage() {
               </label>
             </div>
 
-            {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={createMutation.isPending || updateMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="w-full">
               Salvar
-            </button>
+            </Button>
           </form>
         </Modal>
       )}

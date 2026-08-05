@@ -54,6 +54,7 @@ import {
   type Tab,
 } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Modal } from '../components/Modal'
 import { getCategoryIcon } from './publicMenu/categoryIcons'
@@ -76,10 +77,10 @@ const ITEM_STATUS_LABELS: Record<ItemStatus, string> = {
 
 const ITEM_STATUS_STYLES: Record<ItemStatus, string> = {
   PENDING: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-stone-400',
-  PREPARING: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
-  READY: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-  DELIVERED: 'bg-green-100 text-green-700 dark:bg-green-500/10 dark:text-green-400',
-  CANCELLED: 'bg-red-100 text-red-700 line-through dark:bg-red-500/10 dark:text-red-400',
+  PREPARING: 'bg-gold-100 text-gold-700 dark:bg-gold-500/10 dark:text-gold-400',
+  READY: 'bg-teal-100 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
+  DELIVERED: 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400',
+  CANCELLED: 'bg-wine-100 text-wine-700 line-through dark:bg-wine-500/10 dark:text-wine-400',
 }
 
 const ITEM_STATUS_ICONS: Record<ItemStatus, LucideIcon> = {
@@ -803,7 +804,7 @@ export function TabDetailPage() {
         </div>
       )}
 
-      {error && draftItems.length === 0 && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {error && draftItems.length === 0 && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
       {draftItems.length > 0 && (
         <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900">
@@ -884,16 +885,11 @@ export function TabDetailPage() {
             ))}
           </ul>
 
-          {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {error && <p className="mb-3 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-          <button
-            type="button"
-            onClick={handleSendToKitchen}
-            disabled={createOrderMutation.isPending}
-            className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-          >
+          <Button type="button" onClick={handleSendToKitchen} disabled={createOrderMutation.isPending} className="w-full">
             Enviar para Cozinha
-          </button>
+          </Button>
         </div>
       )}
 
@@ -1139,16 +1135,11 @@ export function TabDetailPage() {
             })}
           </div>
 
-          {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {error && <p className="mb-3 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-          <button
-            type="button"
-            onClick={() => setIsAddingItem(false)}
-            disabled={draftItems.length === 0}
-            className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-          >
+          <Button type="button" onClick={() => setIsAddingItem(false)} disabled={draftItems.length === 0} className="w-full">
             {draftItems.length === 0 ? 'Selecione ao menos um item' : 'Concluir seleção'}
-          </button>
+          </Button>
         </Modal>
       )}
 
@@ -1199,14 +1190,14 @@ export function TabDetailPage() {
             </div>
           )}
 
-          <button
+          <Button
             type="button"
             onClick={handleConfirmCombo}
             disabled={!comboComposition || !isComboValid}
-            className="mt-5 w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+            className="mt-5 w-full"
           >
             {comboComposition ? `Adicionar · ${currencyFormatter.format(computeComboUnitPrice(comboComposition, comboSlotSelections))}` : 'Adicionar'}
-          </button>
+          </Button>
         </Modal>
       )}
 
@@ -1249,20 +1240,15 @@ export function TabDetailPage() {
             ))}
           </div>
 
-          <button
-            type="button"
-            onClick={handleConfirmModifiers}
-            disabled={!areModifiersValid}
-            className="mt-5 w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-          >
+          <Button type="button" onClick={handleConfirmModifiers} disabled={!areModifiersValid} className="mt-5 w-full">
             Adicionar
-          </button>
+          </Button>
         </Modal>
       )}
 
       {isMerging && (
         <Modal title="Mesclar comanda" onClose={() => setIsMerging(false)}>
-          {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {error && <p className="mb-3 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
           <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
             <Table2 className="h-3.5 w-3.5" />
@@ -1341,7 +1327,7 @@ export function TabDetailPage() {
 
       {isPickingTransferTarget && (
         <Modal title="Transferir itens" onClose={() => setIsPickingTransferTarget(false)}>
-          {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {error && <p className="mb-3 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
           <p className="mb-3 text-sm text-gray-500 dark:text-stone-400">
             {selectedItemIds.size} {selectedItemIds.size === 1 ? 'item selecionado' : 'itens selecionados'}. Escolha
@@ -1434,7 +1420,7 @@ export function TabDetailPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-3 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
             <div className="flex gap-2">
               {discountingItem.discountType && (
@@ -1447,13 +1433,9 @@ export function TabDetailPage() {
                   Remover desconto
                 </button>
               )}
-              <button
-                type="submit"
-                disabled={itemDiscountMutation.isPending}
-                className="flex-1 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-              >
+              <Button type="submit" disabled={itemDiscountMutation.isPending} className="flex-1">
                 Aplicar
-              </button>
+              </Button>
             </div>
           </form>
         </Modal>
@@ -1481,15 +1463,11 @@ export function TabDetailPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-3 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={voidPaymentMutation.isPending}
-              className="w-full rounded-md bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-            >
+            <Button type="submit" variant="danger" disabled={voidPaymentMutation.isPending} className="w-full">
               Confirmar anulação
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
@@ -1532,15 +1510,11 @@ export function TabDetailPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && <p className="mb-3 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={completePaymentMutation.isPending}
-              className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-            >
+            <Button type="submit" disabled={completePaymentMutation.isPending} className="w-full">
               Registrar pagamento
-            </button>
+            </Button>
           </form>
         </Modal>
       )}
