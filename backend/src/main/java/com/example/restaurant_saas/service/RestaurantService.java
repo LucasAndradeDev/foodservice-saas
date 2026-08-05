@@ -80,6 +80,12 @@ public class RestaurantService {
         if (request.getServiceChargePercentage() != null) {
             restaurant.setServiceChargePercentage(request.getServiceChargePercentage());
         }
+        if (request.getReservationBlockBeforeMinutes() != null) {
+            restaurant.setReservationBlockBeforeMinutes(request.getReservationBlockBeforeMinutes());
+        }
+        if (request.getReservationBlockAfterMinutes() != null) {
+            restaurant.setReservationBlockAfterMinutes(request.getReservationBlockAfterMinutes());
+        }
 
         restaurant = restaurantRepository.save(restaurant);
         return toResponse(restaurant);
@@ -109,6 +115,8 @@ public class RestaurantService {
                 .tableForgottenCriticalThresholdMinutes(restaurant.getTableForgottenCriticalThresholdMinutes())
                 .serviceChargeEnabled(restaurant.getServiceChargeEnabled())
                 .serviceChargePercentage(restaurant.getServiceChargePercentage())
+                .reservationBlockBeforeMinutes(restaurant.getReservationBlockBeforeMinutes())
+                .reservationBlockAfterMinutes(restaurant.getReservationBlockAfterMinutes())
                 .build();
     }
 }

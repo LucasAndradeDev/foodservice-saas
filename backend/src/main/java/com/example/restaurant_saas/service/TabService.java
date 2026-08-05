@@ -26,6 +26,7 @@ import com.example.restaurant_saas.dto.response.TabTableSummary;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.PaymentRepository;
+import com.example.restaurant_saas.repository.ReservationRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.RestaurantTableRepository;
 import com.example.restaurant_saas.repository.TabRepository;
@@ -54,6 +55,7 @@ public class TabService {
     private final CashRegisterService cashRegisterService;
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
+    private final ReservationRepository reservationRepository;
 
     @Transactional(readOnly = true)
     public List<TabResponse> listTabs(UUID restaurantId, TabStatus statusFilter) {
@@ -85,6 +87,7 @@ public class TabService {
                 throw new IllegalStateException("Table " + table.getNumber() + " is not free.");
             }
         }
+        assertTablesNotReserved(tables, restaurantId);
 
         Tab tab = Tab.builder()
                 .restaurant(restaurantRepository.getReferenceById(restaurantId))
@@ -116,6 +119,7 @@ public class TabService {
         if (table.getStatus() != TableStatus.FREE) {
             throw new IllegalStateException("Table is not available for self-ordering right now. Please call a waiter.");
         }
+        assertTablesNotReserved(List.of(table), restaurantId);
 
         Tab tab = Tab.builder()
                 .restaurant(restaurantRepository.getReferenceById(restaurantId))
@@ -149,6 +153,7 @@ public class TabService {
         if (table.getStatus() != TableStatus.FREE) {
             throw new IllegalStateException("Table " + table.getNumber() + " is not free.");
         }
+        assertTablesNotReserved(List.of(table), restaurantId);
 
         tab.getTables().add(table);
         tabRepository.save(tab);
@@ -403,6 +408,24 @@ public class TabService {
         }
 
         return toResponse(tabRepository.save(tab));
+    }
+
+    // There is no persisted RESERVED table status (the project has no scheduled/cron job to flip it
+    // back to FREE later, and every other time-based alert here is computed live rather than stored --
+    // see ReservationService). Instead, opening a table is rejected if a SCHEDULED reservation's
+    // blocking window (reservation time +/- the restaurant's configured minutes) contains this exact
+    // moment. This self-expires with no extra bookkeeping: once "now" moves past a reservation's
+    // window, it simply stops matching here.
+    private void assertTablesNotReserved(List<RestaurantTable> tables, UUID restaurantId) {
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Restaurant not found."));
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime windowStart = now.minusMinutes(restaurant.getReservationBlockAfterMinutes());
+        OffsetDateTime windowEnd = now.plusMinutes(restaurant.getReservationBlockBeforeMinutes());
+        List<UUID> tableIds = tables.stream().map(RestaurantTable::getId).toList();
+        if (reservationRepository.existsBlockingReservation(tableIds, windowStart, windowEnd)) {
+            throw new IllegalStateException("One or more tables are reserved around this time.");
+        }
     }
 
     /** Returns the tab's frozen bill total, computing and persisting it (along with the resolved

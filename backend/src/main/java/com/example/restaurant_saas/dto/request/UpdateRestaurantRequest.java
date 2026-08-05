@@ -54,4 +54,10 @@ public class UpdateRestaurantRequest {
     @DecimalMin(value = "0.0", message = "Service charge percentage cannot be negative")
     @DecimalMax(value = "100.0", message = "Service charge percentage cannot exceed 100")
     private BigDecimal serviceChargePercentage;
+
+    @Positive(message = "Reservation block-before minutes must be greater than zero")
+    private Integer reservationBlockBeforeMinutes;
+
+    @Positive(message = "Reservation block-after minutes must be greater than zero")
+    private Integer reservationBlockAfterMinutes;
 }

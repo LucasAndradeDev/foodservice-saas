@@ -10,13 +10,17 @@ import com.example.restaurant_saas.dto.request.UpdateTableRequest;
 import com.example.restaurant_saas.dto.request.UpdateTableStatusRequest;
 import com.example.restaurant_saas.dto.response.TableResponse;
 import com.example.restaurant_saas.repository.DiningAreaRepository;
+import com.example.restaurant_saas.repository.ReservationRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.RestaurantTableRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
@@ -27,19 +31,22 @@ public class TableService {
     private final RestaurantTableRepository tableRepository;
     private final RestaurantRepository restaurantRepository;
     private final DiningAreaRepository diningAreaRepository;
+    private final ReservationRepository reservationRepository;
 
     @Transactional(readOnly = true)
     public List<TableResponse> listTables(UUID restaurantId, TableStatus statusFilter, Boolean activeFilter) {
+        Set<UUID> blockedTableIds = currentlyBlockedTableIds(restaurantId);
         return tableRepository.findByRestaurantId(restaurantId).stream()
-                .filter(table -> statusFilter == null || statusFilter.equals(table.getStatus()))
-                .filter(table -> activeFilter == null || activeFilter.equals(table.getActive()))
-                .map(this::toResponse)
+                .map(table -> toResponse(table, blockedTableIds))
+                .filter(response -> statusFilter == null || statusFilter.equals(response.getStatus()))
+                .filter(response -> activeFilter == null || activeFilter.equals(response.getActive()))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public TableResponse getTable(UUID restaurantId, UUID tableId) {
-        return toResponse(findByIdAndRestaurant(restaurantId, tableId));
+        RestaurantTable table = findByIdAndRestaurant(restaurantId, tableId);
+        return toResponse(table, currentlyBlockedTableIds(restaurantId));
     }
 
     @Transactional
@@ -55,11 +62,12 @@ public class TableService {
                 .restaurant(restaurantRepository.getReferenceById(restaurantId))
                 .area(resolveArea(restaurantId, request.getAreaId()))
                 .number(number)
+                .capacity(request.getCapacity() != null ? request.getCapacity() : 4)
                 .status(TableStatus.FREE)
                 .active(true)
                 .build();
 
-        return toResponse(tableRepository.save(table));
+        return toResponse(tableRepository.save(table), Set.of());
     }
 
     @Transactional
@@ -77,7 +85,7 @@ public class TableService {
                 .toList();
 
         return tableRepository.saveAll(tables).stream()
-                .map(this::toResponse)
+                .map(table -> toResponse(table, Set.of()))
                 .toList();
     }
 
@@ -104,6 +112,9 @@ public class TableService {
             }
             table.setNumber(request.getNumber());
         }
+        if (request.getCapacity() != null) {
+            table.setCapacity(request.getCapacity());
+        }
         if (request.getActive() != null) {
             table.setActive(request.getActive());
         }
@@ -113,7 +124,7 @@ public class TableService {
             table.setArea(resolveArea(restaurantId, request.getAreaId()));
         }
 
-        return toResponse(tableRepository.save(table));
+        return toResponse(tableRepository.save(table), currentlyBlockedTableIds(restaurantId));
     }
 
     private DiningArea resolveArea(UUID restaurantId, UUID areaId) {
@@ -126,9 +137,12 @@ public class TableService {
 
     @Transactional
     public TableResponse updateTableStatus(UUID restaurantId, UUID tableId, UpdateTableStatusRequest request) {
+        if (request.getStatus() == TableStatus.RESERVED) {
+            throw new IllegalArgumentException("RESERVED is computed automatically and cannot be set directly.");
+        }
         RestaurantTable table = findByIdAndRestaurant(restaurantId, tableId);
         table.setStatus(request.getStatus());
-        return toResponse(tableRepository.save(table));
+        return toResponse(tableRepository.save(table), currentlyBlockedTableIds(restaurantId));
     }
 
     @Transactional
@@ -145,12 +159,28 @@ public class TableService {
                 .orElseThrow(() -> new IllegalArgumentException("Table not found."));
     }
 
-    private TableResponse toResponse(RestaurantTable table) {
+    // No persisted RESERVED status and no cron job to clear it -- same "compute live, self-expires"
+    // approach as TabService.assertTablesNotReserved and ReservationService's auto-assign. A FREE table
+    // whose id shows up here is inside a SCHEDULED reservation's block window right now.
+    private Set<UUID> currentlyBlockedTableIds(UUID restaurantId) {
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Restaurant not found."));
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime windowStart = now.minusMinutes(restaurant.getReservationBlockAfterMinutes());
+        OffsetDateTime windowEnd = now.plusMinutes(restaurant.getReservationBlockBeforeMinutes());
+        return new HashSet<>(reservationRepository.findBlockedTableIds(restaurantId, windowStart, windowEnd));
+    }
+
+    private TableResponse toResponse(RestaurantTable table, Set<UUID> blockedTableIds) {
+        TableStatus effectiveStatus = table.getStatus() == TableStatus.FREE && blockedTableIds.contains(table.getId())
+                ? TableStatus.RESERVED
+                : table.getStatus();
         return TableResponse.builder()
                 .id(table.getId())
                 .restaurantId(table.getRestaurant().getId())
                 .number(table.getNumber())
-                .status(table.getStatus())
+                .capacity(table.getCapacity())
+                .status(effectiveStatus)
                 .active(table.getActive())
                 .areaId(table.getArea() != null ? table.getArea().getId() : null)
                 .build();

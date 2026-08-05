@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ShoppingBag, Ticket } from 'lucide-react'
+import { CalendarClock, ShoppingBag, Ticket } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { getPublicMenu, redeemCoupon, removeCoupon, submitPublicOrder, type PublicMenuProduct } from '../api/publicMenu'
@@ -14,6 +14,7 @@ import { MenuHero } from './publicMenu/MenuHero'
 import { ModifierSheet } from './publicMenu/ModifierSheet'
 import { OrderStatusPanel } from './publicMenu/OrderStatusPanel'
 import { ProductCard } from './publicMenu/ProductCard'
+import { ReservationFormModal } from './publicMenu/ReservationFormModal'
 import { TableRequestButtons } from './publicMenu/TableRequestButtons'
 import { usePublicMenuTheme } from './publicMenu/usePublicMenuTheme'
 import {
@@ -56,6 +57,7 @@ export function PublicMenuPage() {
   const requestTimeoutsRef = useRef<Partial<Record<TableRequestType, number>>>({})
   const [couponCode, setCouponCode] = useState('')
   const [couponError, setCouponError] = useState<string | null>(null)
+  const [isReservationModalOpen, setIsReservationModalOpen] = useState(false)
 
   const { data: menu, isLoading, isError } = useQuery({
     queryKey: ['publicMenu', slug, tableId],
@@ -352,6 +354,19 @@ export function PublicMenuPage() {
 
       <CategoryNav categories={menu.categories} search={search} onSearchChange={setSearch} />
 
+      {!tableId && (
+        <div className="mx-auto max-w-2xl px-4 pt-3">
+          <button
+            type="button"
+            onClick={() => setIsReservationModalOpen(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-brand-300 px-3 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-500/30 dark:text-brand-400 dark:hover:bg-brand-500/10"
+          >
+            <CalendarClock className="h-4 w-4" />
+            Reservar mesa
+          </button>
+        </div>
+      )}
+
       {menu.table?.discountAppliedLabel && (
         <div className="mx-auto max-w-2xl px-4 pt-3">
           <div className="flex items-center gap-2 rounded-xl bg-sage-100 px-3 py-2 text-sm font-medium text-sage-700 dark:bg-sage-500/10 dark:text-sage-400">
@@ -503,6 +518,10 @@ export function PublicMenuPage() {
         onClose={() => setActiveComboProduct(null)}
         onConfirm={handleConfirmCombo}
       />
+
+      {isReservationModalOpen && slug && (
+        <ReservationFormModal slug={slug} onClose={() => setIsReservationModalOpen(false)} />
+      )}
     </div>
   )
 }

@@ -386,6 +386,15 @@ public class AuthService {
                 .logo(restaurant.getLogo())
                 .tableCount(restaurant.getTableCount())
                 .active(restaurant.getActive())
+                .autoPrintKitchenTickets(restaurant.getAutoPrintKitchenTickets())
+                .kitchenWarningThresholdMinutes(restaurant.getKitchenWarningThresholdMinutes())
+                .kitchenCriticalThresholdMinutes(restaurant.getKitchenCriticalThresholdMinutes())
+                .tableForgottenWarningThresholdMinutes(restaurant.getTableForgottenWarningThresholdMinutes())
+                .tableForgottenCriticalThresholdMinutes(restaurant.getTableForgottenCriticalThresholdMinutes())
+                .serviceChargeEnabled(restaurant.getServiceChargeEnabled())
+                .serviceChargePercentage(restaurant.getServiceChargePercentage())
+                .reservationBlockBeforeMinutes(restaurant.getReservationBlockBeforeMinutes())
+                .reservationBlockAfterMinutes(restaurant.getReservationBlockAfterMinutes())
                 .build();
 
         return AuthResponse.builder()

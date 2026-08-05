@@ -23,7 +23,9 @@ import { ProductModifiersPage } from './pages/ProductModifiersPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { PostMealFeedbackPage } from './pages/PostMealFeedbackPage'
 import { PublicMenuPage } from './pages/PublicMenuPage'
+import { PublicReservationStatusPage } from './pages/PublicReservationStatusPage'
 import { ReportsPage } from './pages/ReportsPage'
+import { ReservationsPage } from './pages/ReservationsPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { RestaurantSettingsPage } from './pages/RestaurantSettingsPage'
 import { StaffPage } from './pages/StaffPage'
@@ -68,6 +70,7 @@ function App() {
             <Route path="/menu/:slug" element={<PublicMenuPage />} />
             <Route path="/menu/:slug/:tableId" element={<PublicMenuPage />} />
             <Route path="/feedback/:slug/:tabId" element={<PostMealFeedbackPage />} />
+            <Route path="/reservations/status/:token" element={<PublicReservationStatusPage />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/orders/:orderId/print" element={<OrderTicketPrintPage />} />
               <Route path="/tabs/:tabId/print" element={<TabReceiptPrintPage />} />
@@ -78,6 +81,7 @@ function App() {
                 <Route path="/kitchen" element={<KitchenPage />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/cash-register" element={<CashRegisterPage />} />
+                <Route path="/reservations" element={<ReservationsPage />} />
                 <Route path="/categories" element={<CategoriesPage />} />
                 <Route path="/dining-areas" element={<DiningAreasPage />} />
                 <Route path="/coupons" element={<CouponsPage />} />

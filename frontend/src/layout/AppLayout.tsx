@@ -1,6 +1,7 @@
 import {
   Banknote,
   BarChart3,
+  CalendarClock,
   ChefHat,
   LayoutDashboard,
   LogOut,
@@ -67,6 +68,12 @@ const PRIMARY_NAV_ITEMS: NavItem[] = [
   { to: '/kitchen', label: 'Cozinha', icon: ChefHat, section: 'KITCHEN' },
   { to: '/checkout', label: 'Fechar Conta', mobileLabel: 'Conta', icon: Wallet, section: 'CHECKOUT' },
   { to: '/cash-register', label: 'Caixa', icon: Banknote, roles: ['OWNER', 'MANAGER', 'CASHIER'] },
+  {
+    to: '/reservations',
+    label: 'Reservas',
+    icon: CalendarClock,
+    roles: ['OWNER', 'MANAGER', 'WAITER', 'CASHIER'],
+  },
 ]
 
 const MENU_NAV_ITEMS: NavItem[] = [

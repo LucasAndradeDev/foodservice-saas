@@ -12,6 +12,7 @@ public class TableResponse {
     private UUID id;
     private UUID restaurantId;
     private Integer number;
+    private Integer capacity;
     private TableStatus status;
     private Boolean active;
     private UUID areaId;

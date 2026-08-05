@@ -11,5 +11,8 @@ public class CreateTableRequest {
     @Min(value = 1, message = "Number must be at least 1")
     private Integer number;
 
+    @Min(value = 1, message = "Capacity must be at least 1")
+    private Integer capacity;
+
     private UUID areaId;
 }

@@ -1,6 +1,6 @@
 import { http } from './http'
 
-export type TableStatus = 'FREE' | 'OCCUPIED' | 'CLOSING'
+export type TableStatus = 'FREE' | 'OCCUPIED' | 'CLOSING' | 'RESERVED'
 
 export interface RestaurantTable {
   id: string

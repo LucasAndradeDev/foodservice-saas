@@ -31,6 +31,14 @@ security:
     max-attempts: 3
     window-minutes: 15
     block-minutes: 30
+  reservation-create-rate-limit:
+    max-attempts: 5
+    window-minutes: 15
+    block-minutes: 30
+  reservation-cancel-rate-limit:
+    max-attempts: 5
+    window-minutes: 15
+    block-minutes: 30
 
 app:
   upload-dir: ./target/test-uploads

@@ -26,4 +26,6 @@ public class RestaurantResponse {
     private Integer tableForgottenCriticalThresholdMinutes;
     private Boolean serviceChargeEnabled;
     private BigDecimal serviceChargePercentage;
+    private Integer reservationBlockBeforeMinutes;
+    private Integer reservationBlockAfterMinutes;
 }

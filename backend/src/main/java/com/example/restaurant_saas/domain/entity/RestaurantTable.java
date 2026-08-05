@@ -33,6 +33,10 @@ public class RestaurantTable {
     @Column(nullable = false)
     private Integer number;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private Integer capacity = 4;
+
     @Enumerated(EnumType.STRING)
     @Builder.Default
     @Column(nullable = false, length = 20)

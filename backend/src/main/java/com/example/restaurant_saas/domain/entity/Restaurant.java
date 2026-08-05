@@ -76,6 +76,14 @@ public class Restaurant {
     @Builder.Default
     private BigDecimal serviceChargePercentage = BigDecimal.valueOf(10.00);
 
+    @Column(name = "reservation_block_before_minutes", nullable = false)
+    @Builder.Default
+    private Integer reservationBlockBeforeMinutes = 30;
+
+    @Column(name = "reservation_block_after_minutes", nullable = false)
+    @Builder.Default
+    private Integer reservationBlockAfterMinutes = 30;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

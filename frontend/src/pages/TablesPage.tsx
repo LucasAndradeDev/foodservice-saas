@@ -3,6 +3,7 @@ import { AnimatePresence, motion, type PanInfo } from 'framer-motion'
 import {
   AlertTriangle,
   Bell,
+  CalendarClock,
   CheckCircle2,
   Clock,
   Coffee,
@@ -52,30 +53,39 @@ const STATUS_LABELS: Record<TableStatus, string> = {
   FREE: 'Livre',
   OCCUPIED: 'Ocupada',
   CLOSING: 'Fechando',
+  RESERVED: 'Reservada',
 }
+
+// Statuses staff can pick by hand -- RESERVED is computed from active reservations (see TableService)
+// and rejected by the API if sent directly, so it's excluded from this list.
+const EDITABLE_STATUSES: TableStatus[] = ['FREE', 'OCCUPIED', 'CLOSING']
 
 const STATUS_CARD_STYLES: Record<TableStatus, string> = {
   FREE: 'border-sage-200 bg-white hover:border-sage-300 dark:border-sage-500/20 dark:bg-stone-900 dark:hover:border-sage-500/40',
   OCCUPIED: 'border-brand-200 bg-gradient-to-br from-brand-50 to-white dark:border-brand-500/20 dark:from-brand-500/10 dark:to-stone-900',
   CLOSING: 'border-gold-200 bg-gradient-to-br from-gold-100 to-white dark:border-gold-500/20 dark:from-gold-500/10 dark:to-stone-900',
+  RESERVED: 'border-teal-200 bg-gradient-to-br from-teal-100 to-white dark:border-teal-500/20 dark:from-teal-500/10 dark:to-stone-900',
 }
 
 const STATUS_BADGE_STYLES: Record<TableStatus, string> = {
   FREE: 'bg-sage-100 text-sage-700 dark:bg-sage-500/20 dark:text-sage-400',
   OCCUPIED: 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400',
   CLOSING: 'bg-gold-100 text-gold-700 dark:bg-gold-500/20 dark:text-gold-400',
+  RESERVED: 'bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-400',
 }
 
 const STATUS_LABEL_STYLES: Record<TableStatus, string> = {
   FREE: 'text-sage-700 dark:text-sage-400',
   OCCUPIED: 'text-brand-700 dark:text-brand-400',
   CLOSING: 'text-gold-700 dark:text-gold-400',
+  RESERVED: 'text-teal-700 dark:text-teal-400',
 }
 
 const STATUS_ICONS: Record<TableStatus, LucideIcon> = {
   FREE: CheckCircle2,
   OCCUPIED: Flame,
   CLOSING: Clock,
+  RESERVED: CalendarClock,
 }
 
 const POLL_INTERVAL_MS = 4000
@@ -194,7 +204,7 @@ export function TablesPage() {
   const counterTabs = useMemo(() => openTabs?.filter((tab) => tab.tables.length === 0) ?? [], [openTabs])
 
   const statusCounts = useMemo(() => {
-    const counts: Record<TableStatus, number> = { FREE: 0, OCCUPIED: 0, CLOSING: 0 }
+    const counts: Record<TableStatus, number> = { FREE: 0, OCCUPIED: 0, CLOSING: 0, RESERVED: 0 }
     tables?.forEach((table) => {
       counts[table.status] += 1
     })
@@ -372,7 +382,9 @@ export function TablesPage() {
   function openTableModal(table: RestaurantTable) {
     setSelectedTable(table)
     setEditNumber(String(table.number))
-    setEditStatus(table.status)
+    // RESERVED is a read-only computed overlay on top of FREE (see TableService) -- there's no such
+    // status to hand-pick in the dropdown, so default the editable field to what it actually is.
+    setEditStatus(table.status === 'RESERVED' ? 'FREE' : table.status)
     setEditActive(table.active)
     setEditAreaId(table.areaId ?? '')
     setError(null)
@@ -420,7 +432,8 @@ export function TablesPage() {
         { onError: () => setError('Não foi possível salvar. Verifique se o número já está em uso.') },
       )
     }
-    if (editStatus !== selectedTable.status) {
+    const originalEditableStatus = selectedTable.status === 'RESERVED' ? 'FREE' : selectedTable.status
+    if (editStatus !== originalEditableStatus) {
       statusMutation.mutate({ id: selectedTable.id, status: editStatus })
     }
     closeTableModal()
@@ -674,6 +687,9 @@ export function TablesPage() {
           <StatPill icon={Flame} label="ocupadas" value={statusCounts.OCCUPIED} badgeClassName={STATUS_BADGE_STYLES.OCCUPIED} />
           {statusCounts.CLOSING > 0 && (
             <StatPill icon={Clock} label="fechando" value={statusCounts.CLOSING} badgeClassName={STATUS_BADGE_STYLES.CLOSING} />
+          )}
+          {statusCounts.RESERVED > 0 && (
+            <StatPill icon={CalendarClock} label="reservadas" value={statusCounts.RESERVED} badgeClassName={STATUS_BADGE_STYLES.RESERVED} />
           )}
         </div>
       )}
@@ -1009,7 +1025,7 @@ export function TablesPage() {
                     onChange={(e) => setEditStatus(e.target.value as TableStatus)}
                     className="mb-4 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
                   >
-                    {(Object.keys(STATUS_LABELS) as TableStatus[]).map((status) => (
+                    {EDITABLE_STATUSES.map((status) => (
                       <option key={status} value={status}>
                         {STATUS_LABELS[status]}
                       </option>

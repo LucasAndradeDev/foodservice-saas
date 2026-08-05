@@ -49,6 +49,14 @@ security:
     max-attempts: ${RESEND_VERIFICATION_RATE_LIMIT_MAX_ATTEMPTS:3}
     window-minutes: ${RESEND_VERIFICATION_RATE_LIMIT_WINDOW_MINUTES:15}
     block-minutes: ${RESEND_VERIFICATION_RATE_LIMIT_BLOCK_MINUTES:30}
+  reservation-create-rate-limit:
+    max-attempts: ${RESERVATION_CREATE_RATE_LIMIT_MAX_ATTEMPTS:5}
+    window-minutes: ${RESERVATION_CREATE_RATE_LIMIT_WINDOW_MINUTES:15}
+    block-minutes: ${RESERVATION_CREATE_RATE_LIMIT_BLOCK_MINUTES:30}
+  reservation-cancel-rate-limit:
+    max-attempts: ${RESERVATION_CANCEL_RATE_LIMIT_MAX_ATTEMPTS:5}
+    window-minutes: ${RESERVATION_CANCEL_RATE_LIMIT_WINDOW_MINUTES:15}
+    block-minutes: ${RESERVATION_CANCEL_RATE_LIMIT_BLOCK_MINUTES:30}
 
 app:
   upload-dir: ${UPLOAD_DIR:./uploads}
