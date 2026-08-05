@@ -172,10 +172,12 @@ export function ReportsPage() {
   return (
     <div>
       <div className="mb-6 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-stone-900 p-4 shadow-xs">
-        <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
-          <BarChart3 className="h-5 w-5 text-brand-600" />
-          Relatórios
-        </h1>
+        <div className="mb-4 flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+            <BarChart3 className="h-5 w-5" />
+          </span>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Relatórios</h1>
+        </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-2">

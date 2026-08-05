@@ -16,6 +16,49 @@
   }
 }
 
+@layer base {
+  /* Thin, buttonless scrollbars app-wide — replaces the OS default (which can render
+     chunky up/down arrow buttons) with a slim rounded thumb, on every scrollable element.
+     Lives in the `base` layer (lower priority than `utilities`) so `.no-scrollbar` below
+     can still win and fully hide the bar where we want it. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #d1d5db transparent;
+  }
+  .dark * {
+    scrollbar-color: #57534e transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+    border-radius: 9999px;
+  }
+  .dark *::-webkit-scrollbar-thumb {
+    background-color: #57534e;
+  }
+  *::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @theme {
   --color-brand-50: #fdf4f1;
   --color-brand-100: #fbe3dc;

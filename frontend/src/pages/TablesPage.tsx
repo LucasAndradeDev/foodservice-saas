@@ -8,11 +8,11 @@ import {
   Clock,
   Coffee,
   Flame,
-  LayoutGrid,
   Layers,
   MoreVertical,
   Move,
   Plus,
+  Table2,
   Users,
   UtensilsCrossed,
   Wallet,
@@ -520,7 +520,7 @@ export function TablesPage() {
       <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-            <LayoutGrid className="h-5 w-5" />
+            <Table2 className="h-5 w-5" />
           </span>
           <h1 className="text-lg font-bold text-gray-900 dark:text-white">Mesas</h1>
         </div>

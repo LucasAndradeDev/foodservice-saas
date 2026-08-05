@@ -159,10 +159,12 @@ export function MenuImportPage() {
 
   return (
     <div>
-      <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs dark:border-white/10 dark:bg-stone-900 dark:text-white">
-        <FileSpreadsheet className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-        Importar cardápio
-      </h1>
+      <div className="mb-5 flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+          <FileSpreadsheet className="h-5 w-5" />
+        </span>
+        <h1 className="text-lg font-bold text-gray-900 dark:text-white">Importar cardápio</h1>
+      </div>
 
       {step === 'upload' && (
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-stone-900">

@@ -123,18 +123,25 @@ export function CashRegisterPage() {
 
   return (
     <div>
-      <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs dark:border-white/10 dark:bg-stone-900 dark:text-white">
-        <Banknote className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-        Caixa
-      </h1>
+      <div className="mb-5 flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+          <Banknote className="h-5 w-5" />
+        </span>
+        <h1 className="text-lg font-bold text-gray-900 dark:text-white">Caixa</h1>
+      </div>
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {!isLoading && !currentSession && (
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
-          <div className="mb-3 flex items-center gap-2 text-sm text-gray-500 dark:text-stone-400">
-            <Lock className="h-4 w-4" />
-            Caixa fechado.
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-16 text-center shadow-xs dark:border-white/10 dark:bg-stone-900">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-50 text-gray-300 dark:bg-white/5 dark:text-stone-600">
+            <Lock className="h-8 w-8" />
+          </div>
+          <div>
+            <p className="text-base font-semibold text-gray-800 dark:text-white">Caixa fechado</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-stone-400">
+              Abra o caixa pra começar a registrar as vendas em dinheiro deste turno.
+            </p>
           </div>
           <Button type="button" onClick={openOpeningForm}>
             <Unlock className="h-4 w-4" />

@@ -27,8 +27,11 @@ import {
   Salad,
   Sandwich,
   Shrimp,
+  Store,
   Tag,
+  Ticket,
   Trash2,
+  Users,
   UtensilsCrossed,
   Vegan,
   Wine,
@@ -52,10 +55,10 @@ import { SectionTabs } from '../components/SectionTabs'
 import { TimePicker } from '../components/TimePicker'
 
 const MANAGEMENT_TABS = [
-  { to: '/settings', label: 'Geral' },
-  { to: '/coupons', label: 'Cupons' },
-  { to: '/happy-hour', label: 'Happy Hour' },
-  { to: '/staff', label: 'Funcionários' },
+  { to: '/settings', label: 'Geral', icon: Store },
+  { to: '/coupons', label: 'Cupons', icon: Ticket },
+  { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
+  { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 
 const WEEK_DAYS: { value: DayOfWeek; shortLabel: string }[] = [
@@ -307,11 +310,13 @@ export function HappyHourPage() {
     <div>
       <SectionTabs tabs={MANAGEMENT_TABS} />
 
-      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
-          <Clock className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-          Happy Hour
-        </h1>
+      <div className="mb-5 flex items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+            <Clock className="h-5 w-5" />
+          </span>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Happy Hour</h1>
+        </div>
         <Button
           type="button"
           onClick={openCreateForm}

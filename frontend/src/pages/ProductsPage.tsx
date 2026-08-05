@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Circle,
   Filter,
+  Layers,
   ListChecks,
   MoreVertical,
   Package,
@@ -22,6 +23,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { listCategories } from '../api/categories'
 import {
@@ -40,9 +42,9 @@ import { Modal } from '../components/Modal'
 import { SectionTabs } from '../components/SectionTabs'
 
 const MENU_TABS = [
-  { to: '/products', label: 'Produtos' },
-  { to: '/categories', label: 'Categorias' },
-  { to: '/combos', label: 'Combos' },
+  { to: '/products', label: 'Produtos', icon: Package },
+  { to: '/categories', label: 'Categorias', icon: Tag },
+  { to: '/combos', label: 'Combos', icon: Layers },
 ]
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -290,12 +292,14 @@ export function ProductsPage() {
     <div>
       <SectionTabs tabs={MENU_TABS} />
 
-      <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
+      <div className="mb-4 rounded-b-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
-            <Package className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-            Produtos
-          </h1>
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+              <Package className="h-5 w-5" />
+            </span>
+            <h1 className="text-lg font-bold text-gray-900 dark:text-white">Produtos</h1>
+          </div>
           {canManage && (
             <Button type="button" onClick={openCreateForm}>
               <Plus className="h-4 w-4" />
@@ -724,14 +728,19 @@ function ProductActionButtons({
   align = 'start',
 }: ProductActionButtonsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [openUpward, setOpenUpward] = useState(false)
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuWidth = 256
 
   useEffect(() => {
     if (!isMenuOpen) return
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        !triggerRef.current?.contains(event.target as Node)
+      ) {
         setIsMenuOpen(false)
       }
     }
@@ -741,18 +750,18 @@ function ProductActionButtons({
 
   useLayoutEffect(() => {
     if (!isMenuOpen || !triggerRef.current) return
-    const estimatedMenuHeight = 340
-    const triggerBottom = triggerRef.current.getBoundingClientRect().bottom
-    // The desktop table wrapper clips overflow to keep its rounded corners, so a dropdown
-    // opening downward on the last row gets cut off by that boundary before it ever reaches
-    // the edge of the viewport. Whichever boundary is closer is the one that actually clips it.
-    const clippingAncestor = triggerRef.current.closest('.overflow-hidden') as HTMLElement | null
-    const spaceBelowContainer = clippingAncestor
-      ? clippingAncestor.getBoundingClientRect().bottom - triggerBottom
-      : Infinity
-    const spaceBelowViewport = window.innerHeight - triggerBottom
-    setOpenUpward(Math.min(spaceBelowContainer, spaceBelowViewport) < estimatedMenuHeight)
-  }, [isMenuOpen])
+    // Rendered via portal (see below) so the desktop table's `overflow-hidden` wrapper — needed
+    // to keep its rounded corners — never gets a chance to clip this menu, no matter how short
+    // the table is or how close to its bottom edge the row sits.
+    const estimatedMenuHeight = 260
+    const rect = triggerRef.current.getBoundingClientRect()
+    const openUpward = window.innerHeight - rect.bottom < estimatedMenuHeight
+    const left = align === 'end' ? rect.right - menuWidth : rect.left
+    setMenuPosition({
+      top: openUpward ? rect.top - estimatedMenuHeight : rect.bottom + 4,
+      left: Math.min(Math.max(left, 8), window.innerWidth - menuWidth - 8),
+    })
+  }, [isMenuOpen, align])
 
   function runAndClose(action: () => void) {
     action()
@@ -771,23 +780,24 @@ function ProductActionButtons({
         <Pencil className="h-4 w-4" />
       </button>
 
-      <div className="relative" ref={menuRef}>
-        <button
-          ref={triggerRef}
-          type="button"
-          onClick={() => setIsMenuOpen((open) => !open)}
-          title="Mais ações"
-          aria-label="Mais ações"
-          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
-        >
-          <MoreVertical className="h-4 w-4" />
-        </button>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsMenuOpen((open) => !open)}
+        title="Mais ações"
+        aria-label="Mais ações"
+        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
 
-        {isMenuOpen && (
+      {isMenuOpen &&
+        menuPosition &&
+        createPortal(
           <div
-            className={`absolute z-10 w-64 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-stone-800 ${
-              openUpward ? 'bottom-full mb-1' : 'mt-1'
-            } ${align === 'end' ? 'right-0' : 'left-0'}`}
+            ref={menuRef}
+            style={{ top: menuPosition.top, left: menuPosition.left, width: menuWidth }}
+            className="fixed z-50 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-stone-800"
           >
             <Link
               to={`/products/${product.id}/modifiers`}
@@ -838,9 +848,9 @@ function ProductActionButtons({
               <Trash2 className="h-4 w-4" />
               Excluir
             </button>
-          </div>
+          </div>,
+          document.body,
         )}
-      </div>
     </div>
   )
 }

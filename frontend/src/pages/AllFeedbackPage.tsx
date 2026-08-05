@@ -49,10 +49,12 @@ export function AllFeedbackPage() {
   return (
     <div>
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
-        <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
-          <MessageSquare className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-          Avaliações
-        </h1>
+        <div className="mb-4 flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+            <MessageSquare className="h-5 w-5" />
+          </span>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Avaliações</h1>
+        </div>
         <div className="flex w-fit items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 transition-colors focus-within:border-brand-500 focus-within:bg-white dark:border-white/10 dark:bg-white/5 dark:focus-within:bg-stone-900">
           <input
             type="date"

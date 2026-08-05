@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Circle, Layers, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { CheckCircle2, Circle, Layers, MoreVertical, Package, Pencil, Plus, Tag, Trash2 } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { deleteProduct, updateProduct, listProducts, type Product } from '../api/products'
 import { useAuth } from '../auth/AuthContext'
@@ -9,9 +10,9 @@ import { SectionTabs } from '../components/SectionTabs'
 import { Table, TableHead, TableRow } from '../components/Table'
 
 const MENU_TABS = [
-  { to: '/products', label: 'Produtos' },
-  { to: '/categories', label: 'Categorias' },
-  { to: '/combos', label: 'Combos' },
+  { to: '/products', label: 'Produtos', icon: Package },
+  { to: '/categories', label: 'Categorias', icon: Tag },
+  { to: '/combos', label: 'Combos', icon: Layers },
 ]
 
 export function CombosPage() {
@@ -66,11 +67,13 @@ export function CombosPage() {
     <div>
       <SectionTabs tabs={MENU_TABS} />
 
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
-          <Layers className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-          Combos
-        </h1>
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-b-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+            <Layers className="h-5 w-5" />
+          </span>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Combos</h1>
+        </div>
         {canManage && (
           <Link
             to="/combos/new"
@@ -201,17 +204,37 @@ interface ComboActionButtonsProps {
 
 function ComboActionButtons({ combo, onToggleActive, onConvertToSimple, onDelete }: ComboActionButtonsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuWidth = 224
 
   useEffect(() => {
     if (!isMenuOpen) return
     function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        !triggerRef.current?.contains(event.target as Node)
+      ) {
         setIsMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isMenuOpen])
+
+  useLayoutEffect(() => {
+    if (!isMenuOpen || !triggerRef.current) return
+    // Rendered via portal (see below) so the table's `overflow-hidden` wrapper — needed to keep
+    // its rounded corners — never gets a chance to clip this menu, no matter how short the table is.
+    const estimatedMenuHeight = 160
+    const rect = triggerRef.current.getBoundingClientRect()
+    const openUpward = window.innerHeight - rect.bottom < estimatedMenuHeight
+    setMenuPosition({
+      top: openUpward ? rect.top - estimatedMenuHeight : rect.bottom + 4,
+      left: Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8),
+    })
   }, [isMenuOpen])
 
   function runAndClose(action: () => void) {
@@ -230,19 +253,25 @@ function ComboActionButtons({ combo, onToggleActive, onConvertToSimple, onDelete
         <Pencil className="h-4 w-4" />
       </Link>
 
-      <div className="relative" ref={menuRef}>
-        <button
-          type="button"
-          onClick={() => setIsMenuOpen((open) => !open)}
-          title="Mais ações"
-          aria-label="Mais ações"
-          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
-        >
-          <MoreVertical className="h-4 w-4" />
-        </button>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsMenuOpen((open) => !open)}
+        title="Mais ações"
+        aria-label="Mais ações"
+        className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
 
-        {isMenuOpen && (
-          <div className="absolute right-0 z-10 mt-1 w-56 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-stone-800">
+      {isMenuOpen &&
+        menuPosition &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ top: menuPosition.top, left: menuPosition.left, width: menuWidth }}
+            className="fixed z-50 overflow-hidden rounded-md border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-stone-800"
+          >
             <button
               type="button"
               onClick={() => runAndClose(onToggleActive)}
@@ -266,9 +295,9 @@ function ComboActionButtons({ combo, onToggleActive, onConvertToSimple, onDelete
               <Trash2 className="h-4 w-4" />
               Excluir
             </button>
-          </div>
+          </div>,
+          document.body,
         )}
-      </div>
     </div>
   )
 }

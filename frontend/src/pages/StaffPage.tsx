@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Circle, Pencil, Plus, Users } from 'lucide-react'
+import { CheckCircle2, Circle, Clock, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import type { UserRole } from '../auth/types'
 import { createUser, listUsers, updateUser, type StaffMember } from '../api/users'
@@ -10,10 +10,10 @@ import { SectionTabs } from '../components/SectionTabs'
 import { Table, TableHead, TableRow } from '../components/Table'
 
 const MANAGEMENT_TABS = [
-  { to: '/settings', label: 'Geral' },
-  { to: '/coupons', label: 'Cupons' },
-  { to: '/happy-hour', label: 'Happy Hour' },
-  { to: '/staff', label: 'Funcionários' },
+  { to: '/settings', label: 'Geral', icon: Store },
+  { to: '/coupons', label: 'Cupons', icon: Ticket },
+  { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
+  { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -113,11 +113,13 @@ export function StaffPage() {
     <div>
       <SectionTabs tabs={MANAGEMENT_TABS} />
 
-      <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">
-          <Users className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-          Funcionários
-        </h1>
+      <div className="mb-5 flex items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+            <Users className="h-5 w-5" />
+          </span>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Funcionários</h1>
+        </div>
         <Button type="button" onClick={openCreateForm}>
           <Plus className="h-4 w-4" />
           Novo funcionário

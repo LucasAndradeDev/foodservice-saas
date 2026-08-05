@@ -4,6 +4,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Clock,
   Copy,
   ExternalLink,
   FileSpreadsheet,
@@ -12,6 +13,8 @@ import {
   QrCode,
   SlidersHorizontal,
   Store,
+  Ticket,
+  Users,
 } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
@@ -23,10 +26,10 @@ import { SectionTabs } from '../components/SectionTabs'
 import { publicMenuUrl } from '../utils/publicMenuUrl'
 
 const MANAGEMENT_TABS = [
-  { to: '/settings', label: 'Geral' },
-  { to: '/coupons', label: 'Cupons' },
-  { to: '/happy-hour', label: 'Happy Hour' },
-  { to: '/staff', label: 'Funcionários' },
+  { to: '/settings', label: 'Geral', icon: Store },
+  { to: '/coupons', label: 'Cupons', icon: Ticket },
+  { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
+  { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 
 const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1]
@@ -183,10 +186,12 @@ export function RestaurantSettingsPage() {
     <div>
       <SectionTabs tabs={MANAGEMENT_TABS} />
 
-      <h1 className="mb-4 flex items-center gap-2 rounded-xl border border-gray-200 bg-white p-4 text-lg font-semibold text-gray-800 shadow-xs dark:border-white/10 dark:bg-stone-900 dark:text-white">
-        <Store className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-        Configurações do restaurante
-      </h1>
+      <div className="mb-5 flex items-center gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
+          <Store className="h-5 w-5" />
+        </span>
+        <h1 className="text-lg font-bold text-gray-900 dark:text-white">Configurações do restaurante</h1>
+      </div>
 
       <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
