@@ -46,9 +46,15 @@ public class SecurityConfig {
                         // Not actually open: BackupController checks its own X-Backup-Token header,
                         // since the caller (GitHub Actions cron) has no user JWT to send.
                         .requestMatchers("/api/v1/internal/**").permitAll()
+                        .requestMatchers("/api/v1/admin/login").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
-                        .anyRequest().authenticated()
+                        // Admin and tenant paths are mutually exclusive at the matcher level (not just
+                        // via @PreAuthorize on individual controllers), so a platform-admin token — which
+                        // carries no restaurantId/TenantContext — can never reach a tenant endpoint that
+                        // happens to be missing its own role check, and vice versa.
+                        .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")
+                        .anyRequest().hasAnyRole("OWNER", "MANAGER", "WAITER", "KITCHEN", "CASHIER")
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())

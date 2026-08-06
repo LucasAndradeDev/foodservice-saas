@@ -1,4 +1,8 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { AdminAuthProvider } from './admin/AdminAuthContext'
+import { AdminLoginPage } from './admin/AdminLoginPage'
+import { AdminProtectedRoute } from './admin/AdminProtectedRoute'
+import { AdminRestaurantsPage } from './admin/AdminRestaurantsPage'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { AuthLayout } from './components/AuthLayout'
@@ -42,7 +46,12 @@ function App() {
     <ThemeProvider>
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
+          <AdminAuthProvider>
+            <Routes>
+            <Route path="/admin/login" element={<AdminLoginPage />} />
+            <Route element={<AdminProtectedRoute />}>
+              <Route path="/admin/restaurants" element={<AdminRestaurantsPage />} />
+            </Route>
             <Route path="/login" element={<AuthRoutes />} />
             <Route path="/register" element={<AuthRoutes />} />
             <Route
@@ -104,6 +113,7 @@ function App() {
               </Route>
             </Route>
           </Routes>
+          </AdminAuthProvider>
         </AuthProvider>
       </BrowserRouter>
     </ThemeProvider>

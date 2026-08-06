@@ -6,6 +6,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -47,6 +48,9 @@ public class Restaurant {
 
     @Builder.Default
     private Boolean active = true;
+
+    @Column(name = "payment_due_date")
+    private LocalDate paymentDueDate;
 
     @Column(name = "auto_print_kitchen_tickets", nullable = false)
     @Builder.Default

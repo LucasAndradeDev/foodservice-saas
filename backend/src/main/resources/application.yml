@@ -31,6 +31,11 @@ api:
     secret: ${JWT_SECRET}
     expiration-ms: 86400000
     refresh-expiration-ms: 604800000
+    admin-expiration-ms: 43200000
+
+admin:
+  username: ${ADMIN_USERNAME:}
+  password-hash: ${ADMIN_PASSWORD_HASH:}
 
 security:
   login-rate-limit:
@@ -57,6 +62,10 @@ security:
     max-attempts: ${RESERVATION_CANCEL_RATE_LIMIT_MAX_ATTEMPTS:5}
     window-minutes: ${RESERVATION_CANCEL_RATE_LIMIT_WINDOW_MINUTES:15}
     block-minutes: ${RESERVATION_CANCEL_RATE_LIMIT_BLOCK_MINUTES:30}
+  admin-login-rate-limit:
+    max-attempts: ${ADMIN_LOGIN_RATE_LIMIT_MAX_ATTEMPTS:5}
+    window-minutes: ${ADMIN_LOGIN_RATE_LIMIT_WINDOW_MINUTES:15}
+    block-minutes: ${ADMIN_LOGIN_RATE_LIMIT_BLOCK_MINUTES:60}
 
 app:
   upload-dir: ${UPLOAD_DIR:./uploads}

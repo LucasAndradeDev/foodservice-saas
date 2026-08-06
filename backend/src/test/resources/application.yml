@@ -13,6 +13,11 @@ api:
     secret: fVAc+Q0nBv0H5okURqwD6VgUpF/sj+1QOoweA0Ph6npDHm6HkwAAxmjx4ZLF8NGdS/rCnZVtMzv/Y/Zv+z4CdQ==
     expiration-ms: 3600000
     refresh-expiration-ms: 604800000
+    admin-expiration-ms: 43200000
+
+admin:
+  username: test-admin
+  password-hash: "$2a$10$Enl.BOcoCc27EF09xcdH/O89T0FhTDk7YaOVYZsd8NBSsKyHst7t6"
 
 security:
   login-rate-limit:
@@ -39,6 +44,10 @@ security:
     max-attempts: 5
     window-minutes: 15
     block-minutes: 30
+  admin-login-rate-limit:
+    max-attempts: 5
+    window-minutes: 15
+    block-minutes: 60
 
 app:
   upload-dir: ./target/test-uploads

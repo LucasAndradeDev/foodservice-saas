@@ -6,6 +6,7 @@ import com.example.restaurant_saas.domain.entity.RefreshToken;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.UserRole;
+import com.example.restaurant_saas.exception.RestaurantSuspendedException;
 import com.example.restaurant_saas.dto.request.ChangePasswordRequest;
 import com.example.restaurant_saas.dto.request.ForgotPasswordRequest;
 import com.example.restaurant_saas.dto.request.LoginRequest;
@@ -160,6 +161,10 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid username or password."));
 
+        if (!Boolean.TRUE.equals(user.getRestaurant().getActive())) {
+            throw new RestaurantSuspendedException("Restaurant access suspended. Contact support.");
+        }
+
         UserDetailsImpl userDetails = new UserDetailsImpl(user);
         String accessToken = jwtService.generateToken(userDetails);
 
@@ -179,6 +184,11 @@ public class AuthService {
         }
 
         User user = token.getUser();
+
+        if (!Boolean.TRUE.equals(user.getRestaurant().getActive())) {
+            throw new RestaurantSuspendedException("Restaurant access suspended. Contact support.");
+        }
+
         UserDetailsImpl userDetails = new UserDetailsImpl(user);
         String newAccessToken = jwtService.generateToken(userDetails);
 
@@ -388,6 +398,7 @@ public class AuthService {
                 .logo(restaurant.getLogo())
                 .tableCount(restaurant.getTableCount())
                 .active(restaurant.getActive())
+                .paymentDueDate(restaurant.getPaymentDueDate())
                 .autoPrintKitchenTickets(restaurant.getAutoPrintKitchenTickets())
                 .kitchenWarningThresholdMinutes(restaurant.getKitchenWarningThresholdMinutes())
                 .kitchenCriticalThresholdMinutes(restaurant.getKitchenCriticalThresholdMinutes())

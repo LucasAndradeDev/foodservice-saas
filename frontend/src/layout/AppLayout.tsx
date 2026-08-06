@@ -21,6 +21,7 @@ import { useAuth } from '../auth/AuthContext'
 import { EmailVerificationBanner } from '../components/EmailVerificationBanner'
 import { Modal } from '../components/Modal'
 import { NotificationToastStack, type ToastItem } from '../components/NotificationToastStack'
+import { PaymentDueBanner } from '../components/PaymentDueBanner'
 import { SupportModal } from '../components/SupportModal'
 import { getNavNotificationStatus, markNavSectionSeen, type NavNotificationStatus, type NavSection } from '../api/navNotifications'
 import { playAlertTone } from '../utils/alertSound'
@@ -316,6 +317,7 @@ export function AppLayout() {
 
       <div className="flex-1 sm:h-screen sm:overflow-y-auto">
         <EmailVerificationBanner />
+        <PaymentDueBanner />
 
         {/* Mobile top bar */}
         <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:hidden dark:border-white/10 dark:bg-stone-900">

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { AuthInput } from '../components/AuthLayout'
+import { SUPPORT_EMAIL, SUPPORT_WHATSAPP_URL } from '../config/support'
 import { Logo } from '../theme/Logo'
 
 export function LoginPage() {
@@ -13,6 +14,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isSuspended, setIsSuspended] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (isAuthenticated) {
@@ -22,6 +24,7 @@ export function LoginPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
+    setIsSuspended(false)
     setIsSubmitting(true)
     try {
       await login(email, password)
@@ -29,6 +32,9 @@ export function LoginPage() {
     } catch (err) {
       if (isAxiosError(err) && err.response?.status === 429) {
         setError('Muitas tentativas de login. Aguarde alguns minutos e tente novamente.')
+      } else if (isAxiosError(err) && err.response?.data?.error === 'Restaurant Suspended') {
+        setError('Acesso suspenso. Entre em contato com o suporte.')
+        setIsSuspended(true)
       } else {
         setError('Email ou senha inválidos')
       }
@@ -81,7 +87,18 @@ export function LoginPage() {
           </Link>
         </p>
 
-        {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
+        {error && <p className="mb-2 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
+        {isSuspended && (
+          <p className="mb-4 text-sm text-gray-600 dark:text-stone-400">
+            <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 hover:underline dark:text-brand-400">
+              WhatsApp
+            </a>
+            {' · '}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium text-brand-700 hover:underline dark:text-brand-400">
+              Email
+            </a>
+          </p>
+        )}
 
         <button
           type="submit"

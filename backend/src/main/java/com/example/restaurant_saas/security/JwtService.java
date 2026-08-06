@@ -24,6 +24,11 @@ public class JwtService {
     @Value("${api.jwt.expiration-ms}")
     private long jwtExpiration;
 
+    @Value("${api.jwt.admin-expiration-ms}")
+    private long adminJwtExpiration;
+
+    public static final String SUPER_ADMIN_ROLE = "ROLE_SUPER_ADMIN";
+
     public String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
     }
@@ -47,6 +52,13 @@ public class JwtService {
         return buildToken(extraClaims, userDetails.getUsername(), jwtExpiration);
     }
 
+    public String generateAdminToken(String adminUsername) {
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("role", SUPER_ADMIN_ROLE);
+
+        return buildToken(extraClaims, adminUsername, adminJwtExpiration);
+    }
+
     private String buildToken(Map<String, Object> extraClaims, String subject, long expiration) {
         return Jwts.builder()
                 .claims(extraClaims)
@@ -64,6 +76,22 @@ public class JwtService {
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
+    }
+
+    public boolean isAdminTokenValid(String token, String expectedAdminUsername) {
+        try {
+            final String role = extractClaim(token, claims -> claims.get("role", String.class));
+            final String subject = extractEmail(token);
+            return SUPER_ADMIN_ROLE.equals(role)
+                    && subject.equalsIgnoreCase(expectedAdminUsername)
+                    && !isTokenExpired(token);
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    public String extractRole(String token) {
+        return extractClaim(token, claims -> claims.get("role", String.class));
     }
 
     private boolean isTokenExpired(String token) {

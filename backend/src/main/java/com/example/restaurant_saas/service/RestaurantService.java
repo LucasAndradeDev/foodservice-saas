@@ -96,7 +96,9 @@ public class RestaurantService {
                 .orElseThrow(() -> new IllegalArgumentException("Restaurant not found."));
     }
 
-    private RestaurantResponse toResponse(Restaurant restaurant) {
+    // Package-private (not private): reused by AdminRestaurantService so the admin panel
+    // doesn't need to duplicate this mapping.
+    RestaurantResponse toResponse(Restaurant restaurant) {
         return RestaurantResponse.builder()
                 .id(restaurant.getId())
                 .name(restaurant.getName())
@@ -108,6 +110,7 @@ public class RestaurantService {
                 .logo(restaurant.getLogo())
                 .tableCount(restaurant.getTableCount())
                 .active(restaurant.getActive())
+                .paymentDueDate(restaurant.getPaymentDueDate())
                 .autoPrintKitchenTickets(restaurant.getAutoPrintKitchenTickets())
                 .kitchenWarningThresholdMinutes(restaurant.getKitchenWarningThresholdMinutes())
                 .kitchenCriticalThresholdMinutes(restaurant.getKitchenCriticalThresholdMinutes())
