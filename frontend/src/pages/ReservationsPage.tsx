@@ -24,6 +24,13 @@ const RESERVATION_STATUS_STYLES: Record<ReservationStatus, string> = {
   NO_SHOW: 'bg-wine-100 text-wine-700 dark:bg-wine-500/10 dark:text-wine-400',
 }
 
+const RESERVATION_ACCENT_STYLES: Record<ReservationStatus, string> = {
+  SCHEDULED: 'bg-teal-500',
+  SEATED: 'bg-sage-500',
+  CANCELLED: 'bg-gray-300 dark:bg-white/10',
+  NO_SHOW: 'bg-wine-500',
+}
+
 function toLocalDateString(date: Date) {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -167,64 +174,83 @@ export function ReservationsPage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-2.5">
-        {reservations?.map((reservation) => (
-          <div
-            key={reservation.id}
-            className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-stone-900 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-100 text-sm font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-400">
-                {formatTime(reservation.reservationTime)}
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">{reservation.customerName}</p>
-                <p className="flex items-center gap-3 text-xs text-gray-500 dark:text-stone-400">
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5" />
-                    {reservation.partySize}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Phone className="h-3.5 w-3.5" />
-                    {reservation.customerPhone}
-                  </span>
-                  {reservation.tables.length > 0 && (
-                    <span>Mesa {reservation.tables.map((t) => t.number).join(', ')}</span>
+      {reservations && reservations.length > 0 && (
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
+          <div className="divide-y divide-gray-100 dark:divide-white/10">
+            {reservations.map((reservation) => {
+          const isInactive = reservation.status === 'CANCELLED' || reservation.status === 'NO_SHOW'
+          return (
+            <div
+              key={reservation.id}
+              className={`relative flex flex-col gap-3 py-4 pr-4 pl-5 transition-colors hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between sm:gap-6 dark:hover:bg-white/5 ${
+                isInactive ? 'opacity-60' : ''
+              }`}
+            >
+              <span
+                className={`absolute inset-y-0 left-0 w-1 ${RESERVATION_ACCENT_STYLES[reservation.status]}`}
+                aria-hidden="true"
+              />
+              <div className="flex min-w-0 items-center gap-3">
+                <span
+                  className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl text-sm font-bold ${
+                    isInactive
+                      ? 'bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-stone-400'
+                      : 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400'
+                  }`}
+                >
+                  {formatTime(reservation.reservationTime)}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{reservation.customerName}</p>
+                  <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-stone-400">
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5" />
+                      {reservation.partySize}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Phone className="h-3.5 w-3.5" />
+                      {reservation.customerPhone}
+                    </span>
+                    {reservation.tables.length > 0 && (
+                      <span>Mesa {reservation.tables.map((t) => t.number).join(', ')}</span>
+                    )}
+                  </p>
+                  {reservation.note && (
+                    <p className="mt-0.5 text-xs italic text-gray-400 dark:text-stone-500">{reservation.note}</p>
                   )}
-                </p>
-                {reservation.note && (
-                  <p className="mt-0.5 text-xs italic text-gray-400 dark:text-stone-500">{reservation.note}</p>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2 sm:justify-end">
+                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${RESERVATION_STATUS_STYLES[reservation.status]}`}>
+                  {RESERVATION_STATUS_LABELS[reservation.status]}
+                </span>
+                {canManage && (reservation.status === 'SCHEDULED' || reservation.status === 'NO_SHOW') && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => checkInMutation.mutate(reservation.id)}
+                      disabled={checkInMutation.isPending}
+                      className="rounded-xl bg-brand-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
+                    >
+                      Cliente chegou
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReservationPendingCancel(reservation)}
+                      className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-stone-400 dark:hover:bg-white/5"
+                    >
+                      Cancelar
+                    </button>
+                  </>
                 )}
               </div>
             </div>
-
-            <div className="flex items-center gap-2">
-              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${RESERVATION_STATUS_STYLES[reservation.status]}`}>
-                {RESERVATION_STATUS_LABELS[reservation.status]}
-              </span>
-              {canManage && (reservation.status === 'SCHEDULED' || reservation.status === 'NO_SHOW') && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => checkInMutation.mutate(reservation.id)}
-                    disabled={checkInMutation.isPending}
-                    className="rounded-xl bg-brand-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
-                  >
-                    Cliente chegou
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setReservationPendingCancel(reservation)}
-                    className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-stone-400 dark:hover:bg-white/5"
-                  >
-                    Cancelar
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
+          )
+        })}
+        </div>
       </div>
+      )}
 
       {isCreating && (
         <Modal title="Nova reserva" onClose={() => setIsCreating(false)}>
