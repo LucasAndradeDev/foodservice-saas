@@ -376,7 +376,7 @@ export function PublicMenuPage() {
         </div>
       )}
 
-      <main className="mx-auto max-w-2xl px-4 py-4">
+      <main className="mx-auto max-w-2xl px-4 pt-4 pb-1">
         {filteredCategories.length === 0 && (
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-stone-400">Nenhum produto encontrado.</p>
         )}
@@ -408,7 +408,7 @@ export function PublicMenuPage() {
         })}
       </main>
 
-      <footer className="mx-auto max-w-2xl px-4 pb-2 pt-6 text-center text-xs text-gray-400 dark:text-stone-600">
+      <footer className="mx-auto max-w-2xl px-4 pb-2 pt-2 text-center text-xs text-gray-400 dark:text-stone-600">
         <Link to="/terms" target="_blank" className="hover:underline">
           Termos de Uso
         </Link>
@@ -481,9 +481,18 @@ export function PublicMenuPage() {
           >
             <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15">
               <ShoppingBag className="h-4 w-4" />
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[11px] font-bold text-brand-600">
-                {cartCount}
-              </span>
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={cartCount}
+                  initial={{ scale: 1.4, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.6, opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 20 }}
+                  className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[11px] font-bold text-brand-600"
+                >
+                  {cartCount}
+                </motion.span>
+              </AnimatePresence>
             </span>
             <span className="flex flex-1 flex-col items-start leading-tight">
               <span className="text-[11px] font-medium uppercase tracking-wide text-white/75">Ver pedido</span>

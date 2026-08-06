@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarClock, ChevronLeft, ChevronRight, Phone, Plus, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -29,6 +30,12 @@ const RESERVATION_ACCENT_STYLES: Record<ReservationStatus, string> = {
   SEATED: 'bg-sage-500',
   CANCELLED: 'bg-gray-300 dark:bg-white/10',
   NO_SHOW: 'bg-wine-500',
+}
+
+const rowVariants = {
+  hidden: { opacity: 0, y: 6 },
+  visible: { opacity: 1, y: 0 },
+  exit: { opacity: 0 },
 }
 
 function toLocalDateString(date: Date) {
@@ -177,11 +184,18 @@ export function ReservationsPage() {
       {reservations && reservations.length > 0 && (
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
           <div className="divide-y divide-gray-100 dark:divide-white/10">
-            {reservations.map((reservation) => {
+            <AnimatePresence initial={false}>
+              {reservations.map((reservation) => {
           const isInactive = reservation.status === 'CANCELLED' || reservation.status === 'NO_SHOW'
           return (
-            <div
+            <motion.div
               key={reservation.id}
+              layout
+              variants={rowVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              transition={{ duration: 0.18 }}
               className={`relative flex flex-col gap-3 py-4 pr-4 pl-5 transition-colors hover:bg-gray-50 sm:flex-row sm:items-center sm:justify-between sm:gap-6 dark:hover:bg-white/5 ${
                 isInactive ? 'opacity-60' : ''
               }`}
@@ -245,11 +259,12 @@ export function ReservationsPage() {
                   </>
                 )}
               </div>
-            </div>
+            </motion.div>
           )
-        })}
+              })}
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
       )}
 
       {isCreating && (
