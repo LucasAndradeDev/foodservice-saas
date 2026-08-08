@@ -10,35 +10,38 @@ interface ProductCardProps {
   onAdd: (product: PublicMenuProduct) => void
   onIncrement: (productId: string) => void
   onDecrement: (productId: string) => void
+  onOpenDetail: (product: PublicMenuProduct) => void
 }
 
-export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, onDecrement }: ProductCardProps) {
+export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, onDecrement, onOpenDetail }: ProductCardProps) {
   const unavailable = product.soldOut || !product.availableNow
 
   return (
     <motion.div
-      whileTap={canOrder && !unavailable ? { scale: 0.97 } : undefined}
-      className={`flex gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-stone-900 ${
+      whileTap={{ scale: 0.98 }}
+      onClick={() => onOpenDetail(product)}
+      className={`flex cursor-pointer gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-stone-900 ${
         unavailable ? 'opacity-60' : ''
       }`}
     >
       {product.imageUrl ? (
-        <img
-          src={product.imageUrl}
-          alt={product.name}
-          className="h-24 w-24 shrink-0 rounded-xl object-cover ring-1 ring-black/5 dark:ring-white/10 sm:h-28 sm:w-28"
-        />
+        <motion.div layoutId={`product-image-${product.id}`} className="h-28 w-28 shrink-0 overflow-hidden rounded-2xl ring-1 ring-black/5 dark:ring-white/10">
+          <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
+        </motion.div>
       ) : (
-        <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-300 dark:bg-white/5 dark:text-stone-600 sm:h-28 sm:w-28">
+        <motion.div
+          layoutId={`product-image-${product.id}`}
+          className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gray-100 text-gray-300 dark:bg-white/5 dark:text-stone-600"
+        >
           <ImageOff className="h-6 w-6" />
-        </div>
+        </motion.div>
       )}
       <div className="flex-1">
         <div className="flex items-start justify-between gap-2">
           <span className="font-medium text-gray-800 dark:text-white">{product.name}</span>
           <span className="shrink-0 text-right">
             {product.type === 'COMBO' && product.combo ? (
-              <span className="text-base font-bold text-brand-600 dark:text-brand-400">
+              <span className="font-display text-lg font-bold text-brand-600 dark:text-brand-400">
                 {product.combo.minPrice === product.combo.maxPrice
                   ? currencyFormatter.format(product.combo.minPrice)
                   : `${currencyFormatter.format(product.combo.minPrice)} – ${currencyFormatter.format(product.combo.maxPrice)}`}
@@ -50,7 +53,7 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
                     {currencyFormatter.format(product.price)}
                   </span>
                 )}
-                <span className="text-base font-bold text-brand-600 dark:text-brand-400">
+                <span className="font-display text-lg font-bold text-brand-600 dark:text-brand-400">
                   {currencyFormatter.format(product.discountedPrice ?? product.price)}
                 </span>
               </>
@@ -60,25 +63,25 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
         {!unavailable && (product.type === 'COMBO' || product.bestseller || product.featured || product.discountedPrice !== null) && (
           <div className="mt-1 flex flex-wrap items-center gap-1">
             {product.type === 'COMBO' && (
-              <span className="flex items-center gap-0.5 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 dark:bg-purple-500/10 dark:text-purple-400">
+              <span className="flex items-center gap-0.5 rounded-full bg-teal-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                 <Layers className="h-2.5 w-2.5" />
                 Combo
               </span>
             )}
             {product.discountedPrice !== null && (
-              <span className="flex items-center gap-0.5 rounded-full bg-pink-100 px-1.5 py-0.5 text-[10px] font-semibold text-pink-700 dark:bg-pink-500/10 dark:text-pink-400">
+              <span className="flex items-center gap-0.5 rounded-full bg-gold-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                 <Percent className="h-2.5 w-2.5" />
                 Happy Hour
               </span>
             )}
             {product.bestseller && (
-              <span className="flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-500/10 dark:text-orange-400">
+              <span className="flex items-center gap-0.5 rounded-full bg-brand-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                 <Flame className="h-2.5 w-2.5" />
                 Mais pedido
               </span>
             )}
             {product.featured && (
-              <span className="flex items-center gap-0.5 rounded-full bg-yellow-100 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-700 dark:bg-yellow-500/10 dark:text-yellow-400">
+              <span className="flex items-center gap-0.5 rounded-full bg-brand-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                 <Star className="h-2.5 w-2.5 fill-current" />
                 Destaque
               </span>
@@ -104,7 +107,7 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
           </span>
         ) : (
           canOrder && (
-            <div className="mt-2 flex justify-end">
+            <div className="mt-2 flex justify-end" onClick={(e) => e.stopPropagation()}>
               <AnimatePresence mode="wait" initial={false}>
                 {quantity === 0 ? (
                   <motion.button
@@ -118,7 +121,7 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
                     onClick={() => onAdd(product)}
                     aria-label="Adicionar"
                     title="Adicionar"
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white shadow-sm transition hover:bg-brand-700 active:scale-95 dark:bg-brand-500 dark:hover:bg-brand-600"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white shadow-md shadow-brand-900/20 transition hover:bg-brand-700 active:scale-95 dark:bg-brand-500 dark:hover:bg-brand-600"
                   >
                     <Plus className="h-5 w-5" />
                   </motion.button>
@@ -130,7 +133,7 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.15 }}
-                    className="flex w-fit items-center gap-3 rounded-full bg-brand-600 px-2.5 py-1.5 text-white shadow-sm dark:bg-brand-500"
+                    className="flex w-fit items-center gap-3 rounded-full bg-brand-600 px-2.5 py-1.5 text-white shadow-md shadow-brand-900/20 dark:bg-brand-500"
                   >
                     <button
                       type="button"

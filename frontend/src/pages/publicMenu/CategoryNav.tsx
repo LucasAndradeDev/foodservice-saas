@@ -1,8 +1,8 @@
-import { motion } from 'framer-motion'
-import { Search } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Search, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { PublicMenuCategory } from '../../api/publicMenu'
-import { getCategoryIcon } from './categoryIcons'
+import { getCategoryEmoji } from './categoryIcons'
 import { scrollToCategory } from './utils'
 
 const SPY_RESUME_FALLBACK_MS = 1000
@@ -69,23 +69,39 @@ export function CategoryNav({ categories, search, onSearchChange }: CategoryNavP
   }
 
   return (
-    <div className="sticky top-[61px] z-10 bg-white/90 px-4 py-3 backdrop-blur-md dark:bg-stone-950/90">
-      <div className="relative mb-3">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-stone-500" />
+    <div className="sticky top-[61px] z-10 bg-white/98 px-4 py-3 backdrop-blur-md dark:bg-stone-950/95">
+      <div className="group relative mb-3">
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-brand-500 dark:text-stone-500 dark:group-focus-within:text-brand-400" />
         <input
           type="text"
           placeholder="Buscar no cardápio..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full rounded-full border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-800 focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500"
+          className="w-full rounded-2xl border border-gray-200 bg-white py-2.5 pl-10 pr-9 text-sm text-gray-800 shadow-sm transition-all placeholder:text-gray-400 focus:border-brand-400 focus:shadow-md focus:outline-none focus:ring-4 focus:ring-brand-500/10 dark:border-white/10 dark:bg-stone-900 dark:text-white dark:placeholder:text-stone-500 dark:focus:ring-brand-400/10"
         />
+        <AnimatePresence>
+          {search.length > 0 && (
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.7 }}
+              transition={{ duration: 0.15 }}
+              onClick={() => onSearchChange('')}
+              aria-label="Limpar busca"
+              className="absolute right-3 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full bg-gray-200 text-gray-500 transition-colors hover:bg-gray-300 dark:bg-white/10 dark:text-stone-400 dark:hover:bg-white/20"
+            >
+              <X className="h-3 w-3" />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
       {categories.length > 1 && (
         <div className="relative -mx-4">
-          <div className="no-scrollbar flex snap-x snap-proximity gap-2 overflow-x-auto overscroll-x-contain scroll-smooth px-4 pb-1 [-webkit-overflow-scrolling:touch]">
+          <div className="no-scrollbar flex snap-x snap-proximity gap-3 overflow-x-auto overscroll-x-contain scroll-smooth px-4 py-1.5 [-webkit-overflow-scrolling:touch]">
             {categories.map((category) => {
               const isActive = !isSearching && category.id === activeCategoryId
-              const Icon = getCategoryIcon(category.name)
+              const emoji = getCategoryEmoji(category.name)
               return (
                 <button
                   key={category.id}
@@ -94,21 +110,26 @@ export function CategoryNav({ categories, search, onSearchChange }: CategoryNavP
                   }}
                   type="button"
                   onClick={() => handlePillClick(category.id)}
-                  className={`relative flex shrink-0 snap-center items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium active:scale-95 ${
-                    isActive
-                      ? 'border-transparent text-white'
-                      : 'border-brand-600 text-brand-600 transition-colors dark:border-brand-400 dark:text-brand-400'
-                  }`}
+                  className="flex w-16 shrink-0 snap-center flex-col items-center gap-1.5 active:scale-95"
                 >
-                  {isActive && (
-                    <motion.span
-                      layoutId="category-pill-active-bg"
-                      transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                      className="absolute inset-0 rounded-full bg-brand-600 shadow-md dark:bg-brand-400"
-                    />
-                  )}
-                  <Icon className="relative z-10 h-3.5 w-3.5" />
-                  <span className="relative z-10">{category.name}</span>
+                  <span className="relative flex h-14 w-14 items-center justify-center rounded-2xl">
+                    {isActive && (
+                      <motion.span
+                        layoutId="category-tile-active-bg"
+                        transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                        className="absolute inset-0 rounded-2xl bg-brand-50 ring-2 ring-brand-500 dark:bg-brand-500/15 dark:ring-brand-400"
+                      />
+                    )}
+                    {!isActive && <span className="absolute inset-0 rounded-2xl bg-gray-100 dark:bg-white/5" />}
+                    <span className="relative z-10 text-2xl">{emoji}</span>
+                  </span>
+                  <span
+                    className={`font-display line-clamp-2 text-center text-[11px] font-semibold leading-tight transition-colors ${
+                      isActive ? 'text-brand-600 dark:text-brand-400' : 'text-gray-600 dark:text-stone-400'
+                    }`}
+                  >
+                    {category.name}
+                  </span>
                 </button>
               )
             })}

@@ -60,6 +60,9 @@
 }
 
 @theme {
+  --font-display: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  --font-elegant: 'Playfair Display', ui-serif, Georgia, serif;
+
   --color-brand-50: #fdf4f1;
   --color-brand-100: #fbe3dc;
   --color-brand-200: #f6c5b5;

@@ -7,13 +7,16 @@ import { getPublicMenu, redeemCoupon, removeCoupon, submitPublicOrder, type Publ
 import { createTableRequest, type TableRequestType } from '../api/tableRequests'
 import { sameComboSelections, type SelectedComboSlot } from '../utils/combos'
 import { CartDrawer } from './publicMenu/CartDrawer'
+import { CategoryBanner } from './publicMenu/CategoryBanner'
 import { CategoryNav } from './publicMenu/CategoryNav'
-import { getCategoryIcon } from './publicMenu/categoryIcons'
+import { AmbientBackground } from './publicMenu/AmbientBackground'
 import { ComboSheet } from './publicMenu/ComboSheet'
+import { FeaturedCarousel } from './publicMenu/FeaturedCarousel'
 import { MenuHero } from './publicMenu/MenuHero'
 import { ModifierSheet } from './publicMenu/ModifierSheet'
 import { OrderStatusPanel } from './publicMenu/OrderStatusPanel'
 import { ProductCard } from './publicMenu/ProductCard'
+import { ProductDetailModal } from './publicMenu/ProductDetailModal'
 import { ReservationFormModal } from './publicMenu/ReservationFormModal'
 import { TableRequestButtons } from './publicMenu/TableRequestButtons'
 import { usePublicMenuTheme } from './publicMenu/usePublicMenuTheme'
@@ -53,11 +56,22 @@ export function PublicMenuPage() {
   const [reorderNotice, setReorderNotice] = useState<string | null>(null)
   const [activeModifierProduct, setActiveModifierProduct] = useState<PublicMenuProduct | null>(null)
   const [activeComboProduct, setActiveComboProduct] = useState<PublicMenuProduct | null>(null)
+  const [detailProduct, setDetailProduct] = useState<PublicMenuProduct | null>(null)
   const [requestedTypes, setRequestedTypes] = useState<Set<TableRequestType>>(new Set())
   const requestTimeoutsRef = useRef<Partial<Record<TableRequestType, number>>>({})
   const [couponCode, setCouponCode] = useState('')
   const [couponError, setCouponError] = useState<string | null>(null)
   const [isReservationModalOpen, setIsReservationModalOpen] = useState(false)
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
+
+  function toggleCategory(categoryId: string) {
+    setCollapsedCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(categoryId)) next.delete(categoryId)
+      else next.add(categoryId)
+      return next
+    })
+  }
 
   const { data: menu, isLoading, isError } = useQuery({
     queryKey: ['publicMenu', slug, tableId],
@@ -80,12 +94,24 @@ export function PublicMenuPage() {
     seenTabIdRef.current = currentTabId
   }, [slug, currentTabId, navigate])
 
+  // Combos is a promotional category, so it's pinned first regardless of the restaurant's
+  // configured category order — everything else keeps its relative order.
+  const orderedCategories = useMemo(() => {
+    if (!menu) return []
+    return [...menu.categories].sort((a, b) => {
+      const aIsCombos = a.name.trim().toLowerCase() === 'combos'
+      const bIsCombos = b.name.trim().toLowerCase() === 'combos'
+      if (aIsCombos === bIsCombos) return 0
+      return aIsCombos ? -1 : 1
+    })
+  }, [menu])
+
   const filteredCategories = useMemo(() => {
     if (!menu) return []
     const term = search.trim().toLowerCase()
-    if (!term) return menu.categories
+    if (!term) return orderedCategories
 
-    return menu.categories
+    return orderedCategories
       .map((category) => ({
         ...category,
         products: category.products.filter(
@@ -95,7 +121,25 @@ export function PublicMenuPage() {
         ),
       }))
       .filter((category) => category.products.length > 0)
-  }, [menu, search])
+  }, [menu, orderedCategories, search])
+
+  const isSearching = search.trim().length > 0
+
+  const highlightedProducts = useMemo(() => {
+    if (!menu) return []
+    const seen = new Set<string>()
+    const result: PublicMenuProduct[] = []
+    menu.categories.forEach((category) => {
+      category.products.forEach((product) => {
+        if (seen.has(product.id)) return
+        if (!(product.featured || product.bestseller)) return
+        if (product.soldOut || !product.availableNow) return
+        seen.add(product.id)
+        result.push(product)
+      })
+    })
+    return result
+  }, [menu])
 
   const cartQuantities = useMemo(() => {
     const map = new Map<string, number>()
@@ -343,7 +387,8 @@ export function PublicMenuPage() {
   const cartTotal = roundCurrency(cartSubtotal - cartDiscountAmount)
 
   return (
-    <div className={`${themeClass} min-h-screen bg-gray-50 pb-24 dark:bg-stone-950`}>
+    <div className={`${themeClass} isolate bg-gray-50 dark:bg-stone-950`}>
+      <AmbientBackground theme={theme} />
       <MenuHero
         restaurantName={menu.restaurantName}
         logo={menu.logo}
@@ -352,7 +397,7 @@ export function PublicMenuPage() {
         onToggleTheme={toggleTheme}
       />
 
-      <CategoryNav categories={menu.categories} search={search} onSearchChange={setSearch} />
+      <CategoryNav categories={orderedCategories} search={search} onSearchChange={setSearch} />
 
       {!tableId && (
         <div className="mx-auto max-w-2xl px-4 pt-3">
@@ -376,39 +421,61 @@ export function PublicMenuPage() {
         </div>
       )}
 
+      {!isSearching && highlightedProducts.length > 0 && (
+        <FeaturedCarousel
+          products={highlightedProducts}
+          cartQuantities={cartQuantities}
+          canOrder={canOrder}
+          onAdd={handleAddClick}
+          onIncrement={(productId) => updateQuantityByProductId(productId, 1)}
+          onDecrement={(productId) => updateQuantityByProductId(productId, -1)}
+          onOpenDetail={setDetailProduct}
+        />
+      )}
+
       <main className="mx-auto max-w-2xl px-4 pt-4 pb-1">
         {filteredCategories.length === 0 && (
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-stone-400">Nenhum produto encontrado.</p>
         )}
 
         {filteredCategories.map((category) => {
-          const CategoryIcon = getCategoryIcon(category.name)
+          const isOpen = isSearching || !collapsedCategories.has(category.id)
           return (
-          <section key={category.id} id={`category-${category.id}`} className="mb-8 scroll-mt-32">
-            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-brand-600 dark:text-brand-400">
-              <CategoryIcon className="h-5 w-5" />
-              {category.name}
-            </h2>
-            <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-3">
-              {category.products.map((product) => (
-                <motion.div key={product.id} variants={itemVariants} transition={{ duration: 0.3 }}>
-                  <ProductCard
-                    product={product}
-                    quantity={product.modifierGroups.length > 0 || product.type === 'COMBO' ? 0 : (cartQuantities.get(product.id) ?? 0)}
-                    canOrder={canOrder}
-                    onAdd={handleAddClick}
-                    onIncrement={(productId) => updateQuantityByProductId(productId, 1)}
-                    onDecrement={(productId) => updateQuantityByProductId(productId, -1)}
-                  />
+          <section key={category.id} id={`category-${category.id}`} className="mb-8 scroll-mt-[220px]">
+            <CategoryBanner category={category} isOpen={isOpen} onToggle={() => toggleCategory(category.id)} />
+            <AnimatePresence initial={false}>
+              {isOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.25, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-3">
+                    {category.products.map((product) => (
+                      <motion.div key={product.id} variants={itemVariants} transition={{ duration: 0.3 }}>
+                        <ProductCard
+                          product={product}
+                          quantity={product.modifierGroups.length > 0 || product.type === 'COMBO' ? 0 : (cartQuantities.get(product.id) ?? 0)}
+                          canOrder={canOrder}
+                          onAdd={handleAddClick}
+                          onIncrement={(productId) => updateQuantityByProductId(productId, 1)}
+                          onDecrement={(productId) => updateQuantityByProductId(productId, -1)}
+                          onOpenDetail={setDetailProduct}
+                        />
+                      </motion.div>
+                    ))}
+                  </motion.div>
                 </motion.div>
-              ))}
-            </motion.div>
+              )}
+            </AnimatePresence>
           </section>
           )
         })}
       </main>
 
-      <footer className="mx-auto max-w-2xl px-4 pb-2 pt-2 text-center text-xs text-gray-400 dark:text-stone-600">
+      <footer className="mx-auto max-w-2xl px-4 pt-1 pb-24 text-center text-[11px] text-gray-300 dark:text-stone-700">
         <Link to="/terms" target="_blank" className="hover:underline">
           Termos de Uso
         </Link>
@@ -536,6 +603,20 @@ export function PublicMenuPage() {
         product={activeComboProduct}
         onClose={() => setActiveComboProduct(null)}
         onConfirm={handleConfirmCombo}
+      />
+
+      <ProductDetailModal
+        product={detailProduct}
+        quantity={
+          detailProduct && (detailProduct.modifierGroups.length > 0 || detailProduct.type === 'COMBO')
+            ? 0
+            : (cartQuantities.get(detailProduct?.id ?? '') ?? 0)
+        }
+        canOrder={canOrder}
+        onClose={() => setDetailProduct(null)}
+        onAdd={handleAddClick}
+        onIncrement={(productId) => updateQuantityByProductId(productId, 1)}
+        onDecrement={(productId) => updateQuantityByProductId(productId, -1)}
       />
 
       {isReservationModalOpen && slug && (

@@ -18,7 +18,7 @@ export function MenuHero({ restaurantName, logo, tableNumber, theme, onToggleThe
   return (
     <header
       style={heroStyle}
-      className="sticky top-0 z-20 border-b border-black/5 bg-white/80 px-4 py-2.5 backdrop-blur-xl dark:border-white/10 dark:bg-stone-950/80"
+      className="sticky top-0 z-20 border-b border-black/5 bg-gradient-to-b from-brand-50 to-white px-4 py-2.5 backdrop-blur-xl dark:border-white/10 dark:from-brand-900/60 dark:to-stone-950/98"
     >
       <div className="mx-auto flex max-w-2xl items-center gap-3">
         {logo ? (
@@ -37,7 +37,7 @@ export function MenuHero({ restaurantName, logo, tableNumber, theme, onToggleThe
         )}
 
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[15px] font-semibold leading-tight tracking-tight text-gray-900 dark:text-white">
+          <h1 className="font-display truncate text-base font-bold leading-tight tracking-tight text-gray-900 dark:text-white">
             {restaurantName}
           </h1>
           {tableNumber !== undefined && (
