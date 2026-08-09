@@ -20,7 +20,11 @@ TO app_runtime;
 -- So future migrations that add new tables don't silently forget to grant
 -- access to app_runtime (they'd otherwise break the app the moment Hibernate
 -- tries to touch a brand-new table on the restricted role).
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+-- CURRENT_USER, not a hardcoded role name: locally the owner/Flyway role is
+-- literally called "postgres", but on Neon (production) it's "neondb_owner" -
+-- hardcoding "postgres" here made this migration fail in production with
+-- "role postgres does not exist".
+ALTER DEFAULT PRIVILEGES FOR ROLE CURRENT_USER IN SCHEMA public
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_runtime;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+ALTER DEFAULT PRIVILEGES FOR ROLE CURRENT_USER IN SCHEMA public
     GRANT USAGE, SELECT ON SEQUENCES TO app_runtime;
