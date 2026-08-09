@@ -13,6 +13,15 @@ services:
         sync: false
       - key: SPRING_DATASOURCE_PASSWORD
         sync: false
+      # Restricted runtime role for Hibernate (RLS, Camada 3 - see docs/RLS_DESIGN.md).
+      # Same host/database as SPRING_DATASOURCE_URL above, different role - Flyway and
+      # BackupService keep using the owner role (SPRING_DATASOURCE_*) directly.
+      - key: APP_DATASOURCE_RUNTIME_URL
+        sync: false
+      - key: APP_DATASOURCE_RUNTIME_USERNAME
+        sync: false
+      - key: APP_DATASOURCE_RUNTIME_PASSWORD
+        sync: false
       - key: JWT_SECRET
         sync: false
       - key: GEMINI_API_KEY
