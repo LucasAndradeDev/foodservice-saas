@@ -8,6 +8,7 @@ export interface PublicMenuProduct {
   name: string
   description: string | null
   imageUrl: string | null
+  galleryImageUrls: string[]
   type: 'SIMPLE' | 'COMBO'
   price: number
   discountedPrice: number | null
@@ -23,6 +24,7 @@ export interface PublicMenuProduct {
 export interface PublicMenuCategory {
   id: string
   name: string
+  bannerImageUrl: string | null
   products: PublicMenuProduct[]
 }
 

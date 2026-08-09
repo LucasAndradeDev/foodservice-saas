@@ -9,6 +9,7 @@ export interface Product {
   name: string
   description: string | null
   imageUrl: string | null
+  galleryImageUrls: string[]
   price: number
   costPrice: number | null
   active: boolean
@@ -31,6 +32,7 @@ export interface ProductPayload {
   name: string
   description?: string
   imageUrl?: string
+  galleryImageUrls?: string[]
   price: number
   costPrice?: number
   categoryId: string

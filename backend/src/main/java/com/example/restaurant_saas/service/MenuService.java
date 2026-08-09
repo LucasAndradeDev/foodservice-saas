@@ -6,6 +6,7 @@ import com.example.restaurant_saas.domain.entity.HappyHourRule;
 import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.Product;
 import com.example.restaurant_saas.domain.entity.ProductAvailabilityWindow;
+import com.example.restaurant_saas.domain.entity.ProductImage;
 import com.example.restaurant_saas.domain.entity.ProductModifierGroup;
 import com.example.restaurant_saas.domain.entity.ProductModifierOption;
 import com.example.restaurant_saas.domain.entity.Restaurant;
@@ -28,6 +29,7 @@ import com.example.restaurant_saas.repository.CategoryRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.ProductAvailabilityWindowRepository;
+import com.example.restaurant_saas.repository.ProductImageRepository;
 import com.example.restaurant_saas.repository.ProductModifierGroupRepository;
 import com.example.restaurant_saas.repository.ProductModifierOptionRepository;
 import com.example.restaurant_saas.repository.ProductRepository;
@@ -74,6 +76,7 @@ public class MenuService {
     private final ProductModifierGroupRepository modifierGroupRepository;
     private final ProductModifierOptionRepository modifierOptionRepository;
     private final ProductAvailabilityWindowRepository availabilityWindowRepository;
+    private final ProductImageRepository productImageRepository;
     private final HappyHourRuleService happyHourRuleService;
     private final ComboService comboService;
     private final TenantActivator tenantActivator;
@@ -101,11 +104,12 @@ public class MenuService {
                 fetchAvailabilityWindowsByProduct(restaurant.getId(), activeProducts);
         Map<UUID, HappyHourRule> activeHappyHourRuleByCategory = happyHourRuleService.fetchActiveRulesByCategory(restaurant.getId());
         Map<UUID, ComboCompositionResponse> comboCompositionByProduct = fetchComboCompositions(restaurant.getId(), activeProducts);
+        Map<UUID, List<String>> galleryImagesByProduct = fetchGalleryImagesByProduct(activeProducts);
 
         List<PublicMenuCategoryResponse> categories = categoryRepository
                 .findByRestaurantIdAndActiveTrueOrderByNameAsc(restaurant.getId())
                 .stream()
-                .map(category -> toCategoryResponse(category, activeProducts, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds, availabilityWindowsByProduct, activeHappyHourRuleByCategory, comboCompositionByProduct))
+                .map(category -> toCategoryResponse(category, activeProducts, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds, availabilityWindowsByProduct, activeHappyHourRuleByCategory, comboCompositionByProduct, galleryImagesByProduct))
                 .filter(category -> !category.getProducts().isEmpty())
                 .toList();
 
@@ -158,15 +162,17 @@ public class MenuService {
             Category category, List<Product> activeProducts, Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct,
             Map<UUID, Integer> estimatedWaitMinutesByProduct, Set<UUID> bestsellerProductIds,
             Map<UUID, List<ProductAvailabilityWindow>> availabilityWindowsByProduct,
-            Map<UUID, HappyHourRule> activeHappyHourRuleByCategory, Map<UUID, ComboCompositionResponse> comboCompositionByProduct) {
+            Map<UUID, HappyHourRule> activeHappyHourRuleByCategory, Map<UUID, ComboCompositionResponse> comboCompositionByProduct,
+            Map<UUID, List<String>> galleryImagesByProduct) {
         List<PublicMenuProductResponse> products = activeProducts.stream()
                 .filter(product -> product.getCategory().getId().equals(category.getId()))
-                .map(product -> toProductResponse(product, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds, availabilityWindowsByProduct, activeHappyHourRuleByCategory, comboCompositionByProduct))
+                .map(product -> toProductResponse(product, modifierGroupsByProduct, estimatedWaitMinutesByProduct, bestsellerProductIds, availabilityWindowsByProduct, activeHappyHourRuleByCategory, comboCompositionByProduct, galleryImagesByProduct))
                 .toList();
 
         return PublicMenuCategoryResponse.builder()
                 .id(category.getId())
                 .name(category.getName())
+                .bannerImageUrl(category.getBannerImageUrl())
                 .products(products)
                 .build();
     }
@@ -175,7 +181,8 @@ public class MenuService {
             Product product, Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct,
             Map<UUID, Integer> estimatedWaitMinutesByProduct, Set<UUID> bestsellerProductIds,
             Map<UUID, List<ProductAvailabilityWindow>> availabilityWindowsByProduct,
-            Map<UUID, HappyHourRule> activeHappyHourRuleByCategory, Map<UUID, ComboCompositionResponse> comboCompositionByProduct) {
+            Map<UUID, HappyHourRule> activeHappyHourRuleByCategory, Map<UUID, ComboCompositionResponse> comboCompositionByProduct,
+            Map<UUID, List<String>> galleryImagesByProduct) {
         HappyHourRule happyHourRule = activeHappyHourRuleByCategory.get(product.getCategory().getId());
         ComboCompositionResponse combo = comboCompositionByProduct.get(product.getId());
         BigDecimal price = combo != null ? combo.getMinPrice() : product.getPrice();
@@ -184,6 +191,7 @@ public class MenuService {
                 .name(product.getName())
                 .description(product.getDescription())
                 .imageUrl(product.getImageUrl())
+                .galleryImageUrls(galleryImagesByProduct.getOrDefault(product.getId(), List.of()))
                 .type(product.getType())
                 .price(price)
                 .discountedPrice(combo == null && happyHourRule != null ? applyDiscount(product.getPrice(), happyHourRule) : null)
@@ -195,6 +203,17 @@ public class MenuService {
                 .modifierGroups(modifierGroupsByProduct.getOrDefault(product.getId(), List.of()))
                 .combo(combo)
                 .build();
+    }
+
+    private Map<UUID, List<String>> fetchGalleryImagesByProduct(List<Product> products) {
+        if (products.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> productIds = products.stream().map(Product::getId).toList();
+        return productImageRepository.findByProductIdInOrderBySortOrderAsc(productIds).stream()
+                .collect(Collectors.groupingBy(
+                        image -> image.getProduct().getId(),
+                        Collectors.mapping(ProductImage::getImageUrl, Collectors.toList())));
     }
 
     private Map<UUID, ComboCompositionResponse> fetchComboCompositions(UUID restaurantId, List<Product> products) {

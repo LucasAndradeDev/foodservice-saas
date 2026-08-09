@@ -15,6 +15,7 @@ public class PublicMenuProductResponse {
     private String name;
     private String description;
     private String imageUrl;
+    private List<String> galleryImageUrls;
     private ProductType type;
     private BigDecimal price;
     private BigDecimal discountedPrice;

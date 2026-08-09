@@ -11,5 +11,6 @@ import java.util.UUID;
 public class PublicMenuCategoryResponse {
     private UUID id;
     private String name;
+    private String bannerImageUrl;
     private List<PublicMenuProductResponse> products;
 }

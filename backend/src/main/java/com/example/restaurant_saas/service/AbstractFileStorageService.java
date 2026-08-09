@@ -19,6 +19,11 @@ abstract class AbstractFileStorageService implements FileStorageService {
         return store(file, "logos");
     }
 
+    @Override
+    public String storeCategoryBanner(MultipartFile file) {
+        return store(file, "category-banners");
+    }
+
     private String store(MultipartFile file, String subdir) {
         String contentType = file.getContentType();
         if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {

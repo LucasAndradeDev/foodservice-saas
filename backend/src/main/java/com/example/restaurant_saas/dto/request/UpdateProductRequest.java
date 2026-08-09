@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -19,6 +20,8 @@ public class UpdateProductRequest {
 
     @Size(max = 500, message = "Image URL must be at most 500 characters long")
     private String imageUrl;
+
+    private List<@Size(max = 500) String> galleryImageUrls;
 
     @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than zero")
     private BigDecimal price;

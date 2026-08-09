@@ -4,20 +4,19 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.Filter;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "categories")
+@Table(name = "product_images")
 @Filter(name = "tenantFilter", condition = "restaurant_id = :tenantId")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Category {
+public class ProductImage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -27,20 +26,17 @@ public class Category {
     @JoinColumn(name = "restaurant_id", nullable = false)
     private Restaurant restaurant;
 
-    @Column(nullable = false, length = 100)
-    private String name;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
-    @Column(name = "banner_image_url", length = 500)
-    private String bannerImageUrl;
+    @Column(name = "image_url", nullable = false, length = 500)
+    private String imageUrl;
 
-    @Builder.Default
-    private Boolean active = true;
+    @Column(name = "sort_order", nullable = false)
+    private Integer sortOrder;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
-
-    @UpdateTimestamp
-    @Column(name = "updated_at")
-    private OffsetDateTime updatedAt;
 }

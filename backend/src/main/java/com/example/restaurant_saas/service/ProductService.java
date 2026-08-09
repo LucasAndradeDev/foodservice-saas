@@ -3,6 +3,7 @@ package com.example.restaurant_saas.service;
 import com.example.restaurant_saas.domain.entity.Category;
 import com.example.restaurant_saas.domain.entity.Product;
 import com.example.restaurant_saas.domain.entity.ProductAvailabilityWindow;
+import com.example.restaurant_saas.domain.entity.ProductImage;
 import com.example.restaurant_saas.domain.enums.ProductType;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
@@ -13,6 +14,7 @@ import com.example.restaurant_saas.repository.ComboSlotOptionRepository;
 import com.example.restaurant_saas.repository.ComboSlotRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.ProductAvailabilityWindowRepository;
+import com.example.restaurant_saas.repository.ProductImageRepository;
 import com.example.restaurant_saas.repository.ProductModifierGroupRepository;
 import com.example.restaurant_saas.repository.ProductRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
@@ -25,7 +27,9 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -43,6 +47,7 @@ public class ProductService {
     private final ComboItemRepository comboItemRepository;
     private final ComboSlotRepository comboSlotRepository;
     private final ComboSlotOptionRepository comboSlotOptionRepository;
+    private final ProductImageRepository productImageRepository;
 
     @Transactional(readOnly = true)
     public List<ProductResponse> listProducts(UUID restaurantId, UUID categoryId, String search, Boolean activeFilter, ProductType typeFilter) {
@@ -62,8 +67,20 @@ public class ProductService {
                         .map(group -> group.getProduct().getId())
                         .collect(Collectors.toSet());
 
+        Map<UUID, List<String>> galleryImagesByProduct = products.isEmpty()
+                ? Map.of()
+                : productImageRepository
+                        .findByProductIdInOrderBySortOrderAsc(products.stream().map(Product::getId).toList())
+                        .stream()
+                        .collect(Collectors.groupingBy(
+                                image -> image.getProduct().getId(),
+                                Collectors.mapping(ProductImage::getImageUrl, Collectors.toList())));
+
         return products.stream()
-                .map(product -> toResponse(product, productIdsWithModifiers.contains(product.getId())))
+                .map(product -> toResponse(
+                        product,
+                        productIdsWithModifiers.contains(product.getId()),
+                        galleryImagesByProduct.getOrDefault(product.getId(), List.of())))
                 .toList();
     }
 
@@ -93,7 +110,12 @@ public class ProductService {
                 .type(request.getType() != null ? request.getType() : ProductType.SIMPLE)
                 .build();
 
-        return toResponse(productRepository.save(product));
+        Product saved = productRepository.save(product);
+        if (request.getGalleryImageUrls() != null) {
+            saveGalleryImages(restaurantId, saved, request.getGalleryImageUrls());
+        }
+
+        return toResponse(saved);
     }
 
     @Transactional
@@ -139,7 +161,27 @@ public class ProductService {
             product.setType(request.getType());
         }
 
-        return toResponse(productRepository.save(product));
+        Product saved = productRepository.save(product);
+        if (request.getGalleryImageUrls() != null) {
+            saveGalleryImages(restaurantId, saved, request.getGalleryImageUrls());
+        }
+
+        return toResponse(saved);
+    }
+
+    private void saveGalleryImages(UUID restaurantId, Product product, List<String> imageUrls) {
+        productImageRepository.deleteByProductId(product.getId());
+        var restaurant = restaurantRepository.getReferenceById(restaurantId);
+        List<ProductImage> images = new ArrayList<>();
+        for (int i = 0; i < imageUrls.size(); i++) {
+            images.add(ProductImage.builder()
+                    .restaurant(restaurant)
+                    .product(product)
+                    .imageUrl(imageUrls.get(i))
+                    .sortOrder(i)
+                    .build());
+        }
+        productImageRepository.saveAll(images);
     }
 
     @Transactional
@@ -168,10 +210,14 @@ public class ProductService {
         boolean hasModifierGroups = !modifierGroupRepository
                 .findByRestaurantIdAndProductIdInOrderByCreatedAtAsc(product.getRestaurant().getId(), List.of(product.getId()))
                 .isEmpty();
-        return toResponse(product, hasModifierGroups);
+        List<String> galleryImageUrls = productImageRepository.findByProductIdOrderBySortOrderAsc(product.getId())
+                .stream()
+                .map(ProductImage::getImageUrl)
+                .toList();
+        return toResponse(product, hasModifierGroups, galleryImageUrls);
     }
 
-    private ProductResponse toResponse(Product product, boolean hasModifierGroups) {
+    private ProductResponse toResponse(Product product, boolean hasModifierGroups, List<String> galleryImageUrls) {
         return ProductResponse.builder()
                 .id(product.getId())
                 .restaurantId(product.getRestaurant().getId())
@@ -179,6 +225,7 @@ public class ProductService {
                 .name(product.getName())
                 .description(product.getDescription())
                 .imageUrl(product.getImageUrl())
+                .galleryImageUrls(galleryImageUrls)
                 .price(product.getPrice())
                 .costPrice(product.getCostPrice())
                 .active(product.getActive())

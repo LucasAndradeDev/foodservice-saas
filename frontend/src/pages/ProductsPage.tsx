@@ -21,6 +21,7 @@ import {
   Star,
   Tag,
   Trash2,
+  X,
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
@@ -103,6 +104,7 @@ export function ProductsPage() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
+  const [galleryUrls, setGalleryUrls] = useState<string[]>([])
   const [price, setPrice] = useState('')
   const [costPrice, setCostPrice] = useState('')
   const [categoryId, setCategoryId] = useState('')
@@ -111,6 +113,7 @@ export function ProductsPage() {
   const [listError, setListError] = useState<string | null>(null)
   const [showNoCategoryNotice, setShowNoCategoryNotice] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [isUploadingGalleryPhoto, setIsUploadingGalleryPhoto] = useState(false)
 
   const createMutation = useMutation({
     mutationFn: createProduct,
@@ -154,6 +157,7 @@ export function ProductsPage() {
     setName('')
     setDescription('')
     setPhotoUrl('')
+    setGalleryUrls([])
     setPrice('')
     setCostPrice('')
     setCategoryId(categories[0].id)
@@ -167,6 +171,7 @@ export function ProductsPage() {
     setName(product.name)
     setDescription(product.description ?? '')
     setPhotoUrl(product.imageUrl ?? '')
+    setGalleryUrls(product.galleryImageUrls)
     setPrice(String(product.price))
     setCostPrice(product.costPrice !== null ? String(product.costPrice) : '')
     setCategoryId(product.categoryId)
@@ -186,6 +191,7 @@ export function ProductsPage() {
       name,
       description,
       imageUrl: photoUrl,
+      galleryImageUrls: galleryUrls,
       price: Number(price),
       costPrice: costPrice ? Number(costPrice) : undefined,
       categoryId,
@@ -284,6 +290,27 @@ export function ProductsPage() {
     } finally {
       setIsUploading(false)
     }
+  }
+
+  async function handleGalleryFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setIsUploadingGalleryPhoto(true)
+    setError(null)
+    try {
+      const url = await uploadProductImage(file)
+      setGalleryUrls((prev) => [...prev, url])
+    } catch {
+      setError('Não foi possível enviar a imagem. Tente novamente.')
+    } finally {
+      setIsUploadingGalleryPhoto(false)
+    }
+  }
+
+  function removeGalleryPhoto(index: number) {
+    setGalleryUrls((prev) => prev.filter((_, i) => i !== index))
   }
 
   const isFormOpen = isCreating || editingProduct !== null
@@ -626,6 +653,39 @@ export function ProductsPage() {
               <img src={photoUrl} alt="" className="mb-4 h-16 w-16 rounded object-cover" />
             )}
             {!photoUrl && <div className="mb-4" />}
+
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">
+              Fotos adicionais <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
+            </label>
+            <p className="mb-2 text-xs text-gray-500 dark:text-stone-400">
+              Com mais de uma foto, o cliente pode passar o dedo pra ver todas no cardápio digital.
+            </p>
+            <div className="mb-4 flex flex-wrap gap-2">
+              {galleryUrls.map((url, index) => (
+                <div key={url + index} className="relative h-16 w-16 shrink-0">
+                  <img src={url} alt="" className="h-16 w-16 rounded object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeGalleryPhoto(index)}
+                    aria-label="Remover foto"
+                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-wine-600 text-white shadow-sm hover:bg-wine-700"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              <label className="flex h-16 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-gray-300 text-gray-400 hover:bg-gray-50 dark:border-white/20 dark:text-stone-500 dark:hover:bg-white/5">
+                <Plus className="h-4 w-4" />
+                <span className="text-[10px]">{isUploadingGalleryPhoto ? '...' : 'Adicionar'}</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleGalleryFileChange}
+                  disabled={isUploadingGalleryPhoto}
+                />
+              </label>
+            </div>
 
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productPrice">
               Preço

@@ -1,8 +1,70 @@
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, type PanInfo, type TargetAndTransition, type Transition, type Variants } from 'framer-motion'
 import { Check, Clock, Flame, ImageOff, Layers, Minus, Percent, Plus, Star, Utensils, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PublicMenuProduct } from '../../api/publicMenu'
 import { currencyFormatter } from './utils'
+
+const AUTOPLAY_INTERVAL_MS = 4000
+const SWIPE_DISTANCE_THRESHOLD = 60
+const SWIPE_VELOCITY_THRESHOLD = 500
+
+interface ImageTransitionStyle {
+  variants: Variants
+  transition: Transition
+  imgInitial: TargetAndTransition
+  imgAnimate: TargetAndTransition
+  imgTransition: Transition
+}
+
+// Every style animates purely via opacity/scale (never translating the image fully off its own
+// box like a classic horizontal carousel slide) so the container's background is never exposed
+// mid-transition — that used to show as an ugly gray gap between photos.
+const IMAGE_TRANSITION_STYLES: ImageTransitionStyle[] = [
+  {
+    variants: {
+      enter: { opacity: 0, scale: 1.08 },
+      center: { opacity: 1, scale: 1 },
+      exit: { opacity: 0, scale: 0.96 },
+    },
+    transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
+    imgInitial: { scale: 1.12 },
+    imgAnimate: { scale: 1 },
+    imgTransition: { duration: 4, ease: 'easeOut' },
+  },
+  {
+    variants: {
+      enter: { opacity: 0, scale: 0.92 },
+      center: { opacity: 1, scale: 1 },
+      exit: { opacity: 0, scale: 1.04 },
+    },
+    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+    imgInitial: { scale: 1.06 },
+    imgAnimate: { scale: 1 },
+    imgTransition: { duration: 3.5, ease: 'easeOut' },
+  },
+  {
+    variants: {
+      enter: { opacity: 0, scale: 0.85 },
+      center: { opacity: 1, scale: 1 },
+      exit: { opacity: 0, scale: 1.1 },
+    },
+    transition: { type: 'spring', stiffness: 260, damping: 22 },
+    imgInitial: { scale: 1.1 },
+    imgAnimate: { scale: 1 },
+    imgTransition: { duration: 3, ease: 'easeOut' },
+  },
+  {
+    variants: {
+      enter: { opacity: 0, scale: 1.03 },
+      center: { opacity: 1, scale: 1 },
+      exit: { opacity: 0, scale: 0.97 },
+    },
+    transition: { duration: 0.45, ease: 'easeOut' },
+    imgInitial: { scale: 1.08 },
+    imgAnimate: { scale: 1 },
+    imgTransition: { duration: 3, ease: 'easeOut' },
+  },
+]
 
 interface ProductDetailModalProps {
   product: PublicMenuProduct | null
@@ -35,11 +97,43 @@ export function ProductDetailModal({
 }: ProductDetailModalProps) {
   const [pendingQty, setPendingQty] = useState(1)
   const [justAdded, setJustAdded] = useState(false)
+  const [activeImageIndex, setActiveImageIndex] = useState(0)
+  const [autoplayResetKey, setAutoplayResetKey] = useState(0)
+  const isDraggingRef = useRef(false)
 
   useEffect(() => {
     setPendingQty(1)
     setJustAdded(false)
+    setActiveImageIndex(0)
+    setAutoplayResetKey(0)
   }, [product?.id])
+
+  const images = product ? [product.imageUrl, ...product.galleryImageUrls].filter((url): url is string => !!url) : []
+  const activeTransitionStyle = IMAGE_TRANSITION_STYLES[activeImageIndex % IMAGE_TRANSITION_STYLES.length]
+
+  useEffect(() => {
+    if (images.length <= 1) return
+    const interval = window.setInterval(() => {
+      if (isDraggingRef.current) return
+      setActiveImageIndex((i) => (i + 1) % images.length)
+    }, AUTOPLAY_INTERVAL_MS)
+    return () => window.clearInterval(interval)
+  }, [images.length, product?.id, autoplayResetKey])
+
+  function goToImage(index: number) {
+    const wrapped = (index + images.length) % images.length
+    setActiveImageIndex(wrapped)
+    setAutoplayResetKey((k) => k + 1)
+  }
+
+  function handleDragEnd(_event: unknown, info: PanInfo) {
+    isDraggingRef.current = false
+    if (info.offset.x < -SWIPE_DISTANCE_THRESHOLD || info.velocity.x < -SWIPE_VELOCITY_THRESHOLD) {
+      goToImage(activeImageIndex + 1)
+    } else if (info.offset.x > SWIPE_DISTANCE_THRESHOLD || info.velocity.x > SWIPE_VELOCITY_THRESHOLD) {
+      goToImage(activeImageIndex - 1)
+    }
+  }
 
   const unavailable = !!product && (product.soldOut || !product.availableNow)
   const needsSelection = !!product && (product.modifierGroups.length > 0 || product.type === 'COMBO')
@@ -89,17 +183,37 @@ export function ProductDetailModal({
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <motion.div
                 layoutId={`product-image-${product.id}`}
-                className="relative h-80 w-full shrink-0 overflow-hidden bg-gray-100 sm:h-96 dark:bg-white/5"
+                className="relative h-80 w-full shrink-0 overflow-hidden bg-stone-950 sm:h-96"
               >
-                {product.imageUrl ? (
-                  <motion.img
-                    src={product.imageUrl}
-                    alt={product.name}
-                    initial={{ scale: 1.15 }}
-                    animate={{ scale: 1 }}
-                    transition={{ duration: 6, ease: 'easeOut' }}
-                    className={`h-full w-full object-cover ${unavailable ? 'grayscale' : ''}`}
-                  />
+                {images.length > 0 ? (
+                  <AnimatePresence>
+                    <motion.div
+                      key={activeImageIndex}
+                      variants={activeTransitionStyle.variants}
+                      initial="enter"
+                      animate="center"
+                      exit="exit"
+                      transition={activeTransitionStyle.transition}
+                      drag={images.length > 1 ? 'x' : false}
+                      dragConstraints={{ left: 0, right: 0 }}
+                      dragElastic={0.4}
+                      onDragStart={() => {
+                        isDraggingRef.current = true
+                      }}
+                      onDragEnd={handleDragEnd}
+                      className="absolute inset-0"
+                    >
+                      <motion.img
+                        src={images[activeImageIndex]}
+                        alt={product.name}
+                        initial={activeTransitionStyle.imgInitial}
+                        animate={activeTransitionStyle.imgAnimate}
+                        transition={activeTransitionStyle.imgTransition}
+                        draggable={false}
+                        className={`h-full w-full object-cover ${images.length > 1 ? 'cursor-grab active:cursor-grabbing' : ''} ${unavailable ? 'grayscale' : ''}`}
+                      />
+                    </motion.div>
+                  </AnimatePresence>
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-gray-300 dark:text-stone-600">
                     <ImageOff className="h-10 w-10" />
@@ -111,17 +225,37 @@ export function ProductDetailModal({
                   type="button"
                   onClick={onClose}
                   aria-label="Fechar"
-                  className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition hover:bg-black/60"
+                  className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition hover:bg-black/60"
                 >
                   <X className="h-5 w-5" />
                 </button>
+
+                {images.length > 1 && (
+                  <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5">
+                    {images.map((url, index) => (
+                      <button
+                        key={url + index}
+                        type="button"
+                        onClick={() => goToImage(index)}
+                        aria-label={`Ver foto ${index + 1}`}
+                        className="p-1"
+                      >
+                        <span
+                          className={`block h-1.5 rounded-full transition-all ${
+                            index === activeImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/50'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {!unavailable && product.type !== 'COMBO' && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.6, y: 8 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     transition={{ type: 'spring', stiffness: 380, damping: 20, delay: 0.35 }}
-                    className="absolute bottom-3 right-3 rounded-2xl bg-white/95 px-3.5 py-2 shadow-lg backdrop-blur-sm dark:bg-stone-900/95"
+                    className="absolute bottom-3 right-3 z-10 rounded-2xl bg-white/95 px-3.5 py-2 shadow-lg backdrop-blur-sm dark:bg-stone-900/95"
                   >
                     {product.discountedPrice !== null && (
                       <span className="mr-1.5 text-xs text-gray-400 line-through dark:text-stone-500">
