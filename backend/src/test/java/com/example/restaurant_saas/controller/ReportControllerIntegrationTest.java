@@ -24,6 +24,7 @@ import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.PaymentRepository;
 import com.example.restaurant_saas.repository.TabRepository;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -122,7 +123,7 @@ class ReportControllerIntegrationTest {
                 .role(role)
                 .active(true)
                 .build();
-        return userRepository.save(user);
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
     }
 
     private String tokenFor(User user) {
@@ -138,7 +139,7 @@ class ReportControllerIntegrationTest {
                 .role(UserRole.WAITER)
                 .active(true)
                 .build();
-        return userRepository.save(user);
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
     }
 
     private String getSlug(String token) throws Exception {
@@ -269,9 +270,13 @@ class ReportControllerIntegrationTest {
     }
 
     private void setTabPaidAt(String tabId, LocalDate paidDate) {
-        List<Payment> payments = paymentRepository.findByTabIdOrderByPaidAtDesc(UUID.fromString(tabId));
-        payments.forEach(payment -> payment.setPaidAt(paidDate.atTime(12, 0).atZone(ZoneId.systemDefault()).toOffsetDateTime()));
-        paymentRepository.saveAll(payments);
+        UUID restaurantId = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail())
+                .orElseThrow().getRestaurant().getId();
+        TenantTestSupport.withTenant(restaurantId, () -> {
+            List<Payment> payments = paymentRepository.findByTabIdOrderByPaidAtDesc(UUID.fromString(tabId));
+            payments.forEach(payment -> payment.setPaidAt(paidDate.atTime(12, 0).atZone(ZoneId.systemDefault()).toOffsetDateTime()));
+            paymentRepository.saveAll(payments);
+        });
     }
 
     private void createPaidTabOn(String token, String productId, String amount, LocalDate paidDate) throws Exception {
@@ -447,7 +452,7 @@ class ReportControllerIntegrationTest {
     @Test
     void setMonthlyGoal_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
 
@@ -684,7 +689,7 @@ class ReportControllerIntegrationTest {
     @Test
     void getSummary_asManager_shouldBeAllowed() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User manager = createUserDirectly(owner, UserRole.MANAGER);
         String managerToken = tokenFor(manager);
         String today = LocalDate.now().toString();
@@ -699,7 +704,7 @@ class ReportControllerIntegrationTest {
     @Test
     void getSummary_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
         String today = LocalDate.now().toString();
@@ -714,7 +719,7 @@ class ReportControllerIntegrationTest {
     @Test
     void getSummary_asKitchen_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User kitchen = createUserDirectly(owner, UserRole.KITCHEN);
         String kitchenToken = tokenFor(kitchen);
         String today = LocalDate.now().toString();
@@ -729,7 +734,7 @@ class ReportControllerIntegrationTest {
     @Test
     void getSummary_asCashier_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User cashier = createUserDirectly(owner, UserRole.CASHIER);
         String cashierToken = tokenFor(cashier);
         String today = LocalDate.now().toString();
@@ -799,9 +804,10 @@ class ReportControllerIntegrationTest {
                 .andExpect(status().is4xxClientError());
     }
 
-    private void setOrderCreatedAt(UUID orderId, java.time.OffsetDateTime createdAt) {
+    private void setOrderCreatedAt(UUID restaurantId, UUID orderId, java.time.OffsetDateTime createdAt) {
         // Order.createdAt is @Column(updatable = false), so Hibernate ignores it on UPDATE; go around it with raw SQL.
-        jdbcTemplate.update("UPDATE orders SET created_at = ? WHERE id = ?", createdAt, orderId);
+        TenantTestSupport.withTenant(restaurantId,
+                () -> jdbcTemplate.update("UPDATE orders SET created_at = ? WHERE id = ?", createdAt, orderId));
     }
 
     private Double cellValue(String responseBody, java.time.DayOfWeek dayOfWeek, int hour, String field) {
@@ -826,14 +832,18 @@ class ReportControllerIntegrationTest {
         java.time.DayOfWeek testDayOfWeek = testDate.getDayOfWeek();
         ZoneId zone = ZoneId.systemDefault();
 
-        Tab tab = tabRepository.findById(UUID.fromString(tabId)).orElseThrow();
-        // Occupied from 11:30 to 13:15 -> covers hour buckets 11, 12 and 13.
-        tab.setOpenedAt(testDate.atTime(11, 30).atZone(zone).toOffsetDateTime());
-        tab.setClosedAt(testDate.atTime(13, 15).atZone(zone).toOffsetDateTime());
-        tabRepository.save(tab);
-
-        Order order = orderRepository.findByTabIdAndRestaurantId(tab.getId(), tab.getRestaurant().getId()).get(0);
-        setOrderCreatedAt(order.getId(), testDate.atTime(12, 0).atZone(zone).toOffsetDateTime());
+        UUID restaurantId = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail())
+                .orElseThrow().getRestaurant().getId();
+        Order[] orderHolder = new Order[1];
+        TenantTestSupport.withTenant(restaurantId, () -> {
+            Tab tab = tabRepository.findById(UUID.fromString(tabId)).orElseThrow();
+            // Occupied from 11:30 to 13:15 -> covers hour buckets 11, 12 and 13.
+            tab.setOpenedAt(testDate.atTime(11, 30).atZone(zone).toOffsetDateTime());
+            tab.setClosedAt(testDate.atTime(13, 15).atZone(zone).toOffsetDateTime());
+            tabRepository.save(tab);
+            orderHolder[0] = orderRepository.findByTabIdAndRestaurantId(tab.getId(), tab.getRestaurant().getId()).get(0);
+        });
+        setOrderCreatedAt(restaurantId, orderHolder[0].getId(), testDate.atTime(12, 0).atZone(zone).toOffsetDateTime());
 
         MvcResult result = mockMvc.perform(get("/api/v1/reports/peak-hours")
                         .header("Authorization", "Bearer " + ownerToken)
@@ -878,13 +888,17 @@ class ReportControllerIntegrationTest {
         java.time.DayOfWeek testDayOfWeek = testDate.getDayOfWeek();
         ZoneId zone = ZoneId.systemDefault();
 
-        Tab tab = tabRepository.findById(UUID.fromString(counterTabId)).orElseThrow();
-        tab.setOpenedAt(testDate.atTime(11, 30).atZone(zone).toOffsetDateTime());
-        tab.setClosedAt(testDate.atTime(12, 15).atZone(zone).toOffsetDateTime());
-        tabRepository.save(tab);
-
-        Order order = orderRepository.findByTabIdAndRestaurantId(tab.getId(), tab.getRestaurant().getId()).get(0);
-        setOrderCreatedAt(order.getId(), testDate.atTime(11, 30).atZone(zone).toOffsetDateTime());
+        UUID restaurantId = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail())
+                .orElseThrow().getRestaurant().getId();
+        Order[] orderHolder = new Order[1];
+        TenantTestSupport.withTenant(restaurantId, () -> {
+            Tab tab = tabRepository.findById(UUID.fromString(counterTabId)).orElseThrow();
+            tab.setOpenedAt(testDate.atTime(11, 30).atZone(zone).toOffsetDateTime());
+            tab.setClosedAt(testDate.atTime(12, 15).atZone(zone).toOffsetDateTime());
+            tabRepository.save(tab);
+            orderHolder[0] = orderRepository.findByTabIdAndRestaurantId(tab.getId(), tab.getRestaurant().getId()).get(0);
+        });
+        setOrderCreatedAt(restaurantId, orderHolder[0].getId(), testDate.atTime(11, 30).atZone(zone).toOffsetDateTime());
 
         MvcResult result = mockMvc.perform(get("/api/v1/reports/peak-hours")
                         .header("Authorization", "Bearer " + ownerToken)
@@ -901,7 +915,7 @@ class ReportControllerIntegrationTest {
     @Test
     void getPeakHours_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
         String today = LocalDate.now().toString();
@@ -966,7 +980,7 @@ class ReportControllerIntegrationTest {
     @Test
     void getWaiterPerformance_multipleWaitersOnSameTab_shouldAttributePerOrderNotPerTab() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User alice = createWaiterNamed(owner, "Alice");
         User bob = createWaiterNamed(owner, "Bob");
         String aliceToken = tokenFor(alice);
@@ -1046,7 +1060,7 @@ class ReportControllerIntegrationTest {
     @Test
     void getWaiterPerformance_waiterAndSelfServiceOnDifferentTabs_selfServiceRowShouldBeListedLast() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createWaiterNamed(owner, "Diana");
         String waiterToken = tokenFor(waiter);
         String slug = getSlug(ownerToken);
@@ -1095,7 +1109,7 @@ class ReportControllerIntegrationTest {
     @Test
     void getWaiterPerformance_cancelledItem_shouldNotCountTowardSalesOrOrderCount() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createWaiterNamed(owner, "Carla");
         String waiterToken = tokenFor(waiter);
 
@@ -1131,7 +1145,7 @@ class ReportControllerIntegrationTest {
     @Test
     void getWaiterPerformance_itemWithMultipleModifiers_shouldNotDoubleCountSales() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createWaiterNamed(owner, "Erica");
         String waiterToken = tokenFor(waiter);
 
@@ -1202,7 +1216,7 @@ class ReportControllerIntegrationTest {
     @Test
     void getWaiterPerformance_transferredItem_shouldKeepOriginalWaiterCredit() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createWaiterNamed(owner, "Fernanda");
         String waiterToken = tokenFor(waiter);
 
@@ -1245,7 +1259,7 @@ class ReportControllerIntegrationTest {
     @Test
     void getWaiterPerformance_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
         String today = LocalDate.now().toString();

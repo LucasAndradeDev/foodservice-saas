@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.config.TenantActivator;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
@@ -18,14 +19,19 @@ public class PublicOrderService {
     private final RestaurantRepository restaurantRepository;
     private final TabService tabService;
     private final OrderService orderService;
+    private final TenantActivator tenantActivator;
 
     @Transactional
     public OrderResponse createOrder(String slug, UUID tableId, CreateOrderRequest request) {
         Restaurant restaurant = restaurantRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException("Menu not found."));
 
-        Tab tab = tabService.openOrGetTabForTable(restaurant.getId(), tableId);
-
-        return orderService.createOrder(restaurant.getId(), tab.getId(), request, null);
+        tenantActivator.activate(restaurant.getId());
+        try {
+            Tab tab = tabService.openOrGetTabForTable(restaurant.getId(), tableId);
+            return orderService.createOrder(restaurant.getId(), tab.getId(), request, null);
+        } finally {
+            tenantActivator.deactivate();
+        }
     }
 }

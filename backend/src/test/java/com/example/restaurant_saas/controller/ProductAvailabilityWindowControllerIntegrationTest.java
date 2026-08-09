@@ -11,6 +11,7 @@ import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -85,7 +86,7 @@ class ProductAvailabilityWindowControllerIntegrationTest {
                 .role(role)
                 .active(true)
                 .build();
-        return userRepository.save(user);
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
     }
 
     private String tokenFor(User user) {
@@ -181,7 +182,7 @@ class ProductAvailabilityWindowControllerIntegrationTest {
     @Test
     void createWindow_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
         String categoryId = createCategoryAndGetId(ownerToken);
         String productId = createProductAndGetId(ownerToken, categoryId, "Feijoada", "45.00");
@@ -196,7 +197,7 @@ class ProductAvailabilityWindowControllerIntegrationTest {
     @Test
     void listWindows_asWaiter_shouldSucceed() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
         String categoryId = createCategoryAndGetId(ownerToken);
         String productId = createProductAndGetId(ownerToken, categoryId, "Feijoada", "45.00");

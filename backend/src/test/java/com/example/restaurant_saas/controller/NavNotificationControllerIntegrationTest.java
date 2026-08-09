@@ -12,6 +12,7 @@ import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -81,7 +82,7 @@ class NavNotificationControllerIntegrationTest {
                 .role(role)
                 .active(true)
                 .build();
-        return userRepository.save(user);
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
     }
 
     private String tokenFor(User user) {
@@ -188,7 +189,7 @@ class NavNotificationControllerIntegrationTest {
     @Test
     void markSeen_onlyClearsForTheUserWhoSawIt() throws Exception {
         TestSetup setup = setupTabWithProduct();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
         createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
 

@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.config.TenantActivator;
 import com.example.restaurant_saas.domain.entity.EmailVerificationToken;
 import com.example.restaurant_saas.domain.entity.PasswordResetToken;
 import com.example.restaurant_saas.domain.entity.RefreshToken;
@@ -60,6 +61,7 @@ public class AuthService {
     private final RateLimitService rateLimitService;
     private final EmailService emailService;
     private final HttpServletRequest httpRequest;
+    private final TenantActivator tenantActivator;
 
     @Value("${api.jwt.refresh-expiration-ms}")
     private long refreshExpirationMs;
@@ -102,7 +104,7 @@ public class AuthService {
 
     @Transactional
     public AuthResponse registerRestaurant(RegisterRestaurantRequest request) {
-        if (userRepository.existsByEmail(request.getOwnerEmail())) {
+        if (userRepository.existsByEmailBypassingRls(request.getOwnerEmail())) {
             throw new IllegalArgumentException("Email already registered.");
         }
 
@@ -120,25 +122,30 @@ public class AuthService {
                 .build();
         restaurant = restaurantRepository.save(restaurant);
 
-        User owner = User.builder()
-                .restaurant(restaurant)
-                .name(request.getOwnerName())
-                .email(request.getOwnerEmail().toLowerCase().trim())
-                .password(passwordEncoder.encode(request.getOwnerPassword()))
-                .role(UserRole.OWNER)
-                .active(true)
-                .emailVerified(false)
-                .termsAcceptedAt(request.isTermsAccepted() ? OffsetDateTime.now() : null)
-                .build();
-        owner = userRepository.save(owner);
+        tenantActivator.activate(restaurant.getId());
+        try {
+            User owner = User.builder()
+                    .restaurant(restaurant)
+                    .name(request.getOwnerName())
+                    .email(request.getOwnerEmail().toLowerCase().trim())
+                    .password(passwordEncoder.encode(request.getOwnerPassword()))
+                    .role(UserRole.OWNER)
+                    .active(true)
+                    .emailVerified(false)
+                    .termsAcceptedAt(request.isTermsAccepted() ? OffsetDateTime.now() : null)
+                    .build();
+            owner = userRepository.save(owner);
 
-        sendVerificationEmail(owner);
+            sendVerificationEmail(owner);
 
-        UserDetailsImpl userDetails = new UserDetailsImpl(owner);
-        String accessToken = jwtService.generateToken(userDetails);
-        RefreshToken refreshToken = createRefreshToken(owner);
+            UserDetailsImpl userDetails = new UserDetailsImpl(owner);
+            String accessToken = jwtService.generateToken(userDetails);
+            RefreshToken refreshToken = createRefreshToken(owner);
 
-        return buildAuthResponse(accessToken, refreshToken.getToken(), owner, restaurant);
+            return buildAuthResponse(accessToken, refreshToken.getToken(), owner, restaurant);
+        } finally {
+            tenantActivator.deactivate();
+        }
     }
 
     @Transactional
@@ -158,7 +165,7 @@ public class AuthService {
 
         rateLimitService.reset(LOGIN_ACTION, httpRequest, email);
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailBypassingRls(email)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid username or password."));
 
         if (!Boolean.TRUE.equals(user.getRestaurant().getActive())) {
@@ -183,7 +190,11 @@ public class AuthService {
             throw new IllegalArgumentException("Refresh token expired or revoked.");
         }
 
-        User user = token.getUser();
+        // token.getUser() is a lazy proxy whose id is already populated from the FK column (no
+        // query yet), but actually loading the row (restaurant, active) needs the same RLS
+        // bypass as above - nothing has set app.tenant_id at this point either.
+        User user = userRepository.findByIdBypassingRls(token.getUser().getId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
 
         if (!Boolean.TRUE.equals(user.getRestaurant().getActive())) {
             throw new RestaurantSuspendedException("Restaurant access suspended. Contact support.");
@@ -220,7 +231,7 @@ public class AuthService {
                 forgotPasswordMaxAttempts, forgotPasswordWindowMinutes, forgotPasswordBlockMinutes
         );
 
-        userRepository.findByEmail(email).ifPresent(user -> {
+        userRepository.findByEmailBypassingRls(email).ifPresent(user -> {
             passwordResetTokenRepository.deleteByUser(user);
 
             PasswordResetToken resetToken = PasswordResetToken.builder()
@@ -256,30 +267,43 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid or expired reset link.");
         }
 
-        User user = resetToken.getUser();
-        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
-        userRepository.save(user);
+        // resetToken.getUser() is a lazy proxy with only its id populated (no query yet); loading
+        // the actual row needs the same RLS bypass as login/refreshToken above, since nothing has
+        // set app.tenant_id at this point either. Restaurant itself carries no RLS, so it's safe
+        // to read user.getRestaurant().getId() before the tenant is set, to then set it for the
+        // save() calls below (which - unlike a bypass read - do go through the normal RLS-checked
+        // path and need app.tenant_id to match).
+        User user = userRepository.findByIdBypassingRls(resetToken.getUser().getId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
 
-        resetToken.setUsed(true);
-        passwordResetTokenRepository.save(resetToken);
-
+        tenantActivator.activate(user.getRestaurant().getId());
         try {
-            emailService.sendPasswordChangedNotification(user.getEmail());
-        } catch (RuntimeException ex) {
-            // The password was already changed successfully; a failed notification
-            // shouldn't fail the whole request.
-            log.error("Failed to send password changed notification to {}", user.getEmail(), ex);
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+            userRepository.save(user);
+
+            resetToken.setUsed(true);
+            passwordResetTokenRepository.save(resetToken);
+
+            try {
+                emailService.sendPasswordChangedNotification(user.getEmail());
+            } catch (RuntimeException ex) {
+                // The password was already changed successfully; a failed notification
+                // shouldn't fail the whole request.
+                log.error("Failed to send password changed notification to {}", user.getEmail(), ex);
+            }
+
+            // Force re-login everywhere: whoever reset the password might not be the
+            // same person still holding an old session on another device.
+            refreshTokenRepository.deleteByUser(user);
+            RefreshToken refreshToken = createRefreshToken(user);
+
+            UserDetailsImpl userDetails = new UserDetailsImpl(user);
+            String accessToken = jwtService.generateToken(userDetails);
+
+            return buildAuthResponse(accessToken, refreshToken.getToken(), user, user.getRestaurant());
+        } finally {
+            tenantActivator.deactivate();
         }
-
-        // Force re-login everywhere: whoever reset the password might not be the
-        // same person still holding an old session on another device.
-        refreshTokenRepository.deleteByUser(user);
-        RefreshToken refreshToken = createRefreshToken(user);
-
-        UserDetailsImpl userDetails = new UserDetailsImpl(user);
-        String accessToken = jwtService.generateToken(userDetails);
-
-        return buildAuthResponse(accessToken, refreshToken.getToken(), user, user.getRestaurant());
     }
 
     @Transactional
@@ -291,12 +315,19 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid or expired verification link.");
         }
 
-        User user = verificationToken.getUser();
-        user.setEmailVerified(true);
-        userRepository.save(user);
+        User user = userRepository.findByIdBypassingRls(verificationToken.getUser().getId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
 
-        verificationToken.setUsed(true);
-        emailVerificationTokenRepository.save(verificationToken);
+        tenantActivator.activate(user.getRestaurant().getId());
+        try {
+            user.setEmailVerified(true);
+            userRepository.save(user);
+
+            verificationToken.setUsed(true);
+            emailVerificationTokenRepository.save(verificationToken);
+        } finally {
+            tenantActivator.deactivate();
+        }
     }
 
     @Transactional

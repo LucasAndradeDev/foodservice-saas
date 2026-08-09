@@ -21,6 +21,7 @@ import com.example.restaurant_saas.dto.request.VoidPaymentRequest;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -118,7 +119,7 @@ class TabControllerIntegrationTest {
                 .role(role)
                 .active(true)
                 .build();
-        return userRepository.save(user);
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
     }
 
     private String tokenFor(User user) {
@@ -472,7 +473,7 @@ class TabControllerIntegrationTest {
     @Test
     void openTab_asWaiter_shouldSucceed() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
         String tableId = createTableAndGetId(ownerToken);
@@ -490,7 +491,7 @@ class TabControllerIntegrationTest {
     @Test
     void openTab_asKitchen_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User kitchen = createUserDirectly(owner, UserRole.KITCHEN);
         String kitchenToken = tokenFor(kitchen);
         String tableId = createTableAndGetId(ownerToken);
@@ -568,7 +569,7 @@ class TabControllerIntegrationTest {
     @Test
     void registerPayments_asKitchen_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User kitchen = createUserDirectly(owner, UserRole.KITCHEN);
         String kitchenToken = tokenFor(kitchen);
         String tableId = createTableAndGetId(ownerToken);
@@ -760,7 +761,7 @@ class TabControllerIntegrationTest {
     @Test
     void markReceiptPrinted_asKitchen_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User kitchen = createUserDirectly(owner, UserRole.KITCHEN);
         String kitchenToken = tokenFor(kitchen);
         String tableId = createTableAndGetId(ownerToken);
@@ -1119,7 +1120,7 @@ class TabControllerIntegrationTest {
     @Test
     void applyDiscount_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
@@ -1255,7 +1256,7 @@ class TabControllerIntegrationTest {
     @Test
     void registerPayments_asWaiter_cannotWaiveOrOverrideServiceCharge_alwaysUsesRestaurantDefault() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
@@ -1575,7 +1576,7 @@ class TabControllerIntegrationTest {
     @Test
     void voidPayment_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
@@ -1662,7 +1663,7 @@ class TabControllerIntegrationTest {
     @Test
     void voidPayment_completingClosedTabDebt_asWaiterOrCashier_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
         String cashierToken = tokenFor(createUserDirectly(owner, UserRole.CASHIER));
         String tableId = createTableAndGetId(ownerToken);

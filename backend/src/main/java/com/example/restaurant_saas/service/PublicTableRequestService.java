@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.config.TenantActivator;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.TableRequest;
@@ -26,39 +27,45 @@ public class PublicTableRequestService {
     private final TableRequestRepository tableRequestRepository;
     private final TabRepository tabRepository;
     private final OrderItemRepository orderItemRepository;
+    private final TenantActivator tenantActivator;
 
     @Transactional
     public TableRequestResponse createRequest(String slug, UUID tableId, TableRequestType type) {
         Restaurant restaurant = restaurantRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException("Menu not found."));
 
-        RestaurantTable table = tableRepository.findByIdAndRestaurantId(tableId, restaurant.getId())
-                .filter(t -> Boolean.TRUE.equals(t.getActive()))
-                .orElseThrow(() -> new IllegalArgumentException("Table not found."));
+        tenantActivator.activate(restaurant.getId());
+        try {
+            RestaurantTable table = tableRepository.findByIdAndRestaurantId(tableId, restaurant.getId())
+                    .filter(t -> Boolean.TRUE.equals(t.getActive()))
+                    .orElseThrow(() -> new IllegalArgumentException("Table not found."));
 
-        if (type == TableRequestType.REQUEST_BILL) {
-            boolean hasDeliveredItems = tabRepository.findOpenTabByRestaurantIdAndTableId(restaurant.getId(), tableId)
-                    .map(tab -> orderItemRepository.existsByOrder_Tab_IdAndStatus(tab.getId(), ItemStatus.DELIVERED))
-                    .orElse(false);
-            if (!hasDeliveredItems) {
-                throw new IllegalArgumentException("Cannot request the bill for a table with no delivered items yet.");
+            if (type == TableRequestType.REQUEST_BILL) {
+                boolean hasDeliveredItems = tabRepository.findOpenTabByRestaurantIdAndTableId(restaurant.getId(), tableId)
+                        .map(tab -> orderItemRepository.existsByOrder_Tab_IdAndStatus(tab.getId(), ItemStatus.DELIVERED))
+                        .orElse(false);
+                if (!hasDeliveredItems) {
+                    throw new IllegalArgumentException("Cannot request the bill for a table with no delivered items yet.");
+                }
             }
+
+            TableRequest pending = tableRequestRepository
+                    .findByTableIdAndTypeAndAcknowledgedAtIsNull(tableId, type)
+                    .orElse(null);
+            if (pending != null) {
+                return toResponse(pending);
+            }
+
+            TableRequest request = TableRequest.builder()
+                    .restaurant(restaurant)
+                    .table(table)
+                    .type(type)
+                    .build();
+
+            return toResponse(tableRequestRepository.save(request));
+        } finally {
+            tenantActivator.deactivate();
         }
-
-        TableRequest pending = tableRequestRepository
-                .findByTableIdAndTypeAndAcknowledgedAtIsNull(tableId, type)
-                .orElse(null);
-        if (pending != null) {
-            return toResponse(pending);
-        }
-
-        TableRequest request = TableRequest.builder()
-                .restaurant(restaurant)
-                .table(table)
-                .type(type)
-                .build();
-
-        return toResponse(tableRequestRepository.save(request));
     }
 
     private TableRequestResponse toResponse(TableRequest request) {

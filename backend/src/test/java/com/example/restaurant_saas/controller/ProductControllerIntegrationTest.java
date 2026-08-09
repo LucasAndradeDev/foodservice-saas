@@ -13,6 +13,7 @@ import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -97,7 +98,7 @@ class ProductControllerIntegrationTest {
                 .role(role)
                 .active(true)
                 .build();
-        return userRepository.save(user);
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
     }
 
     private String tokenFor(User user) {
@@ -373,7 +374,7 @@ class ProductControllerIntegrationTest {
     void createProduct_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String categoryId = createCategory(ownerToken, "Burgers");
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
 
@@ -393,7 +394,7 @@ class ProductControllerIntegrationTest {
     void listProducts_asWaiter_shouldSucceed() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String categoryId = createCategory(ownerToken, "Burgers");
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
 
@@ -652,7 +653,7 @@ class ProductControllerIntegrationTest {
     void updateProduct_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String categoryId = createCategory(ownerToken, "Burgers");
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
 
@@ -806,7 +807,7 @@ class ProductControllerIntegrationTest {
     @Test
     void deleteProduct_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
         String categoryId = createCategory(ownerToken, "Burgers");
@@ -855,7 +856,7 @@ class ProductControllerIntegrationTest {
     @Test
     void uploadImage_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
         MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", "fake-image-bytes".getBytes());

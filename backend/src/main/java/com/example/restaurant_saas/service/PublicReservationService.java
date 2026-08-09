@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.config.TenantActivator;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.dto.request.PublicCreateReservationRequest;
 import com.example.restaurant_saas.dto.response.ReservationResponse;
@@ -21,6 +22,7 @@ public class PublicReservationService {
     private final RestaurantRepository restaurantRepository;
     private final ReservationService reservationService;
     private final RateLimitService rateLimitService;
+    private final TenantActivator tenantActivator;
 
     @Value("${security.reservation-create-rate-limit.max-attempts}")
     private int createMaxAttempts;
@@ -47,19 +49,24 @@ public class PublicReservationService {
             Restaurant restaurant = restaurantRepository.findBySlug(slug)
                     .orElseThrow(() -> new IllegalArgumentException("Menu not found."));
 
-            // No explicit tableIds here by design: the public endpoint never accepts a client-supplied
-            // table selection, so a customer can't pick a specific table id off the wire -- the system
-            // always auto-assigns.
-            return reservationService.createReservation(
-                    restaurant.getId(),
-                    request.getCustomerName(),
-                    request.getCustomerPhone(),
-                    request.getNote(),
-                    request.getPartySize(),
-                    request.getReservationTime(),
-                    null,
-                    null
-            );
+            tenantActivator.activate(restaurant.getId());
+            try {
+                // No explicit tableIds here by design: the public endpoint never accepts a client-supplied
+                // table selection, so a customer can't pick a specific table id off the wire -- the system
+                // always auto-assigns.
+                return reservationService.createReservation(
+                        restaurant.getId(),
+                        request.getCustomerName(),
+                        request.getCustomerPhone(),
+                        request.getNote(),
+                        request.getPartySize(),
+                        request.getReservationTime(),
+                        null,
+                        null
+                );
+            } finally {
+                tenantActivator.deactivate();
+            }
         } finally {
             // Counted whether this call succeeds or fails, same as forgot-password: otherwise someone
             // could probe table availability for free by repeatedly hitting the failure path only.

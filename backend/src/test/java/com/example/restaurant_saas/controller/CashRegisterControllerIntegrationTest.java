@@ -19,6 +19,7 @@ import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.security.JwtService;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
@@ -87,7 +88,7 @@ class CashRegisterControllerIntegrationTest {
                 .role(role)
                 .active(true)
                 .build();
-        return userRepository.save(user);
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
     }
 
     private String tokenFor(User user) {
@@ -496,7 +497,7 @@ class CashRegisterControllerIntegrationTest {
     @Test
     void openSession_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
 
@@ -510,7 +511,7 @@ class CashRegisterControllerIntegrationTest {
     @Test
     void openSession_asKitchen_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User kitchen = createUserDirectly(owner, UserRole.KITCHEN);
         String kitchenToken = tokenFor(kitchen);
 
@@ -524,7 +525,7 @@ class CashRegisterControllerIntegrationTest {
     @Test
     void openSession_asCashier_shouldBeAllowed() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User cashier = createUserDirectly(owner, UserRole.CASHIER);
         String cashierToken = tokenFor(cashier);
 

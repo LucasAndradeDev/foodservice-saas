@@ -106,7 +106,10 @@ class PublicReservationControllerIntegrationTest {
         mockMvc.perform(get("/api/v1/public/reservations/" + accessToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.customerName").value("Jane Doe"))
-                .andExpect(jsonPath("$.status").value("SCHEDULED"));
+                .andExpect(jsonPath("$.status").value("SCHEDULED"))
+                // Regression check: reservation.tables is RLS-protected and lazy-loaded, which
+                // only works if the tenant is active by the time it's read (see ReservationService).
+                .andExpect(jsonPath("$.tables.length()").value(1));
     }
 
     @Test
@@ -127,7 +130,8 @@ class PublicReservationControllerIntegrationTest {
 
         mockMvc.perform(delete("/api/v1/public/reservations/" + accessToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("CANCELLED"));
+                .andExpect(jsonPath("$.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.tables.length()").value(1));
 
         mockMvc.perform(delete("/api/v1/public/reservations/" + accessToken))
                 .andExpect(status().isForbidden());

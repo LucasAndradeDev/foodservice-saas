@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.config.TenantActivator;
 import com.example.restaurant_saas.domain.entity.Category;
 import com.example.restaurant_saas.domain.entity.HappyHourRule;
 import com.example.restaurant_saas.domain.entity.OrderItem;
@@ -75,12 +76,22 @@ public class MenuService {
     private final ProductAvailabilityWindowRepository availabilityWindowRepository;
     private final HappyHourRuleService happyHourRuleService;
     private final ComboService comboService;
+    private final TenantActivator tenantActivator;
 
     @Transactional(readOnly = true)
     public PublicMenuResponse getPublicMenu(String slug, UUID tableId) {
         Restaurant restaurant = restaurantRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException("Menu not found."));
 
+        tenantActivator.activate(restaurant.getId());
+        try {
+            return buildPublicMenu(restaurant, tableId);
+        } finally {
+            tenantActivator.deactivate();
+        }
+    }
+
+    private PublicMenuResponse buildPublicMenu(Restaurant restaurant, UUID tableId) {
         List<Product> activeProducts = productRepository.findByRestaurantIdAndActiveTrueOrderByCategoryNameAscNameAsc(restaurant.getId());
         Map<UUID, List<ModifierGroupResponse>> modifierGroupsByProduct =
                 fetchModifierGroupsByProduct(restaurant.getId(), activeProducts);

@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.config.TenantActivator;
 import com.example.restaurant_saas.domain.entity.Coupon;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.Tab;
@@ -24,39 +25,45 @@ public class PublicCouponService {
     private final CouponRepository couponRepository;
     private final TabRepository tabRepository;
     private final TabService tabService;
+    private final TenantActivator tenantActivator;
 
     @Transactional
     public PublicCouponRedemptionResponse redeem(String slug, UUID tableId, RedeemCouponRequest request) {
         Restaurant restaurant = restaurantRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException("Menu not found."));
 
-        Coupon coupon = couponRepository.findByRestaurantIdAndCodeIgnoreCase(restaurant.getId(), request.getCode())
-                .filter(c -> Boolean.TRUE.equals(c.getActive()))
-                .orElseThrow(() -> new IllegalArgumentException("Coupon not found or inactive."));
-        if (coupon.getExpiresAt() != null && coupon.getExpiresAt().isBefore(OffsetDateTime.now())) {
-            throw new IllegalStateException("This coupon has expired.");
-        }
-
-        Tab tab = tabService.openOrGetTabForTable(restaurant.getId(), tableId);
-        String reason = "Cupom: " + coupon.getCode();
-
-        if (!reason.equalsIgnoreCase(tab.getDiscountReason())) {
-            if (couponRepository.incrementUsage(coupon.getId()) == 0) {
-                throw new IllegalStateException("This coupon has already reached its usage limit.");
+        tenantActivator.activate(restaurant.getId());
+        try {
+            Coupon coupon = couponRepository.findByRestaurantIdAndCodeIgnoreCase(restaurant.getId(), request.getCode())
+                    .filter(c -> Boolean.TRUE.equals(c.getActive()))
+                    .orElseThrow(() -> new IllegalArgumentException("Coupon not found or inactive."));
+            if (coupon.getExpiresAt() != null && coupon.getExpiresAt().isBefore(OffsetDateTime.now())) {
+                throw new IllegalStateException("This coupon has expired.");
             }
-            tab.setDiscountType(coupon.getDiscountType());
-            tab.setDiscountValue(coupon.getDiscountValue());
-            tab.setDiscountReason(reason);
-            tab.setDiscountAppliedBy("Cliente (autoatendimento)");
-            tab.setDiscountAppliedAt(OffsetDateTime.now());
-            tab = tabRepository.save(tab);
-        }
 
-        return PublicCouponRedemptionResponse.builder()
-                .discountAppliedLabel(buildDiscountLabel(tab))
-                .discountType(tab.getDiscountType())
-                .discountValue(tab.getDiscountValue())
-                .build();
+            Tab tab = tabService.openOrGetTabForTable(restaurant.getId(), tableId);
+            String reason = "Cupom: " + coupon.getCode();
+
+            if (!reason.equalsIgnoreCase(tab.getDiscountReason())) {
+                if (couponRepository.incrementUsage(coupon.getId()) == 0) {
+                    throw new IllegalStateException("This coupon has already reached its usage limit.");
+                }
+                tab.setDiscountType(coupon.getDiscountType());
+                tab.setDiscountValue(coupon.getDiscountValue());
+                tab.setDiscountReason(reason);
+                tab.setDiscountAppliedBy("Cliente (autoatendimento)");
+                tab.setDiscountAppliedAt(OffsetDateTime.now());
+                tab = tabRepository.save(tab);
+            }
+
+            return PublicCouponRedemptionResponse.builder()
+                    .discountAppliedLabel(buildDiscountLabel(tab))
+                    .discountType(tab.getDiscountType())
+                    .discountValue(tab.getDiscountValue())
+                    .build();
+        } finally {
+            tenantActivator.deactivate();
+        }
     }
 
     @Transactional
@@ -64,26 +71,31 @@ public class PublicCouponService {
         Restaurant restaurant = restaurantRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException("Menu not found."));
 
-        Tab tab = tabRepository.findOpenTabByRestaurantIdAndTableId(restaurant.getId(), tableId)
-                .orElseThrow(() -> new IllegalArgumentException("No open tab for this table."));
+        tenantActivator.activate(restaurant.getId());
+        try {
+            Tab tab = tabRepository.findOpenTabByRestaurantIdAndTableId(restaurant.getId(), tableId)
+                    .orElseThrow(() -> new IllegalArgumentException("No open tab for this table."));
 
-        String reason = tab.getDiscountReason();
-        if (reason == null || !reason.startsWith("Cupom: ")) {
-            throw new IllegalArgumentException("No coupon applied to this table.");
+            String reason = tab.getDiscountReason();
+            if (reason == null || !reason.startsWith("Cupom: ")) {
+                throw new IllegalArgumentException("No coupon applied to this table.");
+            }
+
+            String code = reason.substring("Cupom: ".length());
+            couponRepository.findByRestaurantIdAndCodeIgnoreCase(restaurant.getId(), code)
+                    .ifPresent(coupon -> couponRepository.decrementUsage(coupon.getId()));
+
+            tab.setDiscountType(null);
+            tab.setDiscountValue(null);
+            tab.setDiscountReason(null);
+            tab.setDiscountAppliedBy(null);
+            tab.setDiscountAppliedAt(null);
+            tabRepository.save(tab);
+
+            return PublicCouponRedemptionResponse.builder().build();
+        } finally {
+            tenantActivator.deactivate();
         }
-
-        String code = reason.substring("Cupom: ".length());
-        couponRepository.findByRestaurantIdAndCodeIgnoreCase(restaurant.getId(), code)
-                .ifPresent(coupon -> couponRepository.decrementUsage(coupon.getId()));
-
-        tab.setDiscountType(null);
-        tab.setDiscountValue(null);
-        tab.setDiscountReason(null);
-        tab.setDiscountAppliedBy(null);
-        tab.setDiscountAppliedAt(null);
-        tabRepository.save(tab);
-
-        return PublicCouponRedemptionResponse.builder().build();
     }
 
     static String buildDiscountLabel(Tab tab) {

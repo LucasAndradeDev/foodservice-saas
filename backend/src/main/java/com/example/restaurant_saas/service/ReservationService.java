@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.config.TenantActivator;
 import com.example.restaurant_saas.domain.entity.Reservation;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
@@ -37,6 +38,7 @@ public class ReservationService {
     private final UserRepository userRepository;
     private final TabRepository tabRepository;
     private final TabService tabService;
+    private final TenantActivator tenantActivator;
 
     @Transactional
     public ReservationResponse createReservation(
@@ -138,15 +140,33 @@ public class ReservationService {
 
     @Transactional
     public ReservationResponse cancelByToken(String token) {
-        Reservation reservation = reservationRepository.findByAccessToken(token)
+        // findByAccessTokenBypassingRls (V49 SECURITY DEFINER function) is the only way to find
+        // this row before the tenant is known - that's the whole point of an opaque access token.
+        // cancel() below does a real UPDATE, and toResponse() lazy-loads reservation.tables (a
+        // @ManyToMany, RLS-protected) - both go through the normal RLS-checked path, unlike the
+        // bypass read, so the tenant needs to be active before either one runs.
+        Reservation reservation = reservationRepository.findByAccessTokenBypassingRls(token)
                 .orElseThrow(() -> new IllegalArgumentException("Reservation not found."));
-        return cancel(reservation);
+        tenantActivator.activate(reservation.getRestaurant().getId());
+        try {
+            return cancel(reservation);
+        } finally {
+            tenantActivator.deactivate();
+        }
     }
 
     @Transactional(readOnly = true)
     public ReservationResponse getByToken(String token) {
-        return toResponse(reservationRepository.findByAccessToken(token)
-                .orElseThrow(() -> new IllegalArgumentException("Reservation not found.")));
+        // Same reasoning as cancelByToken: toResponse() lazy-loads reservation.tables, which is
+        // RLS-protected and needs the tenant active even though this is a read-only lookup.
+        Reservation reservation = reservationRepository.findByAccessTokenBypassingRls(token)
+                .orElseThrow(() -> new IllegalArgumentException("Reservation not found."));
+        tenantActivator.activate(reservation.getRestaurant().getId());
+        try {
+            return toResponse(reservation);
+        } finally {
+            tenantActivator.deactivate();
+        }
     }
 
     private ReservationResponse cancel(Reservation reservation) {

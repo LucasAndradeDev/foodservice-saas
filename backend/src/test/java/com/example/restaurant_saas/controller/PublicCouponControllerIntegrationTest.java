@@ -7,6 +7,8 @@ import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateCouponRequest;
 import com.example.restaurant_saas.repository.CouponRepository;
+import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +39,9 @@ class PublicCouponControllerIntegrationTest {
 
     @Autowired
     private CouponRepository couponRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     private RegisterRestaurantRequest registerRequest;
 
@@ -102,9 +107,13 @@ class PublicCouponControllerIntegrationTest {
     }
 
     private void backdateCouponExpiration(String couponId) {
-        Coupon coupon = couponRepository.findById(UUID.fromString(couponId)).orElseThrow();
-        coupon.setExpiresAt(OffsetDateTime.now().minusDays(1));
-        couponRepository.save(coupon);
+        UUID restaurantId = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail())
+                .orElseThrow().getRestaurant().getId();
+        TenantTestSupport.withTenant(restaurantId, () -> {
+            Coupon coupon = couponRepository.findById(UUID.fromString(couponId)).orElseThrow();
+            coupon.setExpiresAt(OffsetDateTime.now().minusDays(1));
+            couponRepository.save(coupon);
+        });
     }
 
     @Test

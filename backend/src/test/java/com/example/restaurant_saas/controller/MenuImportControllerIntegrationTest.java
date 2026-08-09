@@ -9,6 +9,7 @@ import com.example.restaurant_saas.dto.request.MenuImportProductItem;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.exception.MenuImportProcessingException;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.example.restaurant_saas.service.GeminiCategory;
@@ -125,7 +126,7 @@ class MenuImportControllerIntegrationTest {
                 .role(role)
                 .active(true)
                 .build();
-        return userRepository.save(user);
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
     }
 
     private String tokenFor(User user) {
@@ -237,7 +238,7 @@ class MenuImportControllerIntegrationTest {
     @Test
     void extract_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
 
@@ -337,7 +338,7 @@ class MenuImportControllerIntegrationTest {
     @Test
     void commit_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
 

@@ -5,6 +5,7 @@ import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateRestaurantRequest;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -171,9 +172,9 @@ class RestaurantControllerIntegrationTest {
     @Test
     void getMyRestaurant_asWaiter_shouldSucceed() throws Exception {
         registerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
 
-        User waiter = User.builder()
+        User waiterToSave = User.builder()
                 .restaurant(owner.getRestaurant())
                 .name("Waiter")
                 .email("waiter+" + System.nanoTime() + "@test.com")
@@ -181,7 +182,7 @@ class RestaurantControllerIntegrationTest {
                 .role(UserRole.WAITER)
                 .active(true)
                 .build();
-        waiter = userRepository.save(waiter);
+        User waiter = TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(waiterToSave));
 
         String waiterToken = jwtService.generateToken(new UserDetailsImpl(waiter));
 
@@ -252,9 +253,9 @@ class RestaurantControllerIntegrationTest {
     @Test
     void updateMyRestaurant_asManager_shouldSucceed() throws Exception {
         registerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
 
-        User manager = User.builder()
+        User managerToSave = User.builder()
                 .restaurant(owner.getRestaurant())
                 .name("Manager")
                 .email("manager+" + System.nanoTime() + "@test.com")
@@ -262,7 +263,7 @@ class RestaurantControllerIntegrationTest {
                 .role(UserRole.MANAGER)
                 .active(true)
                 .build();
-        manager = userRepository.save(manager);
+        User manager = TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(managerToSave));
 
         String managerToken = jwtService.generateToken(new UserDetailsImpl(manager));
 
@@ -444,9 +445,9 @@ class RestaurantControllerIntegrationTest {
     @Test
     void updateMyRestaurant_asWaiter_shouldBeForbidden() throws Exception {
         registerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
 
-        User waiter = User.builder()
+        User waiterToSave = User.builder()
                 .restaurant(owner.getRestaurant())
                 .name("Waiter")
                 .email("waiter+" + System.nanoTime() + "@test.com")
@@ -454,7 +455,7 @@ class RestaurantControllerIntegrationTest {
                 .role(UserRole.WAITER)
                 .active(true)
                 .build();
-        waiter = userRepository.save(waiter);
+        User waiter = TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(waiterToSave));
 
         String waiterToken = jwtService.generateToken(new UserDetailsImpl(waiter));
 
@@ -495,9 +496,9 @@ class RestaurantControllerIntegrationTest {
     @Test
     void uploadLogo_asWaiter_shouldBeForbidden() throws Exception {
         registerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
 
-        User waiter = User.builder()
+        User waiterToSave = User.builder()
                 .restaurant(owner.getRestaurant())
                 .name("Waiter")
                 .email("waiter+" + System.nanoTime() + "@test.com")
@@ -505,7 +506,7 @@ class RestaurantControllerIntegrationTest {
                 .role(UserRole.WAITER)
                 .active(true)
                 .build();
-        waiter = userRepository.save(waiter);
+        User waiter = TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(waiterToSave));
         String waiterToken = jwtService.generateToken(new UserDetailsImpl(waiter));
 
         MockMultipartFile file = new MockMultipartFile("file", "logo.jpg", "image/jpeg", "fake-image-bytes".getBytes());

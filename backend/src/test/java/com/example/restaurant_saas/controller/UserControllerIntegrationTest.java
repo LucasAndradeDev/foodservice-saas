@@ -6,6 +6,7 @@ import com.example.restaurant_saas.dto.request.CreateUserRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateUserRequest;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -73,7 +74,7 @@ class UserControllerIntegrationTest {
                 .role(role)
                 .active(true)
                 .build();
-        return userRepository.save(user);
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
     }
 
     private String tokenFor(User user) {
@@ -120,7 +121,7 @@ class UserControllerIntegrationTest {
     @Test
     void createUser_asManager_creatingManager_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User manager = createUserDirectly(owner, UserRole.MANAGER);
         String managerToken = tokenFor(manager);
 
@@ -140,7 +141,7 @@ class UserControllerIntegrationTest {
     @Test
     void createUser_asManager_creatingWaiter_shouldSucceed() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User manager = createUserDirectly(owner, UserRole.MANAGER);
         String managerToken = tokenFor(manager);
 
@@ -161,7 +162,7 @@ class UserControllerIntegrationTest {
     @Test
     void createUser_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
 
@@ -198,7 +199,7 @@ class UserControllerIntegrationTest {
     @Test
     void listUsers_asOwner_shouldReturnAllStaff() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         createUserDirectly(owner, UserRole.WAITER);
         createUserDirectly(owner, UserRole.KITCHEN);
 
@@ -211,7 +212,7 @@ class UserControllerIntegrationTest {
     @Test
     void listUsers_asWaiter_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
 
@@ -223,7 +224,7 @@ class UserControllerIntegrationTest {
     @Test
     void getUser_asOwner_shouldReturnUserDetails() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
 
         mockMvc.perform(get("/api/v1/users/" + waiter.getId())
@@ -259,7 +260,7 @@ class UserControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(otherRestaurant)))
                 .andExpect(status().isCreated());
 
-        User otherOwner = userRepository.findByEmail(otherRestaurant.getOwnerEmail()).orElseThrow();
+        User otherOwner = userRepository.findByEmailBypassingRls(otherRestaurant.getOwnerEmail()).orElseThrow();
 
         mockMvc.perform(get("/api/v1/users/" + otherOwner.getId())
                         .header("Authorization", "Bearer " + ownerToken))
@@ -269,7 +270,7 @@ class UserControllerIntegrationTest {
     @Test
     void listUsers_filterByRole_shouldReturnOnlyMatching() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         createUserDirectly(owner, UserRole.WAITER);
         createUserDirectly(owner, UserRole.KITCHEN);
 
@@ -283,7 +284,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateUser_asOwner_shouldChangeNameAndRole() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
 
         UpdateUserRequest request = new UpdateUserRequest();
@@ -302,7 +303,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateUser_deactivate_shouldSucceed() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
 
         UpdateUserRequest request = new UpdateUserRequest();
@@ -319,7 +320,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateUser_selfRoleChange_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
 
         UpdateUserRequest request = new UpdateUserRequest();
         request.setActive(false);
@@ -334,7 +335,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateUser_managerTargetingOwner_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User manager = createUserDirectly(owner, UserRole.MANAGER);
         String managerToken = tokenFor(manager);
 
@@ -352,7 +353,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateUser_ownerDeactivatingAnotherOwner_whenMultipleOwnersExist_shouldSucceed() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User secondOwner = createUserDirectly(owner, UserRole.OWNER);
 
         UpdateUserRequest request = new UpdateUserRequest();
@@ -369,7 +370,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateUser_deactivatingLastActiveOwner_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User secondOwner = createUserDirectly(owner, UserRole.OWNER);
 
         UpdateUserRequest deactivateRequest = new UpdateUserRequest();
@@ -395,7 +396,7 @@ class UserControllerIntegrationTest {
     @Test
     void updateUser_managerEditingWaiter_promotingToManager_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User manager = createUserDirectly(owner, UserRole.MANAGER);
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String managerToken = tokenFor(manager);
@@ -425,7 +426,7 @@ class UserControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(otherRestaurant)))
                 .andExpect(status().isCreated());
 
-        User otherOwner = userRepository.findByEmail(otherRestaurant.getOwnerEmail()).orElseThrow();
+        User otherOwner = userRepository.findByEmailBypassingRls(otherRestaurant.getOwnerEmail()).orElseThrow();
 
         UpdateUserRequest request = new UpdateUserRequest();
         request.setName("Should not work");

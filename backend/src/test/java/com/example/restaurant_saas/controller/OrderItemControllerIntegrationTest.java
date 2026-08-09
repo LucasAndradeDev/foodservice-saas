@@ -18,6 +18,7 @@ import com.example.restaurant_saas.dto.request.TransferItemsRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -112,7 +113,7 @@ class OrderItemControllerIntegrationTest {
                 .role(role)
                 .active(true)
                 .build();
-        return userRepository.save(user);
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
     }
 
     private String tokenFor(User user) {
@@ -221,7 +222,7 @@ class OrderItemControllerIntegrationTest {
     @Test
     void updateStatus_kitchenMovesPendingToPreparing_shouldSucceed() throws Exception {
         TestSetup setup = setupTabWithProduct();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String kitchenToken = tokenFor(createUserDirectly(owner, UserRole.KITCHEN));
         String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
 
@@ -236,7 +237,7 @@ class OrderItemControllerIntegrationTest {
     @Test
     void updateStatus_kitchenMovesPreparingToReady_shouldSucceed() throws Exception {
         TestSetup setup = setupTabWithProduct();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String kitchenToken = tokenFor(createUserDirectly(owner, UserRole.KITCHEN));
         String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
 
@@ -257,7 +258,7 @@ class OrderItemControllerIntegrationTest {
     @Test
     void updateStatus_waiterMarksReadyToDelivered_shouldSucceed() throws Exception {
         TestSetup setup = setupTabWithProduct();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String kitchenToken = tokenFor(createUserDirectly(owner, UserRole.KITCHEN));
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
         String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
@@ -284,7 +285,7 @@ class OrderItemControllerIntegrationTest {
     @Test
     void updateStatus_kitchenCannotMarkDelivered_shouldBeForbidden() throws Exception {
         TestSetup setup = setupTabWithProduct();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String kitchenToken = tokenFor(createUserDirectly(owner, UserRole.KITCHEN));
         String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
 
@@ -309,7 +310,7 @@ class OrderItemControllerIntegrationTest {
     @Test
     void updateStatus_waiterCannotStartPreparing_shouldBeForbidden() throws Exception {
         TestSetup setup = setupTabWithProduct();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
         String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
 
@@ -363,7 +364,7 @@ class OrderItemControllerIntegrationTest {
     @Test
     void updateStatus_cancelFromPending_asWaiter_shouldSucceed() throws Exception {
         TestSetup setup = setupTabWithProduct();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
         String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
 
@@ -380,7 +381,7 @@ class OrderItemControllerIntegrationTest {
     @Test
     void updateStatus_cancelFromReady_asKitchen_shouldSucceed() throws Exception {
         TestSetup setup = setupTabWithProduct();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String kitchenToken = tokenFor(createUserDirectly(owner, UserRole.KITCHEN));
         String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
 
@@ -565,7 +566,7 @@ class OrderItemControllerIntegrationTest {
     @Test
     void applyDiscount_asWaiter_shouldBeForbidden() throws Exception {
         TestSetup setup = setupTabWithProduct();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
         String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
 
@@ -822,7 +823,7 @@ class OrderItemControllerIntegrationTest {
     @Test
     void transferItems_asKitchen_shouldBeForbidden() throws Exception {
         TestSetup setup = setupTabWithProduct();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String kitchenToken = tokenFor(createUserDirectly(owner, UserRole.KITCHEN));
         String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
 

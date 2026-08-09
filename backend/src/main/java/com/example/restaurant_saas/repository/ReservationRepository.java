@@ -19,6 +19,13 @@ public interface ReservationRepository extends JpaRepository<Reservation, UUID> 
 
     Optional<Reservation> findByAccessToken(String accessToken);
 
+    // Bypasses RLS through a SECURITY DEFINER function (see V49 migration): the only lookup that
+    // can't know restaurant_id up front, since discovering it is the whole point of the query.
+    // Used by ReservationService's token-based flows (getByToken, cancelByToken); findByAccessToken
+    // above is unused now that RLS (V50) is live and would return zero rows for these callers.
+    @Query(value = "SELECT * FROM reservation_by_access_token(:token)", nativeQuery = true)
+    Optional<Reservation> findByAccessTokenBypassingRls(@Param("token") String token);
+
     List<Reservation> findByRestaurantIdAndReservationTimeBetweenOrderByReservationTimeAsc(
             UUID restaurantId, OffsetDateTime start, OffsetDateTime end);
 

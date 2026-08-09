@@ -10,6 +10,7 @@ import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.dto.request.UpdateTableRequest;
 import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -178,7 +179,8 @@ class PublicOrderControllerIntegrationTest {
         String tabId = JsonPath.read(result.getResponse().getContentAsString(), "$.tabId");
 
         UUID restaurantId = restaurantRepository.findBySlug(slug).orElseThrow().getId();
-        var orders = orderRepository.findByTabIdAndRestaurantId(UUID.fromString(tabId), restaurantId);
+        var orders = TenantTestSupport.withTenant(restaurantId,
+                () -> orderRepository.findByTabIdAndRestaurantId(UUID.fromString(tabId), restaurantId));
         org.junit.jupiter.api.Assertions.assertNull(orders.get(0).getCreatedBy());
     }
 

@@ -17,6 +17,7 @@ import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateProductRequest;
 import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -105,7 +106,7 @@ class OrderControllerIntegrationTest {
                 .role(role)
                 .active(true)
                 .build();
-        return userRepository.save(user);
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
     }
 
     private String tokenFor(User user) {
@@ -299,7 +300,7 @@ class OrderControllerIntegrationTest {
     @Test
     void createOrder_asKitchen_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User kitchen = createUserDirectly(owner, UserRole.KITCHEN);
         String kitchenToken = tokenFor(kitchen);
 
@@ -325,7 +326,7 @@ class OrderControllerIntegrationTest {
     @Test
     void createOrder_asWaiter_shouldSucceed() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
 
@@ -351,7 +352,7 @@ class OrderControllerIntegrationTest {
     @Test
     void createOrder_asWaiter_shouldRecordCreatedByOnOrderEntity() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
 
@@ -373,7 +374,8 @@ class OrderControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
 
-        List<Order> orders = orderRepository.findByTabIdAndRestaurantId(UUID.fromString(tabId), owner.getRestaurant().getId());
+        List<Order> orders = TenantTestSupport.withTenant(owner.getRestaurant().getId(),
+                () -> orderRepository.findByTabIdAndRestaurantId(UUID.fromString(tabId), owner.getRestaurant().getId()));
         org.junit.jupiter.api.Assertions.assertEquals(waiter.getId(), orders.get(0).getCreatedBy().getId());
     }
 

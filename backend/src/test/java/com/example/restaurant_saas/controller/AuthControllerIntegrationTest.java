@@ -13,6 +13,7 @@ import com.example.restaurant_saas.dto.request.VerifyEmailRequest;
 import com.example.restaurant_saas.repository.EmailVerificationTokenRepository;
 import com.example.restaurant_saas.repository.PasswordResetTokenRepository;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,7 +76,7 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.user.emailVerified").value(false))
                 .andExpect(jsonPath("$.restaurant.name").value("Burger House"));
 
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         assertThat(owner.getEmailVerified()).isFalse();
         assertThat(emailVerificationTokenRepository.findByUser(owner)).isPresent();
     }
@@ -180,9 +181,9 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated());
 
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         owner.setActive(false);
-        userRepository.save(owner);
+        TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(owner));
 
         LoginRequest loginRequest = new LoginRequest();
         loginRequest.setEmail(registerRequest.getOwnerEmail());
@@ -209,7 +210,7 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(forgotRequest)))
                 .andExpect(status().isNoContent());
 
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         assertThat(passwordResetTokenRepository.findByUser(owner)).isPresent();
     }
 
@@ -256,7 +257,7 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(forgotRequest)))
                 .andExpect(status().isNoContent());
 
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         PasswordResetToken resetToken = passwordResetTokenRepository.findByUser(owner).orElseThrow();
 
         ResetPasswordRequest resetRequest = new ResetPasswordRequest();
@@ -294,7 +295,7 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(forgotRequest)))
                 .andExpect(status().isNoContent());
 
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         PasswordResetToken resetToken = passwordResetTokenRepository.findByUser(owner).orElseThrow();
 
         ResetPasswordRequest resetRequest = new ResetPasswordRequest();
@@ -462,7 +463,7 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated());
 
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         EmailVerificationToken token = emailVerificationTokenRepository.findByUser(owner).orElseThrow();
 
         VerifyEmailRequest verifyRequest = new VerifyEmailRequest();
@@ -473,7 +474,7 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(verifyRequest)))
                 .andExpect(status().isNoContent());
 
-        User verifiedOwner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User verifiedOwner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         assertThat(verifiedOwner.getEmailVerified()).isTrue();
     }
 
@@ -484,7 +485,7 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated());
 
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         EmailVerificationToken token = emailVerificationTokenRepository.findByUser(owner).orElseThrow();
 
         VerifyEmailRequest verifyRequest = new VerifyEmailRequest();
@@ -521,7 +522,7 @@ class AuthControllerIntegrationTest {
                 .andReturn();
         String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
 
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String firstToken = emailVerificationTokenRepository.findByUser(owner).orElseThrow().getToken();
 
         mockMvc.perform(post("/api/v1/auth/resend-verification-email")
@@ -561,9 +562,9 @@ class AuthControllerIntegrationTest {
                 .andReturn();
         String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
 
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         owner.setEmailVerified(true);
-        userRepository.save(owner);
+        TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(owner));
 
         for (int i = 0; i < 5; i++) {
             mockMvc.perform(post("/api/v1/auth/resend-verification-email")

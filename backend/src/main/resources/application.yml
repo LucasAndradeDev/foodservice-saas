@@ -20,6 +20,11 @@ spring:
     enabled: true
     baseline-on-migrate: true
     locations: classpath:db/migration
+    # Explicit owner-role credentials so Flyway doesn't pick up the restricted
+    # `dataSource` bean (RuntimeDataSourceConfig) and fail on migration DDL.
+    url: ${SPRING_DATASOURCE_URL}
+    user: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
 
   servlet:
     multipart:
@@ -74,6 +79,12 @@ app:
     provider: ${STORAGE_PROVIDER:local}
   email:
     provider: ${EMAIL_PROVIDER:log}
+  datasource:
+    runtime:
+      url: ${APP_DATASOURCE_RUNTIME_URL}
+      username: ${APP_DATASOURCE_RUNTIME_USERNAME}
+      password: ${APP_DATASOURCE_RUNTIME_PASSWORD}
+      driver-class-name: org.postgresql.Driver
 
 supabase:
   url: ${SUPABASE_URL:}

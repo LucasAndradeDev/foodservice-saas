@@ -11,6 +11,7 @@ import com.example.restaurant_saas.dto.request.CreateTableRequestRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.domain.enums.TableRequestType;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -151,7 +152,7 @@ class TableRequestControllerIntegrationTest {
                 .role(role)
                 .active(true)
                 .build();
-        return userRepository.save(user);
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
     }
 
     private String tokenFor(User user) {
@@ -198,7 +199,7 @@ class TableRequestControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(firstId));
 
-        String waiterToken = tokenFor(createUserDirectly(userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow(), UserRole.WAITER));
+        String waiterToken = tokenFor(createUserDirectly(userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow(), UserRole.WAITER));
         mockMvc.perform(get("/api/v1/table-requests")
                         .header("Authorization", "Bearer " + waiterToken))
                 .andExpect(status().isOk())
@@ -218,7 +219,7 @@ class TableRequestControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
 
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
 
         mockMvc.perform(get("/api/v1/table-requests")
@@ -244,7 +245,7 @@ class TableRequestControllerIntegrationTest {
                 .andReturn();
         String requestId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
 
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
 
         mockMvc.perform(patch("/api/v1/table-requests/" + requestId + "/acknowledge")
@@ -319,7 +320,7 @@ class TableRequestControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.type").value("REQUEST_BILL"));
 
-        String waiterToken = tokenFor(createUserDirectly(userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow(), UserRole.WAITER));
+        String waiterToken = tokenFor(createUserDirectly(userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow(), UserRole.WAITER));
         mockMvc.perform(get("/api/v1/table-requests")
                         .header("Authorization", "Bearer " + waiterToken))
                 .andExpect(status().isOk())
@@ -329,7 +330,7 @@ class TableRequestControllerIntegrationTest {
     @Test
     void listPending_asKitchen_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        User owner = userRepository.findByEmail(registerRequest.getOwnerEmail()).orElseThrow();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String kitchenToken = tokenFor(createUserDirectly(owner, UserRole.KITCHEN));
 
         mockMvc.perform(get("/api/v1/table-requests")

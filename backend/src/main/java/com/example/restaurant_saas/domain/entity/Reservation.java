@@ -60,7 +60,7 @@ public class Reservation {
     @JoinColumn(name = "created_by")
     private User createdBy;
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "reservation_tables",
             joinColumns = @JoinColumn(name = "reservation_id"),

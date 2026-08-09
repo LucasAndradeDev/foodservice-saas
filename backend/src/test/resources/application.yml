@@ -7,6 +7,12 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+  flyway:
+    # Owner-role credentials, same as spring.datasource above — kept explicit so Flyway
+    # doesn't pick up the restricted `dataSource` bean (RuntimeDataSourceConfig).
+    url: jdbc:postgresql://localhost:5432/restaurant_saas
+    user: postgres
+    password: postgres
 
 api:
   jwt:
@@ -52,6 +58,12 @@ security:
 app:
   upload-dir: ./target/test-uploads
   frontend-url: http://localhost:5173
+  datasource:
+    runtime:
+      url: jdbc:postgresql://localhost:5432/restaurant_saas
+      username: app_runtime
+      password: app_runtime_local_dev_only
+      driver-class-name: org.postgresql.Driver
 
 gemini:
   api-key: test-key-not-used
