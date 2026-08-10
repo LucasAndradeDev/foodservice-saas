@@ -22,4 +22,10 @@ RUN apk add --no-cache postgresql18-client
 COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Render's free plan gives this container a small CPU share. The JVM's default GC (G1)
+# and JIT (C2) both spin up background threads that compete with the app's own startup
+# work for that scarce CPU, which is the main driver of the ~230s boot time observed
+# there. TieredStopAtLevel=1 skips C2 (fine for a short-lived, low-throughput-at-boot
+# process); SerialGC avoids G1's multi-threaded overhead, which only pays off with more
+# CPU than this plan provides.
+ENTRYPOINT ["java", "-XX:TieredStopAtLevel=1", "-XX:+UseSerialGC", "-jar", "app.jar"]
