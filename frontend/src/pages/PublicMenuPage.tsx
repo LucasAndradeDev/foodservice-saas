@@ -62,6 +62,7 @@ export function PublicMenuPage() {
   const [couponCode, setCouponCode] = useState('')
   const [couponError, setCouponError] = useState<string | null>(null)
   const [isReservationModalOpen, setIsReservationModalOpen] = useState(false)
+  const [customerPhone, setCustomerPhone] = useState('')
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
 
   function toggleCategory(categoryId: string) {
@@ -166,6 +167,7 @@ export function PublicMenuPage() {
             selectedProductId: selection.productId,
           })),
         })),
+        !currentTabId ? customerPhone.trim() : undefined,
       ),
     onSuccess: () => {
       setCart([])
@@ -591,6 +593,9 @@ export function PublicMenuPage() {
         onRemoveCoupon={() => removeCouponMutation.mutate()}
         isRemovingCoupon={removeCouponMutation.isPending}
         couponError={couponError}
+        showPhoneField={!currentTabId}
+        customerPhone={customerPhone}
+        onCustomerPhoneChange={setCustomerPhone}
       />
 
       <ModifierSheet

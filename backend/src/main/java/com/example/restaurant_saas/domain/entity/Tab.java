@@ -74,6 +74,12 @@ public class Tab {
     @Column(name = "service_charge_amount", precision = 10, scale = 2)
     private BigDecimal serviceChargeAmount;
 
+    @Column(name = "customer_phone", length = 20)
+    private String customerPhone;
+
+    @Column(name = "ready_notification_sent_at")
+    private OffsetDateTime readyNotificationSentAt;
+
     @ManyToMany
     @JoinTable(
             name = "tab_tables",

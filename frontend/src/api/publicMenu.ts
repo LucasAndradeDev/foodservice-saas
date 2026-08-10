@@ -83,9 +83,9 @@ export function getPublicMenu(slug: string, tableId?: string) {
     .then((res) => res.data)
 }
 
-export function submitPublicOrder(slug: string, tableId: string, items: PublicOrderItemPayload[]) {
+export function submitPublicOrder(slug: string, tableId: string, items: PublicOrderItemPayload[], customerPhone?: string) {
   return http
-    .post(`/public/menu/${slug}/tables/${tableId}/orders`, { items })
+    .post(`/public/menu/${slug}/tables/${tableId}/orders`, { items, customerPhone: customerPhone || undefined })
     .then((res) => res.data)
 }
 

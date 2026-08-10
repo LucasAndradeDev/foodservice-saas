@@ -28,7 +28,7 @@ public class PublicOrderService {
 
         tenantActivator.activate(restaurant.getId());
         try {
-            Tab tab = tabService.openOrGetTabForTable(restaurant.getId(), tableId);
+            Tab tab = tabService.openOrGetTabForTable(restaurant.getId(), tableId, request.getCustomerPhone());
             return orderService.createOrder(restaurant.getId(), tab.getId(), request, null);
         } finally {
             tenantActivator.deactivate();

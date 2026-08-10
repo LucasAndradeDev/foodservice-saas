@@ -1,0 +1,2 @@
+ALTER TABLE tabs ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(20);
+ALTER TABLE tabs ADD COLUMN IF NOT EXISTS ready_notification_sent_at TIMESTAMPTZ;

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, Minus, Plus, Ticket, Trash2, X } from 'lucide-react'
+import { ArrowRight, MessageCircle, Minus, Plus, Ticket, Trash2, X } from 'lucide-react'
 import type { CartItem } from './utils'
 import { currencyFormatter, modifiersTotal } from './utils'
 
@@ -24,6 +24,9 @@ interface CartDrawerProps {
   onRemoveCoupon: () => void
   isRemovingCoupon: boolean
   couponError: string | null
+  showPhoneField: boolean
+  customerPhone: string
+  onCustomerPhoneChange: (value: string) => void
 }
 
 export function CartDrawer({
@@ -47,6 +50,9 @@ export function CartDrawer({
   onRemoveCoupon,
   isRemovingCoupon,
   couponError,
+  showPhoneField,
+  customerPhone,
+  onCustomerPhoneChange,
 }: CartDrawerProps) {
   return (
     <AnimatePresence>
@@ -212,6 +218,22 @@ export function CartDrawer({
                     <span className="text-sm text-gray-500 dark:text-stone-400">Total</span>
                     <span className="text-xl font-bold text-gray-900 dark:text-white">{currencyFormatter.format(cartTotal)}</span>
                   </div>
+
+                  {showPhoneField && (
+                    <div className="mb-3">
+                      <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-stone-400">
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        WhatsApp (opcional) — avisamos quando o pedido estiver pronto
+                      </label>
+                      <input
+                        type="tel"
+                        value={customerPhone}
+                        onChange={(e) => onCustomerPhoneChange(e.target.value)}
+                        placeholder="(11) 91234-5678"
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500"
+                      />
+                    </div>
+                  )}
 
                   {orderError && <p className="mb-3 text-sm text-wine-600 dark:text-wine-400">{orderError}</p>}
 

@@ -40,6 +40,7 @@ public class OrderItemService {
     private final OrderRepository orderRepository;
     private final TabRepository tabRepository;
     private final RestaurantRepository restaurantRepository;
+    private final WhatsAppService whatsAppService;
 
     @Transactional(readOnly = true)
     public List<KitchenItemResponse> listKitchenQueue(UUID restaurantId, List<ItemStatus> statusFilter) {
@@ -74,7 +75,34 @@ public class OrderItemService {
             item.getChildren().forEach(child -> applyStatusChange(child, to, actingUserName, now));
             orderItemRepository.saveAll(item.getChildren());
         }
-        return toOrderItemResponse(orderItemRepository.save(item));
+        OrderItem saved = orderItemRepository.save(item);
+
+        if (to == ItemStatus.READY) {
+            notifyIfOrderReady(saved);
+        }
+
+        return toOrderItemResponse(saved);
+    }
+
+    // Fires the "your order is ready" WhatsApp message the moment the last pending/preparing
+    // item on the tab flips to READY -- guarded so it only ever fires once per tab.
+    private void notifyIfOrderReady(OrderItem item) {
+        Tab tab = item.getOrder().getTab();
+        if (tab.getCustomerPhone() == null || tab.getReadyNotificationSentAt() != null) {
+            return;
+        }
+        boolean stillPending = orderItemRepository.existsByOrder_Tab_IdAndStatusNotIn(
+                tab.getId(), List.of(ItemStatus.READY, ItemStatus.DELIVERED, ItemStatus.CANCELLED));
+        if (stillPending) {
+            return;
+        }
+
+        String restaurantName = tab.getRestaurant().getTradeName() != null
+                ? tab.getRestaurant().getTradeName()
+                : tab.getRestaurant().getName();
+        whatsAppService.sendOrderReadyNotification(tab.getCustomerPhone(), restaurantName);
+        tab.setReadyNotificationSentAt(OffsetDateTime.now());
+        tabRepository.save(tab);
     }
 
     private void applyStatusChange(OrderItem item, ItemStatus to, String actingUserName, OffsetDateTime now) {

@@ -103,8 +103,12 @@ public class TabService {
         return toResponse(tab);
     }
 
-    @Transactional
     public Tab openOrGetTabForTable(UUID restaurantId, UUID tableId) {
+        return openOrGetTabForTable(restaurantId, tableId, null);
+    }
+
+    @Transactional
+    public Tab openOrGetTabForTable(UUID restaurantId, UUID tableId, String customerPhone) {
         RestaurantTable table = tableRepository.findByIdAndRestaurantIdForUpdate(tableId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Table not found."));
         if (!Boolean.TRUE.equals(table.getActive())) {
@@ -125,6 +129,7 @@ public class TabService {
                 .restaurant(restaurantRepository.getReferenceById(restaurantId))
                 .status(TabStatus.OPEN)
                 .openedAt(OffsetDateTime.now())
+                .customerPhone(customerPhone)
                 // Must be a mutable list: Hibernate clears/replaces this collection on a later
                 // merge of this same instance (e.g. a caller that re-saves the returned Tab in
                 // the same transaction), which throws UnsupportedOperationException on List.of().
