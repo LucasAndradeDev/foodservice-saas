@@ -2,7 +2,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/rea
 import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CheckCircle2, ChevronDown, Clock, Lock, Pencil, Percent, Printer, Users, Wallet, X } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listOrders, type DiscountType, type OrderItem } from '../api/orders'
 import {
@@ -140,6 +140,18 @@ export function CheckoutPage() {
   const [isEditingServiceCharge, setIsEditingServiceCharge] = useState(false)
   const [serviceChargeInput, setServiceChargeInput] = useState('')
 
+  useEffect(() => {
+    if (!selectedSummary) return
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      if (isEditingDiscount) setIsEditingDiscount(false)
+      else if (isEditingServiceCharge) setIsEditingServiceCharge(false)
+      else handleCloseModal()
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [selectedSummary, isEditingDiscount, isEditingServiceCharge])
+
   const payMutation = useMutation({
     mutationFn: ({
       id,
@@ -224,6 +236,28 @@ export function CheckoutPage() {
   const isZeroBalance = remainingBalance <= 0.001
   const entriesSum = roundCurrency(pendingEntries.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0))
   const amountLeftToAllocate = roundCurrency(remainingBalance - entriesSum)
+
+  const canConfirmPayment =
+    !!selectedSummary &&
+    justPaidTabId !== selectedSummary.tab.id &&
+    canPay &&
+    !payMutation.isPending &&
+    (isZeroBalance || (entriesSum > 0 && amountLeftToAllocate >= -0.001))
+
+  // Enter confirms the payment while the form is valid -- skipped while a sub-form (discount/service
+  // charge) is open so its own native Enter-to-submit isn't double-fired by this handler.
+  useEffect(() => {
+    if (!canConfirmPayment || isEditingDiscount || isEditingServiceCharge) return
+    function handleEnter(event: KeyboardEvent) {
+      if (event.key !== 'Enter') return
+      const target = event.target as HTMLElement
+      if (target.tagName === 'TEXTAREA') return
+      event.preventDefault()
+      handleRegisterPayments()
+    }
+    document.addEventListener('keydown', handleEnter)
+    return () => document.removeEventListener('keydown', handleEnter)
+  }, [canConfirmPayment, isEditingDiscount, isEditingServiceCharge])
 
   function handleSplitEqually(parts: number) {
     const share = roundCurrency(remainingBalance / parts)
@@ -834,6 +868,9 @@ export function CheckoutPage() {
                       : pendingEntries.length > 1
                         ? `Confirmar ${pendingEntries.length} pagamentos`
                         : 'Confirmar pagamento'}
+                  {canConfirmPayment && !isEditingDiscount && !isEditingServiceCharge && (
+                    <kbd className="ml-1 hidden rounded border border-white/40 px-1 text-[10px] font-normal opacity-70 sm:inline">↵</kbd>
+                  )}
                 </Button>
               )}
             </>

@@ -162,6 +162,7 @@ export function TabDetailPage() {
   })
 
   const [isAddingItem, setIsAddingItem] = useState(false)
+  const productSearchInputRef = useRef<HTMLInputElement>(null)
   const [draftItems, setDraftItems] = useState<DraftItem[]>([])
   const [configuringProduct, setConfiguringProduct] = useState<Product | null>(null)
   const [modifierSelections, setModifierSelections] = useState<Record<string, string[]>>({})
@@ -186,6 +187,59 @@ export function TabDetailPage() {
   const [isPickingTransferTarget, setIsPickingTransferTarget] = useState(false)
   const [pendingTransferUndo, setPendingTransferUndo] = useState<{ itemIds: string[]; targetTabId: string; label: string } | null>(null)
   const pendingTransferUndoTimeoutRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    const hasOpenOverlay =
+      !!configuringProduct ||
+      isAddingItem ||
+      !!discountingItem ||
+      !!voidingPayment ||
+      isCompletingPayment ||
+      isPickingTransferTarget ||
+      isMerging ||
+      isConfirmingCancel ||
+      isSelectingForTransfer
+    if (!hasOpenOverlay) return
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return
+      if (configuringProduct) setConfiguringProduct(null)
+      else if (isAddingItem) setIsAddingItem(false)
+      else if (discountingItem) setDiscountingItem(null)
+      else if (voidingPayment) setVoidingPayment(null)
+      else if (isCompletingPayment) setIsCompletingPayment(false)
+      else if (isPickingTransferTarget) setIsPickingTransferTarget(false)
+      else if (isMerging) setIsMerging(false)
+      else if (isConfirmingCancel) setIsConfirmingCancel(false)
+      else if (isSelectingForTransfer) toggleTransferSelectionMode()
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [
+    configuringProduct,
+    isAddingItem,
+    discountingItem,
+    voidingPayment,
+    isCompletingPayment,
+    isPickingTransferTarget,
+    isMerging,
+    isConfirmingCancel,
+    isSelectingForTransfer,
+  ])
+
+  // "/" focuses the product search so staff can jump straight to typing between consecutive
+  // tabs, without having to reach for the mouse -- ignored while already typing in a field.
+  useEffect(() => {
+    if (!isAddingItem) return
+    function handleSlash(event: KeyboardEvent) {
+      if (event.key !== '/') return
+      const target = event.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+      event.preventDefault()
+      productSearchInputRef.current?.focus()
+    }
+    document.addEventListener('keydown', handleSlash)
+    return () => document.removeEventListener('keydown', handleSlash)
+  }, [isAddingItem])
 
   const { data: freeTables } = useQuery({
     queryKey: ['tables', 'FREE'],
@@ -1054,8 +1108,9 @@ export function TabDetailPage() {
           <div className="relative mb-3">
             <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-stone-500" />
             <input
+              ref={productSearchInputRef}
               type="text"
-              placeholder="Buscar produto..."
+              placeholder="Buscar produto... (/)"
               value={productSearch}
               onChange={(e) => setProductSearch(e.target.value)}
               className="w-full rounded-md border border-gray-300 py-2 pr-3 pl-9 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"

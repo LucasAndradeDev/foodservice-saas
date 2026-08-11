@@ -16,7 +16,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { listKitchenQueue, updateItemStatus, type KitchenItem } from '../api/kitchen'
 import type { ItemStatus } from '../api/orders'
 import { getMyRestaurant } from '../api/restaurant'
@@ -172,6 +172,15 @@ export function KitchenPage() {
   })
 
   const [itemToCancel, setItemToCancel] = useState<KitchenItem | null>(null)
+
+  useEffect(() => {
+    if (!itemToCancel) return
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setItemToCancel(null)
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [itemToCancel])
 
   function confirmCancel() {
     if (itemToCancel) {
@@ -357,9 +366,24 @@ function KitchenItemCard({
   const hasPrimaryAction =
     depth === 0 && ((item.status === 'PENDING' && canAdvance) || (item.status === 'PREPARING' && canAdvance) || (item.status === 'READY' && canDeliver))
 
+  // Enter/Space on a focused card advance it the same way its primary button would --
+  // lets kitchen staff tab through the queue without reaching for a mouse.
+  function handleCardKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!hasPrimaryAction || event.target !== event.currentTarget) return
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    if (item.status === 'PENDING') onAdvance(item.id, 'PREPARING')
+    else if (item.status === 'PREPARING') onAdvance(item.id, 'READY')
+    else if (item.status === 'READY') onAdvance(item.id, 'DELIVERED')
+  }
+
   return (
     <div
+      tabIndex={hasPrimaryAction ? 0 : undefined}
+      onKeyDown={hasPrimaryAction ? handleCardKeyDown : undefined}
       className={`p-3 sm:p-4 ${depth > 0 ? 'ml-4 border-l-2 border-gray-200 dark:border-white/10' : 'border-l-4'} ${
+        hasPrimaryAction ? 'focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-inset' : ''
+      } ${
         depth === 0
           ? delayLevel === 'critical'
             ? 'border-red-400 dark:border-red-500/50'
@@ -422,6 +446,7 @@ function KitchenItemCard({
               >
                 <PlayCircle className="h-4 w-4" />
                 Iniciar preparo
+                <kbd className="hidden rounded border border-white/40 px-1 text-[10px] font-normal opacity-70 sm:inline">↵</kbd>
               </button>
             )}
             {item.status === 'PREPARING' && canAdvance && (
@@ -432,6 +457,7 @@ function KitchenItemCard({
               >
                 <PackageCheck className="h-4 w-4" />
                 Marcar pronto
+                <kbd className="hidden rounded border border-white/40 px-1 text-[10px] font-normal opacity-70 sm:inline">↵</kbd>
               </button>
             )}
             {item.status === 'READY' && canDeliver && (
@@ -442,6 +468,7 @@ function KitchenItemCard({
               >
                 <Send className="h-4 w-4" />
                 Marcar entregue
+                <kbd className="hidden rounded border border-white/40 px-1 text-[10px] font-normal opacity-70 sm:inline">↵</kbd>
               </button>
             )}
             <button
