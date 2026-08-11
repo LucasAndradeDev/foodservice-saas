@@ -8,6 +8,7 @@ import {
   Clock,
   Coffee,
   Flame,
+  Info,
   Layers,
   MoreVertical,
   Move,
@@ -1015,15 +1016,25 @@ export function TablesPage() {
                     className="mb-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
                   />
 
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editStatus">
-                    Status
-                  </label>
+                  <div className="mb-1 flex items-center gap-1.5">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editStatus">
+                      Status
+                    </label>
+                    {selectedTable.status === 'RESERVED' && (
+                      <span
+                        title="Reservada é calculada automaticamente a partir das reservas ativas da mesa e não pode ser definida manualmente -- o status abaixo é o que a mesa volta a ser quando a reserva termina."
+                        className="inline-flex shrink-0 cursor-help"
+                      >
+                        <Info className="h-3.5 w-3.5 text-teal-500 dark:text-teal-400" />
+                      </span>
+                    )}
+                  </div>
                   <select
                     id="editStatus"
                     disabled={!canChangeStatus}
                     value={editStatus}
                     onChange={(e) => setEditStatus(e.target.value as TableStatus)}
-                    className="mb-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                    className={`w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500 ${selectedTable.status === 'RESERVED' ? 'mb-1' : 'mb-3'}`}
                   >
                     {EDITABLE_STATUSES.map((status) => (
                       <option key={status} value={status}>
@@ -1031,6 +1042,11 @@ export function TablesPage() {
                       </option>
                     ))}
                   </select>
+                  {selectedTable.status === 'RESERVED' && (
+                    <p className="mb-3 text-xs text-teal-600 dark:text-teal-400">
+                      Esta mesa está reservada agora. O status acima é o que ela assume quando a reserva terminar.
+                    </p>
+                  )}
 
                   <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editArea">
                     Área
