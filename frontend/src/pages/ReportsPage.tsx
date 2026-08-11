@@ -8,7 +8,7 @@ import { StatTile } from '../components/StatTile'
 import { TableHead, TableRow } from '../components/Table'
 import { FeedbackCard } from './reports/FeedbackCard'
 import { MonthlyGoalCard } from './reports/MonthlyGoalCard'
-import { PeakHoursHeatmap } from './reports/PeakHoursHeatmap'
+import { PeakHoursHeatmap, PeakHoursHeatmapSkeleton } from './reports/PeakHoursHeatmap'
 import { WaiterPerformanceCard } from './reports/WaiterPerformanceCard'
 import type { PaymentMethod } from '../api/tabs'
 
@@ -74,7 +74,7 @@ export function ReportsPage() {
     queryFn: () => getReportSummary(start, end),
   })
 
-  const { data: peakHours } = useQuery({
+  const { data: peakHours, isLoading: isPeakHoursLoading } = useQuery({
     queryKey: ['reports', 'peak-hours', start, end],
     queryFn: () => getPeakHours(start, end),
   })
@@ -280,25 +280,32 @@ export function ReportsPage() {
             <FeedbackCard start={start} end={end} />
           </div>
 
-          {peakHours && (
+          {isPeakHoursLoading ? (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <PeakHoursHeatmap
-                title="Ocupação de mesas por dia e hora"
-                cells={peakHours.cells}
-                metric="avgOccupiedTables"
-                unitLabel="mesas"
-                rangeStart={start}
-                rangeEnd={end}
-              />
-              <PeakHoursHeatmap
-                title="Pedidos por dia e hora"
-                cells={peakHours.cells}
-                metric="avgOrderCount"
-                unitLabel="pedidos"
-                rangeStart={start}
-                rangeEnd={end}
-              />
+              <PeakHoursHeatmapSkeleton />
+              <PeakHoursHeatmapSkeleton />
             </div>
+          ) : (
+            peakHours && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <PeakHoursHeatmap
+                  title="Ocupação de mesas por dia e hora"
+                  cells={peakHours.cells}
+                  metric="avgOccupiedTables"
+                  unitLabel="mesas"
+                  rangeStart={start}
+                  rangeEnd={end}
+                />
+                <PeakHoursHeatmap
+                  title="Pedidos por dia e hora"
+                  cells={peakHours.cells}
+                  metric="avgOrderCount"
+                  unitLabel="pedidos"
+                  rangeStart={start}
+                  rangeEnd={end}
+                />
+              </div>
+            )
           )}
         </>
       )}

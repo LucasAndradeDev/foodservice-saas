@@ -59,6 +59,17 @@
   }
 }
 
+/* Referenced via the arbitrary `animate-[...]` utility — kept out of @layer so it
+   isn't purged as unused when no class currently references the bare keyframe name. */
+@keyframes tooltip-pop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @theme {
   --font-display: 'Poppins', ui-sans-serif, system-ui, sans-serif;
   --font-elegant: 'Playfair Display', ui-serif, Georgia, serif;
