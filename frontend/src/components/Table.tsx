@@ -1,4 +1,4 @@
-import type { HTMLAttributes, TableHTMLAttributes } from 'react'
+import { forwardRef, type HTMLAttributes, type TableHTMLAttributes } from 'react'
 
 export function Table({ className = '', ...props }: TableHTMLAttributes<HTMLTableElement>) {
   return (
@@ -12,6 +12,9 @@ export function TableHead({ className = '', ...props }: HTMLAttributes<HTMLTable
   return <thead className={`bg-gray-50 text-left text-gray-500 dark:bg-white/5 dark:text-stone-400 ${className}`} {...props} />
 }
 
-export function TableRow({ className = '', ...props }: HTMLAttributes<HTMLTableRowElement>) {
-  return <tr className={`border-t border-gray-100 dark:border-white/10 ${className}`} {...props} />
-}
+export const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElement>>(function TableRow(
+  { className = '', ...props },
+  ref,
+) {
+  return <tr ref={ref} className={`border-t border-gray-100 dark:border-white/10 ${className}`} {...props} />
+})
