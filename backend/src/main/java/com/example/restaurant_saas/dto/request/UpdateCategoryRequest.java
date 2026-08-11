@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.dto.request;
 
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -10,6 +11,7 @@ public class UpdateCategoryRequest {
     private String name;
 
     @Size(max = 500, message = "Banner image URL must be at most 500 characters long")
+    @Pattern(regexp = "^$|^https?://.+|^/.+", message = "Banner image URL must start with http:// or https://")
     private String bannerImageUrl;
 
     private Boolean active;

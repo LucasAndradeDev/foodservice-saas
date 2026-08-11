@@ -18,6 +18,7 @@ public class PublicReservationService {
 
     private static final String CREATE_ACTION = "reservation-create";
     private static final String CANCEL_ACTION = "reservation-cancel";
+    private static final String LOOKUP_ACTION = "reservation-lookup";
 
     private final RestaurantRepository restaurantRepository;
     private final ReservationService reservationService;
@@ -41,6 +42,15 @@ public class PublicReservationService {
 
     @Value("${security.reservation-cancel-rate-limit.block-minutes}")
     private long cancelBlockMinutes;
+
+    @Value("${security.reservation-lookup-rate-limit.max-attempts}")
+    private int lookupMaxAttempts;
+
+    @Value("${security.reservation-lookup-rate-limit.window-minutes}")
+    private long lookupWindowMinutes;
+
+    @Value("${security.reservation-lookup-rate-limit.block-minutes}")
+    private long lookupBlockMinutes;
 
     @Transactional
     public ReservationResponse create(String slug, PublicCreateReservationRequest request, HttpServletRequest httpRequest) {
@@ -76,8 +86,14 @@ public class PublicReservationService {
     }
 
     @Transactional(readOnly = true)
-    public ReservationResponse getByToken(String token) {
-        return reservationService.getByToken(token);
+    public ReservationResponse getByToken(String token, HttpServletRequest httpRequest) {
+        rateLimitService.checkAllowed(LOOKUP_ACTION, httpRequest, token);
+        try {
+            return reservationService.getByToken(token);
+        } finally {
+            rateLimitService.recordAttempt(LOOKUP_ACTION, httpRequest, token,
+                    lookupMaxAttempts, lookupWindowMinutes, lookupBlockMinutes);
+        }
     }
 
     @Transactional

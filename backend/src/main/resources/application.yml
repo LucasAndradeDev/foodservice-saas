@@ -39,6 +39,12 @@ api:
     refresh-expiration-ms: 604800000
     admin-expiration-ms: 43200000
 
+cookie:
+  # The refresh-token cookie's Secure flag. Chrome silently refuses to store a Secure cookie set
+  # over plain http, so this must stay false for local dev/tests (http://localhost) - render.yaml
+  # sets it true in production, which is served over https end to end.
+  secure: ${COOKIE_SECURE:false}
+
 admin:
   username: ${ADMIN_USERNAME:}
   password-hash: ${ADMIN_PASSWORD_HASH:}
@@ -77,6 +83,17 @@ security:
     max-attempts: ${ADMIN_FORGOT_PASSWORD_RATE_LIMIT_MAX_ATTEMPTS:3}
     window-minutes: ${ADMIN_FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MINUTES:15}
     block-minutes: ${ADMIN_FORGOT_PASSWORD_RATE_LIMIT_BLOCK_MINUTES:30}
+  reservation-lookup-rate-limit:
+    max-attempts: ${RESERVATION_LOOKUP_RATE_LIMIT_MAX_ATTEMPTS:20}
+    window-minutes: ${RESERVATION_LOOKUP_RATE_LIMIT_WINDOW_MINUTES:15}
+    block-minutes: ${RESERVATION_LOOKUP_RATE_LIMIT_BLOCK_MINUTES:15}
+  public-order-phone-rate-limit:
+    # Caps how many times the same WhatsApp number can be handed to the public,
+    # unauthenticated self-order endpoint - stops it being used to spam an arbitrary
+    # phone number with "your order is ready" notifications.
+    max-attempts: ${PUBLIC_ORDER_PHONE_RATE_LIMIT_MAX_ATTEMPTS:3}
+    window-minutes: ${PUBLIC_ORDER_PHONE_RATE_LIMIT_WINDOW_MINUTES:60}
+    block-minutes: ${PUBLIC_ORDER_PHONE_RATE_LIMIT_BLOCK_MINUTES:120}
 
 app:
   upload-dir: ${UPLOAD_DIR:./uploads}
@@ -115,3 +132,13 @@ gemini:
 
 server:
   port: ${PORT:8080}
+
+# Off by default in a deployed environment (see render.yaml) - the API surface (endpoints, DTO
+# shapes, param names) is handed out to anyone unauthenticated otherwise, which is free
+# reconnaissance for an attacker. Left on by default here so local dev/Postman/tests keep working
+# without extra setup.
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}

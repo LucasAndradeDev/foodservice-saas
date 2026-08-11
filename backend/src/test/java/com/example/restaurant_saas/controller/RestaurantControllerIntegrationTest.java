@@ -472,7 +472,7 @@ class RestaurantControllerIntegrationTest {
     @Test
     void uploadLogo_withValidJpeg_shouldReturnUrl() throws Exception {
         String ownerToken = registerAndGetToken();
-        MockMultipartFile file = new MockMultipartFile("file", "logo.jpg", "image/jpeg", "fake-image-bytes".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "logo.jpg", "image/jpeg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 'f', 'a', 'k', 'e'});
 
         mockMvc.perform(multipart("/api/v1/restaurants/upload-logo")
                         .file(file)
@@ -509,7 +509,7 @@ class RestaurantControllerIntegrationTest {
         User waiter = TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(waiterToSave));
         String waiterToken = jwtService.generateToken(new UserDetailsImpl(waiter));
 
-        MockMultipartFile file = new MockMultipartFile("file", "logo.jpg", "image/jpeg", "fake-image-bytes".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "logo.jpg", "image/jpeg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 'f', 'a', 'k', 'e'});
 
         mockMvc.perform(multipart("/api/v1/restaurants/upload-logo")
                         .file(file)

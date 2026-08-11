@@ -832,7 +832,7 @@ class ProductControllerIntegrationTest {
     @Test
     void uploadImage_withValidJpeg_shouldReturnUrl() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
-        MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", "fake-image-bytes".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 'f', 'a', 'k', 'e'});
 
         mockMvc.perform(multipart("/api/v1/products/upload-image")
                         .file(file)
@@ -859,7 +859,7 @@ class ProductControllerIntegrationTest {
         User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         User waiter = createUserDirectly(owner, UserRole.WAITER);
         String waiterToken = tokenFor(waiter);
-        MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", "fake-image-bytes".getBytes());
+        MockMultipartFile file = new MockMultipartFile("file", "photo.jpg", "image/jpeg", new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 'f', 'a', 'k', 'e'});
 
         mockMvc.perform(multipart("/api/v1/products/upload-image")
                         .file(file)

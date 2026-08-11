@@ -43,10 +43,11 @@ public class PublicReservationController {
     @Operation(summary = "Get a reservation by its access token", description = "Returns the reservation identified by the given access token, without authentication. The token itself is the only credential -- there is no restaurant slug in this path.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Reservation returned"),
-            @ApiResponse(responseCode = "400", description = "No reservation found for this token")
+            @ApiResponse(responseCode = "400", description = "No reservation found for this token"),
+            @ApiResponse(responseCode = "429", description = "Too many lookup attempts for this token")
     })
-    public ResponseEntity<ReservationResponse> getByToken(@PathVariable String token) {
-        return ResponseEntity.ok(publicReservationService.getByToken(token));
+    public ResponseEntity<ReservationResponse> getByToken(@PathVariable String token, HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(publicReservationService.getByToken(token, httpRequest));
     }
 
     @DeleteMapping("/reservations/{token}")

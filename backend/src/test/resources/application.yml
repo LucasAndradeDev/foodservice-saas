@@ -21,6 +21,9 @@ api:
     refresh-expiration-ms: 604800000
     admin-expiration-ms: 43200000
 
+cookie:
+  secure: false
+
 admin:
   username: test-admin
   password-hash: "$2a$10$Enl.BOcoCc27EF09xcdH/O89T0FhTDk7YaOVYZsd8NBSsKyHst7t6"
@@ -59,6 +62,14 @@ security:
     max-attempts: 3
     window-minutes: 15
     block-minutes: 30
+  reservation-lookup-rate-limit:
+    max-attempts: 20
+    window-minutes: 15
+    block-minutes: 15
+  public-order-phone-rate-limit:
+    max-attempts: 3
+    window-minutes: 60
+    block-minutes: 120
 
 app:
   upload-dir: ./target/test-uploads

@@ -54,6 +54,15 @@ public class MetaWhatsAppService implements WhatsAppService {
     // Package-private + static so it's unit-testable without spinning up the RestClient (same
     // pattern as BackupService#buildConnectionUri).
     static String normalizePhone(String phone) {
-        return phone.replaceAll("[^0-9]", "");
+        String digits = phone.replaceAll("[^0-9]", "");
+        // Customers overwhelmingly type a local number ("11999999999"), not the full E.164 form
+        // the Cloud API requires - the app is Brazil-only (see the "(11) 91234-5678" placeholder
+        // in the customer-facing phone field), so a bare area-code+number (10 digits, or 11 with
+        // the extra mobile "9") gets the country code prepended. Left alone if it's already
+        // there, or the length doesn't match either shape.
+        if ((digits.length() == 10 || digits.length() == 11) && !digits.startsWith("55")) {
+            return "55" + digits;
+        }
+        return digits;
     }
 }

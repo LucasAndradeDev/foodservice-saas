@@ -103,7 +103,6 @@ export function ResetPasswordPage() {
           placeholder="Confirme a nova senha"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
-          onPaste={(e) => e.preventDefault()}
         />
 
         {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}

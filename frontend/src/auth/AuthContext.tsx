@@ -3,17 +3,19 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import {
   getMe,
   login as loginRequest,
+  logout as logoutRequest,
   registerRestaurant as registerRestaurantRequest,
   resendVerificationEmail as resendVerificationEmailRequest,
   resetPassword as resetPasswordRequest,
   type AuthResponse,
   type RegisterRestaurantPayload,
 } from '../api/auth'
-import { AUTH_LOGOUT_EVENT } from '../api/http'
+import { AUTH_LOGOUT_EVENT, refreshAccessToken } from '../api/http'
 import {
-  clearStoredAuth,
-  getStoredAuth,
-  setStoredAuth,
+  clearStoredProfile,
+  getStoredProfile,
+  setAccessToken,
+  setStoredProfile,
   updateStoredRestaurant,
   updateStoredUser,
   type StoredRestaurant,
@@ -36,7 +38,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const initial = getStoredAuth()
+  const initial = getStoredProfile()
   const [user, setUser] = useState<StoredUser | null>(initial?.user ?? null)
   const [restaurant, setRestaurant] = useState<StoredRestaurant | null>(initial?.restaurant ?? null)
   const queryClient = useQueryClient()
@@ -51,17 +53,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(AUTH_LOGOUT_EVENT, handleForcedLogout)
   }, [queryClient])
 
+  useEffect(() => {
+    // The access token is memory-only, so it's gone on every page load - warm it back up here
+    // using the httpOnly refresh cookie so the first real request doesn't have to eat a
+    // 401-then-retry round trip first. Only bother when there's a cached profile to begin with,
+    // so a genuinely logged-out visitor on a public page doesn't fire a pointless request. Not
+    // gating rendering on this: the cached profile below is shown optimistically, and the normal
+    // 401 => refresh => retry flow in api/http.ts is the real safety net if this fails silently
+    // or a request races ahead of it.
+    if (!initial) return
+    refreshAccessToken()
+      .then(setAccessToken)
+      .catch(() => {
+        clearStoredProfile()
+        setUser(null)
+        setRestaurant(null)
+      })
+    // Intentionally runs once on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function applyAuthResponse(response: AuthResponse) {
     // Clear any cached data from a previous session/restaurant before switching —
     // query keys aren't scoped by restaurantId, so stale cross-tenant data would
     // otherwise flash briefly on the first visit to each screen.
     queryClient.clear()
-    setStoredAuth({
-      accessToken: response.accessToken,
-      refreshToken: response.refreshToken,
-      user: response.user,
-      restaurant: response.restaurant,
-    })
+    setAccessToken(response.accessToken)
+    setStoredProfile({ user: response.user, restaurant: response.restaurant })
     setUser(response.user)
     setRestaurant(response.restaurant)
   }
@@ -79,8 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // Revoke the refresh-token cookie server-side - best-effort, since local logout must succeed
+    // regardless of whether the network call does (e.g. offline, token already expired).
+    logoutRequest().catch(() => {})
     queryClient.clear()
-    clearStoredAuth()
+    setAccessToken(null)
+    clearStoredProfile()
     setUser(null)
     setRestaurant(null)
   }

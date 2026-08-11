@@ -1,7 +1,7 @@
 package com.example.restaurant_saas.dto.request;
 
-import com.example.restaurant_saas.domain.enums.ProductType;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -19,9 +19,13 @@ public class UpdateProductRequest {
     private String description;
 
     @Size(max = 500, message = "Image URL must be at most 500 characters long")
+    // Either an uploaded file's own URL or one the user pasted in directly (the product form
+    // supports both) - restrict to http(s) so a javascript:/data:/file: URI can't end up stored
+    // and later rendered somewhere less inert than an <img src="...">.
+    @Pattern(regexp = "^$|^https?://.+|^/.+", message = "Image URL must start with http:// or https://")
     private String imageUrl;
 
-    private List<@Size(max = 500) String> galleryImageUrls;
+    private List<@Size(max = 500) @Pattern(regexp = "^$|^https?://.+|^/.+", message = "Image URL must start with http:// or https://") String> galleryImageUrls;
 
     @DecimalMin(value = "0.0", inclusive = false, message = "Price must be greater than zero")
     private BigDecimal price;
@@ -36,6 +40,4 @@ public class UpdateProductRequest {
     private Boolean soldOut;
 
     private Boolean featured;
-
-    private ProductType type;
 }

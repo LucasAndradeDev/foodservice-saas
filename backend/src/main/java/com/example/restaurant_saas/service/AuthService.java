@@ -11,7 +11,6 @@ import com.example.restaurant_saas.exception.RestaurantSuspendedException;
 import com.example.restaurant_saas.dto.request.ChangePasswordRequest;
 import com.example.restaurant_saas.dto.request.ForgotPasswordRequest;
 import com.example.restaurant_saas.dto.request.LoginRequest;
-import com.example.restaurant_saas.dto.request.RefreshTokenRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.ResetPasswordRequest;
 import com.example.restaurant_saas.dto.request.VerifyEmailRequest;
@@ -182,8 +181,8 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponse refreshToken(RefreshTokenRequest request) {
-        RefreshToken token = refreshTokenRepository.findByToken(request.getRefreshToken())
+    public AuthResponse refreshToken(String rawRefreshToken) {
+        RefreshToken token = refreshTokenRepository.findByToken(rawRefreshToken)
                 .orElseThrow(() -> new IllegalArgumentException("Refresh token not found."));
 
         if (Boolean.TRUE.equals(token.getRevoked()) || token.getExpiryDate().isBefore(OffsetDateTime.now())) {
@@ -200,10 +199,41 @@ public class AuthService {
             throw new RestaurantSuspendedException("Restaurant access suspended. Contact support.");
         }
 
+        // A deactivated user must lose access on their very next request, not just at their next
+        // login — refresh tokens live for days and aren't otherwise re-checked against the database.
+        // Revoke the token outright so a deactivated user can't keep probing this endpoint.
+        if (!Boolean.TRUE.equals(user.getActive())) {
+            token.setRevoked(true);
+            refreshTokenRepository.save(token);
+            throw new IllegalArgumentException("Refresh token expired or revoked.");
+        }
+
         UserDetailsImpl userDetails = new UserDetailsImpl(user);
         String newAccessToken = jwtService.generateToken(userDetails);
 
         return buildAuthResponse(newAccessToken, token.getToken(), user, user.getRestaurant());
+    }
+
+    /**
+     * Revokes a single refresh token, so a specific stolen or no-longer-wanted session can be
+     * killed without forcing a full password reset (which was previously the only way to do
+     * this). The access token itself keeps working until it naturally expires (it's a stateless
+     * JWT, nothing to revoke), but it can no longer be renewed past that point.
+     */
+    @Transactional
+    public void logout(UUID currentUserId, String rawRefreshToken) {
+        refreshTokenRepository.findByToken(rawRefreshToken).ifPresent(token -> {
+            // Only ever revoke a token that actually belongs to the caller - otherwise this
+            // endpoint would let anyone log out an arbitrary user just by guessing/brute-forcing
+            // refresh token strings (low odds given the token's entropy, but a check this cheap
+            // isn't worth skipping).
+            if (token.getUser().getId().equals(currentUserId)) {
+                token.setRevoked(true);
+                refreshTokenRepository.save(token);
+            }
+        });
+        // No error when the token is missing/already revoked/not the caller's own: logout should
+        // always look like it succeeded from the client's perspective.
     }
 
     @Transactional
@@ -217,6 +247,11 @@ public class AuthService {
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+
+        // Same reasoning as resetPassword: force re-login everywhere, since a user changing their
+        // password because they suspect compromise gains nothing if an attacker's existing session
+        // survives the change.
+        refreshTokenRepository.deleteByUser(user);
     }
 
     @Transactional

@@ -20,6 +20,7 @@ import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.TabRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderItemService {
@@ -100,7 +102,15 @@ public class OrderItemService {
         String restaurantName = tab.getRestaurant().getTradeName() != null
                 ? tab.getRestaurant().getTradeName()
                 : tab.getRestaurant().getName();
-        whatsAppService.sendOrderReadyNotification(tab.getCustomerPhone(), restaurantName);
+        try {
+            whatsAppService.sendOrderReadyNotification(tab.getCustomerPhone(), restaurantName);
+        } catch (RuntimeException ex) {
+            // A delivery failure (malformed number, provider outage, etc.) must never roll back
+            // marking the item READY - that already happened in the kitchen and is the real
+            // action here; this notification is a courtesy on top of it, not a precondition.
+            log.error("Failed to send order-ready WhatsApp notification for tab {}", tab.getId(), ex);
+            return;
+        }
         tab.setReadyNotificationSentAt(OffsetDateTime.now());
         tabRepository.save(tab);
     }
@@ -126,10 +136,16 @@ public class OrderItemService {
         if (item.getStatus() == ItemStatus.CANCELLED) {
             throw new IllegalArgumentException("Cannot discount a cancelled item.");
         }
-        if (item.getOrder().getTab().getStatus() != TabStatus.OPEN) {
+
+        // Locked (not the item's lazy tab association): must not race a concurrent
+        // registerPayments call freezing billTotal after this check passes, which would apply a
+        // discount the already-frozen bill total never accounted for.
+        Tab tab = tabRepository.findByIdAndRestaurantIdForUpdate(item.getOrder().getTab().getId(), restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Tab not found."));
+        if (tab.getStatus() != TabStatus.OPEN) {
             throw new IllegalArgumentException("Tab is not open.");
         }
-        if (item.getOrder().getTab().getBillTotal() != null) {
+        if (tab.getBillTotal() != null) {
             throw new IllegalStateException("Payment has already started for this tab.");
         }
 

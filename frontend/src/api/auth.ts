@@ -3,7 +3,6 @@ import type { StoredRestaurant, StoredUser } from '../auth/tokenStorage'
 
 export interface AuthResponse {
   accessToken: string
-  refreshToken: string
   tokenType: string
   user: StoredUser
   restaurant: StoredRestaurant
@@ -46,4 +45,10 @@ export function verifyEmail(token: string) {
 
 export function resendVerificationEmail() {
   return http.post<void>('/auth/resend-verification-email').then((res) => res.data)
+}
+
+export function logout() {
+  // The refresh token being revoked travels as an httpOnly cookie, attached automatically -
+  // nothing to pass here.
+  return http.post<void>('/auth/logout').then((res) => res.data)
 }

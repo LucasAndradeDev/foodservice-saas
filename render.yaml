@@ -28,6 +28,14 @@ services:
         sync: false
       - key: STORAGE_PROVIDER
         value: supabase
+      # Swagger/OpenAPI docs hand out the entire API surface to anyone unauthenticated -
+      # off in production, on by default everywhere else (see application.yml).
+      - key: SWAGGER_ENABLED
+        value: "false"
+      # The refresh-token cookie's Secure flag - production is served over https end to end
+      # (default is false, since Chrome refuses to store a Secure cookie set over plain http).
+      - key: COOKIE_SECURE
+        value: "true"
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY

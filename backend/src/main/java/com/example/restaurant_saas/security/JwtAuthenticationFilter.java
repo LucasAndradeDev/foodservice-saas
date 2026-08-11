@@ -1,6 +1,8 @@
 package com.example.restaurant_saas.security;
 
 import com.example.restaurant_saas.config.TenantContext;
+import com.example.restaurant_saas.domain.entity.AdminCredentials;
+import com.example.restaurant_saas.repository.AdminCredentialsRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -8,7 +10,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
@@ -32,9 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
     private final RestaurantRepository restaurantRepository;
-
-    @Value("${admin.username}")
-    private String adminUsername;
+    private final AdminCredentialsRepository adminCredentialsRepository;
 
     @Override
     protected void doFilterInternal(
@@ -59,7 +58,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     // `users` — branch here, before any UserDetailsService/DB lookup, so an admin
                     // token can never trigger a tenant user lookup (or vice versa).
                     if (JwtService.SUPER_ADMIN_ROLE.equals(jwtService.extractRole(jwt))) {
-                        if (jwtService.isAdminTokenValid(jwt, adminUsername)) {
+                        // The DB row (AdminCredentials), not the ADMIN_USERNAME env var, is the
+                        // source of truth after first boot (see AdminCredentialsSeeder) - tokens
+                        // are minted with whatever username is in the DB at issuance time
+                        // (AdminAuthService#buildAuthResponse), so validating against the env var
+                        // here would lock the admin out the moment it drifts from the DB (e.g. a
+                        // redeploy with the env var left unchanged after an admin renamed the
+                        // account).
+                        String currentAdminUsername = adminCredentialsRepository.findFirstByOrderByCreatedAtAsc()
+                                .map(AdminCredentials::getUsername)
+                                .orElse(null);
+                        if (currentAdminUsername != null && jwtService.isAdminTokenValid(jwt, currentAdminUsername)) {
                             List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(JwtService.SUPER_ADMIN_ROLE));
                             UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                                     subject,
@@ -74,7 +83,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     } else {
                         UserDetails userDetails = this.userDetailsService.loadUserByUsername(subject);
 
-                        if (jwtService.isTokenValid(jwt, userDetails.getUsername())) {
+                        if (jwtService.isTokenValid(jwt, userDetails.getUsername()) && userDetails.isEnabled()) {
                             final UUID restaurantId = jwtService.extractRestaurantId(jwt) != null
                                     ? jwtService.extractRestaurantId(jwt)
                                     : (userDetails instanceof UserDetailsImpl customUser ? customUser.getRestaurantId() : null);
@@ -82,6 +91,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             // A restaurant blocked for non-payment (Restaurant.active = false) must lose
                             // access on its very next request, not just at its next login/refresh — access
                             // tokens live for 24h and aren't otherwise re-checked against the database.
+                            // Likewise, a deactivated user (userDetails.isEnabled() above) must lose access
+                            // on its very next request, not just at its next login/refresh.
                             if (restaurantId == null || restaurantRepository.existsByIdAndActiveTrue(restaurantId)) {
                                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                                         userDetails,

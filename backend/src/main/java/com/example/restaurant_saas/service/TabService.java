@@ -74,7 +74,11 @@ public class TabService {
     public TabResponse openTab(UUID restaurantId, OpenTabRequest request) {
         List<UUID> distinctIds = request.getTableIds().stream().distinct().toList();
 
-        List<RestaurantTable> tables = tableRepository.findByIdInAndRestaurantId(distinctIds, restaurantId);
+        // Locked (not a plain read): two concurrent openTab calls for the same table must not
+        // both pass the FREE check below before either commits, which would open two tabs on one
+        // table - mirrors the same locked-read pattern already used by openOrGetTabForTable,
+        // addTable and mergeTab.
+        List<RestaurantTable> tables = tableRepository.findByIdInAndRestaurantIdForUpdate(distinctIds, restaurantId);
         if (tables.size() != distinctIds.size()) {
             throw new IllegalArgumentException("One or more tables were not found in this restaurant.");
         }

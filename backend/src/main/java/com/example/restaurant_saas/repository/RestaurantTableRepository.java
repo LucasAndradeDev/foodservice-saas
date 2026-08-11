@@ -29,4 +29,11 @@ public interface RestaurantTableRepository extends JpaRepository<RestaurantTable
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT t FROM RestaurantTable t WHERE t.id = :id AND t.restaurant.id = :restaurantId")
     Optional<RestaurantTable> findByIdAndRestaurantIdForUpdate(@Param("id") UUID id, @Param("restaurantId") UUID restaurantId);
+
+    // ORDER BY t.id gives every caller the same lock-acquisition order regardless of the order
+    // ids were passed in, so two openTab calls for overlapping table sets can't deadlock each
+    // other by locking the same two rows in opposite order.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT t FROM RestaurantTable t WHERE t.id IN :ids AND t.restaurant.id = :restaurantId ORDER BY t.id")
+    List<RestaurantTable> findByIdInAndRestaurantIdForUpdate(@Param("ids") List<UUID> ids, @Param("restaurantId") UUID restaurantId);
 }

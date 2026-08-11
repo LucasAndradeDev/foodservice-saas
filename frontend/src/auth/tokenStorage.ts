@@ -18,51 +18,64 @@ export interface StoredRestaurant {
   paymentDueDate: string | null
 }
 
-interface StoredAuth {
-  accessToken: string
-  refreshToken: string
+interface StoredProfile {
   user: StoredUser
   restaurant: StoredRestaurant
 }
 
-const STORAGE_KEY = 'restaurant_saas_auth'
+const PROFILE_STORAGE_KEY = 'restaurant_saas_profile'
 
-export function getStoredAuth(): StoredAuth | null {
-  const raw = localStorage.getItem(STORAGE_KEY)
+// Every entry written under this key before the httpOnly-cookie migration held the raw
+// access/refresh tokens in the clear. Purge it once on load so a browser that already has this
+// app open doesn't keep carrying live credentials in localStorage indefinitely.
+const LEGACY_AUTH_STORAGE_KEY = 'restaurant_saas_auth'
+localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY)
+
+// The access token lives in memory only, never in localStorage/sessionStorage - an XSS payload
+// that runs a one-off `localStorage.getItem(...)` can no longer walk off with it. It's still
+// reachable by a payload that runs *while* the app is live (e.g. by monkey-patching fetch), but
+// that's a meaningfully smaller and harder-to-pull-off attack than exfiltrating a persisted
+// value. The refresh token is stronger still: it never reaches JS at all, see ../api/http.ts.
+let accessToken: string | null = null
+
+export function getAccessToken(): string | null {
+  return accessToken
+}
+
+export function setAccessToken(token: string | null): void {
+  accessToken = token
+}
+
+export function getStoredProfile(): StoredProfile | null {
+  const raw = localStorage.getItem(PROFILE_STORAGE_KEY)
   if (!raw) return null
   try {
-    return JSON.parse(raw) as StoredAuth
+    return JSON.parse(raw) as StoredProfile
   } catch {
     return null
   }
 }
 
-export function setStoredAuth(auth: StoredAuth): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(auth))
-}
-
-export function updateStoredTokens(accessToken: string, refreshToken: string): void {
-  const current = getStoredAuth()
-  if (!current) return
-  setStoredAuth({ ...current, accessToken, refreshToken })
+export function setStoredProfile(profile: StoredProfile): void {
+  localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile))
 }
 
 export function updateStoredRestaurant(restaurant: Partial<StoredRestaurant>): StoredRestaurant | null {
-  const current = getStoredAuth()
+  const current = getStoredProfile()
   if (!current) return null
   const updated = { ...current.restaurant, ...restaurant }
-  setStoredAuth({ ...current, restaurant: updated })
+  setStoredProfile({ ...current, restaurant: updated })
   return updated
 }
 
 export function updateStoredUser(user: Partial<StoredUser>): StoredUser | null {
-  const current = getStoredAuth()
+  const current = getStoredProfile()
   if (!current) return null
   const updated = { ...current.user, ...user }
-  setStoredAuth({ ...current, user: updated })
+  setStoredProfile({ ...current, user: updated })
   return updated
 }
 
-export function clearStoredAuth(): void {
-  localStorage.removeItem(STORAGE_KEY)
+export function clearStoredProfile(): void {
+  localStorage.removeItem(PROFILE_STORAGE_KEY)
 }

@@ -1,5 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import { clearStoredAuth, getStoredAuth, updateStoredTokens } from '../auth/tokenStorage'
+import { clearStoredProfile, getAccessToken, setAccessToken } from '../auth/tokenStorage'
 
 export const AUTH_LOGOUT_EVENT = 'auth:logout'
 export const NETWORK_STATUS_EVENT = 'network:status'
@@ -13,9 +13,9 @@ export const http = axios.create({
 })
 
 http.interceptors.request.use((config) => {
-  const auth = getStoredAuth()
-  if (auth?.accessToken) {
-    config.headers.Authorization = `Bearer ${auth.accessToken}`
+  const token = getAccessToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
   }
   return config
 })
@@ -30,6 +30,14 @@ let pendingRequests: Array<(token: string) => void> = []
 function onTokenRefreshed(newToken: string) {
   pendingRequests.forEach((callback) => callback(newToken))
   pendingRequests = []
+}
+
+// The refresh token itself never reaches this code - it lives in an httpOnly cookie that the
+// browser attaches automatically to this same-origin request, so there's no body to send. A
+// plain axios call (not the `http` instance) so this doesn't recurse through these same
+// interceptors.
+export function refreshAccessToken(): Promise<string> {
+  return axios.post<{ accessToken: string }>('/api/v1/auth/refresh-token').then((res) => res.data.accessToken)
 }
 
 http.interceptors.response.use(
@@ -53,11 +61,6 @@ http.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    const auth = getStoredAuth()
-    if (!auth?.refreshToken) {
-      return Promise.reject(error)
-    }
-
     originalRequest._retry = true
 
     if (isRefreshing) {
@@ -71,15 +74,14 @@ http.interceptors.response.use(
 
     isRefreshing = true
     try {
-      const { data } = await axios.post('/api/v1/auth/refresh-token', {
-        refreshToken: auth.refreshToken,
-      })
-      updateStoredTokens(data.accessToken, data.refreshToken)
-      onTokenRefreshed(data.accessToken)
-      originalRequest.headers.Authorization = `Bearer ${data.accessToken}`
+      const newToken = await refreshAccessToken()
+      setAccessToken(newToken)
+      onTokenRefreshed(newToken)
+      originalRequest.headers.Authorization = `Bearer ${newToken}`
       return http(originalRequest)
     } catch (refreshError) {
-      clearStoredAuth()
+      setAccessToken(null)
+      clearStoredProfile()
       window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT))
       return Promise.reject(refreshError)
     } finally {
