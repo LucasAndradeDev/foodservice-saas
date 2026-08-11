@@ -1,10 +1,14 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.domain.entity.PasswordResetToken;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.CreateUserRequest;
+import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
+import com.example.restaurant_saas.dto.request.ResetPasswordRequest;
 import com.example.restaurant_saas.dto.request.UpdateUserRequest;
+import com.example.restaurant_saas.repository.PasswordResetTokenRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
@@ -42,6 +46,9 @@ class UserControllerIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private PasswordResetTokenRepository passwordResetTokenRepository;
 
     private RegisterRestaurantRequest registerRequest;
 
@@ -88,7 +95,6 @@ class UserControllerIntegrationTest {
         CreateUserRequest request = new CreateUserRequest();
         request.setName("Waiter 1");
         request.setEmail("waiter1+" + System.nanoTime() + "@test.com");
-        request.setPassword("password123");
         request.setRole(UserRole.WAITER);
 
         mockMvc.perform(post("/api/v1/users")
@@ -101,13 +107,52 @@ class UserControllerIntegrationTest {
     }
 
     @Test
+    void createUser_shouldSendPasswordSetupLink_andAllowCompletingLoginThroughIt() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String waiterEmail = "waiter1+" + System.nanoTime() + "@test.com";
+
+        CreateUserRequest request = new CreateUserRequest();
+        request.setName("Waiter 1");
+        request.setEmail(waiterEmail);
+        request.setRole(UserRole.WAITER);
+
+        mockMvc.perform(post("/api/v1/users")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+
+        // No password came in the request -- the account only becomes usable by completing
+        // the same token-based flow as forgot-password, which the invite email carries a link to.
+        User waiter = userRepository.findByEmailBypassingRls(waiterEmail).orElseThrow();
+        PasswordResetToken token = passwordResetTokenRepository.findByUser(waiter).orElseThrow();
+
+        ResetPasswordRequest completeSetup = new ResetPasswordRequest();
+        completeSetup.setToken(token.getToken());
+        completeSetup.setNewPassword("waiterChosenPassword1");
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(completeSetup)))
+                .andExpect(status().isOk());
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(waiterEmail);
+        loginRequest.setPassword("waiterChosenPassword1");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void createUser_asOwner_creatingManager_shouldSucceed() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
 
         CreateUserRequest request = new CreateUserRequest();
         request.setName("Manager 1");
         request.setEmail("manager1+" + System.nanoTime() + "@test.com");
-        request.setPassword("password123");
         request.setRole(UserRole.MANAGER);
 
         mockMvc.perform(post("/api/v1/users")
@@ -128,7 +173,6 @@ class UserControllerIntegrationTest {
         CreateUserRequest request = new CreateUserRequest();
         request.setName("Another Manager");
         request.setEmail("anothermanager+" + System.nanoTime() + "@test.com");
-        request.setPassword("password123");
         request.setRole(UserRole.MANAGER);
 
         mockMvc.perform(post("/api/v1/users")
@@ -148,7 +192,6 @@ class UserControllerIntegrationTest {
         CreateUserRequest request = new CreateUserRequest();
         request.setName("Kitchen 1");
         request.setEmail("kitchen1+" + System.nanoTime() + "@test.com");
-        request.setPassword("password123");
         request.setRole(UserRole.KITCHEN);
 
         mockMvc.perform(post("/api/v1/users")
@@ -169,7 +212,6 @@ class UserControllerIntegrationTest {
         CreateUserRequest request = new CreateUserRequest();
         request.setName("Another Waiter");
         request.setEmail("anotherwaiter+" + System.nanoTime() + "@test.com");
-        request.setPassword("password123");
         request.setRole(UserRole.WAITER);
 
         mockMvc.perform(post("/api/v1/users")
@@ -186,7 +228,6 @@ class UserControllerIntegrationTest {
         CreateUserRequest request = new CreateUserRequest();
         request.setName("Waiter 1");
         request.setEmail(registerRequest.getOwnerEmail());
-        request.setPassword("password123");
         request.setRole(UserRole.WAITER);
 
         mockMvc.perform(post("/api/v1/users")
@@ -435,6 +476,109 @@ class UserControllerIntegrationTest {
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void listUsers_filterByActive_shouldReturnOnlyMatching() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        waiter.setActive(false);
+        TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(waiter));
+
+        mockMvc.perform(get("/api/v1/users").param("active", "false")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(waiter.getId().toString()));
+    }
+
+    @Test
+    void sendPasswordResetLink_asOwner_shouldSucceed_andLinkAllowsSettingNewPassword() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+
+        mockMvc.perform(post("/api/v1/users/" + waiter.getId() + "/password-reset-link")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNoContent());
+
+        PasswordResetToken token = passwordResetTokenRepository.findByUser(waiter).orElseThrow();
+
+        ResetPasswordRequest completeReset = new ResetPasswordRequest();
+        completeReset.setToken(token.getToken());
+        completeReset.setNewPassword("brandNewPassword1");
+
+        mockMvc.perform(post("/api/v1/auth/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(completeReset)))
+                .andExpect(status().isOk());
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(waiter.getEmail());
+        loginRequest.setPassword("brandNewPassword1");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void sendPasswordResetLink_targetingSelf_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
+
+        mockMvc.perform(post("/api/v1/users/" + owner.getId() + "/password-reset-link")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void sendPasswordResetLink_targetingOwner_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
+        User secondOwner = createUserDirectly(owner, UserRole.OWNER);
+
+        mockMvc.perform(post("/api/v1/users/" + secondOwner.getId() + "/password-reset-link")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void sendPasswordResetLink_managerTargetingManager_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
+        User manager = createUserDirectly(owner, UserRole.MANAGER);
+        User anotherManager = createUserDirectly(owner, UserRole.MANAGER);
+        String managerToken = tokenFor(manager);
+
+        mockMvc.perform(post("/api/v1/users/" + anotherManager.getId() + "/password-reset-link")
+                        .header("Authorization", "Bearer " + managerToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void sendPasswordResetLink_crossTenant_shouldNotBeFound() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        RegisterRestaurantRequest otherRestaurant = new RegisterRestaurantRequest();
+        otherRestaurant.setRestaurantName("Pizza Place");
+        otherRestaurant.setOwnerName("Another Owner");
+        otherRestaurant.setOwnerEmail("resetcross+" + System.nanoTime() + "@test.com");
+        otherRestaurant.setOwnerPassword("password789");
+
+        mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(otherRestaurant)))
+                .andExpect(status().isCreated());
+
+        User otherOwner = userRepository.findByEmailBypassingRls(otherRestaurant.getOwnerEmail()).orElseThrow();
+        User otherWaiter = createUserDirectly(otherOwner, UserRole.WAITER);
+
+        mockMvc.perform(post("/api/v1/users/" + otherWaiter.getId() + "/password-reset-link")
+                        .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isBadRequest());
     }
 

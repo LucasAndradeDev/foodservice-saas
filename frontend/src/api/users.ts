@@ -13,7 +13,6 @@ export interface StaffMember {
 export interface CreateUserPayload {
   name: string
   email: string
-  password: string
   role: UserRole
 }
 
@@ -33,4 +32,8 @@ export function createUser(payload: CreateUserPayload) {
 
 export function updateUser(id: string, payload: UpdateUserPayload) {
   return http.put<StaffMember>(`/users/${id}`, payload).then((res) => res.data)
+}
+
+export function sendPasswordResetLink(id: string) {
+  return http.post<void>(`/users/${id}/password-reset-link`).then((res) => res.data)
 }

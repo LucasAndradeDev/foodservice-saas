@@ -60,7 +60,7 @@ public class UserController {
     }
 
     @PostMapping
-    @Operation(summary = "Create staff member", description = "Creates a new staff member with an initial password set by the caller. OWNER can assign MANAGER, WAITER, KITCHEN or CASHIER; MANAGER can only assign WAITER, KITCHEN or CASHIER. The OWNER role can never be assigned through this endpoint.")
+    @Operation(summary = "Create staff member", description = "Creates a new staff member with a random, never-shared password and emails them a set-password link (same mechanism as the forgot-password flow). OWNER can assign MANAGER, WAITER, KITCHEN or CASHIER; MANAGER can only assign WAITER, KITCHEN or CASHIER. The OWNER role can never be assigned through this endpoint.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Staff member created"),
             @ApiResponse(responseCode = "400", description = "Validation error or email already registered"),
@@ -90,6 +90,22 @@ public class UserController {
         UserRole actingRole = extractRole(currentUser);
         UserResponse response = userService.updateUser(currentUser.getRestaurantId(), currentUser.getId(), actingRole, id, request);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{id}/password-reset-link")
+    @Operation(summary = "Send password reset link", description = "Emails a staff member a set-password link, same token/expiry mechanism as the forgot-password flow, triggered by an OWNER/MANAGER on their behalf. Cannot target the caller's own account (use the authenticated change-password flow) or an OWNER.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Link sent"),
+            @ApiResponse(responseCode = "400", description = "User not found in this restaurant"),
+            @ApiResponse(responseCode = "403", description = "Target is the caller, an OWNER, or out of caller's management scope")
+    })
+    public ResponseEntity<Void> sendPasswordResetLink(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id
+    ) {
+        UserRole actingRole = extractRole(currentUser);
+        userService.sendPasswordResetLink(currentUser.getRestaurantId(), currentUser.getId(), actingRole, id);
+        return ResponseEntity.noContent().build();
     }
 
     private UserRole extractRole(UserDetailsImpl currentUser) {

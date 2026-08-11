@@ -127,6 +127,21 @@ public class BrevoEmailService implements EmailService {
         send(toEmail, "Confirme seu email - Morá", html);
     }
 
+    @Override
+    public void sendStaffInviteEmail(String toEmail, String setPasswordLink) {
+        String buttonRow = BUTTON_ROW.formatted(setPasswordLink, "Definir minha senha");
+        String html = SHELL.formatted(
+                LOGO_HTML,
+                "👋",
+                "Bem-vindo(a) ao Morá",
+                "Uma conta foi criada pra você no Morá. Clique no botão abaixo pra definir sua senha e acessar o sistema.",
+                buttonRow,
+                "Esse link expira em 30 minutos. Se ele expirar, peça pra quem te cadastrou reenviar."
+        );
+
+        send(toEmail, "Bem-vindo ao Morá - defina sua senha", html);
+    }
+
     private void send(String toEmail, String subject, String htmlContent) {
         Map<String, Object> body = Map.of(
                 "sender", Map.of("email", senderEmail, "name", senderName),

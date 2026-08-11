@@ -28,4 +28,9 @@ public class LogEmailService implements EmailService {
     public void sendVerificationEmail(String toEmail, String verifyLink) {
         log.info("Email verification requested for {}. Link: {}", toEmail, verifyLink);
     }
+
+    @Override
+    public void sendStaffInviteEmail(String toEmail, String setPasswordLink) {
+        log.info("Staff invite sent for {}. Set-password link: {}", toEmail, setPasswordLink);
+    }
 }

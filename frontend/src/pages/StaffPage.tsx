@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BarChart3, CheckCircle2, Circle, Clock, Filter, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
+import { BarChart3, CheckCircle2, Circle, Clock, Filter, KeyRound, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import type { UserRole } from '../auth/types'
-import { createUser, listUsers, updateUser, type StaffMember } from '../api/users'
+import { createUser, listUsers, sendPasswordResetLink, updateUser, type StaffMember } from '../api/users'
 import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
 import { SectionTabs } from '../components/SectionTabs'
@@ -53,10 +54,13 @@ export function StaffPage() {
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [role, setRole] = useState<UserRole>(assignableRoles[0])
   const [active, setActive] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [sendingLinkFor, setSendingLinkFor] = useState<StaffMember | null>(null)
+  const [sendLinkError, setSendLinkError] = useState<string | null>(null)
+  const [linkSentFor, setLinkSentFor] = useState<string | null>(null)
 
   const createMutation = useMutation({
     mutationFn: createUser,
@@ -77,6 +81,16 @@ export function StaffPage() {
     onError: () => setError('Não foi possível salvar as alterações.'),
   })
 
+  const sendResetLinkMutation = useMutation({
+    mutationFn: (id: string) => sendPasswordResetLink(id),
+    onSuccess: () => {
+      setLinkSentFor(sendingLinkFor?.name ?? null)
+      setSendingLinkFor(null)
+      setSendLinkError(null)
+    },
+    onError: () => setSendLinkError('Não foi possível enviar o link. Tente de novo.'),
+  })
+
   function canEditRow(row: StaffMember) {
     if (row.id === user?.id) return false
     if (row.role === 'OWNER') return false
@@ -87,7 +101,6 @@ export function StaffPage() {
   function openCreateForm() {
     setName('')
     setEmail('')
-    setPassword('')
     setRole(assignableRoles[0])
     setError(null)
     setIsCreating(true)
@@ -106,10 +119,16 @@ export function StaffPage() {
     setEditingStaff(null)
   }
 
+  function openSendLinkConfirm(row: StaffMember) {
+    setLinkSentFor(null)
+    setSendLinkError(null)
+    setSendingLinkFor(row)
+  }
+
   function handleCreateSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
-    createMutation.mutate({ name, email, password, role })
+    createMutation.mutate({ name, email, role })
   }
 
   function handleEditSubmit(event: FormEvent) {
@@ -145,6 +164,10 @@ export function StaffPage() {
           </Button>
         </div>
       </div>
+
+      {linkSentFor && (
+        <p className="mb-4 text-sm text-sage-700 dark:text-sage-400">Link de senha enviado pro email de {linkSentFor}.</p>
+      )}
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
@@ -196,15 +219,26 @@ export function StaffPage() {
                       </Link>
                     )}
                     {canEditRow(row) && (
-                      <button
-                        type="button"
-                        onClick={() => openEditForm(row)}
-                        title="Editar"
-                        aria-label="Editar"
-                        className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
-                      >
-                        <Pencil className="h-[18px] w-[18px]" />
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => openSendLinkConfirm(row)}
+                          title="Enviar link de senha por email"
+                          aria-label="Enviar link de senha por email"
+                          className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+                        >
+                          <KeyRound className="h-[18px] w-[18px]" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(row)}
+                          title="Editar"
+                          aria-label="Editar"
+                          className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+                        >
+                          <Pencil className="h-[18px] w-[18px]" />
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
@@ -257,15 +291,26 @@ export function StaffPage() {
                           </Link>
                         )}
                         {canEditRow(row) && (
-                          <button
-                            type="button"
-                            onClick={() => openEditForm(row)}
-                            title="Editar"
-                            aria-label="Editar"
-                            className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => openSendLinkConfirm(row)}
+                              title="Enviar link de senha por email"
+                              aria-label="Enviar link de senha por email"
+                              className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+                            >
+                              <KeyRound className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openEditForm(row)}
+                              title="Editar"
+                              aria-label="Editar"
+                              className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -305,18 +350,9 @@ export function StaffPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffPassword">
-              Senha
-            </label>
-            <input
-              id="staffPassword"
-              type="password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-            />
+            <p className="mb-4 text-xs text-gray-500 dark:text-stone-400">
+              Vamos mandar um email pro funcionário com um link pra ele definir a própria senha.
+            </p>
 
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffRole">
               Papel
@@ -387,6 +423,20 @@ export function StaffPage() {
             </Button>
           </form>
         </Modal>
+      )}
+
+      {sendingLinkFor && (
+        <ConfirmDialog
+          title="Enviar link de senha"
+          message={
+            sendLinkError ??
+            `Vamos mandar um email pra ${sendingLinkFor.email} com um link pra ${sendingLinkFor.name} definir uma senha nova.`
+          }
+          confirmLabel="Enviar"
+          isLoading={sendResetLinkMutation.isPending}
+          onConfirm={() => sendResetLinkMutation.mutate(sendingLinkFor.id)}
+          onCancel={() => setSendingLinkFor(null)}
+        />
       )}
     </div>
   )
