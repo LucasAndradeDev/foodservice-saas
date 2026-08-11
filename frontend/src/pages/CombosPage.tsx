@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRightLeft, CheckCircle2, Circle, Layers, MoreVertical, Package, Pencil, Plus, Power, Tag, Trash2 } from 'lucide-react'
+import { CheckCircle2, Circle, Layers, MoreVertical, Package, Pencil, Plus, Power, Tag, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { deleteProduct, updateProduct, listProducts, type Product } from '../api/products'
@@ -44,15 +44,6 @@ export function CombosPage() {
 
   function toggleActive(combo: Product) {
     updateMutation.mutate({ id: combo.id, payload: { active: !combo.active } })
-  }
-
-  function convertToSimple(combo: Product) {
-    const confirmed = window.confirm(
-      `Transformar "${combo.name}" em produto simples? A composição do combo (itens fixos e grupos de escolha) será apagada e essa ação não pode ser desfeita.`,
-    )
-    if (confirmed) {
-      updateMutation.mutate({ id: combo.id, payload: { type: 'SIMPLE' } })
-    }
   }
 
   function handleDelete(combo: Product) {
@@ -132,7 +123,6 @@ export function CombosPage() {
                   <ComboActionButtons
                     combo={combo}
                     onToggleActive={() => toggleActive(combo)}
-                    onConvertToSimple={() => convertToSimple(combo)}
                     onDelete={() => handleDelete(combo)}
                   />
                 )}
@@ -179,7 +169,6 @@ export function CombosPage() {
                         <ComboActionButtons
                           combo={combo}
                           onToggleActive={() => toggleActive(combo)}
-                          onConvertToSimple={() => convertToSimple(combo)}
                           onDelete={() => handleDelete(combo)}
                         />
                       </td>
@@ -198,23 +187,15 @@ export function CombosPage() {
 interface ComboActionButtonsProps {
   combo: Product
   onToggleActive: () => void
-  onConvertToSimple: () => void
   onDelete: () => void
 }
 
-function ComboActionButtons({ combo, onToggleActive, onConvertToSimple, onDelete }: ComboActionButtonsProps) {
+function ComboActionButtons({ combo, onToggleActive, onDelete }: ComboActionButtonsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
 
   const items: ActionMenuEntry[] = [
     { key: 'active', label: combo.active ? 'Desativar' : 'Ativar', icon: Power, onClick: onToggleActive },
-    {
-      key: 'convert',
-      label: 'Transformar em produto simples',
-      icon: ArrowRightLeft,
-      onClick: onConvertToSimple,
-      tone: 'warning',
-    },
     { divider: true },
     { key: 'delete', label: 'Excluir', icon: Trash2, onClick: onDelete, tone: 'danger' },
   ]

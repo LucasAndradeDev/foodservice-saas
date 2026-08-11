@@ -152,15 +152,6 @@ public class ProductService {
         if (request.getFeatured() != null) {
             product.setFeatured(request.getFeatured());
         }
-        if (request.getType() != null && request.getType() != product.getType()) {
-            if (request.getType() == ProductType.SIMPLE) {
-                comboItemRepository.deleteByComboProductId(productId);
-                comboSlotRepository.deleteByComboProductId(productId);
-                product.setDiscountPercentage(null);
-            }
-            product.setType(request.getType());
-        }
-
         Product saved = productRepository.save(product);
         if (request.getGalleryImageUrls() != null) {
             saveGalleryImages(restaurantId, saved, request.getGalleryImageUrls());

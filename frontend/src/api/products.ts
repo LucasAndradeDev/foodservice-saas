@@ -52,7 +52,7 @@ export function createProduct(payload: ProductPayload) {
   return http.post<Product>('/products', payload).then((res) => res.data)
 }
 
-export function updateProduct(id: string, payload: Partial<ProductPayload & { active: boolean; soldOut: boolean; type: ProductType }>) {
+export function updateProduct(id: string, payload: Partial<Omit<ProductPayload, 'type'> & { active: boolean; soldOut: boolean }>) {
   return http.put<Product>(`/products/${id}`, payload).then((res) => res.data)
 }
 
