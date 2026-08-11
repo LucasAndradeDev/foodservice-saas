@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { adminLogin } from '../api/admin'
+import { adminLogin, adminResetPassword } from '../api/admin'
 import { ADMIN_LOGOUT_EVENT } from './adminHttp'
 import { clearAdminToken, getAdminToken, setAdminToken } from './adminTokenStorage'
 
 interface AdminAuthContextValue {
   isAuthenticated: boolean
   login: (username: string, password: string) => Promise<void>
+  resetPassword: (token: string, newPassword: string) => Promise<void>
   logout: () => void
 }
 
@@ -28,13 +29,19 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     setToken(response.accessToken)
   }
 
+  async function resetPassword(token: string, newPassword: string) {
+    const response = await adminResetPassword(token, newPassword)
+    setAdminToken(response.accessToken)
+    setToken(response.accessToken)
+  }
+
   function logout() {
     clearAdminToken()
     setToken(null)
   }
 
   return (
-    <AdminAuthContext.Provider value={{ isAuthenticated: token !== null, login, logout }}>
+    <AdminAuthContext.Provider value={{ isAuthenticated: token !== null, login, resetPassword, logout }}>
       {children}
     </AdminAuthContext.Provider>
   )

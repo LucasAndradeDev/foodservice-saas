@@ -9,6 +9,14 @@ export function adminLogin(username: string, password: string) {
   return adminHttp.post<AdminLoginResponse>('/login', { username, password }).then((res) => res.data)
 }
 
+export function adminForgotPassword() {
+  return adminHttp.post<void>('/forgot-password').then((res) => res.data)
+}
+
+export function adminResetPassword(token: string, newPassword: string) {
+  return adminHttp.post<AdminLoginResponse>('/reset-password', { token, newPassword }).then((res) => res.data)
+}
+
 export interface AdminRestaurant {
   id: string
   name: string

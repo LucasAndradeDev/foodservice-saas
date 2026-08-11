@@ -46,7 +46,11 @@ public class SecurityConfig {
                         // Not actually open: BackupController checks its own X-Backup-Token header,
                         // since the caller (GitHub Actions cron) has no user JWT to send.
                         .requestMatchers("/api/v1/internal/**").permitAll()
-                        .requestMatchers("/api/v1/admin/login").permitAll()
+                        .requestMatchers(
+                                "/api/v1/admin/login",
+                                "/api/v1/admin/forgot-password",
+                                "/api/v1/admin/reset-password"
+                        ).permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         // Admin and tenant paths are mutually exclusive at the matcher level (not just

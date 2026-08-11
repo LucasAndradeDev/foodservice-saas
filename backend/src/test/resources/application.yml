@@ -24,6 +24,7 @@ api:
 admin:
   username: test-admin
   password-hash: "$2a$10$Enl.BOcoCc27EF09xcdH/O89T0FhTDk7YaOVYZsd8NBSsKyHst7t6"
+  email: admin-test@example.com
 
 security:
   login-rate-limit:
@@ -54,6 +55,10 @@ security:
     max-attempts: 5
     window-minutes: 15
     block-minutes: 60
+  admin-forgot-password-rate-limit:
+    max-attempts: 3
+    window-minutes: 15
+    block-minutes: 30
 
 app:
   upload-dir: ./target/test-uploads

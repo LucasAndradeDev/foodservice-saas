@@ -1,7 +1,9 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AdminAuthProvider } from './admin/AdminAuthContext'
+import { AdminForgotPasswordPage } from './admin/AdminForgotPasswordPage'
 import { AdminLoginPage } from './admin/AdminLoginPage'
 import { AdminProtectedRoute } from './admin/AdminProtectedRoute'
+import { AdminResetPasswordPage } from './admin/AdminResetPasswordPage'
 import { AdminRestaurantsPage } from './admin/AdminRestaurantsPage'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
@@ -49,6 +51,22 @@ function App() {
           <AdminAuthProvider>
             <Routes>
             <Route path="/admin/login" element={<AdminLoginPage />} />
+            <Route
+              path="/admin/forgot-password"
+              element={
+                <AuthLayout>
+                  <AdminForgotPasswordPage />
+                </AuthLayout>
+              }
+            />
+            <Route
+              path="/admin/reset-password"
+              element={
+                <AuthLayout>
+                  <AdminResetPasswordPage />
+                </AuthLayout>
+              }
+            />
             <Route element={<AdminProtectedRoute />}>
               <Route path="/admin/restaurants" element={<AdminRestaurantsPage />} />
             </Route>

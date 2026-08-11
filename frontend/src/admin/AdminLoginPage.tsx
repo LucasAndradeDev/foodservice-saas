@@ -1,6 +1,6 @@
 import { Lock, User } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { AuthInput, AuthLayout } from '../components/AuthLayout'
 import { Logo } from '../theme/Logo'
 import { useAdminAuth } from './AdminAuthContext'
@@ -67,6 +67,12 @@ export function AdminLoginPage() {
           {isSubmitting ? 'Entrando...' : 'Acessar'}
         </button>
       </form>
+
+      <p className="mt-6 text-center text-sm text-gray-600 dark:text-stone-400">
+        <Link to="/admin/forgot-password" className="font-medium text-brand-700 hover:underline dark:text-brand-400">
+          Esqueci minha senha
+        </Link>
+      </p>
     </AuthLayout>
   )
 }
