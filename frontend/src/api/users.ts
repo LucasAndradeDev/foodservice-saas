@@ -23,8 +23,8 @@ export interface UpdateUserPayload {
   active?: boolean
 }
 
-export function listUsers() {
-  return http.get<StaffMember[]>('/users').then((res) => res.data)
+export function listUsers(active?: boolean) {
+  return http.get<StaffMember[]>('/users', { params: { active } }).then((res) => res.data)
 }
 
 export function createUser(payload: CreateUserPayload) {

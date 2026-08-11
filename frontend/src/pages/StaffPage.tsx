@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Circle, Clock, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
+import { BarChart3, CheckCircle2, Circle, Clock, Filter, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import type { UserRole } from '../auth/types'
 import { createUser, listUsers, updateUser, type StaffMember } from '../api/users'
 import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
+import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
 import { SectionTabs } from '../components/SectionTabs'
 import { Table, TableHead, TableRow } from '../components/Table'
@@ -29,14 +31,22 @@ const ASSIGNABLE_ROLES: Record<'OWNER' | 'MANAGER', UserRole[]> = {
   MANAGER: ['WAITER', 'KITCHEN', 'CASHIER'],
 }
 
+const STATUS_FILTER_OPTIONS: { value: 'active' | 'inactive' | 'all'; label: string }[] = [
+  { value: 'active', label: 'Ativos' },
+  { value: 'inactive', label: 'Inativos' },
+  { value: 'all', label: 'Todos' },
+]
+
 export function StaffPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const assignableRoles = user?.role === 'OWNER' ? ASSIGNABLE_ROLES.OWNER : ASSIGNABLE_ROLES.MANAGER
 
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active')
+
   const { data: staff, isLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => listUsers(),
+    queryKey: ['users', statusFilter],
+    queryFn: () => listUsers(statusFilter === 'all' ? undefined : statusFilter === 'active'),
   })
 
   const [isCreating, setIsCreating] = useState(false)
@@ -113,23 +123,37 @@ export function StaffPage() {
     <div>
       <SectionTabs tabs={MANAGEMENT_TABS} />
 
-      <div className="mb-5 flex items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+      <div className="mb-5 flex flex-col gap-4 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
             <Users className="h-5 w-5" />
           </span>
           <h1 className="truncate text-lg font-bold text-gray-900 dark:text-white">Funcionários</h1>
         </div>
-        <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Novo funcionário</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Dropdown
+            value={statusFilter}
+            options={STATUS_FILTER_OPTIONS}
+            onChange={setStatusFilter}
+            icon={Filter}
+            panelClassName="w-40"
+            mobileTitle="Filtrar por status"
+          />
+          <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Novo funcionário</span>
+          </Button>
+        </div>
       </div>
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {staff && staff.length === 0 && (
-        <p className="text-sm text-gray-500 dark:text-stone-400">Nenhum funcionário cadastrado.</p>
+        <p className="text-sm text-gray-500 dark:text-stone-400">
+          {statusFilter === 'active' && 'Nenhum funcionário ativo.'}
+          {statusFilter === 'inactive' && 'Nenhum funcionário inativo.'}
+          {statusFilter === 'all' && 'Nenhum funcionário cadastrado.'}
+        </p>
       )}
 
       {staff && staff.length > 0 && (
@@ -159,17 +183,29 @@ export function StaffPage() {
                 <div className="mb-2 text-sm text-gray-500 dark:text-stone-400">
                   {row.email} · {ROLE_LABELS[row.role]}
                 </div>
-                {canEditRow(row) && (
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => openEditForm(row)}
-                      title="Editar"
-                      aria-label="Editar"
-                      className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
-                    >
-                      <Pencil className="h-[18px] w-[18px]" />
-                    </button>
+                {(canEditRow(row) || row.role === 'WAITER') && (
+                  <div className="flex justify-end gap-1">
+                    {row.role === 'WAITER' && (
+                      <Link
+                        to={`/reports?waiter=${row.id}`}
+                        title="Ver desempenho"
+                        aria-label="Ver desempenho"
+                        className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+                      >
+                        <BarChart3 className="h-[18px] w-[18px]" />
+                      </Link>
+                    )}
+                    {canEditRow(row) && (
+                      <button
+                        type="button"
+                        onClick={() => openEditForm(row)}
+                        title="Editar"
+                        aria-label="Editar"
+                        className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+                      >
+                        <Pencil className="h-[18px] w-[18px]" />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -209,17 +245,29 @@ export function StaffPage() {
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right">
-                      {canEditRow(row) && (
-                        <button
-                          type="button"
-                          onClick={() => openEditForm(row)}
-                          title="Editar"
-                          aria-label="Editar"
-                          className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                      )}
+                      <div className="flex justify-end gap-1">
+                        {row.role === 'WAITER' && (
+                          <Link
+                            to={`/reports?waiter=${row.id}`}
+                            title="Ver desempenho"
+                            aria-label="Ver desempenho"
+                            className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+                          >
+                            <BarChart3 className="h-4 w-4" />
+                          </Link>
+                        )}
+                        {canEditRow(row) && (
+                          <button
+                            type="button"
+                            onClick={() => openEditForm(row)}
+                            title="Editar"
+                            aria-label="Editar"
+                            className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-brand-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-brand-400"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </TableRow>
                 ))}

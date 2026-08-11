@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Users } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { getWaiterPerformance } from '../../api/reports'
 import { Card } from '../../components/Card'
 import { TableHead, TableRow } from '../../components/Table'
@@ -16,6 +18,18 @@ export function WaiterPerformanceCard({ start, end }: WaiterPerformanceCardProps
     queryKey: ['reports', 'waiter-performance', start, end],
     queryFn: () => getWaiterPerformance(start, end),
   })
+
+  // Deep-linked from the row's shortcut in Funcionários (?waiter=<id>) -- highlights and scrolls
+  // to that waiter's row so the owner doesn't have to hunt for it in a long table.
+  const [searchParams] = useSearchParams()
+  const highlightedWaiterId = searchParams.get('waiter')
+  const highlightedRowRef = useRef<HTMLTableRowElement>(null)
+
+  useEffect(() => {
+    if (highlightedWaiterId && highlightedRowRef.current) {
+      highlightedRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlightedWaiterId, data])
 
   return (
     <Card className="overflow-hidden">
@@ -40,10 +54,14 @@ export function WaiterPerformanceCard({ start, end }: WaiterPerformanceCardProps
             <tbody>
               {data.rows.map((row) => {
                 const isSelfService = row.waiterId === null
+                const isHighlighted = row.waiterId !== null && row.waiterId === highlightedWaiterId
                 return (
                   <TableRow
                     key={row.waiterId ?? 'self-service'}
-                    className={isSelfService ? 'text-gray-500 italic dark:text-stone-400' : ''}
+                    ref={isHighlighted ? highlightedRowRef : undefined}
+                    className={`${isSelfService ? 'text-gray-500 italic dark:text-stone-400' : ''} ${
+                      isHighlighted ? 'bg-brand-50 dark:bg-brand-500/10' : ''
+                    }`}
                   >
                     <td className="px-4 py-2 text-gray-800 dark:text-white">
                       {isSelfService ? 'Autoatendimento' : row.waiterName}
