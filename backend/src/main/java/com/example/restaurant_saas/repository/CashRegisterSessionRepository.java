@@ -5,6 +5,7 @@ import com.example.restaurant_saas.domain.enums.CashRegisterSessionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -14,4 +15,6 @@ public interface CashRegisterSessionRepository extends JpaRepository<CashRegiste
     boolean existsByRestaurantIdAndStatus(UUID restaurantId, CashRegisterSessionStatus status);
     Optional<CashRegisterSession> findByRestaurantIdAndStatus(UUID restaurantId, CashRegisterSessionStatus status);
     List<CashRegisterSession> findTop30ByRestaurantIdOrderByOpenedAtDesc(UUID restaurantId);
+    List<CashRegisterSession> findByRestaurantIdAndOpenedAtBetweenOrderByOpenedAtDesc(
+            UUID restaurantId, OffsetDateTime from, OffsetDateTime to);
 }

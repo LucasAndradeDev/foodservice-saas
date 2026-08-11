@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
-import { Banknote, History, Lock, MinusCircle, Unlock } from 'lucide-react'
+import { Banknote, History, Lock, MinusCircle, Unlock, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import {
   addCashWithdrawal,
@@ -10,7 +10,9 @@ import {
   openCashRegister,
 } from '../api/cashRegister'
 import { Button } from '../components/Button'
+import { DateRangePicker } from '../components/DateRangePicker'
 import { Modal } from '../components/Modal'
+import { toDateInputValue } from '../utils/calendarGrid'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -31,9 +33,12 @@ export function CashRegisterPage() {
     refetchInterval: 15000,
   })
 
+  const today = toDateInputValue(new Date())
+  const [historyRange, setHistoryRange] = useState<{ start: string; end: string } | null>(null)
+
   const { data: sessions } = useQuery({
-    queryKey: ['cash-register', 'sessions'],
-    queryFn: listCashRegisterSessions,
+    queryKey: ['cash-register', 'sessions', historyRange],
+    queryFn: () => listCashRegisterSessions(historyRange ?? undefined),
   })
 
   const [isOpeningForm, setIsOpeningForm] = useState(false)
@@ -219,13 +224,42 @@ export function CashRegisterPage() {
         </div>
       )}
 
-      {sessions && sessions.length > 0 && (
+      {((sessions && sessions.length > 0) || historyRange) && (
         <div className="mt-8">
-          <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-stone-300">
-            <History className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-            Histórico de turnos
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-stone-300">
+              <History className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+              Histórico de turnos
+              {!historyRange && <span className="text-xs font-normal text-gray-400 dark:text-stone-500">(30 mais recentes)</span>}
+            </div>
+            <div className="flex items-center gap-2">
+              <DateRangePicker
+                start={historyRange?.start ?? today}
+                end={historyRange?.end ?? today}
+                maxDate={today}
+                onChange={(range) => setHistoryRange(range)}
+              />
+              {historyRange && (
+                <button
+                  type="button"
+                  onClick={() => setHistoryRange(null)}
+                  aria-label="Limpar filtro de data"
+                  title="Limpar filtro de data"
+                  className="rounded-lg border border-gray-200 p-2 text-gray-500 hover:bg-gray-100 dark:border-white/10 dark:text-stone-400 dark:hover:bg-white/5"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
+
+          {sessions && sessions.length === 0 && (
+            <p className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-6 text-center text-sm text-gray-500 dark:border-white/10 dark:bg-stone-900 dark:text-stone-400">
+              Nenhum turno encontrado nesse período.
+            </p>
+          )}
           {/* Mobile: stacked cards, no horizontal scroll needed */}
+          {sessions && sessions.length > 0 && (
           <div className="space-y-2 sm:hidden">
             {sessions.map((session) => (
               <div
@@ -271,8 +305,10 @@ export function CashRegisterPage() {
               </div>
             ))}
           </div>
+          )}
 
           {/* Desktop: table */}
+          {sessions && sessions.length > 0 && (
           <div className="hidden overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-xs sm:block dark:border-white/10 dark:bg-stone-900">
             <table className="w-full text-left text-sm">
               <thead>
@@ -319,6 +355,7 @@ export function CashRegisterPage() {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       )}
 

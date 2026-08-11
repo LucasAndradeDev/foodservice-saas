@@ -18,7 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,8 +42,17 @@ public class CashRegisterService {
     }
 
     @Transactional(readOnly = true)
-    public List<CashRegisterSessionResponse> listHistory(UUID restaurantId) {
-        return sessionRepository.findTop30ByRestaurantIdOrderByOpenedAtDesc(restaurantId).stream()
+    public List<CashRegisterSessionResponse> listHistory(UUID restaurantId, LocalDate start, LocalDate end) {
+        List<CashRegisterSession> sessions;
+        if (start != null && end != null) {
+            ZoneId zone = ZoneId.systemDefault();
+            OffsetDateTime rangeStart = start.atStartOfDay(zone).toOffsetDateTime();
+            OffsetDateTime rangeEnd = end.plusDays(1).atStartOfDay(zone).toOffsetDateTime();
+            sessions = sessionRepository.findByRestaurantIdAndOpenedAtBetweenOrderByOpenedAtDesc(restaurantId, rangeStart, rangeEnd);
+        } else {
+            sessions = sessionRepository.findTop30ByRestaurantIdOrderByOpenedAtDesc(restaurantId);
+        }
+        return sessions.stream()
                 .map(session -> toResponse(session, session.getExpectedAmount()))
                 .toList();
     }

@@ -17,8 +17,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -41,11 +43,13 @@ public class CashRegisterController {
     }
 
     @GetMapping("/sessions")
-    @Operation(summary = "List cash register session history", description = "Lists the most recent cash register sessions, newest first.")
+    @Operation(summary = "List cash register session history", description = "Lists cash register sessions, newest first. Without a date range, returns the 30 most recent; with both `start` and `end`, returns every session opened in that range instead.")
     public ResponseEntity<List<CashRegisterSessionResponse>> listHistory(
-            @AuthenticationPrincipal UserDetailsImpl currentUser
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end
     ) {
-        return ResponseEntity.ok(cashRegisterService.listHistory(currentUser.getRestaurantId()));
+        return ResponseEntity.ok(cashRegisterService.listHistory(currentUser.getRestaurantId(), start, end));
     }
 
     @PostMapping("/open")

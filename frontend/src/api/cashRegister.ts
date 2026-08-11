@@ -29,8 +29,10 @@ export function getCurrentSession() {
   return http.get<CashRegisterSession>('/cash-register/current').then((res) => res.data || null)
 }
 
-export function listCashRegisterSessions() {
-  return http.get<CashRegisterSession[]>('/cash-register/sessions').then((res) => res.data)
+export function listCashRegisterSessions(range?: { start: string; end: string }) {
+  return http
+    .get<CashRegisterSession[]>('/cash-register/sessions', { params: range })
+    .then((res) => res.data)
 }
 
 export function openCashRegister(openingAmount: number) {
