@@ -16,6 +16,12 @@ services:
       # Restricted runtime role for Hibernate (RLS, Camada 3 - see docs/RLS_DESIGN.md).
       # Same host/database as SPRING_DATASOURCE_URL above, different role - Flyway and
       # BackupService keep using the owner role (SPRING_DATASOURCE_*) directly.
+      # APP_DATASOURCE_RUNTIME_URL MUST be Neon's DIRECT connection string ("Connection
+      # pooling" toggle OFF in Neon's Connect modal - no "-pooler" in the host). The pooled
+      # endpoint silently breaks RLS: TenantAwareDataSource's session-level set_config can
+      # get orphaned when PgBouncer reassigns the logical connection to a different backend
+      # between transactions. Learned this in production on 2026-08-11 - see
+      # docs/RLS_DESIGN.md, Achado 4, before changing this back to a pooled URL.
       - key: APP_DATASOURCE_RUNTIME_URL
         sync: false
       - key: APP_DATASOURCE_RUNTIME_USERNAME

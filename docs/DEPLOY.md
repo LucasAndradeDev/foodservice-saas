@@ -40,6 +40,9 @@ Frontend e backend ficam em domínios `onrender.com` diferentes. Em vez de CORS,
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → Secret keys (novo nome da antiga "service_role key") |
 | `SUPABASE_STORAGE_BUCKET` | `uploads` |
 | `STORAGE_PROVIDER` | `supabase` (já vem fixo no `render.yaml`, não precisa preencher) |
+| `APP_DATASOURCE_RUNTIME_URL` | Neon → **Connect** → role `app_runtime` → connection string com **"Connection pooling" desligado** (endpoint direto, sem sufixo `-pooler` no host). **Nunca o pooled** — ver problema #12 abaixo. Montar como `jdbc:postgresql://<host-direto>/<database>?sslmode=require`, sem credenciais embutidas (mesma regra do problema #2) |
+| `APP_DATASOURCE_RUNTIME_USERNAME` | `app_runtime` |
+| `APP_DATASOURCE_RUNTIME_PASSWORD` | gerada com `openssl rand -base64 32` e setada no Neon via `ALTER ROLE app_runtime WITH PASSWORD '...'` (rotacionada em 2026-08-11 — o valor original vinha hardcoded na migration `V45`, nunca deveria ter sido usado como estava) |
 
 ## Status atual
 
@@ -66,6 +69,7 @@ Frontend e backend ficam em domínios `onrender.com` diferentes. Em vez de CORS,
 9. Os nomes dos serviços no `render.yaml` (`mora-backend`, `mora-frontend`) já estavam em uso por outra conta, então o Render gerou URLs com sufixo aleatório (`mora-backend-ubuw`, `mora-frontend-tdmc`). Sempre confirmar a URL real na página do serviço em vez de assumir o nome "limpo".
 10. Testar direto a rota raiz `/` do backend dá 403 — é o Spring Security bloqueando por padrão, não indica que o serviço está fora do ar. Usar `/actuator/health` pra checar se subiu.
 11. Rewrite configurado sem o `*` no final (`/api/` em vez de `/api/*`) não pega os subcaminhos reais que o frontend chama (`/api/v1/...`) — sempre incluir o wildcard nos dois campos (Source e Destination).
+12. **`APP_DATASOURCE_RUNTIME_URL` no endpoint pooled do Neon quebra o RLS silenciosamente** (2026-08-11) — o datasource restrito (role `app_runtime`, sujeita a Row-Level Security, ver `docs/RLS_DESIGN.md`) usa `set_config` de **sessão** pra avisar o Postgres de qual restaurante é a conexão. Num pooler em modo transação (o `-pooler` do Neon), o backend físico pode mudar entre uma transação e outra sem aviso — o aviso feito numa transação pode nunca chegar na próxima. Sintoma esperado: dado sumindo pro tenant autenticado (RLS falha fechado), mas o cenário pior não pode ser descartado sem testar. Sempre usar o endpoint **direto** (sem `-pooler`) pra essa variável especificamente — a role dona (`SPRING_DATASOURCE_*`) pode continuar no pooled normalmente, já que ignora RLS.
 
 ## Hospedagem definitiva do banco — decisão tomada (2026-08-05)
 
