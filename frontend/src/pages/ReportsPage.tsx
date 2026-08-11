@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Receipt, TrendingDown, TrendingUp, Wallet, type LucideIcon } from 'lucide-react'
+import { BarChart3, Receipt, TrendingUp, Wallet } from 'lucide-react'
 import { useState } from 'react'
 import { getPeakHours, getReportSummary } from '../api/reports'
 import { Card } from '../components/Card'
 import { DateRangePicker } from '../components/DateRangePicker'
+import { StatTile } from '../components/StatTile'
 import { TableHead, TableRow } from '../components/Table'
 import { FeedbackCard } from './reports/FeedbackCard'
 import { MonthlyGoalCard } from './reports/MonthlyGoalCard'
@@ -61,58 +62,6 @@ function getPreviousPeriodRange(start: string, end: string) {
 function formatDateShort(value: string, referenceYear: number) {
   const [year, month, day] = value.split('-')
   return Number(year) === referenceYear ? `${day}/${month}` : `${day}/${month}/${year}`
-}
-
-interface StatTileProps {
-  icon: LucideIcon
-  label: string
-  value: string
-  changePercentage?: number | null
-  previousValueLabel?: string
-  previousRangeLabel?: string
-}
-
-function ChangeLine({
-  changePercentage,
-  previousValueLabel,
-  previousRangeLabel,
-}: {
-  changePercentage: number
-  previousValueLabel: string
-  previousRangeLabel: string
-}) {
-  const isPositive = changePercentage >= 0
-  const Icon = isPositive ? TrendingUp : TrendingDown
-  return (
-    <div
-      className={`mt-1 flex items-start gap-1 text-xs ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-wine-600 dark:text-wine-400'}`}
-    >
-      <Icon className="mt-0.5 h-3 w-3 shrink-0" />
-      <span>
-        {Math.abs(changePercentage)}% vs {previousValueLabel}
-        <span className="text-gray-400 dark:text-stone-500"> ({previousRangeLabel})</span>
-      </span>
-    </div>
-  )
-}
-
-function StatTile({ icon: Icon, label, value, changePercentage, previousValueLabel, previousRangeLabel }: StatTileProps) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-stone-900 p-4 shadow-sm">
-      <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-stone-400">
-        <Icon className="h-4 w-4" />
-        {label}
-      </div>
-      <div className="mt-1 text-3xl font-semibold text-brand-700 dark:text-brand-400">{value}</div>
-      {changePercentage !== null && changePercentage !== undefined && previousValueLabel && previousRangeLabel && (
-        <ChangeLine
-          changePercentage={changePercentage}
-          previousValueLabel={previousValueLabel}
-          previousRangeLabel={previousRangeLabel}
-        />
-      )}
-    </div>
-  )
 }
 
 export function ReportsPage() {
