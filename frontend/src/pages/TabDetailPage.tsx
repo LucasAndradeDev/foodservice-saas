@@ -58,6 +58,7 @@ import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Modal } from '../components/Modal'
 import { getCategoryIcon } from './publicMenu/categoryIcons'
+import { addRecentProductId, getRecentProductIds } from '../utils/recentItemsStorage'
 import { formatTableLabel } from '../utils/tableLabel'
 import { minutesSince } from '../utils/time'
 import { modifiersTotal, sameModifiers, type SelectedModifier } from '../utils/modifiers'
@@ -147,6 +148,11 @@ export function TabDetailPage() {
 
   const [productSearch, setProductSearch] = useState('')
   const normalizedSearch = productSearch.trim().toLowerCase()
+  const recentProducts = user?.restaurantId
+    ? getRecentProductIds(user.restaurantId)
+        .map((productId) => (products ?? []).find((product) => product.id === productId))
+        .filter((product): product is Product => !!product)
+    : []
   const filteredProductsByCategory = normalizedSearch
     ? productsByCategory
         .map((group) => ({
@@ -561,6 +567,7 @@ export function TabDetailPage() {
 
   function handleProductTap(product: Product) {
     setError(null)
+    if (user?.restaurantId) addRecentProductId(user.restaurantId, product.id)
     if (product.type === 'COMBO' || product.hasModifierGroups) {
       setConfiguringProduct(product)
     } else {
@@ -1116,6 +1123,26 @@ export function TabDetailPage() {
               className="w-full rounded-md border border-gray-300 py-2 pr-3 pl-9 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
           </div>
+          {!normalizedSearch && recentProducts.length > 0 && (
+            <div className="mb-3">
+              <div className="mb-1.5 flex items-center gap-1.5 px-1 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
+                <Clock className="h-3.5 w-3.5" />
+                Itens recentes
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto pb-1">
+                {recentProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => handleProductTap(product)}
+                    className="shrink-0 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium whitespace-nowrap text-gray-700 hover:border-brand-300 hover:bg-brand-50 dark:border-white/10 dark:bg-white/5 dark:text-stone-300 dark:hover:border-brand-400/40 dark:hover:bg-brand-500/10"
+                  >
+                    {product.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="mb-4 max-h-96 space-y-4 overflow-y-auto rounded-md border border-gray-200 p-2 dark:border-white/10">
             {filteredProductsByCategory.length === 0 && (
               <p className="py-4 text-center text-sm text-gray-400 dark:text-stone-500">Nenhum produto encontrado.</p>
