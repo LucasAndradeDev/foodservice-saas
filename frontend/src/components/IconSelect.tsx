@@ -37,6 +37,8 @@ export function IconSelect({
   const [isOpen, setIsOpen] = useState(false)
   const [anchor, setAnchor] = useState<AnchoredPanelPosition | null>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const mobilePanelRef = useRef<HTMLDivElement>(null)
+  const desktopPanelRef = useRef<HTMLDivElement>(null)
   const selected = options.find((option) => option.value === value)
   const SelectedIcon = selected?.icon
 
@@ -48,7 +50,14 @@ export function IconSelect({
 
   useEffect(() => {
     if (!isOpen) return
-    function close() {
+    function close(event: Event) {
+      // Scrolling inside the option list itself also fires this window-level capture
+      // listener (the portal panel is still a descendant of window in the DOM), so
+      // ignore those and only close on scroll/resize happening outside the panel.
+      const target = event.target
+      if (target instanceof Node && (mobilePanelRef.current?.contains(target) || desktopPanelRef.current?.contains(target))) {
+        return
+      }
       setIsOpen(false)
     }
     window.addEventListener('scroll', close, true)
@@ -121,6 +130,7 @@ export function IconSelect({
                 onClick={() => setIsOpen(false)}
               >
                 <motion.div
+                  ref={mobilePanelRef}
                   initial={{ y: '100%' }}
                   animate={{ y: 0 }}
                   exit={{ y: '100%' }}
@@ -149,6 +159,7 @@ export function IconSelect({
           {isOpen && anchor && (
             <div className="fixed inset-0 z-30 hidden md:block" onClick={() => setIsOpen(false)}>
               <div
+                ref={desktopPanelRef}
                 style={{ top: anchor.top, bottom: anchor.bottom, left: anchor.left, width: anchor.width, maxHeight: anchor.maxHeight }}
                 className="fixed overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-white/10 dark:bg-stone-800"
                 onClick={(e) => e.stopPropagation()}

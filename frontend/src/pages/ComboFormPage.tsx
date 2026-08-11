@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  Check,
   ChevronLeft,
+  ChevronRight,
   Image as ImageIcon,
   Layers,
   ListChecks,
+  ListPlus,
   Minus,
   Package,
   Plus,
@@ -96,6 +99,7 @@ export function ComboFormPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [step, setStep] = useState(1)
 
   useEffect(() => {
     if (!product) return
@@ -137,6 +141,7 @@ export function ComboFormPage() {
   }))
 
   const priceOf = (productIdValue: string) => otherProducts.find((p) => p.id === productIdValue)?.price
+  const nameOf = (productIdValue: string) => otherProducts.find((p) => p.id === productIdValue)?.name ?? '—'
   const hasAnyItem = fixedItems.some((i) => i.productId) || slots.some((s) => s.options.some((o) => o.productId))
   let priceRange: { min: number; max: number } | null = null
   if (hasAnyItem) {
@@ -284,6 +289,7 @@ export function ComboFormPage() {
 
     if (!name.trim()) {
       setError('Informe um nome para o combo.')
+      setStep(1)
       return
     }
 
@@ -336,8 +342,8 @@ export function ComboFormPage() {
         {isEditing ? `Editar combo${product ? ` · ${product.name}` : ''}` : 'Novo combo'}
       </h1>
       <p className="mb-6 max-w-2xl text-sm text-gray-500 dark:text-stone-400">
-        Itens fixos sempre entram no combo. Grupos de escolha deixam o cliente escolher 1 produto de uma categoria.
-        O preço final é a soma dos itens (pelo preço atual de cada um) menos o desconto do combo.
+        Monte o combo em 4 passos: informações básicas, itens que sempre entram, grupos em que o cliente escolhe 1
+        produto, e o desconto final.
       </p>
 
       {notCombo && (
@@ -353,146 +359,263 @@ export function ComboFormPage() {
           {!isLoading && (
             <form onSubmit={handleSubmit} className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
               <div className="min-w-0 space-y-6">
-                <Card>
-                  <SectionHeader icon={ImageIcon} title="Informações básicas" />
-                  <div className="flex flex-col gap-5 sm:flex-row">
-                    <div className="shrink-0 sm:w-44">
-                      {photoUrl ? (
-                        <img src={photoUrl} alt="" className="aspect-square w-full rounded-lg object-cover sm:h-44 sm:w-44" />
-                      ) : (
-                        <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-gray-100 text-gray-300 sm:h-44 sm:w-44 dark:bg-white/5 dark:text-stone-700">
-                          <ImageIcon className="h-8 w-8" />
-                        </div>
-                      )}
-                      <label className="mt-2 flex w-full cursor-pointer items-center justify-center rounded-md border border-gray-300 px-2 py-1.5 text-center text-xs text-gray-700 hover:bg-gray-100 sm:w-44 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5">
-                        {isUploading ? 'Enviando...' : 'Trocar foto'}
-                        <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} disabled={isUploading} />
-                      </label>
-                    </div>
+                <Stepper current={step} onStepClick={setStep} />
 
-                    <div className="min-w-0 flex-1 space-y-3">
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="comboName">
-                          Nome
+                {step === 1 && (
+                  <Card>
+                    <SectionHeader icon={ImageIcon} title="1. Informações básicas" />
+                    <div className="flex flex-col gap-5 sm:flex-row">
+                      {/* sm:mt-7 nudges the photo down to align with the Nome input, not its label above it. */}
+                      <div className="shrink-0 sm:mt-7 sm:w-56">
+                        {photoUrl ? (
+                          <div className="flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-white/5">
+                            {/* object-contain (not cover) so the whole photo shows, uncropped — this
+                                is just an upload preview, not the customer-facing menu card. */}
+                            <img src={photoUrl} alt="" className="h-full w-full object-contain" />
+                          </div>
+                        ) : (
+                          <div className="flex aspect-[4/3] w-full items-center justify-center rounded-lg bg-gray-100 text-gray-300 dark:bg-white/5 dark:text-stone-700">
+                            <ImageIcon className="h-8 w-8" />
+                          </div>
+                        )}
+                        <label className="mt-2 flex w-full cursor-pointer items-center justify-center rounded-md border border-gray-300 px-2 py-1.5 text-center text-xs text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5">
+                          {isUploading ? 'Enviando...' : 'Trocar foto'}
+                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} disabled={isUploading} />
                         </label>
-                        <input
-                          id="comboName"
-                          type="text"
-                          required
-                          maxLength={100}
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          placeholder="Ex: Combo Casal, Combo Família..."
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-                        />
                       </div>
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="comboDescription">
-                          Descrição <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
-                        </label>
-                        <textarea
-                          id="comboDescription"
-                          maxLength={255}
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-                          rows={2}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="comboPhotoUrl">
-                          URL da foto <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
-                        </label>
-                        <input
-                          id="comboPhotoUrl"
-                          type="text"
-                          placeholder="Cole uma URL..."
-                          maxLength={500}
-                          value={photoUrl}
-                          onChange={(e) => setPhotoUrl(e.target.value)}
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </Card>
 
-                <Card>
-                  <SectionHeader icon={Package} title="Itens fixos" subtitle="Sempre entram no combo, sem escolha do cliente." />
-                  <div className="space-y-2">
-                    {fixedItems.map((item, index) => (
-                      <ItemRow key={index}>
-                        <GroupedSelect
-                          value={item.productId}
-                          onChange={(val) => updateFixedItemRow(index, { productId: val })}
-                          groups={productSelectGroups}
-                          placeholder="Selecione um produto"
-                        />
-                        <div className="flex items-center justify-between gap-2 md:justify-start">
-                          <QuantityStepper value={item.quantity} onChange={(val) => updateFixedItemRow(index, { quantity: val })} />
-                          <RemoveButton onClick={() => removeFixedItemRow(index)} label="Remover" />
-                        </div>
-                      </ItemRow>
-                    ))}
-                    {fixedItems.length === 0 && (
-                      <p className="text-xs text-gray-400 dark:text-stone-500">Nenhum item fixo ainda.</p>
-                    )}
-                  </div>
-                  <AddRowButton onClick={addFixedItemRow} label="Adicionar item fixo" />
-                </Card>
-
-                <Card>
-                  <SectionHeader
-                    icon={ListChecks}
-                    title="Grupos de escolha"
-                    subtitle="Escolha a categoria da qual o cliente vai poder escolher 1 produto. Todos os produtos ativos da categoria entram como opção — remova os que não fizerem sentido pro combo."
-                  />
-                  <div className="space-y-3">
-                    {slots.map((slot, slotIndex) => (
-                      <div key={slotIndex} className="rounded-lg border border-gray-200 dark:border-white/10">
-                        <div className="flex items-center gap-2 rounded-t-lg border-b border-gray-200 bg-gray-50 p-2.5 dark:border-white/10 dark:bg-white/5">
-                          <IconSelect
-                            value={slot.categoryId}
-                            onChange={(categoryId) => updateSlotCategory(slotIndex, categoryId)}
-                            options={slotCategorySelectOptions}
-                            placeholder="Selecione uma categoria"
+                      <div className="min-w-0 flex-1 space-y-3">
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="comboName">
+                            Nome
+                          </label>
+                          <input
+                            id="comboName"
+                            type="text"
+                            required
+                            maxLength={100}
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Ex: Combo Casal, Combo Família..."
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                           />
-                          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
-                            Escolhe 1
-                          </span>
-                          <RemoveButton onClick={() => removeSlot(slotIndex)} label="Remover grupo" />
                         </div>
-                        <div className="space-y-2 p-2.5">
-                          {slot.options.map((option, optionIndex) => (
-                            <ItemRow key={optionIndex}>
-                              <GroupedSelect
-                                value={option.productId}
-                                onChange={(val) => updateSlotOption(slotIndex, optionIndex, { productId: val })}
-                                groups={productSelectGroups}
-                                placeholder="Selecione um produto"
-                              />
-                              <div className="flex items-center justify-between gap-2 md:justify-start">
-                                <QuantityStepper
-                                  value={option.quantity}
-                                  onChange={(val) => updateSlotOption(slotIndex, optionIndex, { quantity: val })}
-                                />
-                                <RemoveButton onClick={() => removeSlotOption(slotIndex, optionIndex)} label="Remover opção" />
-                              </div>
-                            </ItemRow>
-                          ))}
-                          {slot.categoryId !== '' && slot.options.length === 0 && (
-                            <p className="text-xs text-gray-400 dark:text-stone-500">
-                              Nenhum produto ativo nessa categoria. Adicione uma opção manualmente ou escolha outra categoria.
-                            </p>
-                          )}
-                          <AddRowButton onClick={() => addSlotOption(slotIndex)} label="Adicionar opção" compact />
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="comboDescription">
+                            Descrição <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
+                          </label>
+                          <textarea
+                            id="comboDescription"
+                            maxLength={255}
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                            rows={2}
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="comboPhotoUrl">
+                            URL da foto <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
+                          </label>
+                          <input
+                            id="comboPhotoUrl"
+                            type="text"
+                            placeholder="Cole uma URL..."
+                            maxLength={500}
+                            value={photoUrl}
+                            onChange={(e) => setPhotoUrl(e.target.value)}
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                          />
                         </div>
                       </div>
-                    ))}
-                    {slots.length === 0 && <p className="text-xs text-gray-400 dark:text-stone-500">Nenhum grupo de escolha ainda.</p>}
-                  </div>
-                  <AddRowButton onClick={addSlot} label="Adicionar grupo" />
-                </Card>
+                    </div>
+                    <StepNav onNext={() => setStep(2)} nextDisabled={!name.trim()} />
+                  </Card>
+                )}
+
+                {step === 2 && (
+                  <Card>
+                    <SectionHeader icon={Package} title="2. Itens fixos" subtitle="Sempre entram no combo, sem escolha do cliente." />
+                    <div className="space-y-2">
+                      {fixedItems.map((item, index) => (
+                        <ItemRow key={index}>
+                          <GroupedSelect
+                            value={item.productId}
+                            onChange={(val) => updateFixedItemRow(index, { productId: val })}
+                            groups={productSelectGroups}
+                            placeholder="Selecione um produto"
+                          />
+                          <div className="flex items-center justify-between gap-2 md:justify-start">
+                            <QuantityStepper value={item.quantity} onChange={(val) => updateFixedItemRow(index, { quantity: val })} />
+                            <RemoveButton onClick={() => removeFixedItemRow(index)} label="Remover" />
+                          </div>
+                        </ItemRow>
+                      ))}
+                      {fixedItems.length === 0 && (
+                        <p className="text-xs text-gray-400 dark:text-stone-500">
+                          Nenhum item fixo ainda. Opcional — pule para o próximo passo se este combo não tiver itens fixos.
+                        </p>
+                      )}
+                    </div>
+                    <AddRowButton onClick={addFixedItemRow} label="Adicionar item fixo" />
+                    <StepNav onBack={() => setStep(1)} onNext={() => setStep(3)} />
+                  </Card>
+                )}
+
+                {step === 3 && (
+                  <Card>
+                    <SectionHeader
+                      icon={ListChecks}
+                      title="3. Grupos de escolha"
+                      subtitle="Escolha a categoria da qual o cliente vai poder escolher 1 produto. Todos os produtos ativos da categoria entram como opção — remova os que não fizerem sentido pro combo."
+                    />
+                    <div className="space-y-4">
+                      {slots.map((slot, slotIndex) => (
+                        <div
+                          key={slotIndex}
+                          className="rounded-lg border border-gray-200 bg-gray-50/60 dark:border-white/10 dark:bg-white/[0.03]"
+                        >
+                          <div className="flex items-center gap-2 p-2.5 pb-2">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+                              {slotIndex + 1}
+                            </span>
+                            <span className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-stone-400">
+                              Grupo {slotIndex + 1} · Escolhe 1
+                            </span>
+                            <div className="ml-auto">
+                              <RemoveButton onClick={() => removeSlot(slotIndex)} label="Remover grupo" />
+                            </div>
+                          </div>
+                          <div className="px-2.5 pb-2.5">
+                            <IconSelect
+                              value={slot.categoryId}
+                              onChange={(categoryId) => updateSlotCategory(slotIndex, categoryId)}
+                              options={slotCategorySelectOptions}
+                              placeholder="Selecione uma categoria"
+                            />
+                          </div>
+                          <div className="space-y-2 rounded-lg border-t border-gray-200 bg-white p-2.5 dark:border-white/10 dark:bg-stone-900">
+                            {slot.options.map((option, optionIndex) => (
+                              <ItemRow key={optionIndex}>
+                                <GroupedSelect
+                                  value={option.productId}
+                                  onChange={(val) => updateSlotOption(slotIndex, optionIndex, { productId: val })}
+                                  groups={productSelectGroups}
+                                  placeholder="Selecione um produto"
+                                />
+                                <div className="flex items-center justify-between gap-2 md:justify-start">
+                                  <QuantityStepper
+                                    value={option.quantity}
+                                    onChange={(val) => updateSlotOption(slotIndex, optionIndex, { quantity: val })}
+                                  />
+                                  <RemoveButton onClick={() => removeSlotOption(slotIndex, optionIndex)} label="Remover opção" />
+                                </div>
+                              </ItemRow>
+                            ))}
+                            {slot.categoryId !== '' && slot.options.length === 0 && (
+                              <p className="text-xs text-gray-400 dark:text-stone-500">
+                                Nenhum produto ativo nessa categoria. Adicione uma opção manualmente ou escolha outra categoria.
+                              </p>
+                            )}
+                            <AddOptionLink onClick={() => addSlotOption(slotIndex)} label="Adicionar opção a este grupo" />
+                          </div>
+                        </div>
+                      ))}
+                      {slots.length === 0 && (
+                        <p className="text-xs text-gray-400 dark:text-stone-500">
+                          Nenhum grupo de escolha ainda. Opcional — pule para o próximo passo se este combo não tiver grupos de escolha.
+                        </p>
+                      )}
+                    </div>
+                    <AddGroupButton onClick={addSlot} label="Adicionar novo grupo de escolha" />
+                    <StepNav onBack={() => setStep(2)} onNext={() => setStep(4)} />
+                  </Card>
+                )}
+
+                {step === 4 && (
+                  <Card>
+                    <SectionHeader icon={Wallet} title="4. Desconto e revisão" subtitle="Confira o combo e defina o desconto sobre a soma dos itens." />
+
+                    <div className="mb-4">
+                      <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="discountPercentage">
+                        Desconto (%)
+                      </label>
+                      <input
+                        id="discountPercentage"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={discountPercentage}
+                        onChange={(e) => setDiscountPercentage(e.target.value)}
+                        className="w-full max-w-40 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                      />
+                      <p className="mt-1 text-xs text-gray-400 dark:text-stone-500">
+                        Aplicado sobre a soma dos itens fixos + a opção escolhida em cada grupo, pelo preço atual de cada produto.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3 rounded-lg border border-gray-200 p-3 dark:border-white/10">
+                      <div>
+                        <p className="mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-stone-400">
+                          Itens fixos ({fixedItems.filter((i) => i.productId).length})
+                        </p>
+                        {fixedItems.some((i) => i.productId) ? (
+                          <ul className="space-y-0.5 text-sm text-gray-700 dark:text-stone-300">
+                            {fixedItems
+                              .filter((i) => i.productId)
+                              .map((item, i) => (
+                                <li key={i}>
+                                  {item.quantity}x {nameOf(item.productId)}
+                                </li>
+                              ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-gray-400 dark:text-stone-500">Nenhum.</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="mb-1 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-stone-400">
+                          Grupos de escolha ({slots.filter((s) => s.categoryId).length})
+                        </p>
+                        {slots.some((s) => s.categoryId) ? (
+                          <ul className="space-y-1 text-sm text-gray-700 dark:text-stone-300">
+                            {slots
+                              .filter((s) => s.categoryId)
+                              .map((slot, i) => (
+                                <li key={i}>
+                                  <span className="font-medium">{slot.name}</span> — escolhe 1 de {slot.options.length}{' '}
+                                  {slot.options.length === 1 ? 'opção' : 'opções'}
+                                </li>
+                              ))}
+                          </ul>
+                        ) : (
+                          <p className="text-sm text-gray-400 dark:text-stone-500">Nenhum.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {error && <p className="mt-3 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
+                    {success && <p className="mt-3 text-sm text-green-600 dark:text-green-400">Combo salvo com sucesso.</p>}
+
+                    <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setStep(3)}
+                        className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-stone-300 dark:hover:bg-white/5"
+                      >
+                        <ChevronLeft className="h-4 w-4" /> Voltar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={saveMutation.isPending}
+                        className="rounded-md bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                      >
+                        {saveMutation.isPending ? 'Salvando...' : 'Salvar combo'}
+                      </button>
+                    </div>
+                  </Card>
+                )}
               </div>
 
               <aside className="min-w-0 lg:sticky lg:top-6">
@@ -527,32 +650,15 @@ export function ComboFormPage() {
                     </div>
                   </dl>
 
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="discountPercentage">
-                      Desconto (%)
-                    </label>
-                    <input
-                      id="discountPercentage"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      value={discountPercentage}
-                      onChange={(e) => setDiscountPercentage(e.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-                    />
-                  </div>
-
-                  {error && <p className="text-sm text-wine-600 dark:text-wine-400">{error}</p>}
-                  {success && <p className="text-sm text-green-600 dark:text-green-400">Combo salvo com sucesso.</p>}
-
-                  <button
-                    type="submit"
-                    disabled={saveMutation.isPending}
-                    className="w-full rounded-md bg-brand-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-                  >
-                    Salvar
-                  </button>
+                  {step < 4 && (
+                    <button
+                      type="button"
+                      onClick={() => setStep(4)}
+                      className="w-full rounded-md border border-dashed border-gray-300 px-3 py-2 text-xs font-medium text-gray-500 hover:border-brand-400 hover:text-brand-600 dark:border-white/15 dark:text-stone-400 dark:hover:text-brand-400"
+                    >
+                      Ir direto para desconto e salvar
+                    </button>
+                  )}
                 </div>
               </aside>
             </form>
@@ -579,6 +685,93 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: LucideIcon; titl
         <h2 className="text-sm font-semibold text-gray-800 dark:text-white">{title}</h2>
         {subtitle && <p className="mt-0.5 text-xs text-gray-500 dark:text-stone-400">{subtitle}</p>}
       </div>
+    </div>
+  )
+}
+
+const WIZARD_STEPS = [
+  { id: 1, label: 'Informações' },
+  { id: 2, label: 'Itens fixos' },
+  { id: 3, label: 'Grupos de escolha' },
+  { id: 4, label: 'Desconto' },
+]
+
+function Stepper({ current, onStepClick }: { current: number; onStepClick: (step: number) => void }) {
+  return (
+    <div className="flex items-center" aria-label="Passos do formulário">
+      {WIZARD_STEPS.map((s, i) => {
+        const isActive = s.id === current
+        const isDone = s.id < current
+        return (
+          <div key={s.id} className={`flex items-center ${i < WIZARD_STEPS.length - 1 ? 'flex-1' : ''}`}>
+            <button
+              type="button"
+              onClick={() => onStepClick(s.id)}
+              className="flex shrink-0 items-center gap-2"
+              aria-current={isActive ? 'step' : undefined}
+            >
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors ${
+                  isActive
+                    ? 'bg-brand-600 text-white'
+                    : isDone
+                      ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-400'
+                      : 'bg-gray-100 text-gray-400 dark:bg-white/5 dark:text-stone-500'
+                }`}
+              >
+                {isDone ? <Check className="h-3.5 w-3.5" /> : s.id}
+              </span>
+              <span
+                className={`hidden text-sm font-medium whitespace-nowrap sm:inline ${
+                  isActive ? 'text-gray-800 dark:text-white' : 'text-gray-400 dark:text-stone-500'
+                }`}
+              >
+                {s.label}
+              </span>
+            </button>
+            {i < WIZARD_STEPS.length - 1 && (
+              <div className={`mx-2 h-0.5 flex-1 ${isDone ? 'bg-brand-300 dark:bg-brand-500/40' : 'bg-gray-200 dark:bg-white/10'}`} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function StepNav({
+  onBack,
+  onNext,
+  nextDisabled,
+}: {
+  onBack?: () => void
+  onNext?: () => void
+  nextDisabled?: boolean
+}) {
+  return (
+    <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 dark:border-white/10">
+      {onBack ? (
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex items-center gap-1 rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-stone-300 dark:hover:bg-white/5"
+        >
+          <ChevronLeft className="h-4 w-4" /> Voltar
+        </button>
+      ) : (
+        <span />
+      )}
+      {onNext && (
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={nextDisabled}
+          title={nextDisabled ? 'Informe um nome para continuar' : undefined}
+          className="flex items-center gap-1 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Próximo <ChevronRight className="h-4 w-4" />
+        </button>
+      )}
     </div>
   )
 }
@@ -630,16 +823,46 @@ function RemoveButton({ onClick, label }: { onClick: () => void; label: string }
   )
 }
 
-function AddRowButton({ onClick, label, compact = false }: { onClick: () => void; label: string; compact?: boolean }) {
+function AddRowButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 text-sm font-medium text-brand-600 hover:border-brand-400 hover:bg-brand-50/50 dark:border-white/15 dark:text-brand-400 dark:hover:bg-brand-500/5 ${
-        compact ? 'py-1.5' : 'mt-3 py-2'
-      }`}
+      className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 py-2 text-sm font-medium text-brand-600 hover:border-brand-400 hover:bg-brand-50/50 dark:border-white/15 dark:text-brand-400 dark:hover:bg-brand-500/5"
     >
       <Plus className="h-4 w-4" />
+      {label}
+    </button>
+  )
+}
+
+/** Adds a new top-level choice group. Deliberately bolder than {@link AddOptionLink} —
+ * a solid, filled button instead of a text link — so it doesn't get confused with the
+ * action that adds an option *inside* a group. */
+function AddGroupButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-brand-500 bg-brand-50 py-3 text-sm font-semibold text-brand-700 hover:bg-brand-100 dark:border-brand-400/60 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/15"
+    >
+      <ListPlus className="h-4 w-4" />
+      {label}
+    </button>
+  )
+}
+
+/** Adds an option inside an existing group. A plain text link, not a button, so it
+ * reads as a minor action nested inside the group card rather than competing with
+ * {@link AddGroupButton}. */
+function AddOptionLink({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-1 py-1 pl-0.5 text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline dark:text-brand-400 dark:hover:text-brand-300"
+    >
+      <Plus className="h-3.5 w-3.5" />
       {label}
     </button>
   )
