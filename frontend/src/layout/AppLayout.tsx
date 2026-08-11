@@ -22,6 +22,7 @@ import { useAuth } from '../auth/AuthContext'
 import { EmailVerificationBanner } from '../components/EmailVerificationBanner'
 import { Modal } from '../components/Modal'
 import { NotificationToastStack, type ToastItem } from '../components/NotificationToastStack'
+import { OfflineBanner } from '../components/OfflineBanner'
 import { PaymentDueBanner } from '../components/PaymentDueBanner'
 import { SupportModal } from '../components/SupportModal'
 import { getNavNotificationStatus, markNavSectionSeen, type NavNotificationStatus, type NavSection } from '../api/navNotifications'
@@ -221,6 +222,7 @@ export function AppLayout() {
   return (
     <div className="min-h-screen bg-gray-50 sm:flex sm:h-screen sm:overflow-hidden dark:bg-stone-950">
       <NotificationToastStack toasts={toasts} onDismiss={dismissToast} onNavigate={navigate} />
+      <OfflineBanner />
 
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-gray-200 bg-white sm:flex dark:border-white/10 dark:bg-stone-900">

@@ -2,6 +2,11 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { clearStoredAuth, getStoredAuth, updateStoredTokens } from '../auth/tokenStorage'
 
 export const AUTH_LOGOUT_EVENT = 'auth:logout'
+export const NETWORK_STATUS_EVENT = 'network:status'
+
+function reportNetworkStatus(online: boolean) {
+  window.dispatchEvent(new CustomEvent<{ online: boolean }>(NETWORK_STATUS_EVENT, { detail: { online } }))
+}
 
 export const http = axios.create({
   baseURL: '/api/v1',
@@ -28,8 +33,15 @@ function onTokenRefreshed(newToken: string) {
 }
 
 http.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    reportNetworkStatus(true)
+    return response
+  },
   async (error: AxiosError) => {
+    // No `response` at all means the request never reached the server -- dropped wifi, DNS
+    // failure, etc -- as opposed to a normal 4xx/5xx, which means the connection is fine.
+    reportNetworkStatus(!!error.response)
+
     const originalRequest = error.config as RetryableConfig | undefined
 
     if (
