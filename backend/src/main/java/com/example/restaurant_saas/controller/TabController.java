@@ -1,14 +1,18 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.enums.TabStatus;
+import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
 import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
+import com.example.restaurant_saas.dto.request.CreatePixChargeRequest;
 import com.example.restaurant_saas.dto.request.MergeTabRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
 import com.example.restaurant_saas.dto.request.VoidPaymentRequest;
+import com.example.restaurant_saas.dto.response.PixChargeResponse;
 import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.security.UserDetailsImpl;
+import com.example.restaurant_saas.service.PixChargeService;
 import com.example.restaurant_saas.service.TabService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,6 +27,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,6 +38,7 @@ import java.util.UUID;
 public class TabController {
 
     private final TabService tabService;
+    private final PixChargeService pixChargeService;
 
     @GetMapping
     @Operation(summary = "List tabs", description = "Lists the restaurant's tabs, optionally filtered by status.")
@@ -134,6 +140,48 @@ public class TabController {
             @Valid @RequestBody RegisterPaymentsRequest request
     ) {
         return ResponseEntity.ok(tabService.registerPayments(currentUser.getRestaurantId(), id, currentUser.getRole(), currentUser.getId(), request));
+    }
+
+    @PostMapping("/{id}/pix-charges")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "Create a Pix charge for this tab", description = "Freezes the tab's bill total (same freeze as the first registered payment) and asks Woovi for a QR code for that exact amount. An OWNER/MANAGER caller may pass serviceChargePercentage to override the restaurant's default, same as registerPayments - any other role's override is ignored. The charge is confirmed asynchronously by a webhook - poll GET /tabs/{id} and watch for the tab closing/its payments list updating to know when it's been paid. Requires the restaurant to have configured its Woovi AppID first (see /pix-integration).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Charge created, returns the Pix QR code/copy-paste code"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, or tab is not open"),
+            @ApiResponse(responseCode = "403", description = "This restaurant hasn't configured Pix payment yet, or the tab has order items not yet DELIVERED or CANCELLED"),
+            @ApiResponse(responseCode = "502", description = "Woovi could not be reached or returned an unexpected response")
+    })
+    public ResponseEntity<PixChargeResponse> createPixCharge(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id,
+            @RequestBody(required = false) CreatePixChargeRequest request
+    ) {
+        // A request body has to actually be present to count as an override - otherwise an omitted
+        // body (no opinion on service charge either way) would be indistinguishable from an
+        // OWNER/MANAGER explicitly waiving it (a present body with serviceChargePercentage left
+        // null, same as removing it before registerPayments), and silently drop the restaurant's
+        // default.
+        boolean allowServiceChargeOverride =
+                request != null && (currentUser.getRole() == UserRole.OWNER || currentUser.getRole() == UserRole.MANAGER);
+        BigDecimal requestedServiceChargePercentage = request != null ? request.getServiceChargePercentage() : null;
+        return ResponseEntity.ok(pixChargeService.createCharge(
+                currentUser.getRestaurantId(), id, allowServiceChargeOverride, requestedServiceChargePercentage));
+    }
+
+    @DeleteMapping("/{id}/pix-charges")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "Cancel a pending Pix charge for this tab", description = "Cancels any still-PENDING Pix charge on this tab and unfreezes its bill total, so items/discount/service charge become editable again. A no-op if there's no pending charge (e.g. it was already paid, or there never was one).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Pending charge (if any) cancelled, bill total unfrozen"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, or tab is not open"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission, or a payment has already been registered against this tab")
+    })
+    public ResponseEntity<Void> cancelPixCharge(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id
+    ) {
+        pixChargeService.cancelPendingCharge(currentUser.getRestaurantId(), id);
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/payments/{paymentId}/void")

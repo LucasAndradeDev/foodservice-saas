@@ -1,24 +1,28 @@
-import { Bell, Check, Wallet } from 'lucide-react'
+import { Bell, Check, QrCode, Wallet } from 'lucide-react'
 import type { TableRequestType } from '../../api/tableRequests'
 
 interface TableRequestButtonsProps {
   canRequestBill: boolean
+  canPayWithPix: boolean
   requestedTypes: Set<TableRequestType>
   isPending: boolean
   pendingType: TableRequestType | undefined
   cartCount: number
   isCartOpen: boolean
   onRequest: (type: TableRequestType) => void
+  onPayWithPix: () => void
 }
 
 export function TableRequestButtons({
   canRequestBill,
+  canPayWithPix,
   requestedTypes,
   isPending,
   pendingType,
   cartCount,
   isCartOpen,
   onRequest,
+  onPayWithPix,
 }: TableRequestButtonsProps) {
   return (
     <div
@@ -26,6 +30,16 @@ export function TableRequestButtons({
         cartCount > 0 && !isCartOpen ? 'bottom-20' : 'bottom-4'
       }`}
     >
+      {canPayWithPix && (
+        <button
+          type="button"
+          onClick={onPayWithPix}
+          className="flex items-center gap-2 rounded-full border border-brand-600 bg-brand-600 px-4 py-2 text-sm font-medium text-white shadow-xl backdrop-blur-md transition-colors duration-150 hover:bg-brand-700"
+        >
+          <QrCode className="h-4 w-4" />
+          Pagar com Pix
+        </button>
+      )}
       {canRequestBill && (
         <button
           type="button"

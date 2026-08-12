@@ -6,6 +6,7 @@ import com.example.restaurant_saas.domain.entity.Payment;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
+import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
@@ -282,10 +283,15 @@ public class TabService {
             throw new IllegalStateException("Tab has order items that are not DELIVERED or CANCELLED yet.");
         }
 
-        BigDecimal total = resolveBillTotal(tab, currentUserRole, request.getServiceChargePercentage());
+        boolean allowServiceChargeOverride = currentUserRole == UserRole.OWNER || currentUserRole == UserRole.MANAGER;
+        BigDecimal total = resolveBillTotal(tab, allowServiceChargeOverride, request.getServiceChargePercentage());
         BigDecimal remaining = total.subtract(alreadyPaid);
 
         OffsetDateTime now = OffsetDateTime.now();
+        // actingUserId is null when this is a system-initiated payment (a Pix charge confirmed by
+        // Woovi's webhook, see PixChargeService) rather than staff registering it - same nullable
+        // createdBy already used for self-service orders (Order.createdBy).
+        User actingUser = actingUserId != null ? userRepository.getReferenceById(actingUserId) : null;
         List<Payment> newPayments = new ArrayList<>();
         BigDecimal sumOfEntries = BigDecimal.ZERO;
         for (PaymentEntryRequest entry : request.getPayments()) {
@@ -303,7 +309,7 @@ public class TabService {
                     .amount(entry.getAmount())
                     .status(PaymentStatus.ACTIVE)
                     .paidAt(now)
-                    .createdBy(userRepository.getReferenceById(actingUserId))
+                    .createdBy(actingUser)
                     .build());
         }
 
@@ -440,7 +446,7 @@ public class TabService {
     /** Returns the tab's frozen bill total, computing and persisting it (along with the resolved
      * service charge) the first time a payment is registered against this tab. Every payment after
      * that compares against this same frozen value, never a freshly recomputed one. */
-    private BigDecimal resolveBillTotal(Tab tab, UserRole role, BigDecimal requestedServiceChargePercentage) {
+    private BigDecimal resolveBillTotal(Tab tab, boolean allowServiceChargeOverride, BigDecimal requestedServiceChargePercentage) {
         if (tab.getBillTotal() != null) {
             return tab.getBillTotal();
         }
@@ -448,7 +454,7 @@ public class TabService {
         BigDecimal itemsTotal = computeItemsTotal(tab.getRestaurant().getId(), tab.getId());
         BigDecimal afterDiscount = itemsTotal.subtract(tab.getDiscountAmount(itemsTotal));
 
-        BigDecimal serviceChargePercentage = resolveServiceChargePercentage(tab.getRestaurant().getId(), role, requestedServiceChargePercentage);
+        BigDecimal serviceChargePercentage = resolveServiceChargePercentage(tab.getRestaurant().getId(), allowServiceChargeOverride, requestedServiceChargePercentage);
         BigDecimal serviceChargeAmount = computeServiceChargeAmount(afterDiscount, serviceChargePercentage);
 
         tab.setServiceChargePercentage(serviceChargePercentage);
@@ -457,10 +463,15 @@ public class TabService {
         return tab.getBillTotal();
     }
 
-    // Only OWNER/MANAGER may override or waive the service charge; other roles always get the
-    // restaurant's configured default, so a waiter/cashier can't quietly pocket or inflate it.
-    private BigDecimal resolveServiceChargePercentage(UUID restaurantId, UserRole role, BigDecimal requested) {
-        if (role == UserRole.OWNER || role == UserRole.MANAGER) {
+    // Only OWNER/MANAGER may override or waive the service charge; every other caller - other
+    // staff roles, and a Pix charge started from the digital menu, which has no staff role at all
+    // - always gets the restaurant's configured default, so nobody can quietly pocket or inflate it.
+    // requested being null here deliberately still means "waive it" when allowOverride is true (an
+    // OWNER/MANAGER removing the charge) - callers that merely didn't address service charge at all
+    // (e.g. creating a Pix charge with no request body) are expected to pass allowOverride=false
+    // instead of an empty override, so that omission reads as "default", not "waived".
+    private BigDecimal resolveServiceChargePercentage(UUID restaurantId, boolean allowOverride, BigDecimal requested) {
+        if (allowOverride) {
             return requested;
         }
         Restaurant restaurant = restaurantRepository.findById(restaurantId)
@@ -468,6 +479,61 @@ public class TabService {
         return Boolean.TRUE.equals(restaurant.getServiceChargeEnabled())
                 ? restaurant.getServiceChargePercentage()
                 : null;
+    }
+
+    /**
+     * Freezes and returns the tab's bill total when a Pix charge is created for it - the same
+     * freeze {@link #registerPayments} does on a tab's first real payment, just triggered earlier
+     * (the moment a QR code is generated, not the moment it's paid). This keeps the amount on a
+     * QR code the customer is looking at from silently drifting if someone edits items/discount
+     * while it's outstanding - applyDiscount/mergeTab/unmergeTab already refuse once billTotal is
+     * set. {@code allowServiceChargeOverride} mirrors registerPayments: true only when an
+     * authenticated OWNER/MANAGER generated this charge from the Caixa (PixChargeService#createCharge,
+     * called from TabController), false for the customer self-service path from the digital menu
+     * (PixChargeService#createChargeForTable), where there's no staff role behind the call at all
+     * and the restaurant's configured default is the only sane choice.
+     */
+    @Transactional
+    public BigDecimal freezeBillTotalForPixCharge(
+            UUID restaurantId, UUID tabId, boolean allowServiceChargeOverride, BigDecimal requestedServiceChargePercentage
+    ) {
+        Tab tab = tabRepository.findByIdAndRestaurantIdForUpdate(tabId, restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Tab not found."));
+        if (tab.getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Tab is not open.");
+        }
+        if (orderItemRepository.existsByOrder_Tab_IdAndStatusNotIn(tabId, List.of(ItemStatus.DELIVERED, ItemStatus.CANCELLED))) {
+            throw new IllegalStateException("Tab has order items that are not DELIVERED or CANCELLED yet.");
+        }
+
+        BigDecimal total = resolveBillTotal(tab, allowServiceChargeOverride, requestedServiceChargePercentage);
+        tabRepository.save(tab);
+        return total;
+    }
+
+    /**
+     * Reverses {@link #freezeBillTotalForPixCharge} when the charge it was frozen for is being
+     * cancelled unpaid - same unfreeze {@link #voidPayment} does after reversing a payment, just
+     * triggered from the other side (nobody ever paid, rather than a paid amount being reversed).
+     * Refuses once a payment has actually landed on this tab: that payment was computed against
+     * the frozen total, so unfreezing under it would leave items/discount/service-charge editable
+     * again while a payment on record still reflects the old, now-stale total.
+     */
+    @Transactional
+    public void unfreezeBillTotal(UUID restaurantId, UUID tabId) {
+        Tab tab = tabRepository.findByIdAndRestaurantIdForUpdate(tabId, restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Tab not found."));
+        if (tab.getStatus() != TabStatus.OPEN) {
+            throw new IllegalArgumentException("Tab is not open.");
+        }
+        if (paymentRepository.sumActiveAmountByTabId(tabId).signum() != 0) {
+            throw new IllegalStateException("A payment has already been registered for this tab.");
+        }
+
+        tab.setBillTotal(null);
+        tab.setServiceChargePercentage(null);
+        tab.setServiceChargeAmount(null);
+        tabRepository.save(tab);
     }
 
     private BigDecimal computeServiceChargeAmount(BigDecimal afterDiscount, BigDecimal serviceChargePercentage) {

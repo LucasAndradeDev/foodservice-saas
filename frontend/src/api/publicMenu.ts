@@ -1,6 +1,7 @@
 import type { ItemStatus } from './orders'
 import type { ModifierGroup } from './productModifiers'
 import type { ComboComposition } from './combos'
+import type { PixCharge } from './tabs'
 import { http } from './http'
 
 export interface PublicMenuProduct {
@@ -57,6 +58,7 @@ export interface PublicMenuTable {
   orderItems: PublicMenuOrderItem[]
   lastOrderItems: PublicMenuReorderItem[]
   currentTabId: string | null
+  pixConfigured: boolean
   discountAppliedLabel: string | null
   discountType: DiscountType | null
   discountValue: number | null
@@ -103,4 +105,12 @@ export function redeemCoupon(slug: string, tableId: string, code: string) {
 
 export function removeCoupon(slug: string, tableId: string) {
   return http.delete<CouponRedemption>(`/public/menu/${slug}/tables/${tableId}/coupon`).then((res) => res.data)
+}
+
+/** Freezes the table's open tab total and asks Woovi for a Pix QR code, same as the staff Caixa
+ * flow (createPixCharge in api/tabs.ts) but reachable without authentication. Confirmation is
+ * asynchronous - the digital menu already detects the tab closing via its own polling of
+ * getPublicMenu, so the caller doesn't need to poll separately. */
+export function createPublicPixCharge(slug: string, tableId: string) {
+  return http.post<PixCharge>(`/public/menu/${slug}/tables/${tableId}/pix-charges`).then((res) => res.data)
 }

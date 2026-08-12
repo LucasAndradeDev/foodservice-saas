@@ -111,3 +111,28 @@ export function markTabReceiptPrinted(id: string) {
 export function applyTabDiscount(id: string, payload: ApplyDiscountPayload) {
   return http.patch<Tab>(`/tabs/${id}/discount`, payload).then((res) => res.data)
 }
+
+export interface PixCharge {
+  id: string
+  amount: number
+  brCode: string
+  qrCodeImage: string | null
+  paymentLinkUrl: string | null
+}
+
+/** Freezes the tab's total (same freeze as the first manual payment) and asks Woovi for a Pix QR
+ * code. Confirmation happens asynchronously via webhook - the caller must poll getTab and watch
+ * for the tab closing to know it was paid. serviceChargePercentage is only honored for an
+ * OWNER/MANAGER caller (silently ignored otherwise, same as registerPayments) - omit it to use the
+ * restaurant's configured default. */
+export function createPixCharge(id: string, serviceChargePercentage?: number | null) {
+  return http
+    .post<PixCharge>(`/tabs/${id}/pix-charges`, serviceChargePercentage !== undefined ? { serviceChargePercentage } : undefined)
+    .then((res) => res.data)
+}
+
+/** Cancels a still-unpaid Pix charge and unfreezes the tab's total, so items/discount/service
+ * charge become editable again. No-op if there's no pending charge. */
+export function cancelPixCharge(id: string) {
+  return http.delete<void>(`/tabs/${id}/pix-charges`).then((res) => res.data)
+}

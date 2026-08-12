@@ -1,18 +1,24 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, ChevronDown, Clock, Lock, Pencil, Percent, Printer, Users, Wallet, X } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, Clock, Copy, Loader2, Lock, Pencil, Percent, Printer, QrCode, Users, Wallet, X } from 'lucide-react'
+import { QRCodeCanvas } from 'qrcode.react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listOrders, type DiscountType, type OrderItem } from '../api/orders'
+import { getPixIntegrationStatus } from '../api/pixIntegration'
 import {
   applyTabDiscount,
+  cancelPixCharge,
   computeDiscountAmount,
+  createPixCharge,
+  getTab,
   listTabs,
   registerPayments,
   PAYMENT_METHOD_LABELS,
   roundCurrency,
   type PaymentMethod,
+  type PixCharge,
   type Tab,
 } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
@@ -101,6 +107,12 @@ export function CheckoutPage() {
     queryFn: getMyRestaurant,
   })
 
+  const { data: pixStatus } = useQuery({
+    queryKey: ['pix-integration'],
+    queryFn: getPixIntegrationStatus,
+    enabled: canPay,
+  })
+
   const orderQueries = useQueries({
     queries: (openTabs ?? []).map((tab) => ({
       queryKey: ['tabs', tab.id, 'orders'],
@@ -139,6 +151,8 @@ export function CheckoutPage() {
   const [serviceChargePercentage, setServiceChargePercentage] = useState<number | null>(null)
   const [isEditingServiceCharge, setIsEditingServiceCharge] = useState(false)
   const [serviceChargeInput, setServiceChargeInput] = useState('')
+  const [pixCharge, setPixCharge] = useState<PixCharge | null>(null)
+  const [brCodeCopied, setBrCodeCopied] = useState(false)
 
   useEffect(() => {
     if (!selectedSummary) return
@@ -146,11 +160,12 @@ export function CheckoutPage() {
       if (event.key !== 'Escape') return
       if (isEditingDiscount) setIsEditingDiscount(false)
       else if (isEditingServiceCharge) setIsEditingServiceCharge(false)
+      else if (pixCharge) setPixCharge(null)
       else handleCloseModal()
     }
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [selectedSummary, isEditingDiscount, isEditingServiceCharge])
+  }, [selectedSummary, isEditingDiscount, isEditingServiceCharge, pixCharge])
 
   const payMutation = useMutation({
     mutationFn: ({
@@ -175,6 +190,53 @@ export function CheckoutPage() {
     onError: (err) => setError(extractErrorMessage(err, 'Não foi possível registrar o pagamento. Tente novamente.')),
   })
 
+  const pixChargeMutation = useMutation({
+    // Passes the Caixa's current service-charge edit along, same as registerPayments does -
+    // honored server-side only for an OWNER/MANAGER caller, ignored otherwise.
+    mutationFn: ({ tabId, serviceChargePercentage: pct }: { tabId: string; serviceChargePercentage: number | null }) =>
+      createPixCharge(tabId, pct),
+    // Creating the charge freezes the tab's billTotal server-side (TabService#freezeBillTotalForPixCharge)
+    // so the QR code's amount can't drift - but selectedSummary is local state that only reflects
+    // what was fetched before the charge existed. Without refetching here, hasLockedTotal stays
+    // false and the discount/service-charge "Editar" controls remain visible and editable, letting
+    // staff change the total on screen while the already-generated QR code still encodes the old one.
+    onSuccess: async (charge, { tabId }) => {
+      setPixCharge(charge)
+      const updatedTab = await getTab(tabId)
+      setSelectedSummary((prev) => (prev && prev.tab.id === tabId ? { ...prev, tab: updatedTab } : prev))
+    },
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível gerar a cobrança Pix. Tente novamente.')),
+  })
+
+  const cancelPixChargeMutation = useMutation({
+    mutationFn: (tabId: string) => cancelPixCharge(tabId),
+    onSuccess: async (_data, tabId) => {
+      setPixCharge(null)
+      const updatedTab = await getTab(tabId)
+      setSelectedSummary((prev) => (prev && prev.tab.id === tabId ? { ...prev, tab: updatedTab } : prev))
+    },
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível cancelar a cobrança Pix. Tente novamente.')),
+  })
+
+  // Confirmation is asynchronous (Woovi calls a webhook when the customer pays) - poll the tab
+  // while a charge is outstanding and watch for it closing on its own, same idea as the digital
+  // menu's order-status polling.
+  const { data: polledTab } = useQuery({
+    queryKey: ['tabs', selectedSummary?.tab.id, 'pix-poll'],
+    queryFn: () => getTab(selectedSummary!.tab.id),
+    enabled: !!pixCharge && !!selectedSummary,
+    refetchInterval: 3000,
+  })
+
+  useEffect(() => {
+    if (!pixCharge || !polledTab || polledTab.status !== 'CLOSED') return
+    queryClient.invalidateQueries({ queryKey: ['tabs'] })
+    queryClient.invalidateQueries({ queryKey: ['tables'] })
+    setSelectedSummary((prev) => (prev && prev.tab.id === polledTab.id ? { ...prev, tab: polledTab } : prev))
+    setJustPaidTabId(polledTab.id)
+    setPixCharge(null)
+  }, [pixCharge, polledTab, queryClient])
+
   const tabDiscountMutation = useMutation({
     mutationFn: ({ id, discountType, value, reason }: { id: string; discountType: DiscountType | null; value?: number; reason?: string }) =>
       applyTabDiscount(id, { discountType, discountValue: value, reason }),
@@ -198,6 +260,7 @@ export function CheckoutPage() {
       setError(null)
       setIsEditingDiscount(false)
       setIsEditingServiceCharge(false)
+      setPixCharge(null)
       setServiceChargeInput(String(restaurant?.serviceChargePercentage ?? 10))
       if (summary.tab.billTotal != null) {
         // A previous partial payment already locked this tab's total; the service charge can no
@@ -218,6 +281,14 @@ export function CheckoutPage() {
   function handleCloseModal() {
     setSelectedSummary(null)
     setJustPaidTabId(null)
+    setPixCharge(null)
+  }
+
+  function handleCopyBrCode() {
+    if (!pixCharge) return
+    navigator.clipboard.writeText(pixCharge.brCode)
+    setBrCodeCopied(true)
+    setTimeout(() => setBrCodeCopied(false), 2000)
   }
 
   const hasLockedTotal = selectedSummary?.tab.billTotal != null
@@ -236,6 +307,10 @@ export function CheckoutPage() {
   const isZeroBalance = remainingBalance <= 0.001
   const entriesSum = roundCurrency(pendingEntries.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0))
   const amountLeftToAllocate = roundCurrency(remainingBalance - entriesSum)
+  // "Gerar QR Code Pix" only makes sense when the manual form below is actually set up to record a
+  // single Pix payment - showing it while staff has "Dinheiro"/"Cartão" selected, or is splitting
+  // across methods, offered an action unrelated to what they were about to register.
+  const isSinglePixEntry = pendingEntries.length === 1 && pendingEntries[0].method === 'PIX'
 
   const canConfirmPayment =
     !!selectedSummary &&
@@ -247,7 +322,7 @@ export function CheckoutPage() {
   // Enter confirms the payment while the form is valid -- skipped while a sub-form (discount/service
   // charge) is open so its own native Enter-to-submit isn't double-fired by this handler.
   useEffect(() => {
-    if (!canConfirmPayment || isEditingDiscount || isEditingServiceCharge) return
+    if (!canConfirmPayment || isEditingDiscount || isEditingServiceCharge || pixCharge) return
     function handleEnter(event: KeyboardEvent) {
       if (event.key !== 'Enter') return
       const target = event.target as HTMLElement
@@ -257,7 +332,7 @@ export function CheckoutPage() {
     }
     document.addEventListener('keydown', handleEnter)
     return () => document.removeEventListener('keydown', handleEnter)
-  }, [canConfirmPayment, isEditingDiscount, isEditingServiceCharge])
+  }, [canConfirmPayment, isEditingDiscount, isEditingServiceCharge, pixCharge])
 
   function handleSplitEqually(parts: number) {
     const share = roundCurrency(remainingBalance / parts)
@@ -565,7 +640,7 @@ export function CheckoutPage() {
                 ))}
               </ul>
 
-              {canDiscount && (
+              {canDiscount && !hasLockedTotal && (
                 <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-white/10 dark:bg-white/5">
                   {!isEditingDiscount ? (
                     <div className="flex items-center justify-between">
@@ -776,8 +851,59 @@ export function CheckoutPage() {
                 </div>
               )}
 
-              {canPay && !isZeroBalance && (
+              {canPay && !isZeroBalance && pixCharge && (
+                <div className="mb-4 flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-white/10 dark:bg-white/5">
+                  <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-md">
+                    <QRCodeCanvas value={pixCharge.brCode} size={168} />
+                  </div>
+                  <p className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-stone-400">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Aguardando o cliente pagar...
+                  </p>
+                  <div className="w-full">
+                    <p className="mb-1 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
+                      Pix copia e cola
+                    </p>
+                    <p className="truncate rounded-md bg-white px-3 py-2 text-xs text-gray-700 dark:bg-stone-800 dark:text-stone-300">
+                      {pixCharge.brCode}
+                    </p>
+                  </div>
+                  <div className="flex w-full gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCopyBrCode}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+                    >
+                      {brCodeCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {brCodeCopied ? 'Copiado!' : 'Copiar código'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectedSummary && cancelPixChargeMutation.mutate(selectedSummary.tab.id)}
+                      disabled={cancelPixChargeMutation.isPending}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+                    >
+                      {cancelPixChargeMutation.isPending ? 'Cancelando...' : 'Cancelar'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {canPay && !isZeroBalance && !pixCharge && (
                 <>
+                  {pixStatus?.configured && isSinglePixEntry && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        pixChargeMutation.mutate({ tabId: selectedSummary.tab.id, serviceChargePercentage })
+                      }
+                      disabled={pixChargeMutation.isPending}
+                      className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-brand-300 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-100 disabled:opacity-50 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-400"
+                    >
+                      <QrCode className="h-4 w-4" />
+                      {pixChargeMutation.isPending ? 'Gerando QR Code...' : 'Gerar QR Code Pix'}
+                    </button>
+                  )}
                   <div className="mb-3">
                     <Dropdown<SplitChoice>
                       value={pendingEntries.length >= 2 && pendingEntries.length <= 4 ? (String(pendingEntries.length) as SplitChoice) : 'single'}
@@ -854,7 +980,7 @@ export function CheckoutPage() {
 
               {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-              {canPay && (
+              {canPay && !pixCharge && (
                 <Button
                   type="button"
                   onClick={handleRegisterPayments}

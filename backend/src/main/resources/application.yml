@@ -98,6 +98,9 @@ security:
 app:
   upload-dir: ${UPLOAD_DIR:./uploads}
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  # Master key for CredentialEncryptionService (base64, 32 bytes) - never in the database, same
+  # posture as brevo.api-key below.
+  credential-encryption-key: ${PIX_ENCRYPTION_KEY}
   storage:
     provider: ${STORAGE_PROVIDER:local}
   email:
@@ -124,6 +127,11 @@ brevo:
   api-key: ${BREVO_API_KEY:}
   sender-email: ${BREVO_SENDER_EMAIL:}
   sender-name: ${BREVO_SENDER_NAME:Morá}
+
+woovi:
+  # Each restaurant's actual AppID lives encrypted in pix_integrations - this is just the API's
+  # base URL, same for every account.
+  base-url: ${WOOVI_BASE_URL:https://api.woovi.com}
 
 gemini:
   api-key: ${GEMINI_API_KEY}

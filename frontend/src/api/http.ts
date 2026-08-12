@@ -52,8 +52,15 @@ http.interceptors.response.use(
 
     const originalRequest = error.config as RetryableConfig | undefined
 
+    // Spring Security answers a protected endpoint with no/invalid Authorization header as 403,
+    // not 401 (anonymous requests are "authenticated as ROLE_ANONYMOUS", so the failure is
+    // access-denied, not unauthenticated) - so a request that races ahead of the access token
+    // being warmed up on page load (see AuthContext's mount effect) can come back 403 even though
+    // a refresh would fix it. Retrying once on 403 too costs one extra round trip on a genuine
+    // permission error, but recovers this common race for free.
+    const status = error.response?.status
     if (
-      error.response?.status !== 401 ||
+      (status !== 401 && status !== 403) ||
       !originalRequest ||
       originalRequest._retry ||
       originalRequest.url === '/auth/refresh-token'

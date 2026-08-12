@@ -15,6 +15,7 @@ import { FeaturedCarousel } from './publicMenu/FeaturedCarousel'
 import { MenuHero } from './publicMenu/MenuHero'
 import { ModifierSheet } from './publicMenu/ModifierSheet'
 import { OrderStatusPanel } from './publicMenu/OrderStatusPanel'
+import { PixPaymentModal } from './publicMenu/PixPaymentModal'
 import { ProductCard } from './publicMenu/ProductCard'
 import { ProductDetailModal } from './publicMenu/ProductDetailModal'
 import { ReservationFormModal } from './publicMenu/ReservationFormModal'
@@ -62,6 +63,7 @@ export function PublicMenuPage() {
   const [couponCode, setCouponCode] = useState('')
   const [couponError, setCouponError] = useState<string | null>(null)
   const [isReservationModalOpen, setIsReservationModalOpen] = useState(false)
+  const [isPixModalOpen, setIsPixModalOpen] = useState(false)
   const [customerPhone, setCustomerPhone] = useState('')
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
 
@@ -380,6 +382,7 @@ export function PublicMenuPage() {
 
   const canOrder = !!tableId && !!menu.table
   const canRequestBill = canOrder && !!menu.table?.hasDeliveredItems
+  const canPayWithPix = canRequestBill && !!menu.table?.pixConfigured
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
   const cartSubtotal = cart.reduce(
     (sum, item) => sum + (item.unitPrice + modifiersTotal(item.selectedModifiers)) * item.quantity,
@@ -520,12 +523,14 @@ export function PublicMenuPage() {
       {canOrder && (
         <TableRequestButtons
           canRequestBill={canRequestBill}
+          canPayWithPix={canPayWithPix}
           requestedTypes={requestedTypes}
           isPending={tableRequestMutation.isPending}
           pendingType={tableRequestMutation.variables}
           cartCount={cartCount}
           isCartOpen={isCartOpen}
           onRequest={(type) => tableRequestMutation.mutate(type)}
+          onPayWithPix={() => setIsPixModalOpen(true)}
         />
       )}
 
@@ -628,6 +633,10 @@ export function PublicMenuPage() {
 
       {isReservationModalOpen && slug && (
         <ReservationFormModal slug={slug} onClose={() => setIsReservationModalOpen(false)} />
+      )}
+
+      {isPixModalOpen && slug && tableId && (
+        <PixPaymentModal slug={slug} tableId={tableId} onClose={() => setIsPixModalOpen(false)} />
       )}
     </div>
   )

@@ -74,12 +74,16 @@ security:
 app:
   upload-dir: ./target/test-uploads
   frontend-url: http://localhost:5173
+  credential-encryption-key: UsqfoO7W174yBbSHv1H5mVJHWYviXrVASixxnOtAc7g=
   datasource:
     runtime:
       url: jdbc:postgresql://localhost:5432/restaurant_saas
       username: app_runtime
       password: app_runtime_local_dev_only
       driver-class-name: org.postgresql.Driver
+
+woovi:
+  base-url: http://localhost:0
 
 gemini:
   api-key: test-key-not-used

@@ -22,6 +22,7 @@ import { Link } from 'react-router-dom'
 import { getMyRestaurant, updateMyRestaurant, uploadRestaurantLogo } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
+import { PixIntegrationCard } from '../components/PixIntegrationCard'
 import { SectionTabs } from '../components/SectionTabs'
 import { publicMenuUrl } from '../utils/publicMenuUrl'
 
@@ -533,6 +534,8 @@ export function RestaurantSettingsPage() {
                           </div>
                         </div>
                       </div>
+
+                      <PixIntegrationCard canManage={canManage} />
 
                       <Link
                         to="/dining-areas"
