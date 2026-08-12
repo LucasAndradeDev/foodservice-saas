@@ -38,10 +38,10 @@ export function ProductCard({ product, quantity, canOrder, onAdd, onIncrement, o
       )}
       <div className="flex-1">
         <div className="flex items-start justify-between gap-2">
-          <span className="font-medium text-gray-800 dark:text-white">{product.name}</span>
-          <span className="shrink-0 text-right">
+          <span className="min-w-0 flex-1 font-medium text-gray-800 dark:text-white">{product.name}</span>
+          <span className="max-w-[45%] shrink-0 text-right">
             {product.type === 'COMBO' && product.combo ? (
-              <span className="font-display text-lg font-bold text-brand-600 dark:text-brand-400">
+              <span className="font-display text-base font-bold leading-tight text-brand-600 dark:text-brand-400">
                 {product.combo.minPrice === product.combo.maxPrice
                   ? currencyFormatter.format(product.combo.minPrice)
                   : `${currencyFormatter.format(product.combo.minPrice)} – ${currencyFormatter.format(product.combo.maxPrice)}`}
