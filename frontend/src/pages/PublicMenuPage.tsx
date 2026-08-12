@@ -391,15 +391,17 @@ export function PublicMenuPage() {
   return (
     <div className={`${themeClass} isolate bg-gray-50 dark:bg-stone-950`}>
       <AmbientBackground theme={theme} />
-      <MenuHero
-        restaurantName={menu.restaurantName}
-        logo={menu.logo}
-        tableNumber={menu.table?.number}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
+      <div className="sticky top-0 z-20">
+        <MenuHero
+          restaurantName={menu.restaurantName}
+          logo={menu.logo}
+          tableNumber={menu.table?.number}
+          theme={theme}
+          onToggleTheme={toggleTheme}
+        />
 
-      <CategoryNav categories={orderedCategories} search={search} onSearchChange={setSearch} />
+        <CategoryNav categories={orderedCategories} search={search} onSearchChange={setSearch} />
+      </div>
 
       {!tableId && (
         <div className="mx-auto max-w-2xl px-4 pt-3">

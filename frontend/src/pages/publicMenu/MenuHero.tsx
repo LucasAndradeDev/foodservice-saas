@@ -18,7 +18,7 @@ export function MenuHero({ restaurantName, logo, tableNumber, theme, onToggleThe
   return (
     <header
       style={heroStyle}
-      className="sticky top-0 z-20 border-b border-black/5 bg-gradient-to-b from-brand-50 to-white px-4 py-2.5 backdrop-blur-xl dark:border-white/10 dark:from-brand-900/60 dark:to-stone-950/98"
+      className="bg-white/95 px-4 py-2.5 backdrop-blur-xl dark:bg-stone-950/95"
     >
       <div className="mx-auto flex max-w-2xl items-center gap-3">
         {logo ? (

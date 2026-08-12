@@ -69,7 +69,7 @@ export function CategoryNav({ categories, search, onSearchChange }: CategoryNavP
   }
 
   return (
-    <div className="sticky top-[61px] z-10 bg-white/98 py-3 backdrop-blur-md dark:bg-stone-950/95">
+    <div className="bg-white/95 py-3 backdrop-blur-md dark:bg-stone-950/95">
       <div className="mx-auto max-w-2xl px-4">
         <div className="group relative mb-3">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-brand-500 dark:text-stone-500 dark:group-focus-within:text-brand-400" />

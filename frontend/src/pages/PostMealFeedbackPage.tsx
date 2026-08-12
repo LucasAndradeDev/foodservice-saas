@@ -49,7 +49,9 @@ export function PostMealFeedbackPage() {
 
   return (
     <div className={`${themeClass} min-h-screen bg-gray-50 dark:bg-stone-950`}>
-      <MenuHero restaurantName={context.restaurantName} logo={context.logo} theme={theme} onToggleTheme={toggleTheme} />
+      <div className="sticky top-0 z-20">
+        <MenuHero restaurantName={context.restaurantName} logo={context.logo} theme={theme} onToggleTheme={toggleTheme} />
+      </div>
 
       <main className="mx-auto max-w-md px-4 py-10">
         {submitted || dismissed ? (
