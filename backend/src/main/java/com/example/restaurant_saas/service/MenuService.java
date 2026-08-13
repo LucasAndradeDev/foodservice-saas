@@ -128,13 +128,14 @@ public class MenuService {
                     .orElse(false);
             List<PublicMenuOrderItemResponse> orderItems = openTab
                     .map(tab -> orderItemRepository.findByOrder_Tab_IdOrderByCreatedAtAsc(tab.getId()).stream()
+                            .filter(item -> !item.isComboChild())
                             .map(this::toOrderItemStatusResponse)
                             .toList())
                     .orElse(List.of());
             List<PublicMenuReorderItemResponse> lastOrderItems = openTab
                     .flatMap(tab -> orderRepository.findFirstByTabIdAndRestaurantIdOrderByCreatedAtDesc(tab.getId(), restaurant.getId()))
                     .map(order -> order.getItems().stream()
-                            .filter(item -> item.getStatus() != ItemStatus.CANCELLED)
+                            .filter(item -> item.getStatus() != ItemStatus.CANCELLED && !item.isComboChild())
                             .map(this::toReorderItemResponse)
                             .toList())
                     .orElse(List.of());
