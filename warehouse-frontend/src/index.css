@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@theme {
+  --font-display: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+
+  /* Same brand palette as the Morá frontend, for visual family resemblance. */
+  --color-brand-50: #fdf4f1;
+  --color-brand-100: #fbe3dc;
+  --color-brand-200: #f6c5b5;
+  --color-brand-300: #eea087;
+  --color-brand-400: #dd7455;
+  --color-brand-500: #c6532f;
+  --color-brand-600: #b3421f;
+  --color-brand-700: #93341a;
+  --color-brand-800: #762a16;
+  --color-brand-900: #5f2313;
+
+  --color-sage-100: #dee8df;
+  --color-sage-400: #7ca684;
+  --color-sage-500: #5f8d68;
+  --color-sage-700: #3d5b44;
+
+  /* Teal is Armazém Morá's own accent (see favicon) - distinguishes its tab from Morá's orange
+     while staying in the same semantic status palette both apps already share. */
+  --color-teal-100: #dce9e9;
+  --color-teal-200: #bfd9d9;
+  --color-teal-300: #97c0c0;
+  --color-teal-400: #6da5a6;
+  --color-teal-500: #438788;
+  --color-teal-600: #2e6669;
+  --color-teal-700: #1f4c4e;
+
+  --color-wine-100: #f2dbe0;
+  --color-wine-400: #b85f73;
+  --color-wine-600: #a23b4e;
+  --color-wine-700: #7e2e3d;
+
+  --color-amber-100: #fde8c8;
+  --color-amber-400: #d99a3d;
+  --color-amber-600: #b3781f;
+}

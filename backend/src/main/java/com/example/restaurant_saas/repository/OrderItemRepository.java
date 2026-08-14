@@ -64,4 +64,15 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
             "AND oi.status = 'DELIVERED' AND oi.deliveredAt IS NOT NULL AND oi.parentOrderItem IS NULL")
     List<OrderItem> findForWaiterPerformance(
             @Param("restaurantId") UUID restaurantId, @Param("start") OffsetDateTime start, @Param("end") OffsetDateTime end);
+
+    // Leaf items only (oi.children IS EMPTY) - excludes combo header rows so Armazém Morá's stock
+    // sync sees the exploded components (each with its own real product), never the combo product
+    // as a single line. Plain (non-combo) items and combo children both satisfy "no children of
+    // their own", which is exactly the leaf set: see ComboExplodeService for how children are built.
+    @Query("SELECT oi FROM OrderItem oi " +
+            "JOIN FETCH oi.product " +
+            "WHERE oi.order.restaurant.id = :restaurantId AND oi.status = 'DELIVERED' " +
+            "AND oi.deliveredAt > :since AND oi.children IS EMPTY " +
+            "ORDER BY oi.deliveredAt ASC")
+    List<OrderItem> findDeliveredLeafItemsSince(@Param("restaurantId") UUID restaurantId, @Param("since") OffsetDateTime since);
 }

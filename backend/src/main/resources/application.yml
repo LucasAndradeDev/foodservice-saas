@@ -98,8 +98,9 @@ security:
 app:
   upload-dir: ${UPLOAD_DIR:./uploads}
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  warehouse-frontend-url: ${WAREHOUSE_FRONTEND_URL:http://localhost:5174}
   # Master key for CredentialEncryptionService (base64, 32 bytes) - never in the database, same
-  # posture as brevo.api-key below.
+  # posture as warehouse.sso-secret/brevo.api-key below.
   credential-encryption-key: ${PIX_ENCRYPTION_KEY}
   storage:
     provider: ${STORAGE_PROVIDER:local}
@@ -127,6 +128,11 @@ brevo:
   api-key: ${BREVO_API_KEY:}
   sender-email: ${BREVO_SENDER_EMAIL:}
   sender-name: ${BREVO_SENDER_NAME:Morá}
+
+warehouse:
+  # Shared with the Armazém Morá backend - see WarehouseHandoffTokenService and
+  # docs/ARMAZEM_MORA.md. Deliberately not the same secret as api.jwt.secret above.
+  sso-secret: ${WAREHOUSE_SSO_SECRET}
 
 woovi:
   # Each restaurant's actual AppID lives encrypted in pix_integrations - this is just the API's

@@ -11,6 +11,7 @@ import {
   Settings as SettingsIcon,
   Table2,
   Wallet,
+  Warehouse,
   type LucideIcon,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -26,6 +27,7 @@ import { OfflineBanner } from '../components/OfflineBanner'
 import { PaymentDueBanner } from '../components/PaymentDueBanner'
 import { SupportModal } from '../components/SupportModal'
 import { getNavNotificationStatus, markNavSectionSeen, type NavNotificationStatus, type NavSection } from '../api/navNotifications'
+import { startWarehouseHandoff } from '../api/warehouse'
 import { playAlertTone } from '../utils/alertSound'
 import { Logo } from '../theme/Logo'
 import { ThemeToggleButton } from '../theme/ThemeToggleButton'
@@ -158,6 +160,29 @@ export function AppLayout() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['navNotifications'] }),
   })
 
+  // Opens Armazém Morá (a separate app/origin) already authenticated via a ~60s single-use
+  // handoff token - see docs/ARMAZEM_MORA.md. Must open the tab synchronously inside the click
+  // handler (not in the mutation's onSuccess, which runs after an await) or Safari/iOS blocks it
+  // as an unrequested popup.
+  const warehouseHandoffMutation = useMutation({ mutationFn: startWarehouseHandoff })
+  const canAccessWarehouse = user?.role === 'OWNER' || user?.role === 'MANAGER'
+
+  function openWarehouse() {
+    // No noopener/noreferrer here (unlike a user-controlled link): this tab is deliberately kept
+    // open and blank until the handoff URL comes back, then navigated via newTab.location.href
+    // below - noopener severs that reference (window.open returns null), which left the tab
+    // stuck on about:blank when first tested against the running app.
+    const newTab = window.open('', '_blank')
+    warehouseHandoffMutation.mutate(undefined, {
+      onSuccess: (data) => {
+        if (newTab) newTab.location.href = data.handoffUrl
+      },
+      onError: () => {
+        newTab?.close()
+      },
+    })
+  }
+
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const previousStatusRef = useRef<NavNotificationStatus | null>(null)
 
@@ -282,6 +307,17 @@ export function AppLayout() {
                     {item.label}
                   </NavLink>
                 ))}
+                {canAccessWarehouse && (
+                  <button
+                    type="button"
+                    onClick={openWarehouse}
+                    disabled={warehouseHandoffMutation.isPending}
+                    className={`${sidebarLinkClass({ isActive: false })} w-full disabled:opacity-50`}
+                  >
+                    <Warehouse className="h-5 w-5" />
+                    Armazém Morá
+                  </button>
+                )}
               </nav>
             </>
           )}
@@ -403,6 +439,20 @@ export function AppLayout() {
                 {item.label}
               </button>
             ))}
+            {canAccessWarehouse && (
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMoreOpen(false)
+                  openWarehouse()
+                }}
+                disabled={warehouseHandoffMutation.isPending}
+                className="flex items-center gap-3 py-3 text-left text-sm text-gray-700 disabled:opacity-50 dark:text-stone-300"
+              >
+                <Warehouse className="h-5 w-5 text-gray-500 dark:text-stone-400" />
+                Armazém Morá
+              </button>
+            )}
             <button
               type="button"
               onClick={handleMoreSupport}

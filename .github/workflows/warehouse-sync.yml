@@ -1,0 +1,16 @@
+name: Armazém Morá stock sync
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call sync endpoint
+        run: |
+          curl -f -X POST \
+            -H "X-Sync-Token: ${{ secrets.WAREHOUSE_SYNC_TRIGGER_TOKEN }}" \
+            "${{ vars.WAREHOUSE_BACKEND_URL }}/api/v1/internal/sync"

@@ -1,0 +1,24 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/armazem_mora
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    url: jdbc:postgresql://localhost:5433/armazem_mora
+    user: postgres
+    password: postgres
+
+warehouse:
+  sso-secret: fVAc+Q0nBv0H5okURqwD6VgUpF/sj+1QOoweA0Ph6npDHm6HkwAAxmjx4ZLF8NGdS/rCnZVtMzv/Y/Zv+z4CdQ==
+  jwt-secret: 8HcVKZ5xWJXqm3nQpR7YtF2sD9eLbA6vGjNwT4kUoP1cHzXyMdBqR8sV3wF6nJtL
+  jwt-expiration-ms: 3600000
+
+mora:
+  internal-base-url: http://localhost:8080
+
+sync:
+  trigger-token: test-sync-trigger-token
