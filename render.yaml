@@ -93,6 +93,10 @@ services:
       # token instead of minting it.
       - key: WAREHOUSE_SSO_SECRET
         sync: false
+      # Signs this app's own session token, minted after a handoff is verified. Never
+      # shared with Morá - deliberately a different secret from WAREHOUSE_SSO_SECRET.
+      - key: WAREHOUSE_JWT_SECRET
+        sync: false
       # MoraApiClient pulls delivered sales from here for the stock sync.
       - key: MORA_BACKEND_URL
         value: https://mora-backend.onrender.com
