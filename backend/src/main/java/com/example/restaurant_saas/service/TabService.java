@@ -24,9 +24,11 @@ import com.example.restaurant_saas.dto.request.VoidPaymentRequest;
 import com.example.restaurant_saas.dto.response.PaymentResponse;
 import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.dto.response.TabTableSummary;
+import com.example.restaurant_saas.domain.enums.PixChargeStatus;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.PaymentRepository;
+import com.example.restaurant_saas.repository.PixChargeRepository;
 import com.example.restaurant_saas.repository.ReservationRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.RestaurantTableRepository;
@@ -57,6 +59,7 @@ public class TabService {
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
     private final ReservationRepository reservationRepository;
+    private final PixChargeRepository pixChargeRepository;
 
     @Transactional(readOnly = true)
     public List<TabResponse> listTabs(UUID restaurantId, TabStatus statusFilter) {
@@ -283,9 +286,22 @@ public class TabService {
             throw new IllegalStateException("Tab has order items that are not DELIVERED or CANCELLED yet.");
         }
 
-        boolean allowServiceChargeOverride = currentUserRole == UserRole.OWNER || currentUserRole == UserRole.MANAGER;
+        // serviceChargePercentage itself has to actually be present to count as an override - a
+        // caller (e.g. an OWNER splitting the bill across several manual entries, none of which
+        // has an opinion on service charge) that merely didn't address it must still fall back to
+        // the restaurant's default, not silently waive it to zero. Same reasoning, and same fix,
+        // as TabController#createPixCharge's allowServiceChargeOverride gating.
+        boolean allowServiceChargeOverride = request.getServiceChargePercentage() != null
+                && (currentUserRole == UserRole.OWNER || currentUserRole == UserRole.MANAGER);
         BigDecimal total = resolveBillTotal(tab, allowServiceChargeOverride, request.getServiceChargePercentage());
-        BigDecimal remaining = total.subtract(alreadyPaid);
+        // A sibling PENDING Pix charge (a split-comanda QR someone else is still scanning) has
+        // already claimed part of this total even though nothing's been paid for it yet - without
+        // this, a manual submit could close the tab "early" while that QR is still outstanding,
+        // and its webhook would then have nowhere valid to register the real money that lands for
+        // it. (The charge THIS call is itself confirming, if any, is already PAID by this point -
+        // see PixChargeService#handleWebhook - so it's excluded from this sum on its own.)
+        BigDecimal pendingPixTotal = pixChargeRepository.sumAmountByTabIdAndStatus(tabId, PixChargeStatus.PENDING);
+        BigDecimal remaining = total.subtract(alreadyPaid).subtract(pendingPixTotal);
 
         OffsetDateTime now = OffsetDateTime.now();
         // actingUserId is null when this is a system-initiated payment (a Pix charge confirmed by
@@ -358,7 +374,11 @@ public class TabService {
         payment.setVoidReason(request.getReason());
         paymentRepository.save(payment);
 
-        if (tab.getStatus() == TabStatus.OPEN && paymentRepository.sumActiveAmountByTabId(tabId).signum() == 0) {
+        // A still-PENDING Pix charge (a split-comanda QR nobody's scanned yet, or another payer's
+        // half) is a reason not to unfreeze even if every real payment on the tab was just voided
+        // away - that charge's QR still shows a specific amount computed against the frozen total.
+        if (tab.getStatus() == TabStatus.OPEN && paymentRepository.sumActiveAmountByTabId(tabId).signum() == 0
+                && hasNoOutstandingPixCommitments(tabId)) {
             tab.setBillTotal(null);
             tab.setServiceChargePercentage(null);
             tab.setServiceChargeAmount(null);
@@ -366,6 +386,10 @@ public class TabService {
         }
 
         return toResponse(tab);
+    }
+
+    private boolean hasNoOutstandingPixCommitments(UUID tabId) {
+        return pixChargeRepository.sumAmountByTabIdAndStatus(tabId, PixChargeStatus.PENDING).signum() == 0;
     }
 
     @Transactional
@@ -528,6 +552,34 @@ public class TabService {
         }
         if (paymentRepository.sumActiveAmountByTabId(tabId).signum() != 0) {
             throw new IllegalStateException("A payment has already been registered for this tab.");
+        }
+
+        tab.setBillTotal(null);
+        tab.setServiceChargePercentage(null);
+        tab.setServiceChargeAmount(null);
+        tabRepository.save(tab);
+    }
+
+    /**
+     * Same unfreeze as {@link #unfreezeBillTotal}, but for cancelling ONE of possibly several
+     * concurrent Pix charges on a split-comanda tab (PixChargeService#cancelCharge) - silently
+     * does nothing instead of throwing when it's not safe yet (a real payment landed, or a
+     * sibling charge is still PENDING and needs the frozen total to stay put), since "cancel this
+     * one charge" isn't a request to unfreeze at all costs, just to unfreeze if that charge was
+     * the last thing still using the freeze.
+     */
+    @Transactional
+    public void unfreezeBillTotalIfNoCommitments(UUID restaurantId, UUID tabId) {
+        Tab tab = tabRepository.findByIdAndRestaurantIdForUpdate(tabId, restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Tab not found."));
+        if (tab.getStatus() != TabStatus.OPEN) {
+            return;
+        }
+        if (paymentRepository.sumActiveAmountByTabId(tabId).signum() != 0) {
+            return;
+        }
+        if (!hasNoOutstandingPixCommitments(tabId)) {
+            return;
         }
 
         tab.setBillTotal(null);

@@ -44,6 +44,17 @@ public class PixCharge {
     @Column(nullable = false, length = 20)
     private PixChargeStatus status;
 
+    // Persisted so a still-PENDING charge's QR can be re-displayed after a reload / from a poll,
+    // instead of only ever existing in the browser state of whoever generated it (V60).
+    @Column(name = "br_code")
+    private String brCode;
+
+    @Column(name = "qr_code_image")
+    private String qrCodeImage;
+
+    @Column(name = "payment_link_url")
+    private String paymentLinkUrl;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

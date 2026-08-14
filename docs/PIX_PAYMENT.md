@@ -69,3 +69,20 @@ Ambas confirmadas em 2026-08-12 contra o sandbox real (`https://api.woovi-sandbo
 - ~~**Chave pública fixa do webhook**~~ Ciclo completo testado ponta a ponta: QR gerado → pagamento simulado no painel do sandbox → Woovi chamou `POST /api/v1/public/payments/webhook` (via túnel ngrok) → assinatura RSA validada com a chave hardcoded em `WooviWebhookSignatureVerifier` (200 OK, sem precisar trocar a chave) → `TabService.registerPayments` disparado automaticamente → comanda fechou sozinha sem intervenção manual.
 
 Nenhuma pendência técnica conhecida restante antes de ligar isso pra um restaurante de verdade com conta de produção própria.
+
+## Divisão de conta com Pix — split-bill (2026-08-13)
+
+O V1 acima cobre só uma cobrança por comanda (o total inteiro). Esta sessão estendeu o mesmo mecanismo pra comandas divididas: cada pessoa gera sua própria cobrança Pix parcial, com seu próprio QR Code, em vez de uma pessoa só pagando o total.
+
+- **`PixChargeService#createCharge`** ganhou um parâmetro opcional de valor: omitido, cobre o saldo restante inteiro (comportamento antigo do V1, inalterado); informado, é validado contra o que ainda está genuinamente em aberto — total congelado menos pagamentos já ativos menos outras cobranças Pix ainda `PENDING` na mesma comanda — e rejeitado **antes** de chamar a Woovi se ultrapassar isso.
+- **Novos endpoints** em `TabController`: `GET /api/v1/tabs/{id}/pix-charges` (lista as cobranças `PENDING`/`PAID` da comanda) e `DELETE /api/v1/tabs/{id}/pix-charges/{chargeId}` (cancela uma cobrança específica por id — diferente do `DELETE /api/v1/tabs/{id}/pix-charges` já existente, que cancela todas de uma vez).
+- **`pix_charges`** ganhou `br_code`/`qr_code_image`/`payment_link_url` persistidos (migration `V60`) — no V1 esses dados só viviam no estado React de um navegador; agora sobrevivem a reload/poll, necessário porque pode haver várias cobranças `PENDING` simultâneas na mesma comanda.
+- **`TabService`**: `registerPayments` agora desconta cobranças Pix `PENDING` de terceiros do saldo restante (uma pessoa não pode pagar em dinheiro o que a cobrança Pix de outra pessoa já reservou); novo `unfreezeBillTotalIfNoCommitments` descongela o total só se não sobrar nenhum pagamento ativo nem cobrança `PENDING` — usado pelo cancelamento individual, que não deve destravar a comanda se ainda houver outra cobrança pendente.
+- **Frontend** (`CheckoutPage.tsx`): o modo "Dividir em 2x/3x/4x" (já existente pra pagamento manual) ganhou, por pessoa, um botão próprio "Gerar QR Code Pix" — cada QR fica independente, com seu próprio "Copiar código"/"Cancelar", sem interferir nas demais entradas.
+- Cobertura de teste automatizado nova em `PixChargeIntegrationTest`/`TabControllerIntegrationTest`: concorrência entre cobranças parciais somando certo, validação de saldo antes de chamar a Woovi, cancelamento individual sem afetar as demais, e a trava do total enquanto restar qualquer `PENDING`.
+
+### Validado manualmente em 2026-08-13
+
+Rodado no navegador contra o sandbox real da Woovi (AppID de teste do usuário, configurado só numa comanda de teste local, nunca commitado nem exposto neste arquivo): dividir uma comanda em 2x e gerar as duas cobranças gerou dois QR Codes reais e distintos ao mesmo tempo; cancelar um deles pela UI marcou só aquela cobrança como `CANCELLED` no banco, mantendo a outra `PENDING` intacta com seu QR; com a cobrança restante ainda pendente, uma tentativa de aplicar desconto continuou recebendo `403` (total permanece congelado), como esperado.
+
+Não testado neste passe: o fechamento completo via webhook real de uma cobrança parcial (exigiria simular o pagamento no painel da Woovi + túnel ngrok, como no V1). Esse trecho específico — confirmação assíncrona via webhook — é o mesmo mecanismo já validado ponta a ponta no V1 acima, e está coberto pelos testes automatizados que exercitam duas cobranças parciais sendo confirmadas por webhook em sequência.

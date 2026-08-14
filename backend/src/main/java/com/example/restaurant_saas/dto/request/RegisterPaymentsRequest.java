@@ -19,7 +19,8 @@ public class RegisterPaymentsRequest {
     private List<PaymentEntryRequest> payments;
 
     /** Percentage (0-100) of the post-discount total to add as service charge. Only honored while the
-     * tab's bill total isn't locked yet (i.e. on the first payment registered for this tab). Null/omitted
-     * means none. */
+     * tab's bill total isn't locked yet (i.e. on the first payment registered for this tab), and only
+     * for an OWNER/MANAGER caller. Null/omitted means "no opinion" - falls back to the restaurant's
+     * configured default. Send 0 explicitly to waive it on purpose. */
     private BigDecimal serviceChargePercentage;
 }

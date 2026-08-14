@@ -118,21 +118,40 @@ export interface PixCharge {
   brCode: string
   qrCodeImage: string | null
   paymentLinkUrl: string | null
+  // Only populated by listPixCharges - a freshly created charge (createPixCharge's response) is
+  // always PENDING, so callers of that one don't need to check it.
+  status?: 'PENDING' | 'PAID'
 }
 
 /** Freezes the tab's total (same freeze as the first manual payment) and asks Woovi for a Pix QR
- * code. Confirmation happens asynchronously via webhook - the caller must poll getTab and watch
- * for the tab closing to know it was paid. serviceChargePercentage is only honored for an
- * OWNER/MANAGER caller (silently ignored otherwise, same as registerPayments) - omit it to use the
- * restaurant's configured default. */
-export function createPixCharge(id: string, serviceChargePercentage?: number | null) {
-  return http
-    .post<PixCharge>(`/tabs/${id}/pix-charges`, serviceChargePercentage !== undefined ? { serviceChargePercentage } : undefined)
-    .then((res) => res.data)
+ * code. Confirmation happens asynchronously via webhook - the caller must poll getTab (and, for a
+ * split payment, listPixCharges too) and watch for the tab closing to know it was paid.
+ * serviceChargePercentage is only honored for an OWNER/MANAGER caller (silently ignored otherwise,
+ * same as registerPayments) - omit it to use the restaurant's configured default. amount is only
+ * for a split payment (one call per QR code, each for its own share); omit it for the common case
+ * of one charge covering the tab's entire remaining balance. */
+export function createPixCharge(id: string, serviceChargePercentage?: number | null, amount?: number) {
+  const body = serviceChargePercentage !== undefined || amount !== undefined ? { serviceChargePercentage, amount } : undefined
+  return http.post<PixCharge>(`/tabs/${id}/pix-charges`, body).then((res) => res.data)
 }
 
-/** Cancels a still-unpaid Pix charge and unfreezes the tab's total, so items/discount/service
- * charge become editable again. No-op if there's no pending charge. */
+/** Every PENDING or PAID Pix charge still outstanding on this tab (CANCELLED/EXPIRED ones are
+ * omitted) - lets a split payment with several concurrent QR codes poll and reconcile all of them
+ * at once, matching by id (never by amount - two equal-sized split shares would be
+ * indistinguishable that way). */
+export function listPixCharges(id: string) {
+  return http.get<PixCharge[]>(`/tabs/${id}/pix-charges`).then((res) => res.data)
+}
+
+/** Cancels one specific still-unpaid Pix charge by id (one entry in a split payment) and unfreezes
+ * the tab's total only if nothing else - a payment, or a sibling still-PENDING charge - still
+ * needs it. No-op if the charge isn't pending anymore. */
+export function cancelPixChargeById(id: string, chargeId: string) {
+  return http.delete<void>(`/tabs/${id}/pix-charges/${chargeId}`).then((res) => res.data)
+}
+
+/** Cancels every still-unpaid Pix charge on this tab and unfreezes its total, so
+ * items/discount/service charge become editable again. No-op if there's no pending charge. */
 export function cancelPixCharge(id: string) {
   return http.delete<void>(`/tabs/${id}/pix-charges`).then((res) => res.data)
 }

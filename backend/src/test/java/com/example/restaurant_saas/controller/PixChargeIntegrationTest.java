@@ -15,6 +15,7 @@ import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.SavePixIntegrationRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
+import com.example.restaurant_saas.dto.request.VoidPaymentRequest;
 import com.example.restaurant_saas.repository.PixChargeRepository;
 import com.example.restaurant_saas.repository.PixIntegrationRepository;
 import com.example.restaurant_saas.repository.UserRepository;
@@ -43,6 +44,8 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -528,14 +531,21 @@ class PixChargeIntegrationTest {
         when(wooviApiClient.createCharge(any(), any(), any(), any())).thenReturn(
                 new WooviApiClient.ChargeResult("00020126brcode", "https://api.woovi.com/qr/abc.png", "https://openpix.com.br/pay/abc"));
 
+        // Only part of the 28.49 total (25.90 + 10% service charge) - split-comanda style, so
+        // there's still 10.00 of genuinely uncommitted balance left for the manual card payment
+        // below (registerPayments now refuses to accept more than what a pending Pix charge hasn't
+        // already claimed - see TabService#registerPayments).
         mockMvc.perform(post("/api/v1/tabs/" + tabId + "/pix-charges")
-                        .header("Authorization", "Bearer " + ownerToken))
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\": 18.49}"))
                 .andExpect(status().isOk());
 
-        // A cashier settles part of the frozen total by card while the QR code is still pending -
-        // cancelling the Pix charge after this must refuse, since that payment was computed against
-        // the frozen total and unfreezing it now would leave the numbers inconsistent. CREDIT_CARD,
-        // not CASH, so this doesn't also need an open cash register session (CashRegisterService).
+        // A cashier settles the rest of the frozen total by card while the QR code is still
+        // pending - cancelling the Pix charge after this must refuse, since that payment was
+        // computed against the frozen total and unfreezing it now would leave the numbers
+        // inconsistent. CREDIT_CARD, not CASH, so this doesn't also need an open cash register
+        // session (CashRegisterService).
         String paymentsBody = """
                 {"payments":[{"paymentMethod":"CREDIT_CARD","amount":10.00}]}
                 """;
@@ -548,6 +558,229 @@ class PixChargeIntegrationTest {
         mockMvc.perform(delete("/api/v1/tabs/" + tabId + "/pix-charges")
                         .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void createCharge_twoConcurrentPartialCharges_bothSucceedAndSumCorrectly() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        saveWooviIntegration(ownerToken, "woovi-app-id-123");
+        // 25.90 + 10% service charge = 28.49 total.
+        String tabId = createDeliveredItemTab(ownerToken, "25.90");
+
+        when(wooviApiClient.createCharge(any(), any(), any(), any())).thenReturn(
+                new WooviApiClient.ChargeResult("00020126brcode", "https://api.woovi.com/qr/abc.png", "https://openpix.com.br/pay/abc"));
+
+        // Split-comanda style: two people, each generating their own QR code for their own half.
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/pix-charges")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\": 14.25}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.amount").value(14.25));
+
+        // The second charge's amount is only validated against what the FIRST one hasn't already
+        // claimed - omitting amount here means "the rest", not "the whole tab again".
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/pix-charges")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.amount").value(14.24));
+
+        mockMvc.perform(get("/api/v1/tabs/" + tabId + "/pix-charges")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].status").value("PENDING"))
+                .andExpect(jsonPath("$[1].status").value("PENDING"));
+    }
+
+    @Test
+    void createCharge_amountExceedingRemaining_shouldBeRejectedBeforeCallingWoovi() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        saveWooviIntegration(ownerToken, "woovi-app-id-123");
+        String tabId = createDeliveredItemTab(ownerToken, "25.90");
+
+        when(wooviApiClient.createCharge(any(), any(), any(), any())).thenReturn(
+                new WooviApiClient.ChargeResult("00020126brcode", "https://api.woovi.com/qr/abc.png", "https://openpix.com.br/pay/abc"));
+
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/pix-charges")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\": 20.00}"))
+                .andExpect(status().isOk());
+
+        // Only 8.49 is left uncommitted (28.49 - 20.00) - asking for 10.00 more must be rejected,
+        // and rejected BEFORE ever asking Woovi to create a real charge for it.
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/pix-charges")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\": 10.00}"))
+                .andExpect(status().isBadRequest());
+
+        verify(wooviApiClient, org.mockito.Mockito.times(1)).createCharge(any(), any(), any(), any());
+    }
+
+    @Test
+    void webhook_payingBothOfTwoPartialCharges_closesTabOnlyAfterTheSecond() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        saveWooviIntegration(ownerToken, "woovi-app-id-123");
+        String tabId = createDeliveredItemTab(ownerToken, "25.90");
+
+        when(wooviApiClient.createCharge(any(), any(), any(), any())).thenReturn(
+                new WooviApiClient.ChargeResult("00020126brcode", "https://api.woovi.com/qr/abc.png", "https://openpix.com.br/pay/abc"));
+
+        MvcResult firstResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/pix-charges")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\": 14.25}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String firstChargeId = JsonPath.read(firstResult.getResponse().getContentAsString(), "$.id");
+
+        MvcResult secondResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/pix-charges")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        String secondChargeId = JsonPath.read(secondResult.getResponse().getContentAsString(), "$.id");
+
+        UUID restaurantId = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail())
+                .orElseThrow().getRestaurant().getId();
+        String firstExternalId = TenantTestSupport.withTenant(restaurantId,
+                        () -> pixChargeRepository.findById(UUID.fromString(firstChargeId)))
+                .orElseThrow().getExternalChargeId();
+        String secondExternalId = TenantTestSupport.withTenant(restaurantId,
+                        () -> pixChargeRepository.findById(UUID.fromString(secondChargeId)))
+                .orElseThrow().getExternalChargeId();
+
+        mockMvc.perform(post("/api/v1/public/payments/webhook")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("x-webhook-signature", "irrelevant-stubbed-valid")
+                        .content(webhookPayload(firstExternalId, "COMPLETED")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/tabs/" + tabId).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.amountPaid").value(14.25));
+
+        mockMvc.perform(post("/api/v1/public/payments/webhook")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("x-webhook-signature", "irrelevant-stubbed-valid")
+                        .content(webhookPayload(secondExternalId, "COMPLETED")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/tabs/" + tabId).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.amountPaid").value(28.49));
+    }
+
+    @Test
+    void voidPayment_withSiblingPendingPixCharge_shouldNotUnfreezeBillTotal() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        saveWooviIntegration(ownerToken, "woovi-app-id-123");
+        String tabId = createDeliveredItemTab(ownerToken, "25.90");
+
+        when(wooviApiClient.createCharge(any(), any(), any(), any())).thenReturn(
+                new WooviApiClient.ChargeResult("00020126brcode", "https://api.woovi.com/qr/abc.png", "https://openpix.com.br/pay/abc"));
+
+        // One split-comanda entry becomes a real Pix charge (14.25); the other pays cash on the
+        // spot for the rest (14.24) and is then voided by mistake.
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/pix-charges")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\": 14.25}"))
+                .andExpect(status().isOk());
+
+        MvcResult paymentResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"payments\":[{\"paymentMethod\":\"CREDIT_CARD\",\"amount\":14.24}]}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String paymentId = JsonPath.read(paymentResult.getResponse().getContentAsString(), "$.payments[0].id");
+
+        VoidPaymentRequest voidRequest = new VoidPaymentRequest();
+        voidRequest.setReason("Registered by mistake");
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/payments/" + paymentId + "/void")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(voidRequest)))
+                .andExpect(status().isOk());
+
+        // Every ACTIVE payment is now gone (the only one was just voided), but the Pix charge is
+        // still PENDING - billTotal must stay frozen, not silently unfreeze under it.
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/discount")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ApplyDiscountRequest())))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void cancelPixCharge_byId_oneOfTwoPending_leavesTheOtherPendingAndBillTotalFrozen() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        saveWooviIntegration(ownerToken, "woovi-app-id-123");
+        String tabId = createDeliveredItemTab(ownerToken, "25.90");
+
+        when(wooviApiClient.createCharge(any(), any(), any(), any())).thenReturn(
+                new WooviApiClient.ChargeResult("00020126brcode", "https://api.woovi.com/qr/abc.png", "https://openpix.com.br/pay/abc"));
+
+        MvcResult firstResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/pix-charges")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\": 14.25}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String firstChargeId = JsonPath.read(firstResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/pix-charges")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/tabs/" + tabId + "/pix-charges/" + firstChargeId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNoContent());
+
+        // The other charge is still PENDING and still needs the freeze - discount stays refused.
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/discount")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ApplyDiscountRequest())))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/tabs/" + tabId + "/pix-charges")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].amount").value(14.24));
+    }
+
+    @Test
+    void cancelPixCharge_byId_lastPendingWithNoPayments_shouldUnfreezeBillTotal() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        saveWooviIntegration(ownerToken, "woovi-app-id-123");
+        String tabId = createDeliveredItemTab(ownerToken, "25.90");
+
+        when(wooviApiClient.createCharge(any(), any(), any(), any())).thenReturn(
+                new WooviApiClient.ChargeResult("00020126brcode", "https://api.woovi.com/qr/abc.png", "https://openpix.com.br/pay/abc"));
+
+        MvcResult chargeResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/pix-charges")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        String chargeId = JsonPath.read(chargeResult.getResponse().getContentAsString(), "$.id");
+
+        mockMvc.perform(delete("/api/v1/tabs/" + tabId + "/pix-charges/" + chargeId)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNoContent());
+
+        // Nothing else outstanding - the discount that was refused while the charge was pending
+        // now goes through.
+        mockMvc.perform(patch("/api/v1/tabs/" + tabId + "/discount")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new ApplyDiscountRequest())))
+                .andExpect(status().isOk());
     }
 
     @Test

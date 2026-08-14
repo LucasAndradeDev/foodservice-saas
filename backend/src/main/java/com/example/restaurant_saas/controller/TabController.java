@@ -128,7 +128,7 @@ public class TabController {
 
     @PostMapping("/{id}/payments")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
-    @Operation(summary = "Register one or more payments (split bill)", description = "Registers one or more payments in a single atomic call — e.g. a bill split across several people and/or payment methods. Works on an OPEN tab (closing it and freeing its tables once the sum of all active payments reaches the total), or, OWNER/MANAGER only, on a CLOSED tab left with a debt by a previous payment void. serviceChargePercentage is only honored on the tab's first payment (when its bill total is not yet locked), and only for OWNER/MANAGER; other roles always get the restaurant's configured default. The sum of the payments sent must not exceed the tab's remaining balance.")
+    @Operation(summary = "Register one or more payments (split bill)", description = "Registers one or more payments in a single atomic call — e.g. a bill split across several people and/or payment methods. Works on an OPEN tab (closing it and freeing its tables once the sum of all active payments reaches the total), or, OWNER/MANAGER only, on a CLOSED tab left with a debt by a previous payment void. serviceChargePercentage is only honored on the tab's first payment (when its bill total is not yet locked), and only for OWNER/MANAGER when explicitly sent - omitting it (or any other role sending it) always falls back to the restaurant's configured default rather than waiving it. The sum of the payments sent must not exceed the tab's remaining balance.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Payment(s) registered; tab closed if fully paid"),
             @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, tab is not open (and has no debt to complete), or the payments sent exceed the remaining balance"),
@@ -144,10 +144,10 @@ public class TabController {
 
     @PostMapping("/{id}/pix-charges")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
-    @Operation(summary = "Create a Pix charge for this tab", description = "Freezes the tab's bill total (same freeze as the first registered payment) and asks Woovi for a QR code for that exact amount. An OWNER/MANAGER caller may pass serviceChargePercentage to override the restaurant's default, same as registerPayments - any other role's override is ignored. The charge is confirmed asynchronously by a webhook - poll GET /tabs/{id} and watch for the tab closing/its payments list updating to know when it's been paid. Requires the restaurant to have configured its Woovi AppID first (see /pix-integration).")
+    @Operation(summary = "Create a Pix charge for this tab", description = "Freezes the tab's bill total (same freeze as the first registered payment) and asks Woovi for a QR code. An OWNER/MANAGER caller may pass serviceChargePercentage to override the restaurant's default, same as registerPayments - any other role's override is ignored. Omitting amount charges the tab's full remaining balance (the common case); a caller splitting the bill passes an explicit partial amount instead, one call per QR code - rejected if it exceeds what's not already paid or claimed by another still-PENDING charge on the same tab. The charge is confirmed asynchronously by a webhook - poll GET /tabs/{id} and watch for the tab closing/its payments list updating, or GET this same path to list every outstanding charge, to know when it's been paid. Requires the restaurant to have configured its Woovi AppID first (see /pix-integration).")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Charge created, returns the Pix QR code/copy-paste code"),
-            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, or tab is not open"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, tab is not open, or the requested amount exceeds the tab's remaining uncommitted balance"),
             @ApiResponse(responseCode = "403", description = "This restaurant hasn't configured Pix payment yet, or the tab has order items not yet DELIVERED or CANCELLED"),
             @ApiResponse(responseCode = "502", description = "Woovi could not be reached or returned an unexpected response")
     })
@@ -156,27 +156,57 @@ public class TabController {
             @PathVariable UUID id,
             @RequestBody(required = false) CreatePixChargeRequest request
     ) {
-        // A request body has to actually be present to count as an override - otherwise an omitted
-        // body (no opinion on service charge either way) would be indistinguishable from an
-        // OWNER/MANAGER explicitly waiving it (a present body with serviceChargePercentage left
-        // null, same as removing it before registerPayments), and silently drop the restaurant's
-        // default.
-        boolean allowServiceChargeOverride =
-                request != null && (currentUser.getRole() == UserRole.OWNER || currentUser.getRole() == UserRole.MANAGER);
+        // serviceChargePercentage itself has to actually be present to count as an override -
+        // "body missing" and "body present only for amount, with no opinion on service charge"
+        // both need to fall back to the restaurant's default; if this
+        // instead keyed off request-object presence alone, an OWNER/MANAGER splitting the bill
+        // (which needs to send amount in this same body) would unintentionally waive the service
+        // charge to zero on every split entry just by not also specifying a percentage. Waiving it
+        // on purpose is still possible - send serviceChargePercentage: 0, not null.
         BigDecimal requestedServiceChargePercentage = request != null ? request.getServiceChargePercentage() : null;
+        boolean allowServiceChargeOverride = requestedServiceChargePercentage != null
+                && (currentUser.getRole() == UserRole.OWNER || currentUser.getRole() == UserRole.MANAGER);
+        BigDecimal requestedAmount = request != null ? request.getAmount() : null;
         return ResponseEntity.ok(pixChargeService.createCharge(
-                currentUser.getRestaurantId(), id, allowServiceChargeOverride, requestedServiceChargePercentage));
+                currentUser.getRestaurantId(), id, allowServiceChargeOverride, requestedServiceChargePercentage, requestedAmount));
+    }
+
+    @GetMapping("/{id}/pix-charges")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "List this tab's outstanding Pix charges", description = "Every PENDING or PAID charge on the tab (CANCELLED/EXPIRED ones are omitted) - lets the Checkout poll and reconcile several concurrent split-comanda QR codes at once by id, telling a charge that just got paid apart from one that was cancelled/expired elsewhere.")
+    @ApiResponse(responseCode = "200", description = "List of outstanding charges, possibly empty")
+    public ResponseEntity<List<PixChargeResponse>> listPixCharges(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(pixChargeService.listCharges(currentUser.getRestaurantId(), id));
+    }
+
+    @DeleteMapping("/{id}/pix-charges/{chargeId}")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "Cancel one specific pending Pix charge", description = "Cancels a single still-PENDING charge by id (one entry in a split-comanda payment) and unfreezes the tab's bill total only if nothing else - a real payment, or a sibling still-PENDING charge - is still relying on it. A no-op if the charge isn't PENDING anymore (already paid, or already cancelled/expired).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Charge cancelled (or was already resolved) - bill total unfrozen if nothing else needs it"),
+            @ApiResponse(responseCode = "400", description = "Pix charge not found on this tab/restaurant")
+    })
+    public ResponseEntity<Void> cancelPixCharge(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id,
+            @PathVariable UUID chargeId
+    ) {
+        pixChargeService.cancelCharge(currentUser.getRestaurantId(), id, chargeId);
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}/pix-charges")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
-    @Operation(summary = "Cancel a pending Pix charge for this tab", description = "Cancels any still-PENDING Pix charge on this tab and unfreezes its bill total, so items/discount/service charge become editable again. A no-op if there's no pending charge (e.g. it was already paid, or there never was one).")
+    @Operation(summary = "Cancel every pending Pix charge for this tab", description = "Cancels all still-PENDING Pix charges on this tab and unfreezes its bill total, so items/discount/service-charge become editable again. A no-op if there's nothing PENDING (e.g. it was already paid, or there never was one).")
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Pending charge (if any) cancelled, bill total unfrozen"),
+            @ApiResponse(responseCode = "204", description = "Pending charge(s), if any, cancelled and bill total unfrozen"),
             @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, or tab is not open"),
             @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission, or a payment has already been registered against this tab")
     })
-    public ResponseEntity<Void> cancelPixCharge(
+    public ResponseEntity<Void> cancelAllPixCharges(
             @AuthenticationPrincipal UserDetailsImpl currentUser,
             @PathVariable UUID id
     ) {

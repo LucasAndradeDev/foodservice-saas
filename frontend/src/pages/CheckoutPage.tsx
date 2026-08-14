@@ -1,7 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, CheckCircle2, ChevronDown, Clock, Copy, Loader2, Lock, Pencil, Percent, Printer, QrCode, Users, Wallet, X } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, Clock, Copy, Loader2, Lock, Pencil, Percent, Plus, Printer, QrCode, Users, Wallet, X } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -10,9 +10,11 @@ import { getPixIntegrationStatus } from '../api/pixIntegration'
 import {
   applyTabDiscount,
   cancelPixCharge,
+  cancelPixChargeById,
   computeDiscountAmount,
   createPixCharge,
   getTab,
+  listPixCharges,
   listTabs,
   registerPayments,
   PAYMENT_METHOD_LABELS,
@@ -41,6 +43,11 @@ interface PendingEntry {
   id: string
   method: PaymentMethod
   amount: string
+  // Only ever set in split mode (pendingEntries.length > 1) - a single-payment Pix charge still
+  // uses the separate top-level pixCharge state below, unchanged. Once set, this entry is
+  // read-only and excluded from the manual "Confirmar pagamentos" submit - it resolves on its own
+  // via webhook, same as the single-payment flow.
+  pixCharge?: PixCharge
 }
 
 const PAYMENT_METHOD_OPTIONS: DropdownOption<PaymentMethod>[] = (Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => ({
@@ -67,6 +74,20 @@ function isSameLocalDay(a: Date, b: Date) {
 function extractErrorMessage(err: unknown, fallback: string) {
   if (isAxiosError(err) && err.response?.data?.message) {
     return err.response.data.message as string
+  }
+  return fallback
+}
+
+/** Same idea as extractErrorMessage, but for creating a Pix charge specifically: the backend's
+ * validation messages there are internal English text (e.g. "Requested amount exceeds the tab's
+ * remaining uncommitted balance of 0.00"), never meant to reach a screen - translate the one case
+ * staff can actually run into (another still-PENDING charge already claimed what's left, most often
+ * because it was reconstructed from a previous visit to this same modal) and fall back to a generic
+ * message for anything else, instead of leaking the raw text. */
+function extractPixChargeErrorMessage(err: unknown, fallback: string) {
+  const backendMessage = isAxiosError(err) ? (err.response?.data?.message as string | undefined) : undefined
+  if (backendMessage?.includes('remaining uncommitted balance')) {
+    return 'Já existe uma cobrança Pix pendente que cobre esse valor. Cancele-a antes de gerar outra, ou aguarde a confirmação do pagamento.'
   }
   return fallback
 }
@@ -153,6 +174,7 @@ export function CheckoutPage() {
   const [serviceChargeInput, setServiceChargeInput] = useState('')
   const [pixCharge, setPixCharge] = useState<PixCharge | null>(null)
   const [brCodeCopied, setBrCodeCopied] = useState(false)
+  const [copiedEntryId, setCopiedEntryId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!selectedSummary) return
@@ -205,7 +227,7 @@ export function CheckoutPage() {
       const updatedTab = await getTab(tabId)
       setSelectedSummary((prev) => (prev && prev.tab.id === tabId ? { ...prev, tab: updatedTab } : prev))
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível gerar a cobrança Pix. Tente novamente.')),
+    onError: (err) => setError(extractPixChargeErrorMessage(err, 'Não foi possível gerar a cobrança Pix. Tente novamente.')),
   })
 
   const cancelPixChargeMutation = useMutation({
@@ -226,6 +248,7 @@ export function CheckoutPage() {
     queryFn: () => getTab(selectedSummary!.tab.id),
     enabled: !!pixCharge && !!selectedSummary,
     refetchInterval: 3000,
+    refetchIntervalInBackground: true,
   })
 
   useEffect(() => {
@@ -236,6 +259,92 @@ export function CheckoutPage() {
     setJustPaidTabId(polledTab.id)
     setPixCharge(null)
   }, [pixCharge, polledTab, queryClient])
+
+  // Split-payment counterpart of pixChargeMutation above: generates a QR code for ONE entry's own
+  // share instead of the whole tab, so several people can each pay their own part via Pix at once.
+  const entryPixChargeMutation = useMutation({
+    mutationFn: ({ tabId, amount }: { tabId: string; entryId: string; amount: number }) =>
+      createPixCharge(tabId, serviceChargePercentage, amount),
+    onSuccess: (charge, { entryId }) => {
+      setPendingEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, pixCharge: charge } : entry)))
+    },
+    onError: (err) => setError(extractPixChargeErrorMessage(err, 'Não foi possível gerar a cobrança Pix para essa parcela. Tente novamente.')),
+  })
+
+  const entryCancelPixChargeMutation = useMutation({
+    mutationFn: ({ tabId, chargeId }: { tabId: string; entryId: string; chargeId: string }) => cancelPixChargeById(tabId, chargeId),
+    onSuccess: (_data, { entryId }) => {
+      setPendingEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, pixCharge: undefined } : entry)))
+    },
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível cancelar a cobrança Pix dessa parcela. Tente novamente.')),
+  })
+
+  // Fallback for a split Pix share the customer paid through some channel outside the app (a Pix key
+  // read out loud, a QR shared over WhatsApp, Woovi down, etc.) - registers it as a plain manual
+  // payment, same as choosing "Dinheiro" would, without ever going through Woovi. Kept as a small,
+  // separate action (never folded into the bulk "Confirmar pagamentos") so staff can't land on it by
+  // accident while reaching for the real QR button next to it.
+  const entryManualPixConfirmMutation = useMutation({
+    mutationFn: ({ tabId, amount }: { tabId: string; entryId: string; amount: number }) =>
+      registerPayments(tabId, [{ paymentMethod: 'PIX', amount }], hasLockedTotal ? undefined : (serviceChargePercentage ?? undefined)),
+    onSuccess: (updatedTab, { entryId }) => {
+      queryClient.invalidateQueries({ queryKey: ['tabs'] })
+      queryClient.invalidateQueries({ queryKey: ['tables'] })
+      setSelectedSummary((prev) => (prev && prev.tab.id === updatedTab.id ? { ...prev, tab: updatedTab } : prev))
+      if (updatedTab.status === 'CLOSED') {
+        setJustPaidTabId(updatedTab.id)
+        setPendingEntries([])
+      } else {
+        setPendingEntries((prev) => prev.filter((entry) => entry.id !== entryId))
+      }
+    },
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível confirmar esse pagamento. Tente novamente.')),
+  })
+
+  const hasOutstandingEntryPixCharge = pendingEntries.some((entry) => entry.pixCharge)
+
+  // Polls both the list of outstanding charges (to reconcile each entry's own QR code - matched by
+  // id, never by amount, since two equal split shares would otherwise be indistinguishable) and the
+  // tab itself (to notice it closing once every entry, Pix or manual, is accounted for).
+  const { data: splitPixCharges } = useQuery({
+    queryKey: ['tabs', selectedSummary?.tab.id, 'split-pix-poll'],
+    queryFn: () => listPixCharges(selectedSummary!.tab.id),
+    enabled: hasOutstandingEntryPixCharge && !!selectedSummary,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
+  })
+
+  const { data: splitPolledTab } = useQuery({
+    queryKey: ['tabs', selectedSummary?.tab.id, 'split-tab-poll'],
+    queryFn: () => getTab(selectedSummary!.tab.id),
+    enabled: hasOutstandingEntryPixCharge && !!selectedSummary,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
+  })
+
+  useEffect(() => {
+    if (!splitPixCharges) return
+    setPendingEntries((prev) =>
+      prev.map((entry) => {
+        if (!entry.pixCharge) return entry
+        const match = splitPixCharges.find((charge) => charge.id === entry.pixCharge!.id)
+        // Not in the list anymore (and not caught by the tab-closed effect below, which would
+        // have already cleared pendingEntries) means it was cancelled or expired outside this
+        // screen - revert the entry to editable rather than leave it stuck showing a dead QR code.
+        if (!match) return { ...entry, pixCharge: undefined }
+        return match.status !== entry.pixCharge.status ? { ...entry, pixCharge: match } : entry
+      }),
+    )
+  }, [splitPixCharges])
+
+  useEffect(() => {
+    if (!hasOutstandingEntryPixCharge || !splitPolledTab || splitPolledTab.status !== 'CLOSED') return
+    queryClient.invalidateQueries({ queryKey: ['tabs'] })
+    queryClient.invalidateQueries({ queryKey: ['tables'] })
+    setSelectedSummary((prev) => (prev && prev.tab.id === splitPolledTab.id ? { ...prev, tab: splitPolledTab } : prev))
+    setJustPaidTabId(splitPolledTab.id)
+    setPendingEntries([])
+  }, [hasOutstandingEntryPixCharge, splitPolledTab, queryClient])
 
   const tabDiscountMutation = useMutation({
     mutationFn: ({ id, discountType, value, reason }: { id: string; discountType: DiscountType | null; value?: number; reason?: string }) =>
@@ -254,27 +363,54 @@ export function CheckoutPage() {
     onError: () => setError('Não foi possível aplicar o desconto nesta comanda.'),
   })
 
-  function handleCardClick(summary: TabSummary) {
-    if (summary.isReady) {
-      setSelectedSummary(summary)
-      setError(null)
-      setIsEditingDiscount(false)
-      setIsEditingServiceCharge(false)
-      setPixCharge(null)
-      setServiceChargeInput(String(restaurant?.serviceChargePercentage ?? 10))
-      if (summary.tab.billTotal != null) {
-        // A previous partial payment already locked this tab's total; the service charge can no
-        // longer be changed, so mirror what the backend already froze instead of the restaurant default.
-        setServiceChargePercentage(summary.tab.serviceChargePercentage)
-        setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(summary.tab.remainingBalance ?? 0) }])
-      } else {
-        const defaultCharge = restaurant?.serviceChargeEnabled ? restaurant.serviceChargePercentage : null
-        setServiceChargePercentage(defaultCharge)
-        const chargeAmount = roundCurrency((summary.total * (defaultCharge ?? 0)) / 100)
-        setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(roundCurrency(summary.total + chargeAmount)) }])
+  async function handleCardClick(summary: TabSummary) {
+    if (!summary.isReady) {
+      navigate(`/tabs/${summary.tab.id}`)
+      return
+    }
+    setSelectedSummary(summary)
+    setError(null)
+    setIsEditingDiscount(false)
+    setIsEditingServiceCharge(false)
+    setPixCharge(null)
+    setServiceChargeInput(String(restaurant?.serviceChargePercentage ?? 10))
+    if (summary.tab.billTotal != null) {
+      // A previous partial payment already locked this tab's total; the service charge can no
+      // longer be changed, so mirror what the backend already froze instead of the restaurant default.
+      setServiceChargePercentage(summary.tab.serviceChargePercentage)
+      const remaining = summary.tab.remainingBalance ?? 0
+      setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(remaining) }])
+      // A Pix charge generated in an earlier visit to this modal (or orphaned by a page reload) still
+      // commits part of the remaining balance server-side even though this fresh mount has no memory
+      // of it - reconstruct it here instead of silently blocking new payment attempts with a
+      // "remaining balance" the Caixa can't otherwise explain or act on.
+      try {
+        const charges = await listPixCharges(summary.tab.id)
+        const pending = charges.filter((charge) => charge.status === 'PENDING')
+        if (pending.length > 0) {
+          const pendingSum = roundCurrency(pending.reduce((sum, charge) => sum + charge.amount, 0))
+          const leftover = roundCurrency(remaining - pendingSum)
+          const entries: PendingEntry[] = pending.map((charge) => ({
+            id: nextEntryId(),
+            method: 'PIX',
+            amount: String(charge.amount),
+            pixCharge: charge,
+          }))
+          if (leftover > 0.001) {
+            entries.push({ id: nextEntryId(), method: 'PIX', amount: String(leftover) })
+          }
+          setPendingEntries(entries)
+        }
+      } catch {
+        // Best-effort reconstruction - if it fails, the Caixa still sees the default single-entry
+        // form reflecting the correct remaining balance and can cancel a stuck charge via
+        // "Já recebi esse Pix por fora" or by contacting support if it truly can't be recovered.
       }
     } else {
-      navigate(`/tabs/${summary.tab.id}`)
+      const defaultCharge = restaurant?.serviceChargeEnabled ? restaurant.serviceChargePercentage : null
+      setServiceChargePercentage(defaultCharge)
+      const chargeAmount = roundCurrency((summary.total * (defaultCharge ?? 0)) / 100)
+      setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(roundCurrency(summary.total + chargeAmount)) }])
     }
   }
 
@@ -289,6 +425,12 @@ export function CheckoutPage() {
     navigator.clipboard.writeText(pixCharge.brCode)
     setBrCodeCopied(true)
     setTimeout(() => setBrCodeCopied(false), 2000)
+  }
+
+  function handleCopyEntryBrCode(entryId: string, brCode: string) {
+    navigator.clipboard.writeText(brCode)
+    setCopiedEntryId(entryId)
+    setTimeout(() => setCopiedEntryId((prev) => (prev === entryId ? null : prev)), 2000)
   }
 
   const hasLockedTotal = selectedSummary?.tab.billTotal != null
@@ -311,13 +453,26 @@ export function CheckoutPage() {
   // single Pix payment - showing it while staff has "Dinheiro"/"Cartão" selected, or is splitting
   // across methods, offered an action unrelated to what they were about to register.
   const isSinglePixEntry = pendingEntries.length === 1 && pendingEntries[0].method === 'PIX'
+  const isSplitMode = pendingEntries.length > 1
+  // A split entry still set to Pix but without a generated charge yet isn't manually confirmable -
+  // the only way to actually collect it is its own "Gerar QR Code Pix" button, never the bulk
+  // "Confirmar pagamentos" below, so staff can't accidentally mark a Pix share as paid without a real
+  // charge behind it.
+  const isAwaitingSplitPixQr = (entry: PendingEntry) => isSplitMode && entry.method === 'PIX' && !entry.pixCharge
+  // Entries with a generated Pix charge resolve on their own via webhook - only what's left (manual
+  // methods, plus any split Pix share still waiting on its QR) is what "Confirmar pagamentos" below
+  // actually submits.
+  const manualEntries = pendingEntries.filter((entry) => !entry.pixCharge && !isAwaitingSplitPixQr(entry))
+  const manualSplitEntriesSum = roundCurrency(manualEntries.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0))
+  const hasManualEntriesToConfirm = manualEntries.length > 0
 
   const canConfirmPayment =
     !!selectedSummary &&
     justPaidTabId !== selectedSummary.tab.id &&
     canPay &&
     !payMutation.isPending &&
-    (isZeroBalance || (entriesSum > 0 && amountLeftToAllocate >= -0.001))
+    (hasManualEntriesToConfirm || isZeroBalance) &&
+    (isZeroBalance || (manualSplitEntriesSum > 0 && amountLeftToAllocate >= -0.001))
 
   // Enter confirms the payment while the form is valid -- skipped while a sub-form (discount/service
   // charge) is open so its own native Enter-to-submit isn't double-fired by this handler.
@@ -374,7 +529,7 @@ export function CheckoutPage() {
 
   function handleRegisterPayments() {
     if (!selectedSummary) return
-    const entries = pendingEntries
+    const entries = manualEntries
       .map((entry) => ({ paymentMethod: entry.method, amount: Number(entry.amount) }))
       .filter((entry) => entry.amount > 0)
     if (entries.length === 0 && !isZeroBalance) return
@@ -807,39 +962,48 @@ export function CheckoutPage() {
                 </div>
               )}
 
-              <div className="mb-4 space-y-1 border-t border-gray-200 pt-3 dark:border-white/10">
+              <div className="mb-4 border-t border-gray-200 pt-3 dark:border-white/10">
                 {serviceChargePercentage != null && !hasLockedTotal && (
-                  <div className="flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
+                  <div className="mb-1 flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
                     <span>Subtotal</span>
                     <span>{currencyFormatter.format(selectedSummary.total)}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between text-base font-semibold text-gray-800 dark:text-white">
-                  <span>Total</span>
-                  <span>{currencyFormatter.format(finalTotal)}</span>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-medium text-gray-500 dark:text-stone-400">Total</span>
+                  <span className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                    {currencyFormatter.format(finalTotal)}
+                  </span>
                 </div>
                 {amountPaid > 0 && (
-                  <>
-                    <div className="flex items-center justify-between text-sm text-green-700 dark:text-green-400">
-                      <span>Já pago</span>
-                      <span>{currencyFormatter.format(amountPaid)}</span>
+                  <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-gray-50 p-3 dark:bg-white/5">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 dark:text-stone-400">Já pago</p>
+                      <p className="text-base font-semibold text-green-700 dark:text-green-400">
+                        {currencyFormatter.format(amountPaid)}
+                      </p>
                     </div>
-                    <div className="flex items-center justify-between text-sm font-semibold text-amber-700 dark:text-amber-400">
-                      <span>Restante</span>
-                      <span>{currencyFormatter.format(remainingBalance)}</span>
+                    <div className="text-right">
+                      <p className="text-xs font-medium text-gray-500 dark:text-stone-400">Restante</p>
+                      <p className="text-base font-semibold text-amber-700 dark:text-amber-400">
+                        {currencyFormatter.format(remainingBalance)}
+                      </p>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
 
               {selectedSummary.tab.payments.filter((p) => p.status === 'ACTIVE').length > 0 && (
-                <ul className="mb-4 space-y-1 rounded-lg border border-gray-200 p-3 text-xs text-gray-600 dark:border-white/10 dark:text-stone-400">
+                <ul className="mb-4 space-y-1.5 rounded-xl border border-gray-200 p-3 text-sm dark:border-white/10">
                   {selectedSummary.tab.payments
                     .filter((p) => p.status === 'ACTIVE')
                     .map((payment) => (
-                      <li key={payment.id} className="flex items-center justify-between">
-                        <span>{PAYMENT_METHOD_LABELS[payment.paymentMethod]}</span>
-                        <span>{currencyFormatter.format(payment.amount)}</span>
+                      <li key={payment.id} className="flex items-center justify-between text-gray-600 dark:text-stone-400">
+                        <span className="flex items-center gap-1.5">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                          {PAYMENT_METHOD_LABELS[payment.paymentMethod]}
+                        </span>
+                        <span className="font-medium text-gray-700 dark:text-stone-300">{currencyFormatter.format(payment.amount)}</span>
                       </li>
                     ))}
                 </ul>
@@ -891,20 +1055,25 @@ export function CheckoutPage() {
 
               {canPay && !isZeroBalance && !pixCharge && (
                 <>
-                  {pixStatus?.configured && isSinglePixEntry && (
+                  {pixStatus?.configured && isSinglePixEntry && !hasOutstandingEntryPixCharge && (
                     <button
                       type="button"
                       onClick={() =>
                         pixChargeMutation.mutate({ tabId: selectedSummary.tab.id, serviceChargePercentage })
                       }
                       disabled={pixChargeMutation.isPending}
-                      className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-brand-300 bg-brand-50 px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-100 disabled:opacity-50 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-400"
+                      className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
                     >
                       <QrCode className="h-4 w-4" />
                       {pixChargeMutation.isPending ? 'Gerando QR Code...' : 'Gerar QR Code Pix'}
                     </button>
                   )}
-                  <div className="mb-3">
+                  {/* Once any entry has a generated Pix charge, its amount is committed server-side
+                      (TabService#registerPayments now reserves PENDING pix charges out of the
+                      remaining balance) - changing the split shape out from under it would orphan
+                      that charge (still frozen, still payable) with nothing in the UI tracking it
+                      anymore, so the whole split control and "+ add" are frozen right along with it. */}
+                  <div className={`mb-3 ${hasOutstandingEntryPixCharge ? 'pointer-events-none opacity-50' : ''}`}>
                     <Dropdown<SplitChoice>
                       value={pendingEntries.length >= 2 && pendingEntries.length <= 4 ? (String(pendingEntries.length) as SplitChoice) : 'single'}
                       options={SPLIT_OPTIONS}
@@ -913,55 +1082,183 @@ export function CheckoutPage() {
                     />
                   </div>
 
-                  <ul className="mb-2 space-y-2">
-                    {pendingEntries.map((entry, index) => (
-                      <li key={entry.id} className="flex items-center gap-2">
-                        <div className="flex-1">
-                          <Dropdown<PaymentMethod>
-                            value={entry.method}
-                            options={PAYMENT_METHOD_OPTIONS}
-                            onChange={(method) => updateEntryMethod(entry.id, method)}
-                            fullWidth
-                            panelClassName="w-full"
-                            mobileTitle={`Forma de pagamento ${index + 1}`}
-                          />
-                        </div>
-                        <input
-                          aria-label={`Valor ${index + 1}`}
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          value={entry.amount}
-                          onChange={(e) => updateEntryAmount(entry.id, e.target.value)}
-                          className="w-28 rounded-md border border-gray-300 px-2 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-                        />
-                        {pendingEntries.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeEntry(entry.id)}
-                            aria-label="Remover este pagamento"
-                            className="shrink-0 text-gray-400 hover:text-red-600 dark:text-stone-500 dark:hover:text-red-400"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        )}
-                      </li>
-                    ))}
+                  <ul className="mb-2 space-y-3">
+                    {pendingEntries.map((entry, index) => {
+                      const canGenerateEntryQr = isAwaitingSplitPixQr(entry) && pixStatus?.configured
+                      const entryChargePaid = entry.pixCharge?.status === 'PAID'
+                      return (
+                        <li
+                          key={entry.id}
+                          className={
+                            isSplitMode
+                              ? 'rounded-xl border border-gray-200 bg-gray-50/60 p-3 dark:border-white/10 dark:bg-white/[0.03]'
+                              : undefined
+                          }
+                        >
+                          {isSplitMode && (
+                            <div className="mb-2 flex items-center gap-2">
+                              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-500/20 dark:text-brand-400">
+                                {index + 1}
+                              </span>
+                              <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
+                                Pessoa {index + 1}
+                              </span>
+                            </div>
+                          )}
+                          <div className="space-y-2">
+                          {!entry.pixCharge && (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1">
+                                <Dropdown<PaymentMethod>
+                                  value={entry.method}
+                                  options={PAYMENT_METHOD_OPTIONS}
+                                  onChange={(method) => updateEntryMethod(entry.id, method)}
+                                  fullWidth
+                                  panelClassName="w-full"
+                                  mobileTitle={`Forma de pagamento ${index + 1}`}
+                                />
+                              </div>
+                              <input
+                                aria-label={`Valor ${index + 1}`}
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value={entry.amount}
+                                onChange={(e) => updateEntryAmount(entry.id, e.target.value)}
+                                className="w-28 rounded-md border border-gray-300 px-2 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                              />
+                              {isSplitMode && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeEntry(entry.id)}
+                                  aria-label="Remover este pagamento"
+                                  className="shrink-0 text-gray-400 hover:text-red-600 dark:text-stone-500 dark:hover:text-red-400"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          {canGenerateEntryQr && (() => {
+                            const isThisEntryGeneratingQr = entryPixChargeMutation.isPending && entryPixChargeMutation.variables?.entryId === entry.id
+                            return (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  entryPixChargeMutation.mutate({
+                                    tabId: selectedSummary.tab.id,
+                                    entryId: entry.id,
+                                    amount: Number(entry.amount),
+                                  })
+                                }
+                                disabled={isThisEntryGeneratingQr || !(Number(entry.amount) > 0)}
+                                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
+                              >
+                                <QrCode className="h-4 w-4" />
+                                {isThisEntryGeneratingQr ? 'Gerando QR Code...' : 'Gerar QR Code Pix'}
+                              </button>
+                            )
+                          })()}
+                          {canGenerateEntryQr && (() => {
+                            const isThisEntryConfirming =
+                              entryManualPixConfirmMutation.isPending && entryManualPixConfirmMutation.variables?.entryId === entry.id
+                            return (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  entryManualPixConfirmMutation.mutate({
+                                    tabId: selectedSummary.tab.id,
+                                    entryId: entry.id,
+                                    amount: Number(entry.amount),
+                                  })
+                                }
+                                disabled={isThisEntryConfirming || !(Number(entry.amount) > 0)}
+                                className="mt-1.5 w-full text-center text-xs text-gray-400 hover:text-gray-600 hover:underline disabled:opacity-50 dark:text-stone-500 dark:hover:text-stone-300"
+                              >
+                                {isThisEntryConfirming ? 'Confirmando...' : 'Já recebi esse Pix por fora (confirmar sem QR)'}
+                              </button>
+                            )
+                          })()}
+                          {entry.pixCharge && (
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="flex w-full items-center justify-between">
+                                <span className="text-sm font-medium text-gray-700 dark:text-stone-300">
+                                  Pix ({currencyFormatter.format(entry.pixCharge.amount)})
+                                </span>
+                                {entryChargePaid ? (
+                                  <span className="flex items-center gap-1 text-sm font-medium text-green-700 dark:text-green-400">
+                                    <Check className="h-4 w-4" />
+                                    Pago
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1 text-sm text-gray-600 dark:text-stone-400">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Aguardando pagamento
+                                  </span>
+                                )}
+                              </div>
+                              <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-md">
+                                <QRCodeCanvas value={entry.pixCharge.brCode} size={168} />
+                              </div>
+                              {!entryChargePaid && (() => {
+                                const isThisEntryCancelling =
+                                  entryCancelPixChargeMutation.isPending && entryCancelPixChargeMutation.variables?.entryId === entry.id
+                                return (
+                                  <div className="flex w-full gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyEntryBrCode(entry.id, entry.pixCharge!.brCode)}
+                                      className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                                    >
+                                      {copiedEntryId === entry.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                      {copiedEntryId === entry.id ? 'Copiado!' : 'Copiar código'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        entryCancelPixChargeMutation.mutate({
+                                          tabId: selectedSummary.tab.id,
+                                          entryId: entry.id,
+                                          chargeId: entry.pixCharge!.id,
+                                        })
+                                      }
+                                      disabled={isThisEntryCancelling}
+                                      className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+                                    >
+                                      {isThisEntryCancelling ? 'Cancelando...' : 'Cancelar'}
+                                    </button>
+                                  </div>
+                                )
+                              })()}
+                            </div>
+                          )}
+                          </div>
+                        </li>
+                      )
+                    })}
                   </ul>
 
                   <button
                     type="button"
                     onClick={addEntry}
-                    className="mb-3 text-sm text-brand-600 hover:underline dark:text-brand-400"
+                    disabled={hasOutstandingEntryPixCharge}
+                    className="mb-3 flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline disabled:pointer-events-none disabled:opacity-50 dark:text-brand-400"
                   >
-                    + Adicionar outro pagamento
+                    <Plus className="h-3.5 w-3.5" />
+                    Adicionar outro pagamento
                   </button>
 
-                  <div className="mb-4 space-y-1 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm dark:border-white/10 dark:bg-white/5">
-                    <div className="flex items-center justify-between font-medium text-gray-800 dark:text-white">
+                  <div className="mb-4 space-y-1.5 rounded-xl border border-gray-200 bg-gray-50 p-3.5 text-sm dark:border-white/10 dark:bg-white/5">
+                    <div className="flex items-center justify-between font-semibold text-gray-800 dark:text-white">
                       <span>Você está registrando</span>
-                      <span>{currencyFormatter.format(entriesSum)}</span>
+                      <span>{currencyFormatter.format(manualSplitEntriesSum)}</span>
                     </div>
+                    {hasOutstandingEntryPixCharge && (
+                      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-stone-400">
+                        <span>Aguardando confirmação via Pix</span>
+                        <span>{currencyFormatter.format(roundCurrency(entriesSum - manualSplitEntriesSum))}</span>
+                      </div>
+                    )}
                     {amountLeftToAllocate > 0.001 && (
                       <div className="flex items-center justify-between text-xs text-amber-700 dark:text-amber-400">
                         <span>Fica faltando (comanda continua aberta)</span>
@@ -980,19 +1277,21 @@ export function CheckoutPage() {
 
               {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-              {canPay && !pixCharge && (
+              {/* Nothing left to hand-confirm once every split entry has its own Pix charge - the
+                  tab closes on its own as each one's webhook lands, same as the single-payment flow. */}
+              {canPay && !pixCharge && (hasManualEntriesToConfirm || isZeroBalance) && (
                 <Button
                   type="button"
                   onClick={handleRegisterPayments}
-                  disabled={payMutation.isPending || (!isZeroBalance && (entriesSum <= 0 || amountLeftToAllocate < -0.001))}
+                  disabled={payMutation.isPending || (!isZeroBalance && (manualSplitEntriesSum <= 0 || amountLeftToAllocate < -0.001))}
                   className="w-full"
                 >
                   {isZeroBalance
                     ? 'Fechar comanda'
                     : amountLeftToAllocate > 0.001
-                      ? `Registrar ${pendingEntries.length > 1 ? pendingEntries.length + ' pagamentos parciais' : 'pagamento parcial'}`
-                      : pendingEntries.length > 1
-                        ? `Confirmar ${pendingEntries.length} pagamentos`
+                      ? `Registrar ${manualEntries.length > 1 ? manualEntries.length + ' pagamentos parciais' : 'pagamento parcial'}`
+                      : manualEntries.length > 1
+                        ? `Confirmar ${manualEntries.length} pagamentos`
                         : 'Confirmar pagamento'}
                   {canConfirmPayment && !isEditingDiscount && !isEditingServiceCharge && (
                     <kbd className="ml-1 hidden rounded border border-white/40 px-1 text-[10px] font-normal opacity-70 sm:inline">↵</kbd>

@@ -15,6 +15,7 @@ import com.example.restaurant_saas.dto.response.PixChargeResponse;
 import com.example.restaurant_saas.dto.response.PixIntegrationStatusResponse;
 import com.example.restaurant_saas.exception.PixGatewayException;
 import com.example.restaurant_saas.repository.OrderItemRepository;
+import com.example.restaurant_saas.repository.PaymentRepository;
 import com.example.restaurant_saas.repository.PixChargeRepository;
 import com.example.restaurant_saas.repository.PixIntegrationRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
@@ -41,6 +42,7 @@ public class PixChargeService {
 
     private final PixIntegrationRepository pixIntegrationRepository;
     private final PixChargeRepository pixChargeRepository;
+    private final PaymentRepository paymentRepository;
     private final TabRepository tabRepository;
     private final RestaurantRepository restaurantRepository;
     private final RestaurantTableRepository restaurantTableRepository;
@@ -68,23 +70,42 @@ public class PixChargeService {
 
     /**
      * Creates a Pix charge for a tab: freezes the tab's bill total (see
-     * {@link TabService#freezeBillTotalForPixCharge}), asks Woovi for a QR code for that exact
-     * amount, and records a PENDING {@link PixCharge} so the webhook can later find its way back
-     * to this tenant. {@code allowServiceChargeOverride}/{@code requestedServiceChargePercentage}
-     * pass straight through to the freeze - see its javadoc for who may set them.
+     * {@link TabService#freezeBillTotalForPixCharge}), asks Woovi for a QR code, and records a
+     * PENDING {@link PixCharge} so the webhook can later find its way back to this tenant.
+     * {@code allowServiceChargeOverride}/{@code requestedServiceChargePercentage} pass straight
+     * through to the freeze - see its javadoc for who may set them. {@code requestedAmount} is
+     * null for the common case (one charge covering the tab's entire remaining balance); a caller
+     * splitting the bill passes an explicit partial amount instead, one call per QR code - always
+     * validated against what's actually still uncommitted (not already paid, and not already
+     * claimed by another still-PENDING charge on the same tab) before Woovi is ever called, so a
+     * real payment can never succeed on their side for more than what's actually owed and then
+     * have nowhere valid to be reconciled here.
      */
     @Transactional
     public PixChargeResponse createCharge(
-            UUID restaurantId, UUID tabId, boolean allowServiceChargeOverride, BigDecimal requestedServiceChargePercentage
+            UUID restaurantId, UUID tabId, boolean allowServiceChargeOverride, BigDecimal requestedServiceChargePercentage,
+            BigDecimal requestedAmount
     ) {
         PixIntegration integration = pixIntegrationRepository.findByRestaurantId(restaurantId)
                 .orElseThrow(() -> new IllegalStateException("This restaurant hasn't configured Pix payment yet."));
 
-        BigDecimal amount = tabService.freezeBillTotalForPixCharge(
+        BigDecimal billTotal = tabService.freezeBillTotalForPixCharge(
                 restaurantId, tabId, allowServiceChargeOverride, requestedServiceChargePercentage);
         // Just a reference, no extra query: freezeBillTotalForPixCharge already validated the tab
         // exists, belongs to this restaurant and is in the right state.
         Tab tab = tabRepository.getReferenceById(tabId);
+
+        if (requestedAmount != null && requestedAmount.scale() > 2) {
+            throw new IllegalArgumentException("Amount must not have more than 2 decimal places.");
+        }
+
+        BigDecimal committed = paymentRepository.sumActiveAmountByTabId(tabId)
+                .add(pixChargeRepository.sumAmountByTabIdAndStatus(tabId, PixChargeStatus.PENDING));
+        BigDecimal remaining = billTotal.subtract(committed);
+        BigDecimal amount = requestedAmount != null ? requestedAmount : remaining;
+        if (amount.signum() <= 0 || amount.compareTo(remaining) > 0) {
+            throw new IllegalArgumentException("Requested amount exceeds the tab's remaining uncommitted balance of " + remaining);
+        }
 
         String appId = credentialEncryptionService.decrypt(integration.getApiKeyEncrypted());
         String correlationId = UUID.randomUUID().toString();
@@ -98,16 +119,13 @@ public class PixChargeService {
                 .externalChargeId(correlationId)
                 .amount(amount)
                 .status(PixChargeStatus.PENDING)
-                .build();
-        pixCharge = pixChargeRepository.save(pixCharge);
-
-        return PixChargeResponse.builder()
-                .id(pixCharge.getId())
-                .amount(amount)
                 .brCode(chargeResult.brCode())
                 .qrCodeImage(chargeResult.qrCodeImage())
                 .paymentLinkUrl(chargeResult.paymentLinkUrl())
                 .build();
+        pixCharge = pixChargeRepository.save(pixCharge);
+
+        return toResponse(pixCharge);
     }
 
     /**
@@ -139,8 +157,9 @@ public class PixChargeService {
 
             // No staff role behind a customer paying on their own from the digital menu - always the
             // restaurant's configured default, same as freezeBillTotalForPixCharge's other non-OWNER/
-            // MANAGER callers.
-            return createCharge(restaurant.getId(), tab.getId(), false, null);
+            // MANAGER callers. Always the full remaining balance too - the digital menu has no split
+            // UI of its own.
+            return createCharge(restaurant.getId(), tab.getId(), false, null, null);
         } finally {
             tenantActivator.deactivate();
         }
@@ -166,6 +185,53 @@ public class PixChargeService {
 
         pending.forEach(charge -> charge.setStatus(PixChargeStatus.CANCELLED));
         pixChargeRepository.saveAll(pending);
+    }
+
+    /**
+     * Everything still worth showing on a tab - PENDING (still waiting to be paid) and PAID (so a
+     * split-comanda entry that just got confirmed by its own webhook can be told apart from one
+     * that was cancelled/expired elsewhere, rather than both simply "not being in the list"
+     * looking identical). CANCELLED/EXPIRED rows are dead and never returned here.
+     */
+    @Transactional(readOnly = true)
+    public List<PixChargeResponse> listCharges(UUID restaurantId, UUID tabId) {
+        return pixChargeRepository
+                .findByTab_IdAndRestaurantIdAndStatusIn(tabId, restaurantId, List.of(PixChargeStatus.PENDING, PixChargeStatus.PAID))
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    /**
+     * Cancels ONE specific still-PENDING charge (a single entry in a split-comanda payment,
+     * identified by id) - a no-op if it's not PENDING anymore (already paid, or already
+     * cancelled/expired). Unlike {@link #cancelPendingCharge} (cancels every PENDING charge on the
+     * tab and always tries to unfreeze), this only unfreezes the tab's bill total if nothing else
+     * is still relying on it - see {@link TabService#unfreezeBillTotalIfNoCommitments}.
+     */
+    @Transactional
+    public void cancelCharge(UUID restaurantId, UUID tabId, UUID chargeId) {
+        PixCharge charge = pixChargeRepository.findByIdAndTab_IdAndRestaurantId(chargeId, tabId, restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Pix charge not found."));
+        if (charge.getStatus() != PixChargeStatus.PENDING) {
+            return;
+        }
+
+        charge.setStatus(PixChargeStatus.CANCELLED);
+        pixChargeRepository.save(charge);
+
+        tabService.unfreezeBillTotalIfNoCommitments(restaurantId, tabId);
+    }
+
+    private PixChargeResponse toResponse(PixCharge charge) {
+        return PixChargeResponse.builder()
+                .id(charge.getId())
+                .amount(charge.getAmount())
+                .brCode(charge.getBrCode())
+                .qrCodeImage(charge.getQrCodeImage())
+                .paymentLinkUrl(charge.getPaymentLinkUrl())
+                .status(charge.getStatus())
+                .build();
     }
 
     /**

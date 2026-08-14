@@ -280,7 +280,7 @@ class TabControllerIntegrationTest {
         mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(registerPaymentsRequestBody("CASH", "25.90")))
+                        .content(registerPaymentsRequestBody("CASH", "25.90", "0")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
                 .andExpect(jsonPath("$.billTotal").value(25.90))
@@ -327,7 +327,7 @@ class TabControllerIntegrationTest {
         mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(registerPaymentsRequestBody("CASH", "10.00")))
+                        .content(registerPaymentsRequestBody("CASH", "10.00", "0")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("OPEN"))
                 .andExpect(jsonPath("$.billTotal").value(25.90))
@@ -840,7 +840,7 @@ class TabControllerIntegrationTest {
         mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(registerPaymentsRequestBody("CASH", "25.90")))
+                        .content(registerPaymentsRequestBody("CASH", "25.90", "0")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
                 .andExpect(jsonPath("$.tables").isEmpty());
@@ -1220,7 +1220,12 @@ class TabControllerIntegrationTest {
     }
 
     @Test
-    void registerPayments_withoutServiceCharge_shouldLeaveFieldsAbsent() throws Exception {
+    void registerPayments_omittingServiceCharge_shouldFallBackToRestaurantDefaultNotWaiveIt() throws Exception {
+        // An OWNER who merely didn't address service charge at all (no opinion either way) must
+        // still get the restaurant's configured default baked into billTotal, exactly like the
+        // waiter case below - only an explicit percentage (including 0) counts as an override.
+        // Regression test for the same "omission silently waives it" bug already fixed once for
+        // TabController#createPixCharge - registerPayments had the identical gap.
         String ownerToken = registerOwnerAndGetToken();
         String tableId = createTableAndGetId(ownerToken);
         String tabId = openTabAndGetId(ownerToken, tableId);
@@ -1230,8 +1235,32 @@ class TabControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(registerPaymentsRequestBody("CASH", "0")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.serviceChargePercentage").doesNotExist())
-                .andExpect(jsonPath("$.serviceChargeAmount").doesNotExist());
+                .andExpect(jsonPath("$.serviceChargePercentage").value(10))
+                .andExpect(jsonPath("$.serviceChargeAmount").value(0.00));
+    }
+
+    @Test
+    void registerPayments_explicitlyWaivingServiceCharge_shouldZeroItRatherThanUseDefault() throws Exception {
+        // Sending 0 explicitly, as opposed to omitting the field, is the actual way an OWNER waives
+        // the service charge on purpose - it's a real override (percentage 0), not an absent one.
+        String ownerToken = registerOwnerAndGetToken();
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "100.00");
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        updateItemStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        updateItemStatus(ownerToken, itemId, ItemStatus.READY);
+        updateItemStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerPaymentsRequestBody("CASH", "100.00", "0")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.billTotal").value(100.00))
+                .andExpect(jsonPath("$.serviceChargePercentage").value(0))
+                .andExpect(jsonPath("$.serviceChargeAmount").value(0.00));
     }
 
     @Test
@@ -1357,7 +1386,7 @@ class TabControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(registerPaymentsRequestBody(List.of(
                                 new String[]{"PIX", "15.90"},
-                                new String[]{"CASH", "10.00"}))))
+                                new String[]{"CASH", "10.00"}), "0")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
                 .andExpect(jsonPath("$.amountPaid").value(25.90))
@@ -1393,7 +1422,7 @@ class TabControllerIntegrationTest {
         mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(registerPaymentsRequestBody("CASH", "20.00")))
+                        .content(registerPaymentsRequestBody("CASH", "20.00", "0")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("OPEN"))
                 .andExpect(jsonPath("$.billTotal").value(40.00))
@@ -1453,7 +1482,7 @@ class TabControllerIntegrationTest {
         MvcResult payResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(registerPaymentsRequestBody("CASH", "25.90")))
+                        .content(registerPaymentsRequestBody("CASH", "25.90", "0")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
                 .andReturn();
@@ -1632,7 +1661,7 @@ class TabControllerIntegrationTest {
         MvcResult payResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(registerPaymentsRequestBody("CASH", "10.00")))
+                        .content(registerPaymentsRequestBody("CASH", "10.00", "0")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("OPEN"))
                 .andExpect(jsonPath("$.billTotal").value(25.90))
@@ -1678,7 +1707,7 @@ class TabControllerIntegrationTest {
         MvcResult payResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(registerPaymentsRequestBody("CASH", "25.90")))
+                        .content(registerPaymentsRequestBody("CASH", "25.90", "0")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
                 .andReturn();
