@@ -116,7 +116,13 @@ export function TableActionsMenu({
       seenStatusesRef.current = new Map(items.map((item) => [item.id, item.status]))
       return
     }
-    const changedItem = items.find((item) => seenStatusesRef.current!.get(item.id) !== item.status)
+    // Only a status change on an item we already knew about counts here — a brand-new item
+    // (just submitted) isn't in the map yet, and showing this toast for it would duplicate the
+    // "Pedido enviado!" confirmation PublicMenuPage already shows for that same action.
+    const changedItem = items.find((item) => {
+      const previousStatus = seenStatusesRef.current!.get(item.id)
+      return previousStatus !== undefined && previousStatus !== item.status
+    })
     seenStatusesRef.current = new Map(items.map((item) => [item.id, item.status]))
     if (changedItem) {
       const stepIndex = STEP_INDEX[changedItem.status]

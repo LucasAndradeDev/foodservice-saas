@@ -7,6 +7,9 @@ import lombok.Data;
 @Builder
 public class NavNotificationStatusResponse {
     private boolean kitchen;
-    private boolean tables;
-    private boolean checkout;
+    private boolean tablesItemReady;
+    private boolean tablesCallWaiter;
+    private boolean tablesRequestBill;
+    private boolean checkoutRequestBill;
+    private boolean checkoutReadyToClose;
 }

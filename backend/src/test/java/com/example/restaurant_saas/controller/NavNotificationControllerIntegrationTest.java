@@ -2,12 +2,14 @@ package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
+import com.example.restaurant_saas.domain.enums.TableRequestType;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
+import com.example.restaurant_saas.dto.request.CreateTableRequestRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
@@ -87,6 +89,23 @@ class NavNotificationControllerIntegrationTest {
 
     private String tokenFor(User user) {
         return jwtService.generateToken(new UserDetailsImpl(user));
+    }
+
+    private String getSlug(String token) throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.slug");
+    }
+
+    private void createTableRequest(String slug, String tableId, TableRequestType type) throws Exception {
+        CreateTableRequestRequest request = new CreateTableRequestRequest();
+        request.setType(type);
+        mockMvc.perform(post("/api/v1/public/menu/" + slug + "/tables/" + tableId + "/requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
     }
 
     private String createTableAndGetId(String token) throws Exception {
@@ -183,7 +202,8 @@ class NavNotificationControllerIntegrationTest {
                         .header("Authorization", "Bearer " + setup.ownerToken()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.kitchen").value(true))
-                .andExpect(jsonPath("$.checkout").value(false));
+                .andExpect(jsonPath("$.checkoutRequestBill").value(false))
+                .andExpect(jsonPath("$.checkoutReadyToClose").value(false));
     }
 
     @Test
@@ -226,12 +246,79 @@ class NavNotificationControllerIntegrationTest {
         // Not ready yet — the last item hasn't been delivered.
         mockMvc.perform(get("/api/v1/nav-notifications/status")
                         .header("Authorization", "Bearer " + setup.ownerToken()))
-                .andExpect(jsonPath("$.checkout").value(false));
+                .andExpect(jsonPath("$.checkoutReadyToClose").value(false));
 
         moveItemToStatus(setup.ownerToken(), itemId, ItemStatus.DELIVERED);
 
         mockMvc.perform(get("/api/v1/nav-notifications/status")
                         .header("Authorization", "Bearer " + setup.ownerToken()))
-                .andExpect(jsonPath("$.checkout").value(true));
+                .andExpect(jsonPath("$.checkoutReadyToClose").value(true));
+    }
+
+    @Test
+    void getStatus_callWaiter_onlySetsTablesCallWaiter() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String slug = getSlug(ownerToken);
+        String tableId = createTableAndGetId(ownerToken);
+
+        createTableRequest(slug, tableId, TableRequestType.CALL_WAITER);
+
+        mockMvc.perform(get("/api/v1/nav-notifications/status")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.tablesCallWaiter").value(true))
+                .andExpect(jsonPath("$.tablesRequestBill").value(false))
+                .andExpect(jsonPath("$.tablesItemReady").value(false))
+                .andExpect(jsonPath("$.checkoutRequestBill").value(false))
+                .andExpect(jsonPath("$.checkoutReadyToClose").value(false));
+    }
+
+    @Test
+    void getStatus_requestBill_setsTablesAndCheckoutRequestBillOnly() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String slug = getSlug(ownerToken);
+        String tableId = createTableAndGetId(ownerToken);
+        String tabId = openTabAndGetId(ownerToken, tableId);
+        String categoryId = createCategoryAndGetId(ownerToken);
+        String productId = createProductAndGetId(ownerToken, categoryId);
+        String itemId = createOrderAndGetFirstItemId(ownerToken, tabId, productId);
+        // REQUEST_BILL is only valid once at least one item has actually been delivered.
+        moveItemToStatus(ownerToken, itemId, ItemStatus.PREPARING);
+        moveItemToStatus(ownerToken, itemId, ItemStatus.READY);
+        moveItemToStatus(ownerToken, itemId, ItemStatus.DELIVERED);
+
+        // The item becoming READY/DELIVERED above already flips tablesItemReady and
+        // checkoutReadyToClose — mark both seen first so only the bill request shows up below.
+        mockMvc.perform(post("/api/v1/nav-notifications/TABLES/seen")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/v1/nav-notifications/CHECKOUT/seen")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isNoContent());
+
+        createTableRequest(slug, tableId, TableRequestType.REQUEST_BILL);
+
+        mockMvc.perform(get("/api/v1/nav-notifications/status")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(jsonPath("$.tablesRequestBill").value(true))
+                .andExpect(jsonPath("$.checkoutRequestBill").value(true))
+                .andExpect(jsonPath("$.tablesCallWaiter").value(false))
+                .andExpect(jsonPath("$.checkoutReadyToClose").value(false));
+    }
+
+    @Test
+    void getStatus_itemBecomesReady_onlySetsTablesItemReady() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+
+        moveItemToStatus(setup.ownerToken(), itemId, ItemStatus.PREPARING);
+        moveItemToStatus(setup.ownerToken(), itemId, ItemStatus.READY);
+
+        mockMvc.perform(get("/api/v1/nav-notifications/status")
+                        .header("Authorization", "Bearer " + setup.ownerToken()))
+                .andExpect(jsonPath("$.tablesItemReady").value(true))
+                .andExpect(jsonPath("$.tablesCallWaiter").value(false))
+                .andExpect(jsonPath("$.tablesRequestBill").value(false))
+                .andExpect(jsonPath("$.checkoutRequestBill").value(false))
+                .andExpect(jsonPath("$.checkoutReadyToClose").value(false));
     }
 }

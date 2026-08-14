@@ -4,8 +4,11 @@ export type NavSection = 'KITCHEN' | 'TABLES' | 'CHECKOUT'
 
 export interface NavNotificationStatus {
   kitchen: boolean
-  tables: boolean
-  checkout: boolean
+  tablesItemReady: boolean
+  tablesCallWaiter: boolean
+  tablesRequestBill: boolean
+  checkoutRequestBill: boolean
+  checkoutReadyToClose: boolean
 }
 
 export function getNavNotificationStatus() {

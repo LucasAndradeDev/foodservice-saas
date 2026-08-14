@@ -36,16 +36,34 @@ const NAV_STATUS_POLL_MS = 4000
 const TOAST_DURATION_MS = 6000
 const EMAIL_VERIFICATION_POLL_MS = 10000
 
-const SECTION_TO_STATUS_KEY = {
-  KITCHEN: 'kitchen',
-  TABLES: 'tables',
-  CHECKOUT: 'checkout',
-} as const
+/**
+ * Each signal maps to exactly one real-world event and carries its own message, instead of
+ * collapsing several unrelated events (e.g. "item ready to deliver" and "table called the
+ * waiter") into one shared, misleading toast per nav section.
+ */
+interface NotificationSignal {
+  section: NavSection
+  key: keyof NavNotificationStatus
+  message: string
+  to: string
+}
 
-const SECTION_ALERT_INFO: Record<NavSection, { message: string; to: string }> = {
-  KITCHEN: { message: 'Novo pedido na cozinha', to: '/kitchen' },
-  TABLES: { message: 'Mesa chamando ou pedindo a conta', to: '/tables' },
-  CHECKOUT: { message: 'Comanda pronta pra fechar', to: '/checkout' },
+// tablesRequestBill has no toast of its own here: it's the same real-world event as
+// checkoutRequestBill (one bill request flips both flags at once, since both Mesas and Checkout
+// need their own unread badge for it) — one toast for that event is enough, so only the
+// Checkout side pops it. The Mesas badge (SECTION_STATUS_KEYS below) still lights up either way.
+const NOTIFICATION_SIGNALS: NotificationSignal[] = [
+  { section: 'KITCHEN', key: 'kitchen', message: 'Novo pedido na cozinha', to: '/kitchen' },
+  { section: 'TABLES', key: 'tablesItemReady', message: 'Pedido pronto pra entregar', to: '/tables' },
+  { section: 'TABLES', key: 'tablesCallWaiter', message: 'Mesa chamando o garçom', to: '/tables' },
+  { section: 'CHECKOUT', key: 'checkoutRequestBill', message: 'Cliente pediu a conta', to: '/checkout' },
+  { section: 'CHECKOUT', key: 'checkoutReadyToClose', message: 'Comanda pronta pra fechar', to: '/checkout' },
+]
+
+const SECTION_STATUS_KEYS: Record<NavSection, (keyof NavNotificationStatus)[]> = {
+  KITCHEN: ['kitchen'],
+  TABLES: ['tablesItemReady', 'tablesCallWaiter', 'tablesRequestBill'],
+  CHECKOUT: ['checkoutRequestBill', 'checkoutReadyToClose'],
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -195,14 +213,12 @@ export function AppLayout() {
     // just from opening the app, instead of only on genuinely new activity.
     if (!previousStatus) return
 
-    ;(Object.keys(SECTION_TO_STATUS_KEY) as NavSection[]).forEach((section) => {
-      const statusKey = SECTION_TO_STATUS_KEY[section]
-      const justBecamePending = !previousStatus[statusKey] && notificationStatus[statusKey]
+    NOTIFICATION_SIGNALS.forEach(({ section, key, message, to }) => {
+      const justBecamePending = !previousStatus[key] && notificationStatus[key]
       if (!justBecamePending) return
 
       playAlertTone(section)
-      const { message, to } = SECTION_ALERT_INFO[section]
-      const id = `${section}-${Date.now()}`
+      const id = `${key}-${Date.now()}`
       setToasts((prev) => [...prev, { id, message, to }])
       window.setTimeout(() => {
         setToasts((prev) => prev.filter((toast) => toast.id !== id))
@@ -226,7 +242,7 @@ export function AppLayout() {
 
   function hasNotification(item: NavItem) {
     if (!item.section || !notificationStatus) return false
-    return notificationStatus[SECTION_TO_STATUS_KEY[item.section]]
+    return SECTION_STATUS_KEYS[item.section].some((key) => notificationStatus[key])
   }
 
   function handleLogout() {

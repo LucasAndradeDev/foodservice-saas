@@ -48,18 +48,26 @@ public class NavNotificationService {
 
         List<TableRequest> pendingRequests = tableRequestRepository.findByRestaurantIdAndAcknowledgedAtIsNull(restaurantId);
 
-        boolean tablesHasReadyItem = orderItemRepository.existsByOrder_Restaurant_IdAndStatusAndUpdatedAtAfter(
+        // Each flag below maps to exactly one real-world event, so the frontend can show a toast
+        // message that actually matches what happened instead of a single message covering
+        // several unrelated triggers (e.g. "table calling" firing for a ready-to-deliver item).
+        boolean tablesItemReady = orderItemRepository.existsByOrder_Restaurant_IdAndStatusAndUpdatedAtAfter(
                 restaurantId, ItemStatus.READY, tablesSeen);
-        boolean tablesHasPendingRequest = pendingRequests.stream()
-                .anyMatch(request -> request.getRequestedAt().isAfter(tablesSeen));
-        boolean checkoutHasPendingBill = pendingRequests.stream()
+        boolean tablesCallWaiter = pendingRequests.stream()
+                .anyMatch(request -> request.getType() == TableRequestType.CALL_WAITER && request.getRequestedAt().isAfter(tablesSeen));
+        boolean tablesRequestBill = pendingRequests.stream()
+                .anyMatch(request -> request.getType() == TableRequestType.REQUEST_BILL && request.getRequestedAt().isAfter(tablesSeen));
+        boolean checkoutRequestBill = pendingRequests.stream()
                 .anyMatch(request -> request.getType() == TableRequestType.REQUEST_BILL && request.getRequestedAt().isAfter(checkoutSeen));
-        boolean checkoutHasTabReadyToClose = orderItemRepository.existsTabJustBecameReadyToClose(restaurantId, checkoutSeen);
+        boolean checkoutReadyToClose = orderItemRepository.existsTabJustBecameReadyToClose(restaurantId, checkoutSeen);
 
         return NavNotificationStatusResponse.builder()
                 .kitchen(kitchen)
-                .tables(tablesHasReadyItem || tablesHasPendingRequest)
-                .checkout(checkoutHasPendingBill || checkoutHasTabReadyToClose)
+                .tablesItemReady(tablesItemReady)
+                .tablesCallWaiter(tablesCallWaiter)
+                .tablesRequestBill(tablesRequestBill)
+                .checkoutRequestBill(checkoutRequestBill)
+                .checkoutReadyToClose(checkoutReadyToClose)
                 .build();
     }
 
