@@ -14,12 +14,11 @@ import { ComboSheet } from './publicMenu/ComboSheet'
 import { FeaturedCarousel } from './publicMenu/FeaturedCarousel'
 import { MenuHero } from './publicMenu/MenuHero'
 import { ModifierSheet } from './publicMenu/ModifierSheet'
-import { OrderStatusPanel } from './publicMenu/OrderStatusPanel'
 import { PixPaymentModal } from './publicMenu/PixPaymentModal'
 import { ProductCard } from './publicMenu/ProductCard'
 import { ProductDetailModal } from './publicMenu/ProductDetailModal'
 import { ReservationFormModal } from './publicMenu/ReservationFormModal'
-import { TableRequestButtons } from './publicMenu/TableRequestButtons'
+import { TableActionsMenu } from './publicMenu/TableActionsMenu'
 import { usePublicMenuTheme } from './publicMenu/usePublicMenuTheme'
 import {
   computeDiscountAmount,
@@ -520,26 +519,19 @@ export function PublicMenuPage() {
         )}
       </AnimatePresence>
 
-      {canOrder && (
-        <TableRequestButtons
+      {canOrder && menu.table && (
+        <TableActionsMenu
+          items={menu.table.orderItems}
+          lifted={cartCount > 0 && !isCartOpen}
+          hasLastOrder={menu.table.lastOrderItems.length > 0}
+          onReorder={handleReorder}
           canRequestBill={canRequestBill}
           canPayWithPix={canPayWithPix}
           requestedTypes={requestedTypes}
           isPending={tableRequestMutation.isPending}
           pendingType={tableRequestMutation.variables}
-          cartCount={cartCount}
-          isCartOpen={isCartOpen}
           onRequest={(type) => tableRequestMutation.mutate(type)}
           onPayWithPix={() => setIsPixModalOpen(true)}
-        />
-      )}
-
-      {canOrder && menu.table && (
-        <OrderStatusPanel
-          items={menu.table.orderItems}
-          lifted={cartCount > 0 && !isCartOpen}
-          hasLastOrder={menu.table.lastOrderItems.length > 0}
-          onReorder={handleReorder}
         />
       )}
 
