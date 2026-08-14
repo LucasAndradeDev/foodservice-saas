@@ -786,6 +786,7 @@ class OrderItemControllerIntegrationTest {
         entry.setAmount(new BigDecimal("25.90"));
         RegisterPaymentsRequest payRequest = new RegisterPaymentsRequest();
         payRequest.setPayments(List.of(entry));
+        payRequest.setServiceChargePercentage(BigDecimal.ZERO);
         mockMvc.perform(post("/api/v1/tabs/" + setup.tabId() + "/payments")
                         .header("Authorization", "Bearer " + setup.ownerToken())
                         .contentType(MediaType.APPLICATION_JSON)

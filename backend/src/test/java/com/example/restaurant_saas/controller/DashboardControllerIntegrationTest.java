@@ -144,7 +144,7 @@ class DashboardControllerIntegrationTest {
     }
 
     private void payTab(String token, String tabId, String paymentMethod, String paidAmount) throws Exception {
-        payTab(token, tabId, paymentMethod, paidAmount, null);
+        payTab(token, tabId, paymentMethod, paidAmount, "0");
     }
 
     private void payTab(String token, String tabId, String paymentMethod, String paidAmount, String serviceChargePercentage) throws Exception {

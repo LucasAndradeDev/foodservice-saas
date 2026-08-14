@@ -174,6 +174,7 @@ class PublicFeedbackControllerIntegrationTest {
         entry.setAmount(new BigDecimal(paidAmount));
         RegisterPaymentsRequest request = new RegisterPaymentsRequest();
         request.setPayments(List.of(entry));
+        request.setServiceChargePercentage(BigDecimal.ZERO);
         mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)

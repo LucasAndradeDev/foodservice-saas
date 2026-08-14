@@ -242,7 +242,7 @@ class ReportControllerIntegrationTest {
     }
 
     private void payTab(String token, String tabId, String paymentMethod, String paidAmount) throws Exception {
-        payTab(token, tabId, paymentMethod, paidAmount, null);
+        payTab(token, tabId, paymentMethod, paidAmount, "0");
     }
 
     private void payTab(String token, String tabId, String paymentMethod, String paidAmount, String serviceChargePercentage) throws Exception {
@@ -666,7 +666,7 @@ class ReportControllerIntegrationTest {
         deliverItem(ownerToken, item2);
         registerPayments(ownerToken, tab2,
                 List.of(paymentEntry("PIX", "30.00"), paymentEntry("CASH", "30.00")),
-                null);
+                "0");
 
         String today = LocalDate.now().toString();
 
