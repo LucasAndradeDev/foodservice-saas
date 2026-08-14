@@ -30,6 +30,12 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      # SSO into Armazém Morá (docs/ARMAZEM_MORA.md) - shared with the warehouse-backend
+      # service below. Deliberately a different secret from JWT_SECRET.
+      - key: WAREHOUSE_SSO_SECRET
+        sync: false
+      - key: WAREHOUSE_FRONTEND_URL
+        value: https://armazem-mora.onrender.com
       - key: GEMINI_API_KEY
         sync: false
       - key: STORAGE_PROVIDER
@@ -66,3 +72,32 @@ services:
     #   Action: Rewrite
     # This proxies API calls server-side so the frontend keeps using its existing
     # relative "/api/v1" base URL, with no CORS setup needed.
+
+  # Armazém Morá - separate app, separate database, see docs/ARMAZEM_MORA.md.
+  # warehouse-frontend service entry added here once that app exists (backend first).
+  - name: warehouse-backend
+    type: web
+    runtime: docker
+    plan: free
+    dockerfilePath: warehouse-backend/Dockerfile
+    dockerContext: warehouse-backend/
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      # Same secret as mora-backend's WAREHOUSE_SSO_SECRET above - verifies the handoff
+      # token instead of minting it.
+      - key: WAREHOUSE_SSO_SECRET
+        sync: false
+      # MoraApiClient pulls delivered sales from here for the stock sync.
+      - key: MORA_BACKEND_URL
+        value: https://mora-backend.onrender.com
+      # Shared secret for the GitHub Actions cron that triggers POST /api/v1/internal/sync.
+      - key: SYNC_TRIGGER_TOKEN
+        sync: false
+      - key: SWAGGER_ENABLED
+        value: "false"
