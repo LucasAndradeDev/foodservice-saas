@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Wallet } from 'lucide-react'
+import { CheckCircle2, QrCode, Wallet } from 'lucide-react'
 import { useState, type KeyboardEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { getPixIntegrationStatus, savePixIntegration } from '../api/pixIntegration'
 
 /** Lets the owner/manager connect the restaurant's own Woovi account (see docs/PIX_PAYMENT.md) -
@@ -42,11 +43,19 @@ export function PixIntegrationCard({ canManage }: { canManage: boolean }) {
   }
 
   return (
-    <div className="rounded-md border border-gray-200 p-3 dark:border-white/10">
-      <p className="mb-1 text-sm font-medium text-gray-700 dark:text-stone-300">Pagamento Pix (Woovi)</p>
+    <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+      <div className="mb-1 flex items-center gap-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sage-100 text-sage-700 dark:bg-sage-500/15 dark:text-sage-400">
+          <QrCode className="h-4 w-4" />
+        </span>
+        <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Pagamento Pix (Woovi)</p>
+      </div>
       <p className="mb-3 text-xs text-gray-500 dark:text-stone-400">
         Conecte a conta Woovi do próprio restaurante pra gerar um QR Code Pix no Caixa e o cliente pagar direto pelo
-        celular, sem esperar o garçom confirmar manualmente.
+        celular, sem esperar o garçom confirmar manualmente.{' '}
+        <Link to="/ajuda/pix" target="_blank" rel="noopener noreferrer" className="text-brand-600 hover:underline dark:text-brand-400">
+          Saiba mais
+        </Link>
       </p>
 
       {!isEditing && status?.configured ? (

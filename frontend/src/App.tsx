@@ -28,6 +28,7 @@ import { ProductAvailabilityPage } from './pages/ProductAvailabilityPage'
 import { ProductModifiersPage } from './pages/ProductModifiersPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { PostMealFeedbackPage } from './pages/PostMealFeedbackPage'
+import { PixSetupGuidePage } from './pages/PixSetupGuidePage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { PublicMenuPage } from './pages/PublicMenuPage'
 import { PublicReservationStatusPage } from './pages/PublicReservationStatusPage'
@@ -98,6 +99,7 @@ function App() {
             />
             <Route path="/terms" element={<TermsOfServicePage />} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
+            <Route path="/ajuda/pix" element={<PixSetupGuidePage />} />
             <Route path="/menu/:slug" element={<PublicMenuPage />} />
             <Route path="/menu/:slug/:tableId" element={<PublicMenuPage />} />
             <Route path="/feedback/:slug/:tabId" element={<PostMealFeedbackPage />} />
