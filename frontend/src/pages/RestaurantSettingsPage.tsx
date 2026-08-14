@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion, type Variants } from 'framer-motion'
 import {
+  AlertTriangle,
+  BellRing,
   Check,
   ChevronDown,
   ChevronRight,
@@ -8,13 +10,18 @@ import {
   Copy,
   ExternalLink,
   FileSpreadsheet,
+  Flame,
   MapPin,
   Palette,
+  Percent,
+  Puzzle,
   QrCode,
+  Receipt,
   SlidersHorizontal,
   Store,
   Ticket,
   Users,
+  type LucideIcon,
 } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
@@ -24,6 +31,7 @@ import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
 import { PixIntegrationCard } from '../components/PixIntegrationCard'
 import { SectionTabs } from '../components/SectionTabs'
+import { Toggle } from '../components/Toggle'
 import { publicMenuUrl } from '../utils/publicMenuUrl'
 
 const MANAGEMENT_TABS = [
@@ -48,23 +56,47 @@ const advancedPanelVariants: Variants = {
   },
 }
 
-function SettingsCard({
-  icon: Icon,
-  title,
-  children,
-}: {
-  icon: typeof Store
-  title: string
-  children: React.ReactNode
-}) {
+type Tint = 'gold' | 'wine' | 'sage' | 'teal' | 'brand'
+
+const TINT_STYLES: Record<Tint, { badge: string; pill: string }> = {
+  gold: {
+    badge: 'bg-gold-100 text-gold-700 dark:bg-gold-500/15 dark:text-gold-400',
+    pill: 'bg-gold-100 text-gold-700 dark:bg-gold-500/15 dark:text-gold-400',
+  },
+  wine: {
+    badge: 'bg-wine-100 text-wine-700 dark:bg-wine-500/15 dark:text-wine-400',
+    pill: 'bg-wine-100 text-wine-700 dark:bg-wine-500/15 dark:text-wine-400',
+  },
+  sage: {
+    badge: 'bg-sage-100 text-sage-700 dark:bg-sage-500/15 dark:text-sage-400',
+    pill: 'bg-sage-100 text-sage-700 dark:bg-sage-500/15 dark:text-sage-400',
+  },
+  teal: {
+    badge: 'bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-400',
+    pill: 'bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-400',
+  },
+  brand: {
+    badge: 'bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400',
+    pill: 'bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400',
+  },
+}
+
+function IconBadge({ icon: Icon, tint }: { icon: LucideIcon; tint: Tint }) {
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
-      <div className="flex items-center gap-2 border-b border-gray-100 px-6 py-4 dark:border-white/10">
-        <Icon className="h-5 w-5 text-brand-600 dark:text-brand-400" />
-        <h2 className="text-sm font-semibold text-gray-800 dark:text-white">{title}</h2>
-      </div>
-      <div className="flex-1 p-6">{children}</div>
-    </div>
+    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${TINT_STYLES[tint].badge}`}>
+      <Icon className="h-4 w-4" />
+    </span>
+  )
+}
+
+function GroupLabel({ icon: Icon, tint, children }: { icon: LucideIcon; tint: Tint; children: React.ReactNode }) {
+  return (
+    <span
+      className={`mb-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide uppercase ${TINT_STYLES[tint].pill}`}
+    >
+      <Icon className="h-3 w-3" />
+      {children}
+    </span>
   )
 }
 
@@ -195,99 +227,119 @@ export function RestaurantSettingsPage() {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
-          <SettingsCard icon={Palette} title="Identidade e contato">
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">Nome (razão social)</label>
-            <input
-              type="text"
-              disabled
-              value={restaurant.name}
-              className="mb-4 w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-stone-400"
-            />
+        <div className="flex flex-col gap-6">
+          <div>
+            <GroupLabel icon={Palette} tint="brand">
+              Identidade e contato
+            </GroupLabel>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+                <div className="mb-3 flex items-center gap-2.5">
+                  <IconBadge icon={Store} tint="brand" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Dados do restaurante</p>
+                </div>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="tradeName">
-              Nome fantasia
-            </label>
-            <input
-              id="tradeName"
-              type="text"
-              disabled={!canManage}
-              maxLength={100}
-              value={tradeName}
-              onChange={(e) => setTradeName(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-            />
-
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="logo">
-              Logo
-            </label>
-            <div className="mb-1 flex flex-col gap-2 sm:flex-row">
-              <input
-                id="logo"
-                type="text"
-                placeholder="Cole uma URL..."
-                disabled={!canManage}
-                maxLength={255}
-                value={logo}
-                onChange={(e) => setLogo(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-              />
-              {canManage && (
-                <label className="flex shrink-0 cursor-pointer items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5">
-                  {isUploadingLogo ? 'Enviando...' : 'Enviar do dispositivo'}
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={handleLogoFileChange}
-                    disabled={isUploadingLogo}
-                  />
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400">
+                  Nome (razão social)
                 </label>
-              )}
+                <input
+                  type="text"
+                  disabled
+                  value={restaurant.name}
+                  className="mb-4 w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-stone-400"
+                />
+
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400" htmlFor="tradeName">
+                  Nome fantasia
+                </label>
+                <input
+                  id="tradeName"
+                  type="text"
+                  disabled={!canManage}
+                  maxLength={100}
+                  value={tradeName}
+                  onChange={(e) => setTradeName(e.target.value)}
+                  className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                />
+
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400" htmlFor="logo">
+                  Logo
+                </label>
+                <div className="mb-1 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    id="logo"
+                    type="text"
+                    placeholder="Cole uma URL..."
+                    disabled={!canManage}
+                    maxLength={255}
+                    value={logo}
+                    onChange={(e) => setLogo(e.target.value)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                  />
+                  {canManage && (
+                    <label className="flex shrink-0 cursor-pointer items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5">
+                      {isUploadingLogo ? 'Enviando...' : 'Enviar do dispositivo'}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={handleLogoFileChange}
+                        disabled={isUploadingLogo}
+                      />
+                    </label>
+                  )}
+                </div>
+                {logo && <img src={logo} alt="" className="h-16 w-16 rounded object-cover" />}
+              </div>
+
+              <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+                <div className="mb-3 flex items-center gap-2.5">
+                  <IconBadge icon={MapPin} tint="brand" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Contato</p>
+                </div>
+
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400" htmlFor="phone">
+                  Telefone
+                </label>
+                <input
+                  id="phone"
+                  type="text"
+                  disabled={!canManage}
+                  maxLength={20}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                />
+
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400" htmlFor="address">
+                  Endereço
+                </label>
+                <input
+                  id="address"
+                  type="text"
+                  disabled={!canManage}
+                  maxLength={255}
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                />
+              </div>
             </div>
-            {logo ? (
-              <img src={logo} alt="" className="mb-5 h-16 w-16 rounded object-cover" />
-            ) : (
-              <div className="mb-5" />
-            )}
+          </div>
 
-            <h3 className="mb-3 flex items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
-              <MapPin className="h-3.5 w-3.5" />
-              Contato
-            </h3>
+          <div>
+            <GroupLabel icon={QrCode} tint="teal">
+              Cardápio digital
+            </GroupLabel>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+                <div className="mb-3 flex items-center gap-2.5">
+                  <IconBadge icon={QrCode} tint="teal" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Slug do cardápio</p>
+                </div>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="phone">
-              Telefone
-            </label>
-            <input
-              id="phone"
-              type="text"
-              disabled={!canManage}
-              maxLength={20}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-            />
-
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="address">
-              Endereço
-            </label>
-            <input
-              id="address"
-              type="text"
-              disabled={!canManage}
-              maxLength={255}
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-            />
-          </SettingsCard>
-
-          <SettingsCard icon={QrCode} title="Cardápio digital">
-            <div className="flex h-full flex-col">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="slug">
-                  Slug do cardápio
+                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400" htmlFor="slug">
+                  Slug
                 </label>
                 <input
                   id="slug"
@@ -324,7 +376,7 @@ export function RestaurantSettingsPage() {
               </div>
 
               {menuUrl && (
-                <div className="mt-6 flex flex-1 flex-col items-center justify-center gap-4 border-t border-gray-200 pt-6 sm:flex-row sm:justify-center dark:border-white/10">
+                <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md sm:flex-row dark:border-white/10">
                   <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-md">
                     <QRCodeCanvas value={menuUrl} size={140} />
                   </div>
@@ -360,9 +412,9 @@ export function RestaurantSettingsPage() {
                 </div>
               )}
             </div>
-          </SettingsCard>
+          </div>
 
-          <div className="lg:col-span-2">
+          <div>
             <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
               <button
                 type="button"
@@ -390,168 +442,211 @@ export function RestaurantSettingsPage() {
                     variants={advancedPanelVariants}
                     className="overflow-hidden border-t border-gray-100 dark:border-white/10"
                   >
-                    <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-2">
-                      <div className="rounded-md border border-gray-200 p-3 dark:border-white/10">
-                        <p className="mb-1 text-sm font-medium text-gray-700 dark:text-stone-300">Dados fiscais e impressão</p>
-                        <p className="mb-3 text-xs text-gray-500 dark:text-stone-400">
-                          Usados na nota do cliente e no fluxo de envio de pedidos pra cozinha.
-                        </p>
+                    <div className="flex flex-col gap-6 p-6">
+                      <div>
+                        <GroupLabel icon={Receipt} tint="gold">
+                          Fiscal e cobrança
+                        </GroupLabel>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+                            <div className="mb-1 flex items-center gap-2.5">
+                              <IconBadge icon={Receipt} tint="gold" />
+                              <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Dados fiscais e impressão</p>
+                            </div>
+                            <p className="mb-3 text-xs text-gray-500 dark:text-stone-400">
+                              Usados na nota do cliente e no fluxo de envio de pedidos pra cozinha.
+                            </p>
 
-                        <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400" htmlFor="cnpj">
-                          CNPJ
-                        </label>
-                        <input
-                          id="cnpj"
-                          type="text"
-                          disabled={!canManage}
-                          maxLength={20}
-                          value={cnpj}
-                          onChange={(e) => setCnpj(e.target.value)}
-                          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-                        />
+                            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400" htmlFor="cnpj">
+                              CNPJ
+                            </label>
+                            <input
+                              id="cnpj"
+                              type="text"
+                              disabled={!canManage}
+                              maxLength={20}
+                              value={cnpj}
+                              onChange={(e) => setCnpj(e.target.value)}
+                              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                            />
 
-                        <label className="mt-4 flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">
-                          <input
-                            type="checkbox"
-                            disabled={!canManage}
-                            checked={autoPrintKitchenTickets}
-                            onChange={(e) => setAutoPrintKitchenTickets(e.target.checked)}
-                          />
-                          Imprimir comandas de cozinha automaticamente ao enviar pedido
-                        </label>
+                            <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2.5 dark:border-white/10">
+                              <span className="text-sm font-medium text-gray-700 dark:text-stone-300">Impressão automática</span>
+                              <Toggle
+                                checked={autoPrintKitchenTickets}
+                                onChange={setAutoPrintKitchenTickets}
+                                disabled={!canManage}
+                              />
+                            </div>
+                            <p className="mt-1.5 text-xs text-gray-500 dark:text-stone-400">
+                              Imprimir comandas de cozinha automaticamente ao enviar pedido.
+                            </p>
+                          </div>
+
+                          <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+                            <div className="mb-3 flex items-center gap-2.5">
+                              <IconBadge icon={Percent} tint="gold" />
+                              <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Taxa de serviço</p>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2.5 dark:border-white/10">
+                              <span className="text-sm font-medium text-gray-700 dark:text-stone-300">Cobrar por padrão</span>
+                              <Toggle
+                                checked={serviceChargeEnabled}
+                                onChange={setServiceChargeEnabled}
+                                disabled={!canManage}
+                              />
+                            </div>
+                            <p className="mt-1.5 mb-3 text-xs text-gray-500 dark:text-stone-400">
+                              No fechamento da conta (pode ser removida ou ajustada pelo caixa em cada comanda; o cliente
+                              pode recusar).
+                            </p>
+
+                            <label
+                              className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400"
+                              htmlFor="serviceChargePercentage"
+                            >
+                              Percentual (%)
+                            </label>
+                            <input
+                              id="serviceChargePercentage"
+                              type="number"
+                              min={0}
+                              max={100}
+                              step="0.01"
+                              disabled={!canManage}
+                              value={serviceChargePercentage}
+                              onChange={(e) => setServiceChargePercentage(e.target.value)}
+                              className="w-full max-w-[140px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                            />
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="rounded-md border border-gray-200 p-3 dark:border-white/10">
-                        <p className="mb-1 text-sm font-medium text-gray-700 dark:text-stone-300">Taxa de serviço</p>
-                        <label className="mb-3 flex items-center gap-2 text-xs text-gray-500 dark:text-stone-400">
-                          <input
-                            type="checkbox"
-                            disabled={!canManage}
-                            checked={serviceChargeEnabled}
-                            onChange={(e) => setServiceChargeEnabled(e.target.checked)}
-                          />
-                          Cobrar por padrão no fechamento da conta (pode ser removida ou ajustada pelo caixa em cada
-                          comanda; o cliente pode recusar).
-                        </label>
-                        <div>
-                          <label
-                            className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400"
-                            htmlFor="serviceChargePercentage"
+                      <div>
+                        <GroupLabel icon={AlertTriangle} tint="wine">
+                          Alertas operacionais
+                        </GroupLabel>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+                            <div className="mb-1 flex items-center gap-2.5">
+                              <IconBadge icon={Flame} tint="wine" />
+                              <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Alerta de demora na cozinha</p>
+                            </div>
+                            <p className="mb-3 text-xs text-gray-500 dark:text-stone-400">
+                              Itens que ficam esperando na cozinha por muito tempo mudam de cor na fila, pra chamar
+                              atenção antes que o cliente reclame.
+                            </p>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label
+                                  className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400"
+                                  htmlFor="warningThreshold"
+                                >
+                                  Aviso (min)
+                                </label>
+                                <input
+                                  id="warningThreshold"
+                                  type="number"
+                                  min={1}
+                                  disabled={!canManage}
+                                  value={kitchenWarningThresholdMinutes}
+                                  onChange={(e) => setKitchenWarningThresholdMinutes(e.target.value)}
+                                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                                />
+                              </div>
+                              <div>
+                                <label
+                                  className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400"
+                                  htmlFor="criticalThreshold"
+                                >
+                                  Crítico (min)
+                                </label>
+                                <input
+                                  id="criticalThreshold"
+                                  type="number"
+                                  min={1}
+                                  disabled={!canManage}
+                                  value={kitchenCriticalThresholdMinutes}
+                                  onChange={(e) => setKitchenCriticalThresholdMinutes(e.target.value)}
+                                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+                            <div className="mb-1 flex items-center gap-2.5">
+                              <IconBadge icon={BellRing} tint="wine" />
+                              <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Alerta de mesa esquecida</p>
+                            </div>
+                            <p className="mb-3 text-xs text-gray-500 dark:text-stone-400">
+                              Mesa ocupada há muito tempo sem pedido novo avisa o garçom, pra ninguém ficar esquecido.
+                            </p>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label
+                                  className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400"
+                                  htmlFor="tableForgottenWarningThreshold"
+                                >
+                                  Aviso (min)
+                                </label>
+                                <input
+                                  id="tableForgottenWarningThreshold"
+                                  type="number"
+                                  min={1}
+                                  disabled={!canManage}
+                                  value={tableForgottenWarningThresholdMinutes}
+                                  onChange={(e) => setTableForgottenWarningThresholdMinutes(e.target.value)}
+                                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                                />
+                              </div>
+                              <div>
+                                <label
+                                  className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400"
+                                  htmlFor="tableForgottenCriticalThreshold"
+                                >
+                                  Crítico (min)
+                                </label>
+                                <input
+                                  id="tableForgottenCriticalThreshold"
+                                  type="number"
+                                  min={1}
+                                  disabled={!canManage}
+                                  value={tableForgottenCriticalThresholdMinutes}
+                                  onChange={(e) => setTableForgottenCriticalThresholdMinutes(e.target.value)}
+                                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <GroupLabel icon={Puzzle} tint="sage">
+                          Integrações e organização
+                        </GroupLabel>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <PixIntegrationCard canManage={canManage} />
+
+                          <Link
+                            to="/dining-areas"
+                            className="flex items-center justify-between rounded-lg border border-gray-200 p-4 text-sm text-gray-700 transition-shadow hover:bg-gray-50 hover:shadow-md dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
                           >
-                            Percentual (%)
-                          </label>
-                          <input
-                            id="serviceChargePercentage"
-                            type="number"
-                            min={0}
-                            max={100}
-                            step="0.01"
-                            disabled={!canManage}
-                            value={serviceChargePercentage}
-                            onChange={(e) => setServiceChargePercentage(e.target.value)}
-                            className="w-full max-w-[140px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="rounded-md border border-gray-200 p-3 dark:border-white/10">
-                        <p className="mb-1 text-sm font-medium text-gray-700 dark:text-stone-300">Alerta de demora na cozinha</p>
-                        <p className="mb-3 text-xs text-gray-500 dark:text-stone-400">
-                          Itens que ficam esperando na cozinha por muito tempo mudam de cor na fila, pra chamar atenção
-                          antes que o cliente reclame.
-                        </p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400" htmlFor="warningThreshold">
-                              Aviso (min)
-                            </label>
-                            <input
-                              id="warningThreshold"
-                              type="number"
-                              min={1}
-                              disabled={!canManage}
-                              value={kitchenWarningThresholdMinutes}
-                              onChange={(e) => setKitchenWarningThresholdMinutes(e.target.value)}
-                              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400" htmlFor="criticalThreshold">
-                              Crítico (min)
-                            </label>
-                            <input
-                              id="criticalThreshold"
-                              type="number"
-                              min={1}
-                              disabled={!canManage}
-                              value={kitchenCriticalThresholdMinutes}
-                              onChange={(e) => setKitchenCriticalThresholdMinutes(e.target.value)}
-                              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-md border border-gray-200 p-3 dark:border-white/10">
-                        <p className="mb-1 text-sm font-medium text-gray-700 dark:text-stone-300">Alerta de mesa esquecida</p>
-                        <p className="mb-3 text-xs text-gray-500 dark:text-stone-400">
-                          Mesa ocupada há muito tempo sem pedido novo avisa o garçom, pra ninguém ficar esquecido.
-                        </p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label
-                              className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400"
-                              htmlFor="tableForgottenWarningThreshold"
-                            >
-                              Aviso (min)
-                            </label>
-                            <input
-                              id="tableForgottenWarningThreshold"
-                              type="number"
-                              min={1}
-                              disabled={!canManage}
-                              value={tableForgottenWarningThresholdMinutes}
-                              onChange={(e) => setTableForgottenWarningThresholdMinutes(e.target.value)}
-                              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-                            />
-                          </div>
-                          <div>
-                            <label
-                              className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400"
-                              htmlFor="tableForgottenCriticalThreshold"
-                            >
-                              Crítico (min)
-                            </label>
-                            <input
-                              id="tableForgottenCriticalThreshold"
-                              type="number"
-                              min={1}
-                              disabled={!canManage}
-                              value={tableForgottenCriticalThresholdMinutes}
-                              onChange={(e) => setTableForgottenCriticalThresholdMinutes(e.target.value)}
-                              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <PixIntegrationCard canManage={canManage} />
-
-                      <Link
-                        to="/dining-areas"
-                        className="flex items-center justify-between rounded-md border border-gray-200 p-3 text-sm text-gray-700 hover:bg-gray-50 md:col-span-2 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
-                      >
-                        <span className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />
-                          <span>
-                            <span className="block font-medium">Áreas do salão</span>
-                            <span className="block text-xs text-gray-500 dark:text-stone-400">
-                              Agrupe as mesas por ambiente (salão, varanda, deck...)
+                            <span className="flex items-center gap-2.5">
+                              <IconBadge icon={MapPin} tint="sage" />
+                              <span>
+                                <span className="block font-medium">Áreas do salão</span>
+                                <span className="block text-xs text-gray-500 dark:text-stone-400">
+                                  Agrupe as mesas por ambiente (salão, varanda, deck...)
+                                </span>
+                              </span>
                             </span>
-                          </span>
-                        </span>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />
-                      </Link>
+                            <ChevronRight className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />
+                          </Link>
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
                 )}
