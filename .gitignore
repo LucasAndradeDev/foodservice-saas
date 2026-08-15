@@ -39,3 +39,6 @@ docs/SPRINT*.md
 
 ### Uploaded files (local disk storage, not versioned) ###
 backend/uploads/
+
+### Personal reference files (not versioned) ###
+docs/backlog-pendente.pdf
