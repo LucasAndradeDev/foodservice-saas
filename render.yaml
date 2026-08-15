@@ -58,6 +58,12 @@ services:
       # docs/PIX_PAYMENT.md). Base64, 32 bytes - generate with `openssl rand -base64 32`.
       - key: PIX_ENCRYPTION_KEY
         sync: false
+      # Error tracking (Sentry). Blank in application.yml's default leaves the SDK disabled -
+      # set the real DSN by hand in the Render dashboard once a Sentry project exists.
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_ENVIRONMENT
+        value: production
 
   - name: mora-frontend
     type: web
@@ -72,6 +78,13 @@ services:
     #   Action: Rewrite
     # This proxies API calls server-side so the frontend keeps using its existing
     # relative "/api/v1" base URL, with no CORS setup needed.
+    envVars:
+      # Error tracking (Sentry). VITE_ vars are baked in at build time by the buildCommand
+      # above - blank/unset leaves the SDK disabled, same posture as the backend's SENTRY_DSN.
+      - key: VITE_SENTRY_DSN
+        sync: false
+      - key: VITE_SENTRY_ENVIRONMENT
+        value: production
 
   # Armazém Morá - separate app, separate database, see docs/ARMAZEM_MORA.md.
   # warehouse-frontend service entry added here once that app exists (backend first).

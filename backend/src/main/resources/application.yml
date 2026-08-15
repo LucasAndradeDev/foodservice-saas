@@ -148,6 +148,14 @@ gemini:
   models: ${GEMINI_MODELS:gemini-flash-latest,gemini-3.6-flash,gemini-3.1-flash-lite}
   base-url: https://generativelanguage.googleapis.com
 
+sentry:
+  # Blank dsn (the default) leaves the SDK disabled - it only reports errors once a real
+  # DSN is set (production only, see render.yaml). Never enabled in local dev/tests.
+  dsn: ${SENTRY_DSN:}
+  environment: ${SENTRY_ENVIRONMENT:development}
+  # No performance tracing - error reporting only, to stay on Sentry's free tier.
+  traces-sample-rate: 0.0
+
 server:
   port: ${PORT:8080}
 

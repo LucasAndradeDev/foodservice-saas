@@ -53,6 +53,10 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
+                        // Spring Boot forwards any unhandled exception here internally to build the
+                        // error response - without this, that forward hits anyRequest().hasAnyRole(...)
+                        // below and an anonymous caller gets a confusing 403 instead of the real 500.
+                        .requestMatchers("/error").permitAll()
                         // Admin and tenant paths are mutually exclusive at the matcher level (not just
                         // via @PreAuthorize on individual controllers), so a platform-admin token — which
                         // carries no restaurantId/TenantContext — can never reach a tenant endpoint that
