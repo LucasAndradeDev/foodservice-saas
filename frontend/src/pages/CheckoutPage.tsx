@@ -32,6 +32,7 @@ import { Modal } from '../components/Modal'
 import { QrCodeCard } from '../components/QrCodeCard'
 import { formatTableLabel } from '../utils/tableLabel'
 import { feedbackUrl } from '../utils/publicMenuUrl'
+import { PersonSplitPanel } from './checkout/PersonSplitPanel'
 
 let entrySeq = 0
 function nextEntryId() {
@@ -48,6 +49,10 @@ interface PendingEntry {
   // read-only and excluded from the manual "Confirmar pagamentos" submit - it resolves on its own
   // via webhook, same as the single-payment flow.
   pixCharge?: PixCharge
+  // Set only when this entry came out of the "Dividir por pessoa" panel - shown instead of the
+  // numbered "Pessoa N" placeholder. Never sent to the backend, purely a display label for this
+  // checkout session.
+  label?: string
 }
 
 const PAYMENT_METHOD_OPTIONS: DropdownOption<PaymentMethod>[] = (Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => ({
@@ -55,13 +60,14 @@ const PAYMENT_METHOD_OPTIONS: DropdownOption<PaymentMethod>[] = (Object.keys(PAY
   label: PAYMENT_METHOD_LABELS[method],
 }))
 
-type SplitChoice = 'single' | '2' | '3' | '4'
+type SplitChoice = 'single' | '2' | '3' | '4' | 'person'
 
 const SPLIT_OPTIONS: DropdownOption<SplitChoice>[] = [
   { value: 'single', label: 'Pagamento único' },
   { value: '2', label: 'Dividir em 2x' },
   { value: '3', label: 'Dividir em 3x' },
   { value: '4', label: 'Dividir em 4x' },
+  { value: 'person', label: 'Dividir por pessoa...' },
 ]
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -80,14 +86,22 @@ function extractErrorMessage(err: unknown, fallback: string) {
 
 /** Same idea as extractErrorMessage, but for creating a Pix charge specifically: the backend's
  * validation messages there are internal English text (e.g. "Requested amount exceeds the tab's
- * remaining uncommitted balance of 0.00"), never meant to reach a screen - translate the one case
- * staff can actually run into (another still-PENDING charge already claimed what's left, most often
- * because it was reconstructed from a previous visit to this same modal) and fall back to a generic
- * message for anything else, instead of leaking the raw text. */
+ * remaining uncommitted balance of 46.20"), never meant to reach a screen. That one case - the
+ * requested amount exceeds what's actually left uncommitted right now - is also the one staff can
+ * actually run into, so it's worth translating well instead of flattening it to one generic
+ * sentence: the backend already computed the real number, use it. A sibling still-PENDING charge
+ * having claimed everything (most often reconstructed from a previous visit to this same modal)
+ * is the same condition with remaining at zero, so it gets its own wording instead of a confusing
+ * "maior que R$ 0,00". Anything else falls back to the generic message, instead of leaking raw text. */
 function extractPixChargeErrorMessage(err: unknown, fallback: string) {
   const backendMessage = isAxiosError(err) ? (err.response?.data?.message as string | undefined) : undefined
-  if (backendMessage?.includes('remaining uncommitted balance')) {
-    return 'Já existe uma cobrança Pix pendente que cobre esse valor. Cancele-a antes de gerar outra, ou aguarde a confirmação do pagamento.'
+  const remainingMatch = backendMessage?.match(/remaining uncommitted balance of (-?\d+(?:\.\d+)?)/)
+  if (remainingMatch) {
+    const remaining = roundCurrency(Number(remainingMatch[1]))
+    if (remaining <= 0) {
+      return 'Já existe uma cobrança Pix pendente que cobre todo o valor restante da comanda. Cancele-a antes de gerar outra, ou aguarde a confirmação do pagamento.'
+    }
+    return `O valor digitado é maior que o restante disponível pra gerar Pix (${currencyFormatter.format(remaining)}). Ajuste o valor e tente novamente.`
   }
   return fallback
 }
@@ -175,6 +189,7 @@ export function CheckoutPage() {
   const [pixCharge, setPixCharge] = useState<PixCharge | null>(null)
   const [brCodeCopied, setBrCodeCopied] = useState(false)
   const [copiedEntryId, setCopiedEntryId] = useState<string | null>(null)
+  const [isPersonSplitOpen, setIsPersonSplitOpen] = useState(false)
 
   useEffect(() => {
     if (!selectedSummary) return
@@ -373,6 +388,7 @@ export function CheckoutPage() {
     setIsEditingDiscount(false)
     setIsEditingServiceCharge(false)
     setPixCharge(null)
+    setIsPersonSplitOpen(false)
     setServiceChargeInput(String(restaurant?.serviceChargePercentage ?? 10))
     if (summary.tab.billTotal != null) {
       // A previous partial payment already locked this tab's total; the service charge can no
@@ -418,6 +434,7 @@ export function CheckoutPage() {
     setSelectedSummary(null)
     setJustPaidTabId(null)
     setPixCharge(null)
+    setIsPersonSplitOpen(false)
   }
 
   function handleCopyBrCode() {
@@ -503,9 +520,16 @@ export function CheckoutPage() {
   function handleSplitChoiceChange(choice: SplitChoice) {
     if (choice === 'single') {
       setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(remainingBalance) }])
+    } else if (choice === 'person') {
+      setIsPersonSplitOpen(true)
     } else {
       handleSplitEqually(Number(choice))
     }
+  }
+
+  function handlePersonSplitApply(entries: { name: string; amount: number }[]) {
+    setPendingEntries(entries.map((entry) => ({ id: nextEntryId(), method: 'PIX' as PaymentMethod, amount: String(entry.amount), label: entry.name })))
+    setIsPersonSplitOpen(false)
   }
 
   function addEntry() {
@@ -1053,7 +1077,16 @@ export function CheckoutPage() {
                 </div>
               )}
 
-              {canPay && !isZeroBalance && !pixCharge && (
+              {canPay && !isZeroBalance && !pixCharge && isPersonSplitOpen && (
+                <PersonSplitPanel
+                  items={selectedSummary.items}
+                  remainingBalance={remainingBalance}
+                  onApply={handlePersonSplitApply}
+                  onCancel={() => setIsPersonSplitOpen(false)}
+                />
+              )}
+
+              {canPay && !isZeroBalance && !pixCharge && !isPersonSplitOpen && (
                 <>
                   {pixStatus?.configured && isSinglePixEntry && !hasOutstandingEntryPixCharge && (
                     <button
@@ -1075,7 +1108,13 @@ export function CheckoutPage() {
                       anymore, so the whole split control and "+ add" are frozen right along with it. */}
                   <div className={`mb-3 ${hasOutstandingEntryPixCharge ? 'pointer-events-none opacity-50' : ''}`}>
                     <Dropdown<SplitChoice>
-                      value={pendingEntries.length >= 2 && pendingEntries.length <= 4 ? (String(pendingEntries.length) as SplitChoice) : 'single'}
+                      value={
+                        pendingEntries.some((entry) => entry.label)
+                          ? 'person'
+                          : pendingEntries.length >= 2 && pendingEntries.length <= 4
+                            ? (String(pendingEntries.length) as SplitChoice)
+                            : 'single'
+                      }
                       options={SPLIT_OPTIONS}
                       onChange={handleSplitChoiceChange}
                       icon={Users}
@@ -1101,7 +1140,7 @@ export function CheckoutPage() {
                                 {index + 1}
                               </span>
                               <span className="text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
-                                Pessoa {index + 1}
+                                {entry.label ?? `Pessoa ${index + 1}`}
                               </span>
                             </div>
                           )}
@@ -1275,11 +1314,14 @@ export function CheckoutPage() {
                 </>
               )}
 
-              {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
+              {error && !isPersonSplitOpen && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
               {/* Nothing left to hand-confirm once every split entry has its own Pix charge - the
-                  tab closes on its own as each one's webhook lands, same as the single-payment flow. */}
-              {canPay && !pixCharge && (hasManualEntriesToConfirm || isZeroBalance) && (
+                  tab closes on its own as each one's webhook lands, same as the single-payment flow.
+                  Also hidden while assigning items to people below - that panel has its own
+                  Cancelar/Aplicar pair, and pendingEntries still holds the *previous* split shape
+                  until Aplicar overwrites it, so this button would otherwise confirm stale amounts. */}
+              {canPay && !pixCharge && !isPersonSplitOpen && (hasManualEntriesToConfirm || isZeroBalance) && (
                 <Button
                   type="button"
                   onClick={handleRegisterPayments}
