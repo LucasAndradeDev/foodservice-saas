@@ -9,12 +9,14 @@ import com.example.restaurant_saas.repository.AdminCredentialsRepository;
 import com.example.restaurant_saas.repository.AdminPasswordResetTokenRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -28,6 +30,7 @@ class AdminControllerIntegrationTest {
 
     private static final String ADMIN_USERNAME = "test-admin";
     private static final String ADMIN_PASSWORD = "admin-test-password-123";
+    private static final String ADMIN_EMAIL = "admin-test@example.com";
 
     @Autowired
     private MockMvc mockMvc;
@@ -41,7 +44,19 @@ class AdminControllerIntegrationTest {
     @Autowired
     private AdminCredentialsRepository adminCredentialsRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     private RegisterRestaurantRequest registerRequest;
+
+    // admin_credentials is a singleton row shared with whatever's actually running against this
+    // dev DB (see project_testcontainers_docker_desktop_incompatibility) - a developer manually
+    // testing the real admin panel locally leaves this row with their own username/password,
+    // which this class's hardcoded ADMIN_USERNAME/ADMIN_PASSWORD would then never match. Forcing
+    // known credentials before each test (and restoring whatever was there before afterwards)
+    // makes these tests deterministic regardless of that history, without clobbering a
+    // developer's real local admin login.
+    private AdminCredentials originalAdminCredentials;
 
     @BeforeEach
     void setUp() {
@@ -52,6 +67,34 @@ class AdminControllerIntegrationTest {
         registerRequest.setOwnerName("Owner");
         registerRequest.setOwnerEmail("owner+" + System.nanoTime() + "@test.com");
         registerRequest.setOwnerPassword("password123");
+
+        AdminCredentials credentials = adminCredentialsRepository.findFirstByOrderByCreatedAtAsc()
+                .orElseGet(() -> AdminCredentials.builder().build());
+        originalAdminCredentials = AdminCredentials.builder()
+                .id(credentials.getId())
+                .username(credentials.getUsername())
+                .passwordHash(credentials.getPasswordHash())
+                .email(credentials.getEmail())
+                .build();
+
+        credentials.setUsername(ADMIN_USERNAME);
+        credentials.setPasswordHash(passwordEncoder.encode(ADMIN_PASSWORD));
+        credentials.setEmail(ADMIN_EMAIL);
+        adminCredentialsRepository.save(credentials);
+    }
+
+    @AfterEach
+    void restoreAdminCredentials() {
+        if (originalAdminCredentials.getId() == null) {
+            // No row existed before this test forced one into place - leave the DB as it was.
+            adminCredentialsRepository.findFirstByOrderByCreatedAtAsc().ifPresent(adminCredentialsRepository::delete);
+            return;
+        }
+        AdminCredentials credentials = adminCredentialsRepository.findById(originalAdminCredentials.getId()).orElseThrow();
+        credentials.setUsername(originalAdminCredentials.getUsername());
+        credentials.setPasswordHash(originalAdminCredentials.getPasswordHash());
+        credentials.setEmail(originalAdminCredentials.getEmail());
+        adminCredentialsRepository.save(credentials);
     }
 
     private String registerRestaurantAndGetToken() throws Exception {
@@ -176,33 +219,23 @@ class AdminControllerIntegrationTest {
         AdminPasswordResetToken resetToken = adminPasswordResetTokenRepository.findAll().stream()
                 .findFirst()
                 .orElseThrow();
-        String originalPasswordHash = adminCredentialsRepository.findFirstByOrderByCreatedAtAsc()
-                .orElseThrow()
-                .getPasswordHash();
 
         ResetPasswordRequest resetRequest = new ResetPasswordRequest();
         resetRequest.setToken(resetToken.getToken());
         resetRequest.setNewPassword("brandNewAdminPassword789");
 
-        try {
-            mockMvc.perform(post("/api/v1/admin/reset-password")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(resetRequest)))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.accessToken").isNotEmpty());
+        // No try/finally needed here - restoreAdminCredentials() (@AfterEach) puts the original
+        // row back regardless of what this test changes it to.
+        mockMvc.perform(post("/api/v1/admin/reset-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(resetRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty());
 
-            mockMvc.perform(post("/api/v1/admin/login")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"username\":\"" + ADMIN_USERNAME + "\",\"password\":\"brandNewAdminPassword789\"}"))
-                    .andExpect(status().isOk());
-        } finally {
-            // admin_credentials is a singleton row shared by every test (and, per this repo's
-            // Testcontainers-incompatible setup, by every future run against the same dev DB) -
-            // restore it so ADMIN_PASSWORD keeps matching.
-            AdminCredentials credentials = adminCredentialsRepository.findFirstByOrderByCreatedAtAsc().orElseThrow();
-            credentials.setPasswordHash(originalPasswordHash);
-            adminCredentialsRepository.save(credentials);
-        }
+        mockMvc.perform(post("/api/v1/admin/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + ADMIN_USERNAME + "\",\"password\":\"brandNewAdminPassword789\"}"))
+                .andExpect(status().isOk());
     }
 
     @Test
