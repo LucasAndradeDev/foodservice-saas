@@ -23,7 +23,8 @@ export function CategoryBanner({ category, isOpen, onToggle }: CategoryBannerPro
       {bannerImage ? (
         <>
           <img src={bannerImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-black/10" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/55 to-black/30" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_65%_60%_at_50%_50%,rgba(0,0,0,0.55),transparent_70%)]" />
         </>
       ) : (
         <>
@@ -33,7 +34,7 @@ export function CategoryBanner({ category, isOpen, onToggle }: CategoryBannerPro
       )}
 
       <div className="relative flex h-full flex-col items-center justify-center gap-1.5 px-4 text-center">
-        <h2 className="font-elegant text-2xl font-semibold italic leading-none text-white drop-shadow-sm">{category.name}</h2>
+        <h2 className="font-elegant text-3xl font-bold italic leading-none text-white [text-shadow:0_2px_10px_rgb(0_0_0_/_0.85)]">{category.name}</h2>
         <span className="h-px w-10 bg-white/50" />
       </div>
 
