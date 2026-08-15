@@ -1,9 +1,10 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
-import { AlertTriangle, CheckCircle2, FileSpreadsheet, Trash2, Upload } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, FileSpreadsheet, LoaderCircle, Trash2, Upload } from 'lucide-react'
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
 import {
   commitMenuImport,
+  uploadMenuDocuments,
   uploadMenuExcel,
   type MenuImportCommitResult,
   type MenuImportProductPayload,
@@ -87,14 +88,16 @@ export function MenuImportPage() {
   })
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
+    const files = event.target.files ? Array.from(event.target.files) : []
     event.target.value = ''
-    if (!file) return
+    if (files.length === 0) return
+
+    const isSpreadsheet = files.length === 1 && files[0].name.toLowerCase().endsWith('.xlsx')
 
     setIsExtracting(true)
     setExtractError(null)
     try {
-      const preview = await uploadMenuExcel(file)
+      const preview = isSpreadsheet ? await uploadMenuExcel(files[0]) : await uploadMenuDocuments(files)
       const categoryNameByTempId = new Map(preview.categories.map((category) => [category.tempId, category.name]))
       setDraftRows(
         preview.products.map((product) => ({
@@ -110,10 +113,8 @@ export function MenuImportPage() {
       setCommitResult(null)
       setStep('review')
     } catch (err) {
-      if (isAxiosError(err) && err.response?.status === 422) {
-        setExtractError(err.response.data?.message ?? 'Não foi possível extrair os dados da planilha.')
-      } else if (isAxiosError(err) && err.response?.status === 400) {
-        setExtractError('Arquivo inválido. Envie um arquivo .xlsx.')
+      if (isAxiosError(err) && (err.response?.status === 422 || err.response?.status === 400)) {
+        setExtractError(err.response.data?.message ?? 'Não foi possível processar o arquivo enviado.')
       } else {
         setExtractError('Não foi possível processar o arquivo. Tente novamente.')
       }
@@ -169,16 +170,24 @@ export function MenuImportPage() {
       {step === 'upload' && (
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-stone-900">
           <p className="mb-4 text-sm text-gray-600 dark:text-stone-400">
-            Envie uma planilha Excel (.xlsx) com o cardápio. A IA identifica categorias e produtos automaticamente -
-            você revisa tudo antes de confirmar, nada é salvo sem sua aprovação.
+            Envie uma planilha Excel (.xlsx), um PDF ou fotos do seu cardápio (uma foto por página, se for mais de
+            uma). A IA identifica categorias e produtos automaticamente - você revisa tudo antes de confirmar, nada
+            é salvo sem sua aprovação.
           </p>
 
           <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-6 py-10 text-sm text-gray-500 hover:border-brand-400 hover:bg-brand-50 dark:border-white/10 dark:text-stone-400 dark:hover:border-brand-400 dark:hover:bg-brand-500/10">
-            <Upload className="h-6 w-6 text-gray-400 dark:text-stone-500" />
-            {isExtracting ? 'Analisando planilha...' : 'Clique para selecionar um arquivo .xlsx'}
+            {isExtracting ? (
+              <LoaderCircle className="h-6 w-6 animate-spin text-brand-500" />
+            ) : (
+              <Upload className="h-6 w-6 text-gray-400 dark:text-stone-500" />
+            )}
+            {isExtracting
+              ? 'Analisando cardápio...'
+              : 'Clique para selecionar um .xlsx, um PDF, ou uma ou mais fotos'}
             <input
               type="file"
-              accept=".xlsx"
+              accept=".xlsx,.pdf,image/jpeg,image/png,image/webp"
+              multiple
               className="hidden"
               onChange={handleFileChange}
               disabled={isExtracting}

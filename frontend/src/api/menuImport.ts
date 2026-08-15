@@ -47,6 +47,12 @@ export function uploadMenuExcel(file: File) {
   return http.post<MenuImportPreview>('/menu-import/extract', formData).then((res) => res.data)
 }
 
+export function uploadMenuDocuments(files: File[]) {
+  const formData = new FormData()
+  files.forEach((file) => formData.append('files', file))
+  return http.post<MenuImportPreview>('/menu-import/extract-document', formData).then((res) => res.data)
+}
+
 export function commitMenuImport(products: MenuImportProductPayload[]) {
   return http.post<MenuImportCommitResult>('/menu-import/commit', { products }).then((res) => res.data)
 }

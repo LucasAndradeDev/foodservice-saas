@@ -91,7 +91,7 @@ woovi:
 
 gemini:
   api-key: test-key-not-used
-  model: gemini-2.0-flash
+  models: gemini-2.0-flash
   base-url: https://generativelanguage.googleapis.com
 
 supabase:

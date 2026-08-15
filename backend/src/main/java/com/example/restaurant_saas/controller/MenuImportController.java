@@ -22,10 +22,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/menu-import")
 @RequiredArgsConstructor
-@Tag(name = "Menu Import", description = "AI-assisted import of menu categories and products from an uploaded Excel spreadsheet. Extraction never writes to the database; only commit persists data.")
+@Tag(name = "Menu Import", description = "AI-assisted import of menu categories and products from an uploaded Excel spreadsheet or PDF/photos of a menu. Extraction never writes to the database; only commit persists data.")
 public class MenuImportController {
 
     private final MenuImportService menuImportService;
@@ -44,6 +46,22 @@ public class MenuImportController {
             @RequestParam("file") MultipartFile file
     ) {
         return ResponseEntity.ok(menuImportService.extract(currentUser.getRestaurantId(), file));
+    }
+
+    @PostMapping(value = "/extract-document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @Operation(summary = "Extract menu from PDF or photos", description = "Reads one or more uploaded PDF/image files (e.g. photos of a physical menu) and uses AI to structure them into categories/products for review. Never persists anything.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Extraction succeeded"),
+            @ApiResponse(responseCode = "400", description = "Missing files, too many files, or unsupported format"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER"),
+            @ApiResponse(responseCode = "422", description = "Files unreadable or AI extraction failed")
+    })
+    public ResponseEntity<MenuImportPreviewResponse> extractDocument(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @RequestParam("files") List<MultipartFile> files
+    ) {
+        return ResponseEntity.ok(menuImportService.extractFromDocuments(currentUser.getRestaurantId(), files));
     }
 
     @PostMapping("/commit")

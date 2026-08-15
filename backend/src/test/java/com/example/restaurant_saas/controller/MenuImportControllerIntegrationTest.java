@@ -146,6 +146,10 @@ class MenuImportControllerIntegrationTest {
         }
     }
 
+    private MockMultipartFile validImageFile() {
+        return new MockMultipartFile("files", "menu.jpg", "image/jpeg", new byte[]{1, 2, 3, 4});
+    }
+
     private MockMultipartFile emptyXlsxFile() throws Exception {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             workbook.createSheet("Vazia");
@@ -244,6 +248,84 @@ class MenuImportControllerIntegrationTest {
 
         mockMvc.perform(multipart("/api/v1/menu-import/extract")
                         .file(validXlsxFile())
+                        .header("Authorization", "Bearer " + waiterToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void extractDocument_withValidImageAndStubbedGemini_shouldFlagMatchedCategoryAndDuplicateProduct() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String bebidasId = createCategory(ownerToken, "Bebidas");
+        createProduct(ownerToken, bebidasId, "Coca-Cola", "5.00");
+
+        when(geminiService.extractMenuFromDocuments(anyList(), anyList())).thenReturn(new GeminiExtractionResult(List.of(
+                new GeminiCategory("Bebidas", List.of(
+                        new GeminiProduct("Coca-Cola", "Refrigerante gelado", "5.90"),
+                        new GeminiProduct("Suco de Laranja", null, "8.00")
+                ))
+        )));
+
+        mockMvc.perform(multipart("/api/v1/menu-import/extract-document")
+                        .file(validImageFile())
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categories[0].name").value("Bebidas"))
+                .andExpect(jsonPath("$.categories[0].matchedCategoryId").value(bebidasId))
+                .andExpect(jsonPath("$.products[0].name").value("Coca-Cola"))
+                .andExpect(jsonPath("$.products[0].duplicate").value(true))
+                .andExpect(jsonPath("$.products[1].name").value("Suco de Laranja"))
+                .andExpect(jsonPath("$.products[1].duplicate").value(false));
+    }
+
+    @Test
+    void extractDocument_withMultiplePhotos_shouldSendAllToGemini() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+
+        when(geminiService.extractMenuFromDocuments(anyList(), anyList())).thenReturn(new GeminiExtractionResult(List.of(
+                new GeminiCategory("Lanches", List.of(new GeminiProduct("X-Salada", null, "22.90")))
+        )));
+
+        mockMvc.perform(multipart("/api/v1/menu-import/extract-document")
+                        .file(new MockMultipartFile("files", "pagina1.jpg", "image/jpeg", new byte[]{1}))
+                        .file(new MockMultipartFile("files", "pagina2.png", "image/png", new byte[]{2}))
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk());
+
+        verify(geminiService).extractMenuFromDocuments(argThat(documents -> documents.size() == 2), anyList());
+    }
+
+    @Test
+    void extractDocument_withUnsupportedFormat_shouldReturn400() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        MockMultipartFile file = new MockMultipartFile("files", "menu.csv", "text/csv", "a,b,c".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/menu-import/extract-document")
+                        .file(file)
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void extractDocument_whenGeminiThrowsProcessingException_shouldReturn422() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        when(geminiService.extractMenuFromDocuments(anyList(), anyList()))
+                .thenThrow(new MenuImportProcessingException("Falha ao consultar o serviço de IA."));
+
+        mockMvc.perform(multipart("/api/v1/menu-import/extract-document")
+                        .file(validImageFile())
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void extractDocument_asWaiter_shouldBeForbidden() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        String waiterToken = tokenFor(waiter);
+
+        mockMvc.perform(multipart("/api/v1/menu-import/extract-document")
+                        .file(validImageFile())
                         .header("Authorization", "Bearer " + waiterToken))
                 .andExpect(status().isForbidden());
     }

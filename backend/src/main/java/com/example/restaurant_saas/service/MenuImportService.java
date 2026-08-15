@@ -35,6 +35,7 @@ public class MenuImportService {
     private static final Pattern NON_NUMERIC_CHARS = Pattern.compile("[^0-9.,-]");
 
     private final SpreadsheetExtractionService spreadsheetExtractionService;
+    private final DocumentExtractionService documentExtractionService;
     private final GeminiService geminiService;
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
@@ -45,11 +46,26 @@ public class MenuImportService {
     // connection/transaction open. Each repository lookup below gets its own short-lived one.
     public MenuImportPreviewResponse extract(UUID restaurantId, MultipartFile file) {
         String flattenedText = spreadsheetExtractionService.extractFlattenedText(file);
-        List<String> existingCategoryNames = categoryRepository.findByRestaurantIdAndActiveTrueOrderByNameAsc(restaurantId).stream()
+        List<String> existingCategoryNames = loadExistingCategoryNames(restaurantId);
+        GeminiExtractionResult aiResult = geminiService.extractMenu(flattenedText, existingCategoryNames);
+        return buildPreview(restaurantId, aiResult);
+    }
+
+    // Not @Transactional, same reasoning as extract() above.
+    public MenuImportPreviewResponse extractFromDocuments(UUID restaurantId, List<MultipartFile> files) {
+        List<GeminiDocument> documents = documentExtractionService.extractDocuments(files);
+        List<String> existingCategoryNames = loadExistingCategoryNames(restaurantId);
+        GeminiExtractionResult aiResult = geminiService.extractMenuFromDocuments(documents, existingCategoryNames);
+        return buildPreview(restaurantId, aiResult);
+    }
+
+    private List<String> loadExistingCategoryNames(UUID restaurantId) {
+        return categoryRepository.findByRestaurantIdAndActiveTrueOrderByNameAsc(restaurantId).stream()
                 .map(Category::getName)
                 .toList();
-        GeminiExtractionResult aiResult = geminiService.extractMenu(flattenedText, existingCategoryNames);
+    }
 
+    private MenuImportPreviewResponse buildPreview(UUID restaurantId, GeminiExtractionResult aiResult) {
         // Dedupe category names case-insensitively within the AI's own output first -
         // it might emit "Bebidas" from one sheet/tab and "bebidas" from another.
         Map<String, String> displayNameByKey = new LinkedHashMap<>();
