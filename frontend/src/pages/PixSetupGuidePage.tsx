@@ -1,6 +1,6 @@
-import { ArrowLeft, Check, Copy, Mail, MessageCircle, TriangleAlert } from 'lucide-react'
+import { Check, Copy, Mail, MessageCircle, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { BackLink } from '../components/BackLink'
 import { SUPPORT_EMAIL, SUPPORT_WHATSAPP_URL } from '../config/support'
 import { Logo } from '../theme/Logo'
 
@@ -63,13 +63,9 @@ export function PixSetupGuidePage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-stone-950">
       <main className="mx-auto max-w-3xl px-4 py-10">
-        <Link
-          to="/settings"
-          className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-stone-400 dark:hover:text-stone-200"
-        >
-          <ArrowLeft className="h-4 w-4" />
+        <BackLink to="/settings" className="mb-6">
           Voltar
-        </Link>
+        </BackLink>
 
         <Logo className="mb-6 h-12 w-auto" />
 

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, ChevronLeft, Pencil, Trash2 } from 'lucide-react'
+import { CalendarClock, Pencil, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import {
   createAvailabilityWindow,
   deleteAvailabilityWindow,
@@ -12,6 +12,7 @@ import {
   type DayOfWeek,
 } from '../api/productAvailability'
 import { getProduct } from '../api/products'
+import { BackLink } from '../components/BackLink'
 import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
 
@@ -145,13 +146,9 @@ export function ProductAvailabilityPage() {
 
   return (
     <div>
-      <Link
-        to="/products"
-        className="mb-2 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-stone-400 dark:hover:text-stone-200"
-      >
-        <ChevronLeft className="h-4 w-4" />
+      <BackLink to="/products" className="mb-2">
         Produtos
-      </Link>
+      </BackLink>
 
       <div className="mb-1 flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white">

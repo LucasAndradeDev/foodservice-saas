@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { createCategory, listCategories, type Category } from '../api/categories'
 import {
   getComboComposition,
@@ -24,6 +24,7 @@ import {
   type UpdateComboCompositionPayload,
 } from '../api/combos'
 import { createProduct, getProduct, listProducts, updateProduct, uploadProductImage, type Product } from '../api/products'
+import { BackLink } from '../components/BackLink'
 import { GroupedSelect } from '../components/GroupedSelect'
 import { IconSelect } from '../components/IconSelect'
 import { getCategoryIcon } from './publicMenu/categoryIcons'
@@ -329,13 +330,9 @@ export function ComboFormPage() {
 
   return (
     <div className="mx-auto max-w-6xl">
-      <Link
-        to="/combos"
-        className="mb-2 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-stone-400 dark:hover:text-stone-200"
-      >
-        <ChevronLeft className="h-4 w-4" />
+      <BackLink to="/combos" className="mb-2">
         Combos
-      </Link>
+      </BackLink>
 
       <h1 className="mb-1 flex items-center gap-2 text-xl font-semibold text-gray-800 dark:text-white">
         <Layers className="h-5 w-5 text-brand-600 dark:text-brand-400" />

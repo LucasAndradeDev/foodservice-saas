@@ -1,6 +1,5 @@
-import { ArrowLeft } from 'lucide-react'
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { BackLink } from '../../components/BackLink'
 import { Logo } from '../../theme/Logo'
 
 interface LegalPageLayoutProps {
@@ -13,13 +12,9 @@ export function LegalPageLayout({ title, lastUpdated, children }: LegalPageLayou
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-stone-950">
       <main className="mx-auto max-w-3xl px-4 py-10">
-        <Link
-          to="/"
-          className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-stone-400 dark:hover:text-stone-200"
-        >
-          <ArrowLeft className="h-4 w-4" />
+        <BackLink to="/" className="mb-6">
           Voltar
-        </Link>
+        </BackLink>
 
         <Logo className="mb-6 h-12 w-auto" />
 

@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { motion } from 'framer-motion'
 import {
-  ArrowLeft,
   ArrowRightLeft,
   Ban,
   Check,
@@ -54,6 +53,7 @@ import {
   type Tab,
 } from '../api/tabs'
 import { useAuth } from '../auth/AuthContext'
+import { BackLink } from '../components/BackLink'
 import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Modal } from '../components/Modal'
@@ -724,14 +724,9 @@ export function TabDetailPage() {
 
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => navigate('/tables')}
-        className="mb-4 flex items-center gap-1 text-sm text-gray-500 dark:text-stone-400 hover:text-gray-700 dark:hover:text-stone-200 hover:underline"
-      >
-        <ArrowLeft className="h-4 w-4" />
+      <BackLink onClick={() => navigate('/tables')} className="mb-4">
         Voltar para Mesas
-      </button>
+      </BackLink>
 
       <div className="mb-6 flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:bg-stone-900">
         <div className="flex items-center gap-3">
