@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BarChart3, CheckCircle2, Circle, Clock, Filter, KeyRound, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
+import { BarChart3, Bike, CheckCircle2, Circle, Clock, Filter, KeyRound, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import type { UserRole } from '../auth/types'
@@ -18,6 +18,7 @@ const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral', icon: Store },
   { to: '/coupons', label: 'Cupons', icon: Ticket },
   { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
+  { to: '/delivery-zones', label: 'Entrega', icon: Bike },
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 

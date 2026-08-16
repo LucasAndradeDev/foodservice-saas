@@ -100,8 +100,8 @@ Cada task abaixo é pensada pra ser um commit (ou poucos) testável isoladamente
 - [x] **25.5** Teste de isolamento cross-tenant pra `DeliveryDetails`. **Ajuste de escopo**: ainda não existe endpoint autenticado por id pra `DeliveryDetails` (só chega no 27.2, tela de operação) — não dava pra estender a `CrossTenantIsolationControllerIntegrationTest` (ela varre endpoints por id). Em vez disso, `DeliveryDetailsRepositoryTest` prova a Camada 2 direto (`@Filter` do Hibernate): restaurante A cria um pedido de delivery, `findByTab_Id` sob o tenant de B devolve vazio. O caso equivalente na suíte de Controller (varredura por endpoint) fica marcado pra entrar junto do 27.2, quando o endpoint existir.
 
 ### 26 — Cálculo de frete/raio (~1-2 dias)
-- [ ] **26.1** Migration + entidade `DeliveryZone` + endpoints CRUD autenticados (`OWNER`/`MANAGER`).
-- [ ] **26.2** Tela "Zonas de entrega" em Configurações.
+- [x] **26.1** Migration (`V64__delivery_zones.sql`) + entidade `DeliveryZone` + endpoints CRUD (`/api/v1/delivery-zones`, `OWNER`/`MANAGER`), mesmo padrão de `DiningArea`/`Coupon` — bairro único por restaurante (case-insensitive), taxa fixa, ativo/inativo. Match por bairro exato (sem CEP/raio geográfico na v1). Testado com 7 testes de integração.
+- [x] **26.2** Tela "Zonas de entrega" (`DeliveryZonesPage`) — vira uma aba própria na barra de gestão (`/delivery-zones`, entre Happy Hour e Funcionários), mesmo padrão de Cupons, não uma seção dentro da tela Geral. Testado ponta a ponta no navegador: criar, listar, ativar/desativar, editar, excluir.
 - [ ] **26.3** Endpoint público de consulta de taxa por bairro/CEP (prévia no carrinho).
 - [ ] **26.4** Cálculo server-side da taxa aplicado de verdade na criação da comanda (25.4) e integrado ao congelamento de `billTotal` — bloqueado até 25 estar pronto.
 

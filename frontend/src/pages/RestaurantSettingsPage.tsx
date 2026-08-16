@@ -3,6 +3,7 @@ import { AnimatePresence, motion, type Variants } from 'framer-motion'
 import {
   AlertTriangle,
   BellRing,
+  Bike,
   Check,
   ChevronDown,
   ChevronRight,
@@ -29,6 +30,7 @@ import { Link } from 'react-router-dom'
 import { getMyRestaurant, updateMyRestaurant, uploadRestaurantLogo } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
+import { CardIntegrationCard } from '../components/CardIntegrationCard'
 import { PageHeader } from '../components/PageHeader'
 import { PixIntegrationCard } from '../components/PixIntegrationCard'
 import { SectionTabs } from '../components/SectionTabs'
@@ -39,6 +41,7 @@ const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral', icon: Store },
   { to: '/coupons', label: 'Cupons', icon: Ticket },
   { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
+  { to: '/delivery-zones', label: 'Entrega', icon: Bike },
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 
@@ -627,6 +630,8 @@ export function RestaurantSettingsPage() {
                         </GroupLabel>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                           <PixIntegrationCard canManage={canManage} />
+
+                          <CardIntegrationCard canManage={canManage} />
 
                           <Link
                             to="/dining-areas"

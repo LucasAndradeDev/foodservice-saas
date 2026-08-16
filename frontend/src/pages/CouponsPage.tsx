@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Circle, Clock, Filter, Pencil, Plus, Power, Store, Ticket, Trash2, Users, XCircle } from 'lucide-react'
+import { Bike, CheckCircle2, Circle, Clock, Filter, Pencil, Plus, Power, Store, Ticket, Trash2, Users, XCircle } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { createCoupon, deleteCoupon, listCoupons, updateCoupon, type Coupon } from '../api/coupons'
 import type { DiscountType } from '../api/orders'
@@ -17,6 +17,7 @@ const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral', icon: Store },
   { to: '/coupons', label: 'Cupons', icon: Ticket },
   { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
+  { to: '/delivery-zones', label: 'Entrega', icon: Bike },
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 
