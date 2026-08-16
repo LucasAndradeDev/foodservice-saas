@@ -2,6 +2,7 @@ package com.example.restaurant_saas.repository;
 
 import com.example.restaurant_saas.domain.entity.DeliveryDetails;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
+import com.example.restaurant_saas.dto.request.CreateDeliveryZoneRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
@@ -68,6 +69,7 @@ class DeliveryDetailsRepositoryTest {
         String slugA = getSlug(tokenA);
         String categoryIdA = createCategory(tokenA, "Burgers");
         String productIdA = createProduct(tokenA, categoryIdA, "Cheeseburger", "25.90");
+        createDeliveryZone(tokenA, "Centro", "8.00");
         String tabId = createDeliveryOrder(slugA, productIdA);
         UUID restaurantIdA = restaurantRepository.findBySlug(slugA).orElseThrow().getId();
 
@@ -130,6 +132,17 @@ class DeliveryDetailsRepositoryTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private void createDeliveryZone(String token, String neighborhood, String fee) throws Exception {
+        CreateDeliveryZoneRequest request = new CreateDeliveryZoneRequest();
+        request.setNeighborhood(neighborhood);
+        request.setFee(new BigDecimal(fee));
+        mockMvc.perform(post("/api/v1/delivery-zones")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
     }
 
     private String createDeliveryOrder(String slug, String productId) throws Exception {

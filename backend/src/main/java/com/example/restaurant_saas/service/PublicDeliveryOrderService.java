@@ -2,6 +2,7 @@ package com.example.restaurant_saas.service;
 
 import com.example.restaurant_saas.config.TenantActivator;
 import com.example.restaurant_saas.domain.entity.DeliveryDetails;
+import com.example.restaurant_saas.domain.entity.DeliveryZone;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.dto.request.CreateDeliveryOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
@@ -10,6 +11,7 @@ import com.example.restaurant_saas.dto.response.DeliveryOrderResponse;
 import com.example.restaurant_saas.dto.response.OrderResponse;
 import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.repository.DeliveryDetailsRepository;
+import com.example.restaurant_saas.repository.DeliveryZoneRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.TabRepository;
 import com.example.restaurant_saas.security.RateLimitService;
@@ -19,7 +21,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,6 +32,7 @@ public class PublicDeliveryOrderService {
 
     private final RestaurantRepository restaurantRepository;
     private final DeliveryDetailsRepository deliveryDetailsRepository;
+    private final DeliveryZoneRepository deliveryZoneRepository;
     private final TabRepository tabRepository;
     private final TabService tabService;
     private final OrderService orderService;
@@ -63,6 +65,13 @@ public class PublicDeliveryOrderService {
 
         tenantActivator.activate(restaurant.getId());
         try {
+            // Looked up (and rejected if unserved) before creating anything - never trust a fee
+            // the client might have shown from the preview quote (task 26.3), and never leave a
+            // tab/order behind for a neighborhood the restaurant doesn't actually deliver to.
+            DeliveryZone zone = deliveryZoneRepository
+                    .findByRestaurantIdAndNeighborhoodIgnoreCaseAndActiveTrue(restaurant.getId(), request.getNeighborhood())
+                    .orElseThrow(() -> new IllegalArgumentException("We don't deliver to this neighborhood yet."));
+
             // No tables, same shape as a Balcao tab - what marks this one as a delivery order is
             // the DeliveryDetails row created below, not anything on the Tab itself.
             OpenTabRequest openTabRequest = new OpenTabRequest();
@@ -85,8 +94,7 @@ public class PublicDeliveryOrderService {
                     .city(request.getCity())
                     .zipCode(request.getZipCode())
                     .referencePoint(request.getReferencePoint())
-                    // Task 26 wires the real DeliveryZone lookup - 0 until then.
-                    .deliveryFee(BigDecimal.ZERO)
+                    .deliveryFee(zone.getFee())
                     .accessToken(UUID.randomUUID().toString())
                     .build();
             deliveryDetailsRepository.save(deliveryDetails);

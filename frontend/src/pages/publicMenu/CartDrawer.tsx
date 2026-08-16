@@ -65,6 +65,7 @@ export function CartDrawer({
   const deliveryFieldClass =
     'w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500'
   const deliveryComplete = isDeliveryAddressComplete(deliveryAddress)
+  const deliveryZoneUnavailable = showDeliveryFields && deliveryComplete && deliveryFeeQuote?.available === false
   return (
     <AnimatePresence>
       {isOpen && (
@@ -339,7 +340,7 @@ export function CartDrawer({
                   <button
                     type="button"
                     onClick={onSubmit}
-                    disabled={isSubmitting || (showDeliveryFields && !deliveryComplete)}
+                    disabled={isSubmitting || (showDeliveryFields && !deliveryComplete) || deliveryZoneUnavailable}
                     className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-brand-500 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-900/20 transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
                   >
                     {isSubmitting ? 'Enviando...' : 'Enviar pedido'}

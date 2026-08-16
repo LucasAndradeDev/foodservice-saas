@@ -1,10 +1,16 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.entity.DeliveryDetails;
+import com.example.restaurant_saas.domain.enums.ItemStatus;
+import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
+import com.example.restaurant_saas.dto.request.CreateDeliveryZoneRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
+import com.example.restaurant_saas.dto.request.PaymentEntryRequest;
+import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
+import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.repository.DeliveryDetailsRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.support.TenantTestSupport;
@@ -99,6 +105,17 @@ class PublicDeliveryOrderControllerIntegrationTest {
         return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
     }
 
+    private void createDeliveryZone(String token, String neighborhood, String fee) throws Exception {
+        CreateDeliveryZoneRequest request = new CreateDeliveryZoneRequest();
+        request.setNeighborhood(neighborhood);
+        request.setFee(new BigDecimal(fee));
+        mockMvc.perform(post("/api/v1/delivery-zones")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated());
+    }
+
     private ObjectNode deliveryOrderBody(String productId, String phone) {
         CreateOrderItemRequest item = new CreateOrderItemRequest();
         item.setProductId(UUID.fromString(productId));
@@ -121,6 +138,7 @@ class PublicDeliveryOrderControllerIntegrationTest {
         String slug = getSlug(token);
         String categoryId = createCategory(token, "Burgers");
         String productId = createProduct(token, categoryId, "Cheeseburger", "25.90");
+        createDeliveryZone(token, "Centro", "8.00");
 
         MvcResult result = mockMvc.perform(post("/api/v1/public/menu/" + slug + "/delivery/orders")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -128,7 +146,7 @@ class PublicDeliveryOrderControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.tabId").exists())
                 .andExpect(jsonPath("$.accessToken").exists())
-                .andExpect(jsonPath("$.deliveryFee").value(0))
+                .andExpect(jsonPath("$.deliveryFee").value(8.00))
                 .andExpect(jsonPath("$.order.items", hasSize(1)))
                 .andExpect(jsonPath("$.order.items[0].quantity").value(2))
                 .andExpect(jsonPath("$.order.total").value(51.80))
@@ -148,7 +166,7 @@ class PublicDeliveryOrderControllerIntegrationTest {
             Assertions.assertEquals("Maria Souza", details.getCustomerName());
             Assertions.assertEquals("Rua das Flores", details.getStreet());
             Assertions.assertEquals(accessToken, details.getAccessToken());
-            Assertions.assertEquals(0, details.getDeliveryFee().compareTo(BigDecimal.ZERO));
+            Assertions.assertEquals(0, details.getDeliveryFee().compareTo(new BigDecimal("8.00")));
         });
     }
 
@@ -158,6 +176,7 @@ class PublicDeliveryOrderControllerIntegrationTest {
         String slug = getSlug(token);
         String categoryId = createCategory(token, "Burgers");
         String productId = createProduct(token, categoryId, "Cheeseburger", "25.90");
+        createDeliveryZone(token, "Centro", "8.00");
 
         MvcResult first = mockMvc.perform(post("/api/v1/public/menu/" + slug + "/delivery/orders")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -173,6 +192,67 @@ class PublicDeliveryOrderControllerIntegrationTest {
         String firstTabId = JsonPath.read(first.getResponse().getContentAsString(), "$.tabId");
         String secondTabId = JsonPath.read(second.getResponse().getContentAsString(), "$.tabId");
         Assertions.assertNotEquals(firstTabId, secondTabId);
+    }
+
+    @Test
+    void payTab_forDeliveryOrder_shouldIncludeDeliveryFeeInBillTotal() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String categoryId = createCategory(token, "Burgers");
+        String productId = createProduct(token, categoryId, "Cheeseburger", "25.90");
+        createDeliveryZone(token, "Centro", "8.00");
+
+        MvcResult created = mockMvc.perform(post("/api/v1/public/menu/" + slug + "/delivery/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(deliveryOrderBody(productId, "11999990007"))))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String tabId = JsonPath.read(created.getResponse().getContentAsString(), "$.tabId");
+        String itemId = JsonPath.read(created.getResponse().getContentAsString(), "$.order.items[0].id");
+
+        for (ItemStatus nextStatus : List.of(ItemStatus.PREPARING, ItemStatus.READY, ItemStatus.DELIVERED)) {
+            UpdateOrderItemStatusRequest statusRequest = new UpdateOrderItemStatusRequest();
+            statusRequest.setStatus(nextStatus);
+            mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(statusRequest)))
+                    .andExpect(status().isOk());
+        }
+
+        // Items total is 2 x 25.90 = 51.80; delivery fee is 8.00; service charge waived explicitly
+        // so the math stays simple - billTotal should be exactly itemsTotal + deliveryFee.
+        RegisterPaymentsRequest paymentRequest = new RegisterPaymentsRequest();
+        PaymentEntryRequest entry = new PaymentEntryRequest();
+        // PIX (a manual "customer paid by Pix" record, not the online gateway) - avoids needing an
+        // open cash register session, which CASH payments require and this test doesn't set up.
+        entry.setPaymentMethod(PaymentMethod.PIX);
+        entry.setAmount(new BigDecimal("59.80"));
+        paymentRequest.setPayments(List.of(entry));
+        paymentRequest.setServiceChargePercentage(BigDecimal.ZERO);
+
+        mockMvc.perform(post("/api/v1/tabs/" + tabId + "/payments")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(paymentRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CLOSED"))
+                .andExpect(jsonPath("$.billTotal").value(59.80))
+                .andExpect(jsonPath("$.remainingBalance").value(0));
+    }
+
+    @Test
+    void createDeliveryOrder_forUnservedNeighborhood_shouldReturn400() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String categoryId = createCategory(token, "Burgers");
+        String productId = createProduct(token, categoryId, "Cheeseburger", "25.90");
+        // Note: no delivery zone created for this restaurant at all.
+
+        mockMvc.perform(post("/api/v1/public/menu/" + slug + "/delivery/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(deliveryOrderBody(productId, "11999990006"))))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
