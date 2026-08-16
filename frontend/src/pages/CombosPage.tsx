@@ -5,7 +5,9 @@ import { Link } from 'react-router-dom'
 import { deleteProduct, updateProduct, listProducts, type Product } from '../api/products'
 import { useAuth } from '../auth/AuthContext'
 import { ActionMenu, type ActionMenuEntry } from '../components/ActionMenu'
+import { Badge } from '../components/Badge'
 import { Card } from '../components/Card'
+import { PageHeader } from '../components/PageHeader'
 import { SectionTabs } from '../components/SectionTabs'
 import { Table, TableHead, TableRow } from '../components/Table'
 
@@ -59,12 +61,7 @@ export function CombosPage() {
       <SectionTabs tabs={MENU_TABS} />
 
       <div className="mb-4 flex items-center justify-between gap-3 rounded-b-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-            <Layers className="h-5 w-5" />
-          </span>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Combos</h1>
-        </div>
+        <PageHeader icon={Layers} title="Combos" />
         {canManage && (
           <Link
             to="/combos/new"
@@ -108,16 +105,10 @@ export function CombosPage() {
                       {combo.discountPercentage != null ? `${combo.discountPercentage}% de desconto` : 'Sem desconto'}
                     </span>
                   </div>
-                  <span
-                    className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                      combo.active
-                        ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
-                        : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
-                    }`}
-                  >
+                  <Badge tone={combo.active ? 'free' : 'neutral'} className="shrink-0">
                     {combo.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                     {combo.active ? 'Ativo' : 'Inativo'}
-                  </span>
+                  </Badge>
                 </div>
                 {canManage && (
                   <ComboActionButtons
@@ -153,16 +144,10 @@ export function CombosPage() {
                       {combo.discountPercentage != null ? `${combo.discountPercentage}%` : '—'}
                     </td>
                     <td className="px-4 py-2">
-                      <span
-                        className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                          combo.active
-                            ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
-                            : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
-                        }`}
-                      >
+                      <Badge tone={combo.active ? 'free' : 'neutral'}>
                         {combo.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                         {combo.active ? 'Ativo' : 'Inativo'}
-                      </span>
+                      </Badge>
                     </td>
                     {canManage && (
                       <td className="px-4 py-2 text-right">

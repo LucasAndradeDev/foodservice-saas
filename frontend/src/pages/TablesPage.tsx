@@ -46,6 +46,7 @@ import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
 import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
+import { PageHeader } from '../components/PageHeader'
 import { QrCodeCard } from '../components/QrCodeCard'
 import { minutesSince } from '../utils/time'
 import { publicMenuUrl } from '../utils/publicMenuUrl'
@@ -519,12 +520,7 @@ export function TablesPage() {
   return (
     <div className={isSelectingTables ? 'pb-24' : undefined}>
       <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-            <Table2 className="h-5 w-5" />
-          </span>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Mesas</h1>
-        </div>
+        <PageHeader icon={Table2} title="Mesas" />
 
         {!isSelectingTables && !isOrganizingAreas && (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

@@ -23,6 +23,7 @@ import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { EmptyState } from '../components/EmptyState'
+import { PageHeader } from '../components/PageHeader'
 import { formatTableLabel } from '../utils/tableLabel'
 import { minutesSince } from '../utils/time'
 
@@ -192,12 +193,7 @@ export function KitchenPage() {
   return (
     <div>
       <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-            <ChefHat className="h-5 w-5" />
-          </span>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Cozinha</h1>
-        </div>
+        <PageHeader icon={ChefHat} title="Cozinha" />
 
         <button
           type="button"

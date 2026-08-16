@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../auth/AuthContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Modal } from '../components/Modal'
+import { PageHeader } from '../components/PageHeader'
 
 export function DiningAreasPage() {
   const { user } = useAuth()
@@ -119,12 +120,7 @@ export function DiningAreasPage() {
   return (
     <div>
       <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-            <MapPin className="h-5 w-5" />
-          </span>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Áreas do salão</h1>
-        </div>
+        <PageHeader icon={MapPin} title="Áreas do salão" />
         {canManage && (
           <button
             type="button"

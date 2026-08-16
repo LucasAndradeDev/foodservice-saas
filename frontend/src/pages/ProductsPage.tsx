@@ -36,8 +36,11 @@ import {
 } from '../api/products'
 import { useAuth } from '../auth/AuthContext'
 import { ActionMenu, type ActionMenuEntry } from '../components/ActionMenu'
+import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { Dropdown } from '../components/Dropdown'
+import { EmptyState } from '../components/EmptyState'
+import { PageHeader } from '../components/PageHeader'
 import { Table, TableHead, TableRow } from '../components/Table'
 import { Modal } from '../components/Modal'
 import { SectionTabs } from '../components/SectionTabs'
@@ -321,12 +324,7 @@ export function ProductsPage() {
 
       <div className="mb-4 rounded-b-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-              <Package className="h-5 w-5" />
-            </span>
-            <h1 className="text-lg font-bold text-gray-900 dark:text-white">Produtos</h1>
-          </div>
+          <PageHeader icon={Package} title="Produtos" />
           {canManage && (
             <Button type="button" onClick={openCreateForm}>
               <Plus className="h-4 w-4" />
@@ -379,9 +377,7 @@ export function ProductsPage() {
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
-      {products && products.length === 0 && (
-        <p className="text-sm text-gray-500 dark:text-stone-400">Nenhum produto encontrado.</p>
-      )}
+      {products && products.length === 0 && <EmptyState icon={Package} message="Nenhum produto encontrado." />}
 
       {canManage && products && products.length > 0 && (
         <div className="mb-2 flex min-h-[52px] flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-stone-900">
@@ -448,16 +444,10 @@ export function ProductsPage() {
                     </span>
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-1">
-                    <span
-                      className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                        product.active
-                          ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
-                          : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
-                      }`}
-                    >
+                    <Badge tone={product.active ? 'free' : 'neutral'}>
                       {product.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                       {product.active ? 'Ativo' : 'Inativo'}
-                    </span>
+                    </Badge>
                     {product.soldOutToday && (
                       <span className="flex items-center gap-1 rounded-full bg-gold-100 px-2 py-0.5 text-xs text-gold-700 dark:bg-gold-500/10 dark:text-gold-400">
                         <Ban className="h-3 w-3" />
@@ -541,16 +531,10 @@ export function ProductsPage() {
                     <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{currencyFormatter.format(product.price)}</td>
                     <td className="px-4 py-2">
                       <span className="flex w-fit flex-col items-start gap-1">
-                        <span
-                          className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                            product.active
-                              ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
-                              : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
-                          }`}
-                        >
+                        <Badge tone={product.active ? 'free' : 'neutral'}>
                           {product.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                           {product.active ? 'Ativo' : 'Inativo'}
-                        </span>
+                        </Badge>
                         {product.soldOutToday && (
                           <span className="flex items-center gap-1 rounded-full bg-gold-100 px-2 py-0.5 text-xs text-gold-700 dark:bg-gold-500/10 dark:text-gold-400">
                             <Ban className="h-3 w-3" />

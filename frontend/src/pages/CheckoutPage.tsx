@@ -29,6 +29,7 @@ import { Button } from '../components/Button'
 import { Dropdown, type DropdownOption } from '../components/Dropdown'
 import { EmptyState } from '../components/EmptyState'
 import { Modal } from '../components/Modal'
+import { PageHeader } from '../components/PageHeader'
 import { QrCodeCard } from '../components/QrCodeCard'
 import { formatTableLabel } from '../utils/tableLabel'
 import { feedbackUrl } from '../utils/publicMenuUrl'
@@ -607,11 +608,8 @@ export function CheckoutPage() {
 
   return (
     <div>
-      <div className="mb-5 flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-          <Wallet className="h-5 w-5" />
-        </span>
-        <h1 className="text-lg font-bold text-gray-900 dark:text-white">Fechar Conta</h1>
+      <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+        <PageHeader icon={Wallet} title="Fechar Conta" />
       </div>
 
       {isTabsLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}

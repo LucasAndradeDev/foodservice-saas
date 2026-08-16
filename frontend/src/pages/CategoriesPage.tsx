@@ -4,9 +4,11 @@ import { CheckCircle2, ChevronDown, Circle, Image as ImageIcon, Layers, Package,
 import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { createCategory, listCategories, updateCategory, uploadCategoryBanner, type Category } from '../api/categories'
 import { useAuth } from '../auth/AuthContext'
+import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { Card } from '../components/Card'
 import { Modal } from '../components/Modal'
+import { PageHeader } from '../components/PageHeader'
 import { SectionTabs } from '../components/SectionTabs'
 import { Table, TableHead, TableRow } from '../components/Table'
 
@@ -118,12 +120,7 @@ export function CategoriesPage() {
       <SectionTabs tabs={MENU_TABS} />
 
       <div className="mb-4 flex items-center justify-between gap-3 rounded-b-xl border border-gray-200 bg-white p-4 shadow-xs dark:border-white/10 dark:bg-stone-900">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-            <Tag className="h-5 w-5" />
-          </span>
-          <h1 className="truncate text-lg font-bold text-gray-900 dark:text-white">Categorias</h1>
-        </div>
+        <PageHeader icon={Tag} title="Categorias" />
         {canManage && (
           <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
             <Plus className="h-4 w-4" />
@@ -146,16 +143,10 @@ export function CategoriesPage() {
               <Card key={category.id} className="p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-medium text-gray-800 dark:text-white">{category.name}</span>
-                  <span
-                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                      category.active
-                        ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
-                        : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
-                    }`}
-                  >
+                  <Badge tone={category.active ? 'free' : 'neutral'} className="shrink-0">
                     {category.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                     {category.active ? 'Ativa' : 'Inativa'}
-                  </span>
+                  </Badge>
                 </div>
                 {canManage && (
                   <CategoryActionButtons
@@ -184,16 +175,10 @@ export function CategoriesPage() {
                   <TableRow key={category.id}>
                     <td className="px-4 py-2 text-gray-800 dark:text-white">{category.name}</td>
                     <td className="px-4 py-2">
-                      <span
-                        className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                          category.active
-                            ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
-                            : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
-                        }`}
-                      >
+                      <Badge tone={category.active ? 'free' : 'neutral'}>
                         {category.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                         {category.active ? 'Ativa' : 'Inativa'}
-                      </span>
+                      </Badge>
                     </td>
                     {canManage && (
                       <td className="px-4 py-2 text-right">

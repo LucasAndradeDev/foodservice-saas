@@ -5,6 +5,7 @@ import { getDashboard } from '../api/dashboard'
 import { getReportSummary } from '../api/reports'
 import { useAuth } from '../auth/AuthContext'
 import { Card } from '../components/Card'
+import { PageHeader } from '../components/PageHeader'
 import { ChangeLine, StatTile } from '../components/StatTile'
 import { TableHead, TableRow } from '../components/Table'
 import { toDateInputValue } from '../utils/calendarGrid'
@@ -66,12 +67,9 @@ export function DashboardPage() {
     <motion.div variants={containerVariants} initial="hidden" animate="visible">
       <motion.div
         variants={itemVariants}
-        className="mb-5 flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900"
+        className="mb-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900"
       >
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-          <LayoutDashboard className="h-5 w-5" />
-        </span>
-        <h1 className="text-lg font-bold text-gray-900 dark:text-white">Dashboard</h1>
+        <PageHeader icon={LayoutDashboard} title="Dashboard" />
       </motion.div>
 
       <motion.div

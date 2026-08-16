@@ -371,7 +371,6 @@ export function AppLayout() {
       </aside>
 
       <div className="flex-1 sm:h-screen sm:overflow-y-auto">
-        <EmailVerificationBanner />
         <PaymentDueBanner />
 
         {/* Mobile top bar */}
@@ -391,6 +390,8 @@ export function AppLayout() {
             </button>
           </div>
         </header>
+
+        <EmailVerificationBanner />
 
         <main className="p-4 pb-20 sm:p-6 sm:pb-6">
           <AnimatePresence mode="popLayout" initial={false}>

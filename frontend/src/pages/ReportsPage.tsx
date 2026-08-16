@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { getPeakHours, getReportSummary } from '../api/reports'
 import { Card } from '../components/Card'
 import { DateRangePicker } from '../components/DateRangePicker'
+import { PageHeader } from '../components/PageHeader'
 import { StatTile } from '../components/StatTile'
 import { TableHead, TableRow } from '../components/Table'
 import { FeedbackCard } from './reports/FeedbackCard'
@@ -121,12 +122,7 @@ export function ReportsPage() {
   return (
     <div>
       <div className="mb-6 rounded-xl border border-gray-200 bg-white dark:border-white/10 dark:bg-stone-900 p-4 shadow-xs">
-        <div className="mb-4 flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-            <BarChart3 className="h-5 w-5" />
-          </span>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Relatórios</h1>
-        </div>
+        <PageHeader icon={BarChart3} title="Relatórios" className="mb-4" />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">

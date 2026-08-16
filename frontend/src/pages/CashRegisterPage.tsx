@@ -12,6 +12,7 @@ import {
 import { Button } from '../components/Button'
 import { DateRangePicker } from '../components/DateRangePicker'
 import { Modal } from '../components/Modal'
+import { PageHeader } from '../components/PageHeader'
 import { toDateInputValue } from '../utils/calendarGrid'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -128,11 +129,14 @@ export function CashRegisterPage() {
 
   return (
     <div>
-      <div className="mb-5 flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-          <Banknote className="h-5 w-5" />
-        </span>
-        <h1 className="text-lg font-bold text-gray-900 dark:text-white">Caixa</h1>
+      <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+        <PageHeader icon={Banknote} title="Caixa" />
+        {!isLoading && !currentSession && (
+          <Button type="button" onClick={openOpeningForm} className="shrink-0 whitespace-nowrap">
+            <Unlock className="h-4 w-4" />
+            Abrir caixa
+          </Button>
+        )}
       </div>
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
@@ -148,10 +152,6 @@ export function CashRegisterPage() {
               Abra o caixa pra começar a registrar as vendas em dinheiro deste turno.
             </p>
           </div>
-          <Button type="button" onClick={openOpeningForm}>
-            <Unlock className="h-4 w-4" />
-            Abrir caixa
-          </Button>
         </div>
       )}
 

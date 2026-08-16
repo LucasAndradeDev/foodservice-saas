@@ -5,10 +5,12 @@ import { Link } from 'react-router-dom'
 import type { UserRole } from '../auth/types'
 import { createUser, listUsers, sendPasswordResetLink, updateUser, type StaffMember } from '../api/users'
 import { useAuth } from '../auth/AuthContext'
+import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
+import { PageHeader } from '../components/PageHeader'
 import { SectionTabs } from '../components/SectionTabs'
 import { Table, TableHead, TableRow } from '../components/Table'
 
@@ -144,12 +146,7 @@ export function StaffPage() {
 
       <div className="mb-5 flex flex-col gap-4 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center justify-between gap-3 sm:justify-start">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-              <Users className="h-5 w-5" />
-            </span>
-            <h1 className="truncate text-lg font-bold text-gray-900 dark:text-white">Funcionários</h1>
-          </div>
+          <PageHeader icon={Users} title="Funcionários" />
           {/* On mobile the "+" sits beside the title; on sm+ it moves into the row below, next to the filter. */}
           <div className="sm:hidden">
             <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
@@ -202,16 +199,10 @@ export function StaffPage() {
                   <span className="font-medium text-gray-800 dark:text-white">
                     {row.name} {row.id === user?.id && <span className="text-gray-400 dark:text-stone-500">(você)</span>}
                   </span>
-                  <span
-                    className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                      row.active
-                        ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
-                        : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
-                    }`}
-                  >
+                  <Badge tone={row.active ? 'free' : 'neutral'} className="shrink-0">
                     {row.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                     {row.active ? 'Ativo' : 'Inativo'}
-                  </span>
+                  </Badge>
                 </div>
                 <div className="mb-2 text-sm text-gray-500 dark:text-stone-400">
                   {row.email} · {ROLE_LABELS[row.role]}
@@ -277,16 +268,10 @@ export function StaffPage() {
                     <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{row.email}</td>
                     <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{ROLE_LABELS[row.role]}</td>
                     <td className="px-4 py-2">
-                      <span
-                        className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
-                          row.active
-                            ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400'
-                            : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400'
-                        }`}
-                      >
+                      <Badge tone={row.active ? 'free' : 'neutral'}>
                         {row.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
                         {row.active ? 'Ativo' : 'Inativo'}
-                      </span>
+                      </Badge>
                     </td>
                     <td className="px-4 py-2 text-right">
                       <div className="flex justify-end gap-1">

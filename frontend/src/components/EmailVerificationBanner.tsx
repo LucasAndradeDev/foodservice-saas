@@ -50,70 +50,63 @@ export function EmailVerificationBanner() {
   const showPending = user?.emailVerified === false && !isDismissed
   const shouldShow = showPending || justVerified
 
+  // Renders in-flow (as a strip above the page content) rather than as a fixed floating
+  // card: a fixed corner overlay has no way to know what content is behind it, and ended up
+  // covering real data on tall pages (e.g. the charts in Relatórios). A strip that pushes
+  // content down instead of floating over it can't overlap anything, on any screen.
   return (
-    <div className="pointer-events-none fixed inset-x-4 bottom-20 z-20 flex justify-center sm:inset-x-auto sm:right-6 sm:bottom-6 sm:justify-end">
-      <AnimatePresence mode="wait">
-        {shouldShow && (
-          <motion.div
-            key={justVerified ? 'verified' : 'pending'}
-            initial={{ opacity: 0, y: 16, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.97 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-stone-900"
-          >
-            {justVerified ? (
-              <>
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-400">
-                  <CheckCircle2 className="h-5 w-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-white">Email confirmado!</p>
-                  <p className="mt-0.5 text-sm text-gray-500 dark:text-stone-400">Sua conta agora tem acesso total.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setJustVerified(false)}
-                  aria-label="Fechar"
-                  className="shrink-0 rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:text-stone-500 dark:hover:bg-white/5 dark:hover:text-stone-300"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400">
-                  <Mail className="h-4 w-4" />
-                </span>
-
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-800 dark:text-white">Confirme seu email</p>
-                  <p className="mt-0.5 text-sm text-gray-500 dark:text-stone-400">
-                    {feedback ?? `Enviamos um link de confirmação para ${user?.email ?? 'seu email'}.`}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    disabled={isSending}
-                    className="mt-3 w-full rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 active:scale-[0.98] disabled:opacity-50"
-                  >
-                    {isSending ? 'Enviando...' : 'Reenviar email'}
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsDismissed(true)}
-                  aria-label="Fechar"
-                  className="shrink-0 rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:text-stone-500 dark:hover:bg-white/5 dark:hover:text-stone-300"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <AnimatePresence initial={false}>
+      {shouldShow && (
+        <motion.div
+          key={justVerified ? 'verified' : 'pending'}
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          className="overflow-hidden"
+        >
+          {justVerified ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-green-200 bg-green-50 px-4 py-2.5 sm:px-6 dark:border-green-500/20 dark:bg-green-500/10">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
+              <p className="text-sm text-green-900 dark:text-green-300">
+                <span className="font-semibold">Email confirmado!</span> Sua conta agora tem acesso total.
+              </p>
+              <button
+                type="button"
+                onClick={() => setJustVerified(false)}
+                aria-label="Fechar"
+                className="ml-auto shrink-0 rounded-md p-1 text-green-700/60 transition hover:bg-green-100 hover:text-green-800 dark:text-green-400/60 dark:hover:bg-white/5 dark:hover:text-green-300"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-brand-200 bg-brand-50 px-4 py-2.5 sm:px-6 dark:border-brand-500/20 dark:bg-brand-500/10">
+              <Mail className="h-4 w-4 shrink-0 text-brand-700 dark:text-brand-400" />
+              <p className="text-sm text-brand-900 dark:text-brand-200">
+                <span className="font-semibold">Confirme seu email.</span>{' '}
+                {feedback ?? `Enviamos um link de confirmação para ${user?.email ?? 'seu email'}.`}
+              </p>
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={isSending}
+                className="shrink-0 text-sm font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 transition hover:text-brand-800 disabled:opacity-50 dark:text-brand-400 dark:decoration-brand-500/40 dark:hover:text-brand-300"
+              >
+                {isSending ? 'Enviando...' : 'Reenviar email'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsDismissed(true)}
+                aria-label="Fechar"
+                className="ml-auto shrink-0 rounded-md p-1 text-brand-700/60 transition hover:bg-brand-100 hover:text-brand-800 dark:text-brand-400/60 dark:hover:bg-white/5 dark:hover:text-brand-300"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

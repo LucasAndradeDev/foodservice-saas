@@ -17,6 +17,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DatePicker } from '../components/DatePicker'
 import { DateTimePicker } from '../components/DateTimePicker'
 import { Modal } from '../components/Modal'
+import { PageHeader } from '../components/PageHeader'
 
 const RESERVATION_STATUS_STYLES: Record<ReservationStatus, string> = {
   SCHEDULED: 'bg-teal-100 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
@@ -126,12 +127,7 @@ export function ReservationsPage() {
   return (
     <div>
       <div className="mb-5 flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-            <CalendarClock className="h-5 w-5" />
-          </span>
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Reservas</h1>
-        </div>
+        <PageHeader icon={CalendarClock} title="Reservas" />
         {canManage && (
           <button
             type="button"

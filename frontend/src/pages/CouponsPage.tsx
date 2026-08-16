@@ -3,12 +3,14 @@ import { CheckCircle2, Circle, Clock, Filter, Pencil, Plus, Power, Store, Ticket
 import { useState, type FormEvent } from 'react'
 import { createCoupon, deleteCoupon, listCoupons, updateCoupon, type Coupon } from '../api/coupons'
 import type { DiscountType } from '../api/orders'
+import { Badge, type BadgeTone } from '../components/Badge'
 import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DatePicker } from '../components/DatePicker'
 import { Dropdown } from '../components/Dropdown'
 import { TableHead, TableRow } from '../components/Table'
 import { Modal } from '../components/Modal'
+import { PageHeader } from '../components/PageHeader'
 import { SectionTabs } from '../components/SectionTabs'
 
 const MANAGEMENT_TABS = [
@@ -43,17 +45,17 @@ const STATUS_FILTER_OPTIONS: { value: 'all' | CouponStatusLabel; label: string }
   { value: 'Esgotado', label: 'Esgotados' },
 ]
 
-function getCouponStatus(coupon: Coupon): { label: CouponStatusLabel; className: string; icon: typeof CheckCircle2 } {
+function getCouponStatus(coupon: Coupon): { label: CouponStatusLabel; tone: BadgeTone; icon: typeof CheckCircle2 } {
   if (!coupon.active) {
-    return { label: 'Inativo', className: 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-stone-400', icon: Circle }
+    return { label: 'Inativo', tone: 'neutral', icon: Circle }
   }
   if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
-    return { label: 'Expirado', className: 'bg-gold-100 text-gold-700 dark:bg-gold-500/10 dark:text-gold-400', icon: Clock }
+    return { label: 'Expirado', tone: 'attention', icon: Clock }
   }
   if (coupon.maxUses && coupon.usedCount >= coupon.maxUses) {
-    return { label: 'Esgotado', className: 'bg-wine-100 text-wine-700 dark:bg-wine-500/10 dark:text-wine-400', icon: XCircle }
+    return { label: 'Esgotado', tone: 'critical', icon: XCircle }
   }
-  return { label: 'Ativo', className: 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400', icon: CheckCircle2 }
+  return { label: 'Ativo', tone: 'free', icon: CheckCircle2 }
 }
 
 export function CouponsPage() {
@@ -176,12 +178,7 @@ export function CouponsPage() {
       <SectionTabs tabs={MANAGEMENT_TABS} />
 
       <div className="mb-5 flex items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm">
-            <Ticket className="h-5 w-5" />
-          </span>
-          <h1 className="truncate text-lg font-bold text-gray-900 dark:text-white">Cupons</h1>
-        </div>
+        <PageHeader icon={Ticket} title="Cupons" />
         <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">Novo cupom</span>
@@ -229,10 +226,10 @@ export function CouponsPage() {
                     >
                       <div className="mb-2 flex items-start justify-between gap-2">
                         <span className="font-medium text-gray-800 dark:text-white">{coupon.code}</span>
-                        <span className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs ${status.className}`}>
+                        <Badge tone={status.tone} className="shrink-0">
                           <StatusIcon className="h-3 w-3" />
                           {status.label}
-                        </span>
+                        </Badge>
                       </div>
                       <div className="mb-3 grid grid-cols-3 gap-2 text-sm">
                         <div>
@@ -313,10 +310,10 @@ export function CouponsPage() {
                           </td>
                           <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{formatUsage(coupon)}</td>
                           <td className="px-4 py-2">
-                            <span className={`flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-xs ${status.className}`}>
+                            <Badge tone={status.tone}>
                               <StatusIcon className="h-3 w-3" />
                               {status.label}
-                            </span>
+                            </Badge>
                           </td>
                           <td className="px-4 py-2 text-right">
                             <div className="flex items-center justify-end gap-1">
