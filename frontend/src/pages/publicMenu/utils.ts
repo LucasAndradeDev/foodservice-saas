@@ -13,6 +13,47 @@ export interface CartItem {
   comboSelections?: SelectedComboSlot[]
 }
 
+export interface DeliveryAddressForm {
+  customerName: string
+  customerPhone: string
+  street: string
+  number: string
+  complement: string
+  neighborhood: string
+  city: string
+  zipCode: string
+  referencePoint: string
+}
+
+export function emptyDeliveryAddress(): DeliveryAddressForm {
+  return {
+    customerName: '',
+    customerPhone: '',
+    street: '',
+    number: '',
+    complement: '',
+    neighborhood: '',
+    city: '',
+    zipCode: '',
+    referencePoint: '',
+  }
+}
+
+// Only the fields a delivery actually can't happen without - complement/referencePoint stay
+// optional, same spirit as observation being optional on a cart item.
+const REQUIRED_DELIVERY_FIELDS: (keyof DeliveryAddressForm)[] = [
+  'customerName',
+  'customerPhone',
+  'street',
+  'number',
+  'neighborhood',
+  'city',
+]
+
+export function isDeliveryAddressComplete(address: DeliveryAddressForm) {
+  return REQUIRED_DELIVERY_FIELDS.every((field) => address[field].trim().length > 0)
+}
+
 export const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export function scrollToCategory(categoryId: string) {

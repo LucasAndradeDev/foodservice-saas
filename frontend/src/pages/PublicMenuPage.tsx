@@ -12,8 +12,10 @@ import { CategoryNav } from './publicMenu/CategoryNav'
 import { AmbientBackground } from './publicMenu/AmbientBackground'
 import { ComboSheet } from './publicMenu/ComboSheet'
 import { FeaturedCarousel } from './publicMenu/FeaturedCarousel'
+import { CardPaymentModal } from './publicMenu/CardPaymentModal'
 import { MenuHero } from './publicMenu/MenuHero'
 import { ModifierSheet } from './publicMenu/ModifierSheet'
+import { OrderModeToggle, type OrderMode } from './publicMenu/OrderModeToggle'
 import { PixPaymentModal } from './publicMenu/PixPaymentModal'
 import { ProductCard } from './publicMenu/ProductCard'
 import { ProductDetailModal } from './publicMenu/ProductDetailModal'
@@ -23,10 +25,12 @@ import { usePublicMenuTheme } from './publicMenu/usePublicMenuTheme'
 import {
   computeDiscountAmount,
   currencyFormatter,
+  emptyDeliveryAddress,
   modifiersTotal,
   roundCurrency,
   sameModifiers,
   type CartItem,
+  type DeliveryAddressForm,
   type SelectedModifier,
 } from './publicMenu/utils'
 
@@ -63,8 +67,15 @@ export function PublicMenuPage() {
   const [couponError, setCouponError] = useState<string | null>(null)
   const [isReservationModalOpen, setIsReservationModalOpen] = useState(false)
   const [isPixModalOpen, setIsPixModalOpen] = useState(false)
+  const [isCardModalOpen, setIsCardModalOpen] = useState(false)
   const [customerPhone, setCustomerPhone] = useState('')
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
+  const [orderMode, setOrderMode] = useState<OrderMode>('DINE_IN')
+  const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddressForm>(emptyDeliveryAddress)
+
+  function updateDeliveryAddress(patch: Partial<DeliveryAddressForm>) {
+    setDeliveryAddress((prev) => ({ ...prev, ...patch }))
+  }
 
   function toggleCategory(categoryId: string) {
     setCollapsedCategories((prev) => {
@@ -379,9 +390,10 @@ export function PublicMenuPage() {
     )
   }
 
-  const canOrder = !!tableId && !!menu.table
+  const canOrder = (!!tableId && !!menu.table) || orderMode === 'DELIVERY'
   const canRequestBill = canOrder && !!menu.table?.hasDeliveredItems
   const canPayWithPix = canRequestBill && !!menu.table?.pixConfigured
+  const canPayWithCard = canRequestBill && !!menu.table?.cardConfigured
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
   const cartSubtotal = cart.reduce(
     (sum, item) => sum + (item.unitPrice + modifiersTotal(item.selectedModifiers)) * item.quantity,
@@ -406,15 +418,25 @@ export function PublicMenuPage() {
       </div>
 
       {!tableId && (
-        <div className="mx-auto max-w-2xl px-4 pt-3">
-          <button
-            type="button"
-            onClick={() => setIsReservationModalOpen(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-brand-300 px-3 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-500/30 dark:text-brand-400 dark:hover:bg-brand-500/10"
-          >
-            <CalendarClock className="h-4 w-4" />
-            Reservar mesa
-          </button>
+        <div className="mx-auto max-w-2xl space-y-3 px-4 pt-3">
+          <OrderModeToggle mode={orderMode} onChange={setOrderMode} />
+
+          {orderMode === 'DINE_IN' && (
+            <button
+              type="button"
+              onClick={() => setIsReservationModalOpen(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-brand-300 px-3 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-500/30 dark:text-brand-400 dark:hover:bg-brand-500/10"
+            >
+              <CalendarClock className="h-4 w-4" />
+              Reservar mesa
+            </button>
+          )}
+
+          {orderMode === 'DELIVERY' && (
+            <div className="rounded-xl border border-dashed border-brand-300 px-3 py-2.5 text-center text-sm font-medium text-brand-600 dark:border-brand-500/30 dark:text-brand-400">
+              Monte seu pedido e informe o endereço no carrinho — envio e pagamento chegam na próxima etapa.
+            </div>
+          )}
         </div>
       )}
 
@@ -527,11 +549,13 @@ export function PublicMenuPage() {
           onReorder={handleReorder}
           canRequestBill={canRequestBill}
           canPayWithPix={canPayWithPix}
+          canPayWithCard={canPayWithCard}
           requestedTypes={requestedTypes}
           isPending={tableRequestMutation.isPending}
           pendingType={tableRequestMutation.variables}
           onRequest={(type) => tableRequestMutation.mutate(type)}
           onPayWithPix={() => setIsPixModalOpen(true)}
+          onPayWithCard={() => setIsCardModalOpen(true)}
         />
       )}
 
@@ -592,9 +616,12 @@ export function PublicMenuPage() {
         onRemoveCoupon={() => removeCouponMutation.mutate()}
         isRemovingCoupon={removeCouponMutation.isPending}
         couponError={couponError}
-        showPhoneField={!currentTabId}
+        showPhoneField={!currentTabId && orderMode === 'DINE_IN'}
         customerPhone={customerPhone}
         onCustomerPhoneChange={setCustomerPhone}
+        showDeliveryFields={orderMode === 'DELIVERY'}
+        deliveryAddress={deliveryAddress}
+        onDeliveryAddressChange={updateDeliveryAddress}
       />
 
       <ModifierSheet
@@ -629,6 +656,10 @@ export function PublicMenuPage() {
 
       {isPixModalOpen && slug && tableId && (
         <PixPaymentModal slug={slug} tableId={tableId} onClose={() => setIsPixModalOpen(false)} />
+      )}
+
+      {isCardModalOpen && slug && tableId && (
+        <CardPaymentModal slug={slug} tableId={tableId} onClose={() => setIsCardModalOpen(false)} />
       )}
     </div>
   )

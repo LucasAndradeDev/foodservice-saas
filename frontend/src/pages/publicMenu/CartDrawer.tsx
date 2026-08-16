@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, MessageCircle, Minus, Plus, Ticket, Trash2, X } from 'lucide-react'
-import type { CartItem } from './utils'
-import { currencyFormatter, modifiersTotal } from './utils'
+import type { CartItem, DeliveryAddressForm } from './utils'
+import { currencyFormatter, isDeliveryAddressComplete, modifiersTotal } from './utils'
 
 interface CartDrawerProps {
   isOpen: boolean
@@ -27,6 +27,9 @@ interface CartDrawerProps {
   showPhoneField: boolean
   customerPhone: string
   onCustomerPhoneChange: (value: string) => void
+  showDeliveryFields: boolean
+  deliveryAddress: DeliveryAddressForm
+  onDeliveryAddressChange: (patch: Partial<DeliveryAddressForm>) => void
 }
 
 export function CartDrawer({
@@ -53,7 +56,13 @@ export function CartDrawer({
   showPhoneField,
   customerPhone,
   onCustomerPhoneChange,
+  showDeliveryFields,
+  deliveryAddress,
+  onDeliveryAddressChange,
 }: CartDrawerProps) {
+  const deliveryFieldClass =
+    'w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500'
+  const deliveryComplete = isDeliveryAddressComplete(deliveryAddress)
   return (
     <AnimatePresence>
       {isOpen && (
@@ -235,17 +244,99 @@ export function CartDrawer({
                     </div>
                   )}
 
+                  {showDeliveryFields && (
+                    <div className="mb-3 space-y-2">
+                      <p className="text-xs font-medium text-gray-500 dark:text-stone-400">Endereço de entrega</p>
+                      <input
+                        type="text"
+                        value={deliveryAddress.customerName}
+                        onChange={(e) => onDeliveryAddressChange({ customerName: e.target.value })}
+                        placeholder="Seu nome"
+                        className={deliveryFieldClass}
+                      />
+                      <input
+                        type="tel"
+                        value={deliveryAddress.customerPhone}
+                        onChange={(e) => onDeliveryAddressChange({ customerPhone: e.target.value })}
+                        placeholder="WhatsApp — (11) 91234-5678"
+                        className={deliveryFieldClass}
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={deliveryAddress.street}
+                          onChange={(e) => onDeliveryAddressChange({ street: e.target.value })}
+                          placeholder="Rua"
+                          className={`${deliveryFieldClass} flex-[3]`}
+                        />
+                        <input
+                          type="text"
+                          value={deliveryAddress.number}
+                          onChange={(e) => onDeliveryAddressChange({ number: e.target.value })}
+                          placeholder="Número"
+                          className={`${deliveryFieldClass} flex-1`}
+                        />
+                      </div>
+                      <input
+                        type="text"
+                        value={deliveryAddress.complement}
+                        onChange={(e) => onDeliveryAddressChange({ complement: e.target.value })}
+                        placeholder="Complemento (opcional)"
+                        className={deliveryFieldClass}
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={deliveryAddress.neighborhood}
+                          onChange={(e) => onDeliveryAddressChange({ neighborhood: e.target.value })}
+                          placeholder="Bairro"
+                          className={`${deliveryFieldClass} flex-1`}
+                        />
+                        <input
+                          type="text"
+                          value={deliveryAddress.city}
+                          onChange={(e) => onDeliveryAddressChange({ city: e.target.value })}
+                          placeholder="Cidade"
+                          className={`${deliveryFieldClass} flex-1`}
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={deliveryAddress.zipCode}
+                          onChange={(e) => onDeliveryAddressChange({ zipCode: e.target.value })}
+                          placeholder="CEP (opcional)"
+                          className={`${deliveryFieldClass} flex-1`}
+                        />
+                        <input
+                          type="text"
+                          value={deliveryAddress.referencePoint}
+                          onChange={(e) => onDeliveryAddressChange({ referencePoint: e.target.value })}
+                          placeholder="Ponto de referência (opcional)"
+                          className={`${deliveryFieldClass} flex-[2]`}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {orderError && <p className="mb-3 text-sm text-wine-600 dark:text-wine-400">{orderError}</p>}
 
                   <button
                     type="button"
                     onClick={onSubmit}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || showDeliveryFields}
                     className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-brand-500 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-900/20 transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
                   >
                     {isSubmitting ? 'Enviando...' : 'Enviar pedido'}
                     {!isSubmitting && <ArrowRight className="h-4 w-4" />}
                   </button>
+                  {showDeliveryFields && (
+                    <p className="mt-2 text-center text-xs text-gray-400 dark:text-stone-500">
+                      {deliveryComplete
+                        ? 'Endereço completo — envio e pagamento chegam na próxima etapa.'
+                        : 'Preencha nome, telefone, rua, número, bairro e cidade.'}
+                    </p>
+                  )}
                 </div>
               </>
             )}
