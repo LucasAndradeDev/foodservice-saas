@@ -102,7 +102,7 @@ Cada task abaixo é pensada pra ser um commit (ou poucos) testável isoladamente
 ### 26 — Cálculo de frete/raio (~1-2 dias)
 - [x] **26.1** Migration (`V64__delivery_zones.sql`) + entidade `DeliveryZone` + endpoints CRUD (`/api/v1/delivery-zones`, `OWNER`/`MANAGER`), mesmo padrão de `DiningArea`/`Coupon` — bairro único por restaurante (case-insensitive), taxa fixa, ativo/inativo. Match por bairro exato (sem CEP/raio geográfico na v1). Testado com 7 testes de integração.
 - [x] **26.2** Tela "Zonas de entrega" (`DeliveryZonesPage`) — vira uma aba própria na barra de gestão (`/delivery-zones`, entre Happy Hour e Funcionários), mesmo padrão de Cupons, não uma seção dentro da tela Geral. Testado ponta a ponta no navegador: criar, listar, ativar/desativar, editar, excluir.
-- [ ] **26.3** Endpoint público de consulta de taxa por bairro/CEP (prévia no carrinho).
+- [x] **26.3** Endpoint público `GET /api/v1/public/menu/{slug}/delivery/fee?neighborhood=X` (sempre 200, `available:false` pra bairro não atendido — não é erro). Prévia no carrinho: campo Bairro dispara a consulta com debounce de 400ms, mostra a taxa ou "ainda não entregamos nesse bairro". Testado com 3 testes de integração + ponta a ponta no navegador (bairro atendido e não atendido).
 - [ ] **26.4** Cálculo server-side da taxa aplicado de verdade na criação da comanda (25.4) e integrado ao congelamento de `billTotal` — bloqueado até 25 estar pronto.
 
 ### 27 — Status de entrega (~1-2 dias)

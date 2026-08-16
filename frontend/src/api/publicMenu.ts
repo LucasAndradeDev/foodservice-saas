@@ -117,6 +117,19 @@ export function submitDeliveryOrder(slug: string, payload: DeliveryOrderPayload)
     .then((res) => res.data)
 }
 
+export interface DeliveryFeeQuote {
+  available: boolean
+  fee: number | null
+}
+
+// Preview only - the fee actually charged is looked up again server-side when the order is
+// created (submitDeliveryOrder), never trusted from this response.
+export function getDeliveryFeeQuote(slug: string, neighborhood: string) {
+  return http
+    .get<DeliveryFeeQuote>(`/public/menu/${slug}/delivery/fee`, { params: { neighborhood } })
+    .then((res) => res.data)
+}
+
 export interface CouponRedemption {
   discountAppliedLabel: string | null
   discountType: DiscountType | null

@@ -4,6 +4,7 @@ import { CalendarClock, ShoppingBag, Ticket } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
+  getDeliveryFeeQuote,
   getPublicMenu,
   redeemCoupon,
   removeCoupon,
@@ -79,10 +80,23 @@ export function PublicMenuPage() {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
   const [orderMode, setOrderMode] = useState<OrderMode>('DINE_IN')
   const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddressForm>(emptyDeliveryAddress)
+  const [debouncedNeighborhood, setDebouncedNeighborhood] = useState('')
 
   function updateDeliveryAddress(patch: Partial<DeliveryAddressForm>) {
     setDeliveryAddress((prev) => ({ ...prev, ...patch }))
   }
+
+  // Debounced so typing each letter of the neighborhood doesn't fire a request per keystroke.
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedNeighborhood(deliveryAddress.neighborhood.trim()), 400)
+    return () => window.clearTimeout(timeout)
+  }, [deliveryAddress.neighborhood])
+
+  const { data: deliveryFeeQuote } = useQuery({
+    queryKey: ['deliveryFeeQuote', slug, debouncedNeighborhood],
+    queryFn: () => getDeliveryFeeQuote(slug!, debouncedNeighborhood),
+    enabled: !!slug && orderMode === 'DELIVERY' && debouncedNeighborhood.length > 0,
+  })
 
   function toggleCategory(categoryId: string) {
     setCollapsedCategories((prev) => {
@@ -652,6 +666,7 @@ export function PublicMenuPage() {
         showDeliveryFields={orderMode === 'DELIVERY'}
         deliveryAddress={deliveryAddress}
         onDeliveryAddressChange={updateDeliveryAddress}
+        deliveryFeeQuote={deliveryFeeQuote}
       />
 
       <ModifierSheet

@@ -30,6 +30,7 @@ interface CartDrawerProps {
   showDeliveryFields: boolean
   deliveryAddress: DeliveryAddressForm
   onDeliveryAddressChange: (patch: Partial<DeliveryAddressForm>) => void
+  deliveryFeeQuote?: { available: boolean; fee: number | null }
 }
 
 export function CartDrawer({
@@ -59,6 +60,7 @@ export function CartDrawer({
   showDeliveryFields,
   deliveryAddress,
   onDeliveryAddressChange,
+  deliveryFeeQuote,
 }: CartDrawerProps) {
   const deliveryFieldClass =
     'w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500'
@@ -300,6 +302,19 @@ export function CartDrawer({
                           className={`${deliveryFieldClass} flex-1`}
                         />
                       </div>
+                      {deliveryAddress.neighborhood.trim().length > 0 && deliveryFeeQuote && (
+                        <p
+                          className={`text-xs font-medium ${
+                            deliveryFeeQuote.available
+                              ? 'text-sage-600 dark:text-sage-400'
+                              : 'text-wine-600 dark:text-wine-400'
+                          }`}
+                        >
+                          {deliveryFeeQuote.available
+                            ? `Taxa de entrega pra ${deliveryAddress.neighborhood}: ${currencyFormatter.format(deliveryFeeQuote.fee ?? 0)}`
+                            : `Ainda não entregamos em "${deliveryAddress.neighborhood}".`}
+                        </p>
+                      )}
                       <div className="flex gap-2">
                         <input
                           type="text"
