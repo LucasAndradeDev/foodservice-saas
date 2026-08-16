@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.domain.entity.DeliveryDetails;
 import com.example.restaurant_saas.domain.entity.Order;
 import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.Payment;
@@ -25,6 +26,7 @@ import com.example.restaurant_saas.dto.response.PaymentResponse;
 import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.dto.response.TabTableSummary;
 import com.example.restaurant_saas.domain.enums.PixChargeStatus;
+import com.example.restaurant_saas.repository.DeliveryDetailsRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.PaymentRepository;
@@ -60,6 +62,7 @@ public class TabService {
     private final UserRepository userRepository;
     private final ReservationRepository reservationRepository;
     private final PixChargeRepository pixChargeRepository;
+    private final DeliveryDetailsRepository deliveryDetailsRepository;
 
     @Transactional(readOnly = true)
     public List<TabResponse> listTabs(UUID restaurantId, TabStatus statusFilter) {
@@ -483,7 +486,13 @@ public class TabService {
 
         tab.setServiceChargePercentage(serviceChargePercentage);
         tab.setServiceChargeAmount(serviceChargePercentage != null ? serviceChargeAmount : null);
-        tab.setBillTotal(afterDiscount.add(serviceChargeAmount));
+        // Already frozen at order creation time (PublicDeliveryOrderService) from the DeliveryZone
+        // matched then - zero for every tab that isn't a delivery order (no DeliveryDetails row).
+        BigDecimal deliveryFee = deliveryDetailsRepository.findByTab_Id(tab.getId())
+                .map(DeliveryDetails::getDeliveryFee)
+                .orElse(BigDecimal.ZERO);
+
+        tab.setBillTotal(afterDiscount.add(serviceChargeAmount).add(deliveryFee));
         return tab.getBillTotal();
     }
 

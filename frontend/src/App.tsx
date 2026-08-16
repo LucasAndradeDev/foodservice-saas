@@ -11,7 +11,6 @@ import { AuthLayout } from './components/AuthLayout'
 import { AppLayout } from './layout/AppLayout'
 import { AllFeedbackPage } from './pages/AllFeedbackPage'
 import { AuthRoutes } from './pages/AuthRoutes'
-import { CardPaymentReturnPage } from './pages/CardPaymentReturnPage'
 import { CashRegisterPage } from './pages/CashRegisterPage'
 import { CategoriesPage } from './pages/CategoriesPage'
 import { CheckoutPage } from './pages/CheckoutPage'
@@ -102,7 +101,6 @@ function App() {
             <Route path="/terms" element={<TermsOfServicePage />} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
             <Route path="/ajuda/pix" element={<PixSetupGuidePage />} />
-            <Route path="/pagamento/retorno" element={<CardPaymentReturnPage />} />
             <Route path="/menu/:slug" element={<PublicMenuPage />} />
             <Route path="/menu/:slug/:tableId" element={<PublicMenuPage />} />
             <Route path="/feedback/:slug/:tabId" element={<PostMealFeedbackPage />} />
