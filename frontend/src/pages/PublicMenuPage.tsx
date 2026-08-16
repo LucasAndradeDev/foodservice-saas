@@ -3,7 +3,14 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarClock, ShoppingBag, Ticket } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { getPublicMenu, redeemCoupon, removeCoupon, submitPublicOrder, type PublicMenuProduct } from '../api/publicMenu'
+import {
+  getPublicMenu,
+  redeemCoupon,
+  removeCoupon,
+  submitDeliveryOrder,
+  submitPublicOrder,
+  type PublicMenuProduct,
+} from '../api/publicMenu'
 import { createTableRequest, type TableRequestType } from '../api/tableRequests'
 import { sameComboSelections, type SelectedComboSlot } from '../utils/combos'
 import { CartDrawer } from './publicMenu/CartDrawer'
@@ -164,23 +171,22 @@ export function PublicMenuPage() {
     return map
   }, [cart])
 
+  function buildOrderItemsPayload() {
+    return cart.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      observation: item.observation.trim() || undefined,
+      selectedOptionIds: item.selectedModifiers.map((modifier) => modifier.optionId),
+      slotSelections: item.comboSelections?.map((selection) => ({
+        slotId: selection.slotId,
+        selectedProductId: selection.productId,
+      })),
+    }))
+  }
+
   const submitOrderMutation = useMutation({
     mutationFn: () =>
-      submitPublicOrder(
-        slug!,
-        tableId!,
-        cart.map((item) => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          observation: item.observation.trim() || undefined,
-          selectedOptionIds: item.selectedModifiers.map((modifier) => modifier.optionId),
-          slotSelections: item.comboSelections?.map((selection) => ({
-            slotId: selection.slotId,
-            selectedProductId: selection.productId,
-          })),
-        })),
-        !currentTabId ? customerPhone.trim() : undefined,
-      ),
+      submitPublicOrder(slug!, tableId!, buildOrderItemsPayload(), !currentTabId ? customerPhone.trim() : undefined),
     onSuccess: () => {
       setCart([])
       setIsCartOpen(false)
@@ -188,6 +194,30 @@ export function PublicMenuPage() {
       setOrderSuccess(true)
       setTimeout(() => setOrderSuccess(false), 4000)
       queryClient.invalidateQueries({ queryKey: ['publicMenu', slug, tableId] })
+    },
+    onError: () => setOrderError('Não foi possível enviar o pedido. Tente novamente.'),
+  })
+
+  const submitDeliveryOrderMutation = useMutation({
+    mutationFn: () =>
+      submitDeliveryOrder(slug!, {
+        items: buildOrderItemsPayload(),
+        customerName: deliveryAddress.customerName.trim(),
+        customerPhone: deliveryAddress.customerPhone.trim(),
+        street: deliveryAddress.street.trim(),
+        number: deliveryAddress.number.trim(),
+        complement: deliveryAddress.complement.trim() || undefined,
+        neighborhood: deliveryAddress.neighborhood.trim(),
+        city: deliveryAddress.city.trim(),
+        zipCode: deliveryAddress.zipCode.trim() || undefined,
+        referencePoint: deliveryAddress.referencePoint.trim() || undefined,
+      }),
+    onSuccess: () => {
+      setCart([])
+      setIsCartOpen(false)
+      setOrderError(null)
+      setOrderSuccess(true)
+      setTimeout(() => setOrderSuccess(false), 4000)
     },
     onError: () => setOrderError('Não foi possível enviar o pedido. Tente novamente.'),
   })
@@ -434,7 +464,7 @@ export function PublicMenuPage() {
 
           {orderMode === 'DELIVERY' && (
             <div className="rounded-xl border border-dashed border-brand-300 px-3 py-2.5 text-center text-sm font-medium text-brand-600 dark:border-brand-500/30 dark:text-brand-400">
-              Monte seu pedido e informe o endereço no carrinho — envio e pagamento chegam na próxima etapa.
+              Monte seu pedido e informe o endereço no carrinho.
             </div>
           )}
         </div>
@@ -602,12 +632,12 @@ export function PublicMenuPage() {
         cartDiscountAmount={cartDiscountAmount}
         cartTotal={cartTotal}
         orderError={orderError}
-        isSubmitting={submitOrderMutation.isPending}
+        isSubmitting={orderMode === 'DELIVERY' ? submitDeliveryOrderMutation.isPending : submitOrderMutation.isPending}
         onClose={() => setIsCartOpen(false)}
         onUpdateQuantity={updateQuantity}
         onUpdateObservation={updateObservation}
         onRemove={removeFromCart}
-        onSubmit={() => submitOrderMutation.mutate()}
+        onSubmit={() => (orderMode === 'DELIVERY' ? submitDeliveryOrderMutation.mutate() : submitOrderMutation.mutate())}
         discountAppliedLabel={menu.table?.discountAppliedLabel ?? null}
         couponCode={couponCode}
         onCouponCodeChange={setCouponCode}

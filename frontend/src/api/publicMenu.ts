@@ -1,7 +1,7 @@
 import type { ItemStatus } from './orders'
 import type { ModifierGroup } from './productModifiers'
 import type { ComboComposition } from './combos'
-import type { PixCharge } from './tabs'
+import type { CardCharge, PixCharge } from './tabs'
 import { http } from './http'
 
 export interface PublicMenuProduct {
@@ -59,6 +59,7 @@ export interface PublicMenuTable {
   lastOrderItems: PublicMenuReorderItem[]
   currentTabId: string | null
   pixConfigured: boolean
+  cardConfigured: boolean
   discountAppliedLabel: string | null
   discountType: DiscountType | null
   discountValue: number | null
@@ -91,6 +92,31 @@ export function submitPublicOrder(slug: string, tableId: string, items: PublicOr
     .then((res) => res.data)
 }
 
+export interface DeliveryOrderPayload {
+  items: PublicOrderItemPayload[]
+  customerName: string
+  customerPhone: string
+  street: string
+  number: string
+  complement?: string
+  neighborhood: string
+  city: string
+  zipCode?: string
+  referencePoint?: string
+}
+
+export interface DeliveryOrderResult {
+  tabId: string
+  accessToken: string
+  deliveryFee: number
+}
+
+export function submitDeliveryOrder(slug: string, payload: DeliveryOrderPayload) {
+  return http
+    .post<DeliveryOrderResult>(`/public/menu/${slug}/delivery/orders`, payload)
+    .then((res) => res.data)
+}
+
 export interface CouponRedemption {
   discountAppliedLabel: string | null
   discountType: DiscountType | null
@@ -113,4 +139,13 @@ export function removeCoupon(slug: string, tableId: string) {
  * getPublicMenu, so the caller doesn't need to poll separately. */
 export function createPublicPixCharge(slug: string, tableId: string) {
   return http.post<PixCharge>(`/public/menu/${slug}/tables/${tableId}/pix-charges`).then((res) => res.data)
+}
+
+/** Freezes the table's open tab total and asks Mercado Pago for a Checkout Pro preference, same
+ * as the staff Caixa flow (createCardCharge in api/tabs.ts) but reachable without authentication.
+ * Confirmation is asynchronous - the digital menu already detects the tab closing via its own
+ * polling of getPublicMenu, so the caller doesn't need to poll separately. Unlike Pix, the
+ * customer is redirected to initPointUrl (their own browser) rather than shown a QR code. */
+export function createPublicCardCharge(slug: string, tableId: string) {
+  return http.post<CardCharge>(`/public/menu/${slug}/tables/${tableId}/card-charges`).then((res) => res.data)
 }

@@ -324,17 +324,15 @@ export function CartDrawer({
                   <button
                     type="button"
                     onClick={onSubmit}
-                    disabled={isSubmitting || showDeliveryFields}
+                    disabled={isSubmitting || (showDeliveryFields && !deliveryComplete)}
                     className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-brand-500 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-900/20 transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
                   >
                     {isSubmitting ? 'Enviando...' : 'Enviar pedido'}
                     {!isSubmitting && <ArrowRight className="h-4 w-4" />}
                   </button>
-                  {showDeliveryFields && (
+                  {showDeliveryFields && !deliveryComplete && (
                     <p className="mt-2 text-center text-xs text-gray-400 dark:text-stone-500">
-                      {deliveryComplete
-                        ? 'Endereço completo — envio e pagamento chegam na próxima etapa.'
-                        : 'Preencha nome, telefone, rua, número, bairro e cidade.'}
+                      Preencha nome, telefone, rua, número, bairro e cidade.
                     </p>
                   )}
                 </div>
