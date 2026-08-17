@@ -1,24 +1,30 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, CheckCircle2, ChevronDown, Clock, Copy, Loader2, Lock, Pencil, Percent, Plus, Printer, QrCode, Users, Wallet, X } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, Clock, Copy, CreditCard, Loader2, Lock, Pencil, Percent, Plus, Printer, QrCode, Users, Wallet, X } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listOrders, type DiscountType, type OrderItem } from '../api/orders'
 import { getPixIntegrationStatus } from '../api/pixIntegration'
+import { getCardIntegrationStatus, verifyCardCharge } from '../api/cardIntegration'
 import {
   applyTabDiscount,
+  cancelCardCharge,
+  cancelCardChargeById,
   cancelPixCharge,
   cancelPixChargeById,
   computeDiscountAmount,
+  createCardCharge,
   createPixCharge,
   getTab,
+  listCardCharges,
   listPixCharges,
   listTabs,
   registerPayments,
   PAYMENT_METHOD_LABELS,
   roundCurrency,
+  type CardCharge,
   type PaymentMethod,
   type PixCharge,
   type Tab,
@@ -50,6 +56,10 @@ interface PendingEntry {
   // read-only and excluded from the manual "Confirmar pagamentos" submit - it resolves on its own
   // via webhook, same as the single-payment flow.
   pixCharge?: PixCharge
+  // Split-payment counterpart of pixCharge above, for CREDIT_CARD/DEBIT_CARD entries - same
+  // read-only-once-set behavior, resolves on its own via the webhook/active-poll backstop
+  // (docs/CARD_PAYMENT.md) instead of the manual "Confirmar pagamentos" submit.
+  cardCharge?: CardCharge
   // Set only when this entry came out of the "Dividir por pessoa" panel - shown instead of the
   // numbered "Pessoa N" placeholder. Never sent to the backend, purely a display label for this
   // checkout session.
@@ -107,6 +117,40 @@ function extractPixChargeErrorMessage(err: unknown, fallback: string) {
   return fallback
 }
 
+/** Same idea as extractPixChargeErrorMessage, for a card charge instead - the amount-exceeds-remaining
+ * case is shared code server-side (CardChargeService#resolveAndValidateAmount mirrors
+ * PixChargeService's own validation), so the same regex applies, just with card-specific wording. */
+function extractCardChargeErrorMessage(err: unknown, fallback: string) {
+  const backendMessage = isAxiosError(err) ? (err.response?.data?.message as string | undefined) : undefined
+  const remainingMatch = backendMessage?.match(/remaining uncommitted balance of (-?\d+(?:\.\d+)?)/)
+  if (remainingMatch) {
+    const remaining = roundCurrency(Number(remainingMatch[1]))
+    if (remaining <= 0) {
+      return 'Já existe uma cobrança no cartão pendente que cobre todo o valor restante da comanda. Cancele-a antes de gerar outra, ou aguarde a confirmação do pagamento.'
+    }
+    return `O valor digitado é maior que o restante disponível pra cobrar no cartão (${currencyFormatter.format(remaining)}). Ajuste o valor e tente novamente.`
+  }
+  return fallback
+}
+
+/** Same idea as extractPixChargeErrorMessage/extractCardChargeErrorMessage, for registering a
+ * manual payment (TabService#registerPayments) instead of generating a gateway charge - it has its
+ * own, differently-worded "exceeds the remaining balance" guard, and it fires no matter which
+ * payment method (Dinheiro/Cartão/Pix) staff picked, since the reservation eating the remaining
+ * balance is whatever pending Pix/card charge caused it, not the method being submitted now. */
+function extractRegisterPaymentsErrorMessage(err: unknown, fallback: string) {
+  const backendMessage = isAxiosError(err) ? (err.response?.data?.message as string | undefined) : undefined
+  const remainingMatch = backendMessage?.match(/remaining balance of (-?\d+(?:\.\d+)?)/)
+  if (remainingMatch) {
+    const remaining = roundCurrency(Number(remainingMatch[1]))
+    if (remaining <= 0) {
+      return 'Essa comanda já tem uma cobrança Pix ou no cartão pendente cobrindo todo o valor restante (gerada pelo cliente no cardápio digital ou por um QR Code ainda aberto). Cancele-a ou aguarde a confirmação antes de registrar outro pagamento.'
+    }
+    return `O valor digitado é maior que o restante da comanda (${currencyFormatter.format(remaining)}). Ajuste o valor e tente novamente.`
+  }
+  return fallback
+}
+
 interface TabSummary {
   tab: Tab
   items: OrderItem[]
@@ -149,6 +193,12 @@ export function CheckoutPage() {
     enabled: canPay,
   })
 
+  const { data: cardStatus } = useQuery({
+    queryKey: ['card-integration'],
+    queryFn: getCardIntegrationStatus,
+    enabled: canPay,
+  })
+
   const orderQueries = useQueries({
     queries: (openTabs ?? []).map((tab) => ({
       queryKey: ['tabs', tab.id, 'orders'],
@@ -188,6 +238,7 @@ export function CheckoutPage() {
   const [isEditingServiceCharge, setIsEditingServiceCharge] = useState(false)
   const [serviceChargeInput, setServiceChargeInput] = useState('')
   const [pixCharge, setPixCharge] = useState<PixCharge | null>(null)
+  const [cardCharge, setCardCharge] = useState<CardCharge | null>(null)
   const [brCodeCopied, setBrCodeCopied] = useState(false)
   const [copiedEntryId, setCopiedEntryId] = useState<string | null>(null)
   const [isPersonSplitOpen, setIsPersonSplitOpen] = useState(false)
@@ -199,11 +250,12 @@ export function CheckoutPage() {
       if (isEditingDiscount) setIsEditingDiscount(false)
       else if (isEditingServiceCharge) setIsEditingServiceCharge(false)
       else if (pixCharge) setPixCharge(null)
+      else if (cardCharge) setCardCharge(null)
       else handleCloseModal()
     }
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [selectedSummary, isEditingDiscount, isEditingServiceCharge, pixCharge])
+  }, [selectedSummary, isEditingDiscount, isEditingServiceCharge, pixCharge, cardCharge])
 
   const payMutation = useMutation({
     mutationFn: ({
@@ -225,7 +277,7 @@ export function CheckoutPage() {
         setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(updatedTab.remainingBalance ?? 0) }])
       }
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível registrar o pagamento. Tente novamente.')),
+    onError: (err) => setError(extractRegisterPaymentsErrorMessage(err, 'Não foi possível registrar o pagamento. Tente novamente.')),
   })
 
   const pixChargeMutation = useMutation({
@@ -276,6 +328,79 @@ export function CheckoutPage() {
     setPixCharge(null)
   }, [pixCharge, polledTab, queryClient])
 
+  const cardChargeMutation = useMutation({
+    mutationFn: ({ tabId, serviceChargePercentage: pct }: { tabId: string; serviceChargePercentage: number | null }) =>
+      createCardCharge(tabId, pct),
+    // Same reasoning as pixChargeMutation's onSuccess: creating the charge freezes the tab's
+    // billTotal server-side, so the local summary needs a refetch to reflect that lock.
+    onSuccess: async (charge, { tabId }) => {
+      setCardCharge(charge)
+      const updatedTab = await getTab(tabId)
+      setSelectedSummary((prev) => (prev && prev.tab.id === tabId ? { ...prev, tab: updatedTab } : prev))
+    },
+    onError: (err) => setError(extractCardChargeErrorMessage(err, 'Não foi possível gerar a cobrança no cartão. Tente novamente.')),
+  })
+
+  const cancelCardChargeMutation = useMutation({
+    mutationFn: (tabId: string) => cancelCardCharge(tabId),
+    onSuccess: async (_data, tabId) => {
+      setCardCharge(null)
+      const updatedTab = await getTab(tabId)
+      setSelectedSummary((prev) => (prev && prev.tab.id === tabId ? { ...prev, tab: updatedTab } : prev))
+    },
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível cancelar a cobrança no cartão. Tente novamente.')),
+  })
+
+  // Same idea as the Pix poll above: confirmation is asynchronous (Mercado Pago's webhook), so
+  // poll the tab while a card charge is outstanding and watch for it closing, or for the charge
+  // itself flipping to DECLINED so a specific message can be shown. Each tick also actively
+  // re-checks the charge against Mercado Pago itself (verifyCardCharge) before reading our own
+  // tab state - a backstop for the async webhook that, unlike the one CardPaymentReturnPage
+  // triggers, doesn't depend on the customer's own phone ever redirecting back to our site
+  // (reproduced for real: a customer paid, closed the checkout tab without clicking "voltar ao
+  // site", and the Caixa stayed stuck on "Aguardando o cliente pagar..." until this was added -
+  // see docs/CARD_PAYMENT.md). Staff's own browser is already open and polling regardless.
+  const { data: cardPolledTab } = useQuery({
+    queryKey: ['tabs', selectedSummary?.tab.id, 'card-poll'],
+    queryFn: async () => {
+      if (cardCharge) {
+        await verifyCardCharge(cardCharge.externalReference).catch(() => {})
+      }
+      return getTab(selectedSummary!.tab.id)
+    },
+    enabled: !!cardCharge && cardCharge.status !== 'DECLINED' && !!selectedSummary,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
+  })
+
+  const { data: cardPolledCharges } = useQuery({
+    queryKey: ['tabs', selectedSummary?.tab.id, 'card-charge-poll'],
+    queryFn: () => listCardCharges(selectedSummary!.tab.id),
+    enabled: !!cardCharge && cardCharge.status !== 'DECLINED' && !!selectedSummary,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
+  })
+
+  useEffect(() => {
+    if (!cardCharge || !cardPolledTab || cardPolledTab.status !== 'CLOSED') return
+    queryClient.invalidateQueries({ queryKey: ['tabs'] })
+    queryClient.invalidateQueries({ queryKey: ['tables'] })
+    setSelectedSummary((prev) => (prev && prev.tab.id === cardPolledTab.id ? { ...prev, tab: cardPolledTab } : prev))
+    setJustPaidTabId(cardPolledTab.id)
+    setCardCharge(null)
+  }, [cardCharge, cardPolledTab, queryClient])
+
+  // Distinct from the tab-closed effect above: a DECLINED charge never closes the tab (it stays
+  // OPEN, unfrozen server-side - see CardChargeService#handleWebhook), so this is the only signal
+  // that tells the customer their card was refused, with the specific reason.
+  useEffect(() => {
+    if (!cardCharge || cardCharge.status === 'DECLINED' || !cardPolledCharges) return
+    const match = cardPolledCharges.find((charge) => charge.id === cardCharge.id)
+    if (match && match.status === 'DECLINED') {
+      setCardCharge(match)
+    }
+  }, [cardCharge, cardPolledCharges])
+
   // Split-payment counterpart of pixChargeMutation above: generates a QR code for ONE entry's own
   // share instead of the whole tab, so several people can each pay their own part via Pix at once.
   const entryPixChargeMutation = useMutation({
@@ -314,14 +439,38 @@ export function CheckoutPage() {
         setPendingEntries((prev) => prev.filter((entry) => entry.id !== entryId))
       }
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível confirmar esse pagamento. Tente novamente.')),
+    onError: (err) => setError(extractRegisterPaymentsErrorMessage(err, 'Não foi possível confirmar esse pagamento. Tente novamente.')),
   })
 
   const hasOutstandingEntryPixCharge = pendingEntries.some((entry) => entry.pixCharge)
+  // Split-payment counterpart of cardChargeMutation above: generates a Checkout Pro link for ONE
+  // entry's own share instead of the whole tab (docs/CARD_PAYMENT.md already has the backend side
+  // of this - CardChargeService#createCharge takes an explicit partial requestedAmount - this was
+  // just never wired into the split UI, so "Dividir a conta" had no way to actually charge a
+  // card-method entry).
+  const entryCardChargeMutation = useMutation({
+    mutationFn: ({ tabId, amount }: { tabId: string; entryId: string; amount: number }) =>
+      createCardCharge(tabId, serviceChargePercentage, amount),
+    onSuccess: (charge, { entryId }) => {
+      setPendingEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, cardCharge: charge } : entry)))
+    },
+    onError: (err) => setError(extractCardChargeErrorMessage(err, 'Não foi possível gerar a cobrança no cartão para essa parcela. Tente novamente.')),
+  })
+
+  const entryCancelCardChargeMutation = useMutation({
+    mutationFn: ({ tabId, chargeId }: { tabId: string; entryId: string; chargeId: string }) => cancelCardChargeById(tabId, chargeId),
+    onSuccess: (_data, { entryId }) => {
+      setPendingEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, cardCharge: undefined } : entry)))
+    },
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível cancelar a cobrança no cartão dessa parcela. Tente novamente.')),
+  })
+
+  const hasOutstandingEntryCardCharge = pendingEntries.some((entry) => entry.cardCharge)
+  const hasOutstandingEntrySplitCharge = hasOutstandingEntryPixCharge || hasOutstandingEntryCardCharge
 
   // Polls both the list of outstanding charges (to reconcile each entry's own QR code - matched by
   // id, never by amount, since two equal split shares would otherwise be indistinguishable) and the
-  // tab itself (to notice it closing once every entry, Pix or manual, is accounted for).
+  // tab itself (to notice it closing once every entry, Pix/card or manual, is accounted for).
   const { data: splitPixCharges } = useQuery({
     queryKey: ['tabs', selectedSummary?.tab.id, 'split-pix-poll'],
     queryFn: () => listPixCharges(selectedSummary!.tab.id),
@@ -330,10 +479,28 @@ export function CheckoutPage() {
     refetchIntervalInBackground: true,
   })
 
+  // Same backstop as the single-payment card poll (CheckoutPage's own active verify call) - each
+  // tick re-checks every outstanding split card charge against Mercado Pago directly instead of
+  // only waiting on a webhook or the customer's own browser redirecting back.
+  const { data: splitCardCharges } = useQuery({
+    queryKey: ['tabs', selectedSummary?.tab.id, 'split-card-poll'],
+    queryFn: async () => {
+      await Promise.all(
+        pendingEntries
+          .filter((entry) => entry.cardCharge)
+          .map((entry) => verifyCardCharge(entry.cardCharge!.externalReference).catch(() => {})),
+      )
+      return listCardCharges(selectedSummary!.tab.id)
+    },
+    enabled: hasOutstandingEntryCardCharge && !!selectedSummary,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
+  })
+
   const { data: splitPolledTab } = useQuery({
     queryKey: ['tabs', selectedSummary?.tab.id, 'split-tab-poll'],
     queryFn: () => getTab(selectedSummary!.tab.id),
-    enabled: hasOutstandingEntryPixCharge && !!selectedSummary,
+    enabled: hasOutstandingEntrySplitCharge && !!selectedSummary,
     refetchInterval: 3000,
     refetchIntervalInBackground: true,
   })
@@ -354,13 +521,25 @@ export function CheckoutPage() {
   }, [splitPixCharges])
 
   useEffect(() => {
-    if (!hasOutstandingEntryPixCharge || !splitPolledTab || splitPolledTab.status !== 'CLOSED') return
+    if (!splitCardCharges) return
+    setPendingEntries((prev) =>
+      prev.map((entry) => {
+        if (!entry.cardCharge) return entry
+        const match = splitCardCharges.find((charge) => charge.id === entry.cardCharge!.id)
+        if (!match) return { ...entry, cardCharge: undefined }
+        return match.status !== entry.cardCharge.status ? { ...entry, cardCharge: match } : entry
+      }),
+    )
+  }, [splitCardCharges])
+
+  useEffect(() => {
+    if (!hasOutstandingEntrySplitCharge || !splitPolledTab || splitPolledTab.status !== 'CLOSED') return
     queryClient.invalidateQueries({ queryKey: ['tabs'] })
     queryClient.invalidateQueries({ queryKey: ['tables'] })
     setSelectedSummary((prev) => (prev && prev.tab.id === splitPolledTab.id ? { ...prev, tab: splitPolledTab } : prev))
     setJustPaidTabId(splitPolledTab.id)
     setPendingEntries([])
-  }, [hasOutstandingEntryPixCharge, splitPolledTab, queryClient])
+  }, [hasOutstandingEntrySplitCharge, splitPolledTab, queryClient])
 
   const tabDiscountMutation = useMutation({
     mutationFn: ({ id, discountType, value, reason }: { id: string; discountType: DiscountType | null; value?: number; reason?: string }) =>
@@ -389,20 +568,37 @@ export function CheckoutPage() {
     setIsEditingDiscount(false)
     setIsEditingServiceCharge(false)
     setPixCharge(null)
+    setCardCharge(null)
     setIsPersonSplitOpen(false)
     setServiceChargeInput(String(restaurant?.serviceChargePercentage ?? 10))
-    if (summary.tab.billTotal != null) {
+
+    // The `['tabs', 'OPEN']` list this summary came from has no refetch interval - a customer paying
+    // with Pix from the digital menu, or a QR Code generated from this same modal in another tab/session,
+    // can freeze this tab's billTotal and reserve its whole remaining balance without that list ever
+    // finding out. Re-fetch the tab here so hasLockedTotal/remainingBalance reflect what the backend
+    // actually has right now, instead of a stale "nothing reserved yet" view that pre-fills the full
+    // total and lets staff submit a payment (cash, card, or Pix - any method) the backend will always
+    // reject with a confusing "remaining balance of 0.00".
+    let tab = summary.tab
+    try {
+      tab = await getTab(summary.tab.id)
+      setSelectedSummary((prev) => (prev && prev.tab.id === tab.id ? { ...prev, tab } : prev))
+    } catch {
+      // Best effort - fall back to the (possibly stale) cached tab rather than blocking the modal.
+    }
+
+    if (tab.billTotal != null) {
       // A previous partial payment already locked this tab's total; the service charge can no
       // longer be changed, so mirror what the backend already froze instead of the restaurant default.
-      setServiceChargePercentage(summary.tab.serviceChargePercentage)
-      const remaining = summary.tab.remainingBalance ?? 0
+      setServiceChargePercentage(tab.serviceChargePercentage)
+      const remaining = tab.remainingBalance ?? 0
       setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(remaining) }])
       // A Pix charge generated in an earlier visit to this modal (or orphaned by a page reload) still
       // commits part of the remaining balance server-side even though this fresh mount has no memory
       // of it - reconstruct it here instead of silently blocking new payment attempts with a
       // "remaining balance" the Caixa can't otherwise explain or act on.
       try {
-        const charges = await listPixCharges(summary.tab.id)
+        const charges = await listPixCharges(tab.id)
         const pending = charges.filter((charge) => charge.status === 'PENDING')
         if (pending.length > 0) {
           const pendingSum = roundCurrency(pending.reduce((sum, charge) => sum + charge.amount, 0))
@@ -423,6 +619,21 @@ export function CheckoutPage() {
         // form reflecting the correct remaining balance and can cancel a stuck charge via
         // "Já recebi esse Pix por fora" or by contacting support if it truly can't be recovered.
       }
+      // Same reconstruction problem as Pix above, for a card charge instead: a "Cobrar no cartão"
+      // started in an earlier visit to this modal (or orphaned by a reload) still commits part of
+      // the remaining balance server-side even though this fresh mount has no memory of it - without
+      // this, staff would just see the default payment form with no way to tell why the remaining
+      // balance looks smaller than expected, or to get back to the QR code the customer might still
+      // be about to scan.
+      try {
+        const cardCharges = await listCardCharges(tab.id)
+        const pendingCard = cardCharges.find((charge) => charge.status === 'PENDING')
+        if (pendingCard) {
+          setCardCharge(pendingCard)
+        }
+      } catch {
+        // Best-effort reconstruction - same fallback reasoning as the Pix one above.
+      }
     } else {
       const defaultCharge = restaurant?.serviceChargeEnabled ? restaurant.serviceChargePercentage : null
       setServiceChargePercentage(defaultCharge)
@@ -435,6 +646,7 @@ export function CheckoutPage() {
     setSelectedSummary(null)
     setJustPaidTabId(null)
     setPixCharge(null)
+    setCardCharge(null)
     setIsPersonSplitOpen(false)
   }
 
@@ -471,16 +683,25 @@ export function CheckoutPage() {
   // single Pix payment - showing it while staff has "Dinheiro"/"Cartão" selected, or is splitting
   // across methods, offered an action unrelated to what they were about to register.
   const isSinglePixEntry = pendingEntries.length === 1 && pendingEntries[0].method === 'PIX'
+  const isSingleCardEntry =
+    pendingEntries.length === 1 && (pendingEntries[0].method === 'CREDIT_CARD' || pendingEntries[0].method === 'DEBIT_CARD')
   const isSplitMode = pendingEntries.length > 1
   // A split entry still set to Pix but without a generated charge yet isn't manually confirmable -
   // the only way to actually collect it is its own "Gerar QR Code Pix" button, never the bulk
   // "Confirmar pagamentos" below, so staff can't accidentally mark a Pix share as paid without a real
   // charge behind it.
   const isAwaitingSplitPixQr = (entry: PendingEntry) => isSplitMode && entry.method === 'PIX' && !entry.pixCharge
-  // Entries with a generated Pix charge resolve on their own via webhook - only what's left (manual
-  // methods, plus any split Pix share still waiting on its QR) is what "Confirmar pagamentos" below
-  // actually submits.
-  const manualEntries = pendingEntries.filter((entry) => !entry.pixCharge && !isAwaitingSplitPixQr(entry))
+  // Same idea, for a CREDIT_CARD/DEBIT_CARD split entry - the backend already supported a partial
+  // requestedAmount per charge (CardChargeService#createCharge), this just wires the split UI's
+  // "Cobrar no cartão" up to it the same way Pix's entry-level QR already worked.
+  const isAwaitingSplitCardCharge = (entry: PendingEntry) =>
+    isSplitMode && (entry.method === 'CREDIT_CARD' || entry.method === 'DEBIT_CARD') && !entry.cardCharge
+  // Entries with a generated Pix/card charge resolve on their own via webhook (or the active
+  // verify-poll backstop) - only what's left (manual methods, plus any split Pix/card share still
+  // waiting on its own charge) is what "Confirmar pagamentos" below actually submits.
+  const manualEntries = pendingEntries.filter(
+    (entry) => !entry.pixCharge && !entry.cardCharge && !isAwaitingSplitPixQr(entry) && !isAwaitingSplitCardCharge(entry),
+  )
   const manualSplitEntriesSum = roundCurrency(manualEntries.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0))
   const hasManualEntriesToConfirm = manualEntries.length > 0
 
@@ -1075,7 +1296,47 @@ export function CheckoutPage() {
                 </div>
               )}
 
-              {canPay && !isZeroBalance && !pixCharge && isPersonSplitOpen && (
+              {canPay && !isZeroBalance && cardCharge && cardCharge.status !== 'DECLINED' && (
+                <div className="mb-4 flex flex-col items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-white/10 dark:bg-white/5">
+                  {cardCharge.initPointUrl && (
+                    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-md">
+                      <QRCodeCanvas value={cardCharge.initPointUrl} size={168} />
+                    </div>
+                  )}
+                  <p className="text-center text-xs text-gray-500 dark:text-stone-400">
+                    Peça pro cliente escanear com a câmera do celular pra abrir a página de pagamento.
+                  </p>
+                  <p className="flex items-center gap-1.5 text-sm text-gray-600 dark:text-stone-400">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Aguardando o cliente pagar...
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => selectedSummary && cancelCardChargeMutation.mutate(selectedSummary.tab.id)}
+                    disabled={cancelCardChargeMutation.isPending}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+                  >
+                    {cancelCardChargeMutation.isPending ? 'Cancelando...' : 'Cancelar'}
+                  </button>
+                </div>
+              )}
+
+              {canPay && !isZeroBalance && cardCharge && cardCharge.status === 'DECLINED' && (
+                <div className="mb-4 flex flex-col items-center gap-3 rounded-lg border border-wine-200 bg-wine-50 p-4 dark:border-wine-900/40 dark:bg-wine-950/20">
+                  <p className="text-center text-sm text-wine-700 dark:text-wine-400">
+                    {cardCharge.declineMessage ?? 'Pagamento recusado. Tente outro cartão.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setCardCharge(null)}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              )}
+
+              {canPay && !isZeroBalance && !pixCharge && !cardCharge && isPersonSplitOpen && (
                 <PersonSplitPanel
                   items={selectedSummary.items}
                   remainingBalance={remainingBalance}
@@ -1084,7 +1345,7 @@ export function CheckoutPage() {
                 />
               )}
 
-              {canPay && !isZeroBalance && !pixCharge && !isPersonSplitOpen && (
+              {canPay && !isZeroBalance && !pixCharge && !cardCharge && !isPersonSplitOpen && (
                 <>
                   {pixStatus?.configured && isSinglePixEntry && !hasOutstandingEntryPixCharge && (
                     <button
@@ -1099,12 +1360,25 @@ export function CheckoutPage() {
                       {pixChargeMutation.isPending ? 'Gerando QR Code...' : 'Gerar QR Code Pix'}
                     </button>
                   )}
-                  {/* Once any entry has a generated Pix charge, its amount is committed server-side
-                      (TabService#registerPayments now reserves PENDING pix charges out of the
-                      remaining balance) - changing the split shape out from under it would orphan
-                      that charge (still frozen, still payable) with nothing in the UI tracking it
-                      anymore, so the whole split control and "+ add" are frozen right along with it. */}
-                  <div className={`mb-3 ${hasOutstandingEntryPixCharge ? 'pointer-events-none opacity-50' : ''}`}>
+                  {cardStatus?.configured && isSingleCardEntry && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        cardChargeMutation.mutate({ tabId: selectedSummary.tab.id, serviceChargePercentage })
+                      }
+                      disabled={cardChargeMutation.isPending}
+                      className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      {cardChargeMutation.isPending ? 'Gerando cobrança...' : 'Cobrar no cartão'}
+                    </button>
+                  )}
+                  {/* Once any entry has a generated Pix or card charge, its amount is committed
+                      server-side (TabService#registerPayments reserves PENDING pix/card charges out
+                      of the remaining balance) - changing the split shape out from under it would
+                      orphan that charge (still frozen, still payable) with nothing in the UI tracking
+                      it anymore, so the whole split control and "+ add" are frozen right along with it. */}
+                  <div className={`mb-3 ${hasOutstandingEntrySplitCharge ? 'pointer-events-none opacity-50' : ''}`}>
                     <Dropdown<SplitChoice>
                       value={
                         pendingEntries.some((entry) => entry.label)
@@ -1123,6 +1397,8 @@ export function CheckoutPage() {
                     {pendingEntries.map((entry, index) => {
                       const canGenerateEntryQr = isAwaitingSplitPixQr(entry) && pixStatus?.configured
                       const entryChargePaid = entry.pixCharge?.status === 'PAID'
+                      const canGenerateEntryCardCharge = isAwaitingSplitCardCharge(entry) && cardStatus?.configured
+                      const entryCardChargePaid = entry.cardCharge?.status === 'PAID'
                       return (
                         <li
                           key={entry.id}
@@ -1143,7 +1419,7 @@ export function CheckoutPage() {
                             </div>
                           )}
                           <div className="space-y-2">
-                          {!entry.pixCharge && (
+                          {!entry.pixCharge && !entry.cardCharge && (
                             <div className="flex items-center gap-2">
                               <div className="flex-1">
                                 <Dropdown<PaymentMethod>
@@ -1216,6 +1492,93 @@ export function CheckoutPage() {
                               </button>
                             )
                           })()}
+                          {canGenerateEntryCardCharge && (() => {
+                            const isThisEntryCharging = entryCardChargeMutation.isPending && entryCardChargeMutation.variables?.entryId === entry.id
+                            return (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  entryCardChargeMutation.mutate({
+                                    tabId: selectedSummary.tab.id,
+                                    entryId: entry.id,
+                                    amount: Number(entry.amount),
+                                  })
+                                }
+                                disabled={isThisEntryCharging || !(Number(entry.amount) > 0)}
+                                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
+                              >
+                                <CreditCard className="h-4 w-4" />
+                                {isThisEntryCharging ? 'Gerando cobrança...' : 'Cobrar no cartão'}
+                              </button>
+                            )
+                          })()}
+                          {entry.cardCharge && (
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="flex w-full items-center justify-between">
+                                <span className="text-sm font-medium text-gray-700 dark:text-stone-300">
+                                  Cartão ({currencyFormatter.format(entry.cardCharge.amount)})
+                                </span>
+                                {entryCardChargePaid ? (
+                                  <span className="flex items-center gap-1 text-sm font-medium text-green-700 dark:text-green-400">
+                                    <Check className="h-4 w-4" />
+                                    Pago
+                                  </span>
+                                ) : entry.cardCharge.status === 'DECLINED' ? (
+                                  <span className="text-sm font-medium text-wine-600 dark:text-wine-400">Recusado</span>
+                                ) : (
+                                  <span className="flex items-center gap-1 text-sm text-gray-600 dark:text-stone-400">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Aguardando pagamento
+                                  </span>
+                                )}
+                              </div>
+                              {entry.cardCharge.status === 'DECLINED' ? (
+                                <>
+                                  <p className="text-center text-sm text-wine-600 dark:text-wine-400">
+                                    {entry.cardCharge.declineMessage ?? 'Pagamento recusado. Tente outro cartão.'}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPendingEntries((prev) => prev.map((e) => (e.id === entry.id ? { ...e, cardCharge: undefined } : e)))}
+                                    className="flex w-full items-center justify-center gap-1.5 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                                  >
+                                    Tentar novamente
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  {entry.cardCharge.initPointUrl && (
+                                    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-md">
+                                      <QRCodeCanvas value={entry.cardCharge.initPointUrl} size={168} />
+                                    </div>
+                                  )}
+                                  <p className="text-center text-xs text-gray-500 dark:text-stone-400">
+                                    Peça pro cliente escanear com a câmera do celular pra abrir a página de pagamento.
+                                  </p>
+                                  {!entryCardChargePaid && (() => {
+                                    const isThisEntryCancelling =
+                                      entryCancelCardChargeMutation.isPending && entryCancelCardChargeMutation.variables?.entryId === entry.id
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          entryCancelCardChargeMutation.mutate({
+                                            tabId: selectedSummary.tab.id,
+                                            entryId: entry.id,
+                                            chargeId: entry.cardCharge!.id,
+                                          })
+                                        }
+                                        disabled={isThisEntryCancelling}
+                                        className="flex w-full items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+                                      >
+                                        {isThisEntryCancelling ? 'Cancelando...' : 'Cancelar'}
+                                      </button>
+                                    )
+                                  })()}
+                                </>
+                              )}
+                            </div>
+                          )}
                           {entry.pixCharge && (
                             <div className="flex flex-col items-center gap-3">
                               <div className="flex w-full items-center justify-between">
@@ -1278,7 +1641,7 @@ export function CheckoutPage() {
                   <button
                     type="button"
                     onClick={addEntry}
-                    disabled={hasOutstandingEntryPixCharge}
+                    disabled={hasOutstandingEntrySplitCharge}
                     className="mb-3 flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline disabled:pointer-events-none disabled:opacity-50 dark:text-brand-400"
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -1290,9 +1653,16 @@ export function CheckoutPage() {
                       <span>Você está registrando</span>
                       <span>{currencyFormatter.format(manualSplitEntriesSum)}</span>
                     </div>
-                    {hasOutstandingEntryPixCharge && (
+                    {hasOutstandingEntrySplitCharge && (
                       <div className="flex items-center justify-between text-xs text-gray-500 dark:text-stone-400">
-                        <span>Aguardando confirmação via Pix</span>
+                        <span>
+                          Aguardando confirmação via{' '}
+                          {hasOutstandingEntryPixCharge && hasOutstandingEntryCardCharge
+                            ? 'Pix/cartão'
+                            : hasOutstandingEntryCardCharge
+                              ? 'cartão'
+                              : 'Pix'}
+                        </span>
                         <span>{currencyFormatter.format(roundCurrency(entriesSum - manualSplitEntriesSum))}</span>
                       </div>
                     )}
@@ -1319,7 +1689,7 @@ export function CheckoutPage() {
                   Also hidden while assigning items to people below - that panel has its own
                   Cancelar/Aplicar pair, and pendingEntries still holds the *previous* split shape
                   until Aplicar overwrites it, so this button would otherwise confirm stale amounts. */}
-              {canPay && !pixCharge && !isPersonSplitOpen && (hasManualEntriesToConfirm || isZeroBalance) && (
+              {canPay && !pixCharge && !cardCharge && !isPersonSplitOpen && (hasManualEntriesToConfirm || isZeroBalance) && (
                 <Button
                   type="button"
                   onClick={handleRegisterPayments}

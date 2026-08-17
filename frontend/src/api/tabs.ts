@@ -155,3 +155,53 @@ export function cancelPixChargeById(id: string, chargeId: string) {
 export function cancelPixCharge(id: string) {
   return http.delete<void>(`/tabs/${id}/pix-charges`).then((res) => res.data)
 }
+
+export interface CardCharge {
+  id: string
+  amount: number
+  initPointUrl: string | null
+  // Only populated by listCardCharges - a freshly created charge (createCardCharge's response) is
+  // always PENDING, so callers of that one don't need to check it.
+  status?: 'PENDING' | 'PAID' | 'DECLINED'
+  // Short Portuguese message derived server-side from Mercado Pago's decline reason - only set
+  // when status is DECLINED.
+  declineMessage?: string | null
+  // Not sensitive - already handed to Mercado Pago itself. Lets CheckoutPage's own polling call
+  // verifyCardCharge directly instead of only waiting on the customer's browser to redirect back
+  // to /pagamento/retorno (see docs/CARD_PAYMENT.md - that redirect needs a manual click in local
+  // dev since Mercado Pago's auto_return requires HTTPS, and even in production the customer's
+  // phone might just never come back).
+  externalReference: string
+}
+
+/** Freezes the tab's total (same freeze as the first manual payment) and asks Mercado Pago for a
+ * Checkout Pro preference. Confirmation happens asynchronously via webhook - the caller must poll
+ * getTab (and, for a split payment, listCardCharges too) and watch for the tab closing to know
+ * it was paid. serviceChargePercentage is only honored for an OWNER/MANAGER caller (silently
+ * ignored otherwise, same as registerPayments) - omit it to use the restaurant's configured
+ * default. amount is only for a split payment (one call per checkout link, each for its own
+ * share); omit it for the common case of one charge covering the tab's entire remaining balance. */
+export function createCardCharge(id: string, serviceChargePercentage?: number | null, amount?: number) {
+  const body = serviceChargePercentage !== undefined || amount !== undefined ? { serviceChargePercentage, amount } : undefined
+  return http.post<CardCharge>(`/tabs/${id}/card-charges`, body).then((res) => res.data)
+}
+
+/** Every PENDING, PAID or DECLINED card charge still outstanding on this tab (CANCELLED/EXPIRED
+ * ones are omitted) - lets a split payment with several concurrent checkout links poll and
+ * reconcile all of them at once, matching by id. */
+export function listCardCharges(id: string) {
+  return http.get<CardCharge[]>(`/tabs/${id}/card-charges`).then((res) => res.data)
+}
+
+/** Cancels one specific still-unpaid card charge by id (one entry in a split payment) and
+ * unfreezes the tab's total only if nothing else - a payment, or a sibling still-PENDING charge -
+ * still needs it. No-op if the charge isn't pending anymore. */
+export function cancelCardChargeById(id: string, chargeId: string) {
+  return http.delete<void>(`/tabs/${id}/card-charges/${chargeId}`).then((res) => res.data)
+}
+
+/** Cancels every still-unpaid card charge on this tab and unfreezes its total, so
+ * items/discount/service charge become editable again. No-op if there's no pending charge. */
+export function cancelCardCharge(id: string) {
+  return http.delete<void>(`/tabs/${id}/card-charges`).then((res) => res.data)
+}

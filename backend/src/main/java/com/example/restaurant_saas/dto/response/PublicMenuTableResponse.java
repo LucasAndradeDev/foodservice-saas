@@ -18,6 +18,7 @@ public class PublicMenuTableResponse {
     private List<PublicMenuReorderItemResponse> lastOrderItems;
     private UUID currentTabId;
     private boolean pixConfigured;
+    private boolean cardConfigured;
     private String discountAppliedLabel;
     private DiscountType discountType;
     private BigDecimal discountValue;

@@ -523,7 +523,14 @@ class PixChargeIntegrationTest {
     }
 
     @Test
-    void cancelPixCharge_afterAPartialPaymentWasRegistered_shouldRefuse() throws Exception {
+    // Regression test for a real bug (2026-08-16): this used to assert cancellation was refused
+    // (403) once any payment had landed on the tab - the actual bug, not the intended behavior.
+    // TabService#unfreezeBillTotal threw an unhandled 500 in this exact situation before being
+    // replaced by the safe #unfreezeBillTotalIfNoCommitments (see PixChargeService/CardChargeService
+    // #cancelPendingCharge). Cancelling the still-PENDING Pix charge must succeed regardless of the
+    // other, unrelated manual payment already on the tab - it just can't unfreeze the total while
+    // that payment still counts on it.
+    void cancelPixCharge_afterAPartialPaymentWasRegistered_shouldSucceedAndKeepTotalFrozen() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         saveWooviIntegration(ownerToken, "woovi-app-id-123");
         String tabId = createDeliveredItemTab(ownerToken, "25.90");
@@ -542,10 +549,8 @@ class PixChargeIntegrationTest {
                 .andExpect(status().isOk());
 
         // A cashier settles the rest of the frozen total by card while the QR code is still
-        // pending - cancelling the Pix charge after this must refuse, since that payment was
-        // computed against the frozen total and unfreezing it now would leave the numbers
-        // inconsistent. CREDIT_CARD, not CASH, so this doesn't also need an open cash register
-        // session (CashRegisterService).
+        // pending. CREDIT_CARD, not CASH, so this doesn't also need an open cash register session
+        // (CashRegisterService).
         String paymentsBody = """
                 {"payments":[{"paymentMethod":"CREDIT_CARD","amount":10.00}]}
                 """;
@@ -555,9 +560,19 @@ class PixChargeIntegrationTest {
                         .content(paymentsBody))
                 .andExpect(status().isOk());
 
+        // Cancelling the still-outstanding Pix QR must succeed - the card payment is unrelated to
+        // it, just another claim on the same frozen total.
         mockMvc.perform(delete("/api/v1/tabs/" + tabId + "/pix-charges")
                         .header("Authorization", "Bearer " + ownerToken))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNoContent());
+
+        // The total must stay frozen (the 10.00 card payment still counts on it) - the 18.49 the
+        // cancelled Pix charge had claimed becomes available again, not lost or double-counted.
+        mockMvc.perform(get("/api/v1/tabs/" + tabId).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("OPEN"))
+                .andExpect(jsonPath("$.amountPaid").value(10.00))
+                .andExpect(jsonPath("$.remainingBalance").value(18.49));
     }
 
     @Test

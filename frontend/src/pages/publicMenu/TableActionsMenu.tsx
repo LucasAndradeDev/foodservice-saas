@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  CreditCard,
   Flame,
   ListChecks,
   PackageCheck,
@@ -77,11 +78,13 @@ interface TableActionsMenuProps {
   onReorder: () => void
   canRequestBill: boolean
   canPayWithPix: boolean
+  canPayWithCard: boolean
   requestedTypes: Set<TableRequestType>
   isPending: boolean
   pendingType: TableRequestType | undefined
   onRequest: (type: TableRequestType) => void
   onPayWithPix: () => void
+  onPayWithCard: () => void
 }
 
 export function TableActionsMenu({
@@ -91,11 +94,13 @@ export function TableActionsMenu({
   onReorder,
   canRequestBill,
   canPayWithPix,
+  canPayWithCard,
   requestedTypes,
   isPending,
   pendingType,
   onRequest,
   onPayWithPix,
+  onPayWithCard,
 }: TableActionsMenuProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isOrderDetailOpen, setIsOrderDetailOpen] = useState(false)
@@ -285,7 +290,7 @@ export function TableActionsMenu({
                     </button>
                   )}
 
-                  {(canPayWithPix || canRequestBill) && (
+                  {(canPayWithPix || canPayWithCard || canRequestBill) && (
                     <div className="flex flex-col gap-2">
                       <span className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-stone-500">
                         Fechar a conta
@@ -298,6 +303,18 @@ export function TableActionsMenu({
                           variant="primary"
                           onClick={() => {
                             onPayWithPix()
+                            setIsMenuOpen(false)
+                          }}
+                        />
+                      )}
+                      {canPayWithCard && (
+                        <ActionRow
+                          icon={CreditCard}
+                          label="Pagar com cartão"
+                          subtitle="Direto pelo celular, sem esperar o garçom"
+                          variant="primary"
+                          onClick={() => {
+                            onPayWithCard()
                             setIsMenuOpen(false)
                           }}
                         />

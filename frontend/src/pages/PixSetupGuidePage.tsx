@@ -67,7 +67,7 @@ export function PixSetupGuidePage() {
           Voltar
         </BackLink>
 
-        <Logo className="mb-6 h-12 w-auto" />
+        <Logo className="mx-auto mb-8 block h-20 w-auto" />
 
         <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-stone-800 dark:bg-stone-900 sm:p-8">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-sage-600 dark:text-sage-400">

@@ -25,7 +25,10 @@ import com.example.restaurant_saas.dto.request.VoidPaymentRequest;
 import com.example.restaurant_saas.dto.response.PaymentResponse;
 import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.dto.response.TabTableSummary;
+import com.example.restaurant_saas.domain.entity.CardCharge;
+import com.example.restaurant_saas.domain.enums.CardChargeStatus;
 import com.example.restaurant_saas.domain.enums.PixChargeStatus;
+import com.example.restaurant_saas.repository.CardChargeRepository;
 import com.example.restaurant_saas.repository.DeliveryDetailsRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
@@ -62,6 +65,7 @@ public class TabService {
     private final UserRepository userRepository;
     private final ReservationRepository reservationRepository;
     private final PixChargeRepository pixChargeRepository;
+    private final CardChargeRepository cardChargeRepository;
     private final DeliveryDetailsRepository deliveryDetailsRepository;
 
     @Transactional(readOnly = true)
@@ -270,6 +274,22 @@ public class TabService {
      */
     @Transactional
     public TabResponse registerPayments(UUID restaurantId, UUID tabId, UserRole currentUserRole, UUID actingUserId, RegisterPaymentsRequest request) {
+        return registerPayments(restaurantId, tabId, currentUserRole, actingUserId, request, null);
+    }
+
+    /**
+     * Same as the 4-args-plus-request overload, but lets an internal caller
+     * ({@link CardChargeService}'s webhook handler) attach the originating {@link CardCharge} to
+     * every {@link Payment} this call creates - never exposed through the public
+     * {@link RegisterPaymentsRequest} DTO, so staff can never claim a manual entry is a
+     * gateway-confirmed card payment. {@code cardChargeId} is null for every other caller (staff
+     * registering cash/Pix/manual card entries).
+     */
+    @Transactional
+    public TabResponse registerPayments(
+            UUID restaurantId, UUID tabId, UserRole currentUserRole, UUID actingUserId, RegisterPaymentsRequest request,
+            UUID cardChargeId
+    ) {
         Tab tab = tabRepository.findByIdAndRestaurantIdForUpdate(tabId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Tab not found."));
 
@@ -297,20 +317,23 @@ public class TabService {
         boolean allowServiceChargeOverride = request.getServiceChargePercentage() != null
                 && (currentUserRole == UserRole.OWNER || currentUserRole == UserRole.MANAGER);
         BigDecimal total = resolveBillTotal(tab, allowServiceChargeOverride, request.getServiceChargePercentage());
-        // A sibling PENDING Pix charge (a split-comanda QR someone else is still scanning) has
-        // already claimed part of this total even though nothing's been paid for it yet - without
-        // this, a manual submit could close the tab "early" while that QR is still outstanding,
-        // and its webhook would then have nowhere valid to register the real money that lands for
-        // it. (The charge THIS call is itself confirming, if any, is already PAID by this point -
-        // see PixChargeService#handleWebhook - so it's excluded from this sum on its own.)
-        BigDecimal pendingPixTotal = pixChargeRepository.sumAmountByTabIdAndStatus(tabId, PixChargeStatus.PENDING);
-        BigDecimal remaining = total.subtract(alreadyPaid).subtract(pendingPixTotal);
+        // A sibling PENDING Pix or card charge (a split-comanda QR/checkout link someone else is
+        // still paying) has already claimed part of this total even though nothing's been paid for
+        // it yet - without this, a manual submit could close the tab "early" while that charge is
+        // still outstanding, and its webhook would then have nowhere valid to register the real
+        // money that lands for it. (The charge THIS call is itself confirming, if any, is already
+        // PAID by this point - see PixChargeService#handleWebhook/CardChargeService#handleWebhook -
+        // so it's excluded from this sum on its own.)
+        BigDecimal pendingGatewayTotal = pixChargeRepository.sumAmountByTabIdAndStatus(tabId, PixChargeStatus.PENDING)
+                .add(cardChargeRepository.sumAmountByTabIdAndStatus(tabId, CardChargeStatus.PENDING));
+        BigDecimal remaining = total.subtract(alreadyPaid).subtract(pendingGatewayTotal);
 
         OffsetDateTime now = OffsetDateTime.now();
         // actingUserId is null when this is a system-initiated payment (a Pix charge confirmed by
         // Woovi's webhook, see PixChargeService) rather than staff registering it - same nullable
         // createdBy already used for self-service orders (Order.createdBy).
         User actingUser = actingUserId != null ? userRepository.getReferenceById(actingUserId) : null;
+        CardCharge cardCharge = cardChargeId != null ? cardChargeRepository.getReferenceById(cardChargeId) : null;
         List<Payment> newPayments = new ArrayList<>();
         BigDecimal sumOfEntries = BigDecimal.ZERO;
         for (PaymentEntryRequest entry : request.getPayments()) {
@@ -329,6 +352,7 @@ public class TabService {
                     .status(PaymentStatus.ACTIVE)
                     .paidAt(now)
                     .createdBy(actingUser)
+                    .cardCharge(cardCharge)
                     .build());
         }
 
@@ -377,11 +401,12 @@ public class TabService {
         payment.setVoidReason(request.getReason());
         paymentRepository.save(payment);
 
-        // A still-PENDING Pix charge (a split-comanda QR nobody's scanned yet, or another payer's
-        // half) is a reason not to unfreeze even if every real payment on the tab was just voided
-        // away - that charge's QR still shows a specific amount computed against the frozen total.
+        // A still-PENDING Pix or card charge (a split-comanda QR/checkout link nobody's paid yet,
+        // or another payer's half) is a reason not to unfreeze even if every real payment on the
+        // tab was just voided away - that charge still shows a specific amount computed against
+        // the frozen total.
         if (tab.getStatus() == TabStatus.OPEN && paymentRepository.sumActiveAmountByTabId(tabId).signum() == 0
-                && hasNoOutstandingPixCommitments(tabId)) {
+                && hasNoOutstandingChargeCommitments(tabId)) {
             tab.setBillTotal(null);
             tab.setServiceChargePercentage(null);
             tab.setServiceChargeAmount(null);
@@ -391,8 +416,9 @@ public class TabService {
         return toResponse(tab);
     }
 
-    private boolean hasNoOutstandingPixCommitments(UUID tabId) {
-        return pixChargeRepository.sumAmountByTabIdAndStatus(tabId, PixChargeStatus.PENDING).signum() == 0;
+    private boolean hasNoOutstandingChargeCommitments(UUID tabId) {
+        return pixChargeRepository.sumAmountByTabIdAndStatus(tabId, PixChargeStatus.PENDING).signum() == 0
+                && cardChargeRepository.sumAmountByTabIdAndStatus(tabId, CardChargeStatus.PENDING).signum() == 0;
     }
 
     @Transactional
@@ -484,14 +510,14 @@ public class TabService {
         BigDecimal serviceChargePercentage = resolveServiceChargePercentage(tab.getRestaurant().getId(), allowServiceChargeOverride, requestedServiceChargePercentage);
         BigDecimal serviceChargeAmount = computeServiceChargeAmount(afterDiscount, serviceChargePercentage);
 
-        tab.setServiceChargePercentage(serviceChargePercentage);
-        tab.setServiceChargeAmount(serviceChargePercentage != null ? serviceChargeAmount : null);
         // Already frozen at order creation time (PublicDeliveryOrderService) from the DeliveryZone
         // matched then - zero for every tab that isn't a delivery order (no DeliveryDetails row).
         BigDecimal deliveryFee = deliveryDetailsRepository.findByTab_Id(tab.getId())
                 .map(DeliveryDetails::getDeliveryFee)
                 .orElse(BigDecimal.ZERO);
 
+        tab.setServiceChargePercentage(serviceChargePercentage);
+        tab.setServiceChargeAmount(serviceChargePercentage != null ? serviceChargeAmount : null);
         tab.setBillTotal(afterDiscount.add(serviceChargeAmount).add(deliveryFee));
         return tab.getBillTotal();
     }
@@ -545,37 +571,21 @@ public class TabService {
     }
 
     /**
-     * Reverses {@link #freezeBillTotalForPixCharge} when the charge it was frozen for is being
-     * cancelled unpaid - same unfreeze {@link #voidPayment} does after reversing a payment, just
-     * triggered from the other side (nobody ever paid, rather than a paid amount being reversed).
-     * Refuses once a payment has actually landed on this tab: that payment was computed against
-     * the frozen total, so unfreezing under it would leave items/discount/service-charge editable
-     * again while a payment on record still reflects the old, now-stale total.
-     */
-    @Transactional
-    public void unfreezeBillTotal(UUID restaurantId, UUID tabId) {
-        Tab tab = tabRepository.findByIdAndRestaurantIdForUpdate(tabId, restaurantId)
-                .orElseThrow(() -> new IllegalArgumentException("Tab not found."));
-        if (tab.getStatus() != TabStatus.OPEN) {
-            throw new IllegalArgumentException("Tab is not open.");
-        }
-        if (paymentRepository.sumActiveAmountByTabId(tabId).signum() != 0) {
-            throw new IllegalStateException("A payment has already been registered for this tab.");
-        }
-
-        tab.setBillTotal(null);
-        tab.setServiceChargePercentage(null);
-        tab.setServiceChargeAmount(null);
-        tabRepository.save(tab);
-    }
-
-    /**
-     * Same unfreeze as {@link #unfreezeBillTotal}, but for cancelling ONE of possibly several
-     * concurrent Pix charges on a split-comanda tab (PixChargeService#cancelCharge) - silently
-     * does nothing instead of throwing when it's not safe yet (a real payment landed, or a
-     * sibling charge is still PENDING and needs the frozen total to stay put), since "cancel this
-     * one charge" isn't a request to unfreeze at all costs, just to unfreeze if that charge was
-     * the last thing still using the freeze.
+     * Reverses {@link #freezeBillTotalForPixCharge} when the charge(s) it was frozen for are being
+     * cancelled unpaid (PixChargeService/CardChargeService#cancelPendingCharge, #cancelCharge) -
+     * same unfreeze {@link #voidPayment} does after reversing a payment, just triggered from the
+     * other side (nobody ever paid, rather than a paid amount being reversed). Silently does
+     * nothing instead of throwing when it's not actually safe yet - a real payment already landed
+     * on the tab (that payment was computed against the frozen total; unfreezing under it would
+     * leave items/discount/service-charge editable again while the payment on record still
+     * reflects the old, now-stale total), or a sibling Pix/card charge is still PENDING and needs
+     * the freeze to stay put - since cancelling one charge isn't a request to unfreeze at all
+     * costs, only if that charge was the last thing still relying on the freeze.
+     *
+     * <p>Used to throw instead of no-op on an already-landed payment - found the hard way
+     * (2026-08-16) when cancelling a card charge on a split-comanda tab already partially paid via
+     * Pix threw an unhandled 500 straight to the Caixa UI instead of just cancelling the charge and
+     * correctly leaving the total frozen.
      */
     @Transactional
     public void unfreezeBillTotalIfNoCommitments(UUID restaurantId, UUID tabId) {
@@ -587,7 +597,7 @@ public class TabService {
         if (paymentRepository.sumActiveAmountByTabId(tabId).signum() != 0) {
             return;
         }
-        if (!hasNoOutstandingPixCommitments(tabId)) {
+        if (!hasNoOutstandingChargeCommitments(tabId)) {
             return;
         }
 

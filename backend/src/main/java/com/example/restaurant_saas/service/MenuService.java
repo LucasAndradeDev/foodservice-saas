@@ -28,6 +28,7 @@ import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.repository.CategoryRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
+import com.example.restaurant_saas.repository.CardIntegrationRepository;
 import com.example.restaurant_saas.repository.PixIntegrationRepository;
 import com.example.restaurant_saas.repository.ProductAvailabilityWindowRepository;
 import com.example.restaurant_saas.repository.ProductImageRepository;
@@ -81,6 +82,7 @@ public class MenuService {
     private final HappyHourRuleService happyHourRuleService;
     private final ComboService comboService;
     private final PixIntegrationRepository pixIntegrationRepository;
+    private final CardIntegrationRepository cardIntegrationRepository;
     private final TenantActivator tenantActivator;
 
     @Transactional(readOnly = true)
@@ -148,6 +150,9 @@ public class MenuService {
                     .lastOrderItems(lastOrderItems)
                     .currentTabId(openTab.map(Tab::getId).orElse(null))
                     .pixConfigured(pixIntegrationRepository.findByRestaurantId(restaurant.getId()).isPresent())
+                    .cardConfigured(cardIntegrationRepository.findByRestaurantId(restaurant.getId())
+                            .filter(i -> i.getAccessTokenEncrypted() != null && i.getWebhookSecretEncrypted() != null)
+                            .isPresent())
                     .discountAppliedLabel(openTab.map(PublicCouponService::buildDiscountLabel).orElse(null))
                     .discountType(openTab.map(Tab::getDiscountType).orElse(null))
                     .discountValue(openTab.map(Tab::getDiscountValue).orElse(null))

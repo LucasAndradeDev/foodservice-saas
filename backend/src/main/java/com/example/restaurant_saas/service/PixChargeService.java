@@ -8,12 +8,14 @@ import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
+import com.example.restaurant_saas.domain.enums.CardChargeStatus;
 import com.example.restaurant_saas.domain.enums.PixChargeStatus;
 import com.example.restaurant_saas.dto.request.PaymentEntryRequest;
 import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
 import com.example.restaurant_saas.dto.response.PixChargeResponse;
 import com.example.restaurant_saas.dto.response.PixIntegrationStatusResponse;
 import com.example.restaurant_saas.exception.PixGatewayException;
+import com.example.restaurant_saas.repository.CardChargeRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.PaymentRepository;
 import com.example.restaurant_saas.repository.PixChargeRepository;
@@ -42,6 +44,7 @@ public class PixChargeService {
 
     private final PixIntegrationRepository pixIntegrationRepository;
     private final PixChargeRepository pixChargeRepository;
+    private final CardChargeRepository cardChargeRepository;
     private final PaymentRepository paymentRepository;
     private final TabRepository tabRepository;
     private final RestaurantRepository restaurantRepository;
@@ -100,7 +103,8 @@ public class PixChargeService {
         }
 
         BigDecimal committed = paymentRepository.sumActiveAmountByTabId(tabId)
-                .add(pixChargeRepository.sumAmountByTabIdAndStatus(tabId, PixChargeStatus.PENDING));
+                .add(pixChargeRepository.sumAmountByTabIdAndStatus(tabId, PixChargeStatus.PENDING))
+                .add(cardChargeRepository.sumAmountByTabIdAndStatus(tabId, CardChargeStatus.PENDING));
         BigDecimal remaining = billTotal.subtract(committed);
         BigDecimal amount = requestedAmount != null ? requestedAmount : remaining;
         if (amount.signum() <= 0 || amount.compareTo(remaining) > 0) {
@@ -166,13 +170,21 @@ public class PixChargeService {
     }
 
     /**
-     * Cancels any still-PENDING Pix charge(s) on this tab and unfreezes its bill total
-     * ({@link TabService#unfreezeBillTotal}) so items/discount/service-charge become editable
-     * again - for when a QR code goes unpaid (customer changed their mind, it expired, staff
-     * generated one by mistake) and the tab needs to keep being worked on. A no-op if there's
-     * nothing PENDING. Marking every matching row CANCELLED (not just the latest) matters because
-     * regenerating the QR code leaves earlier attempts' rows behind still PENDING - each one is a
-     * correlationID Woovi could still deliver a late webhook for.
+     * Cancels any still-PENDING Pix charge(s) on this tab and, if nothing else is still relying on
+     * the frozen total (no active payment landed yet, no sibling PENDING Pix/card charge),
+     * unfreezes it ({@link TabService#unfreezeBillTotalIfNoCommitments}) so items/discount/service-
+     * charge become editable again - for when a QR code goes unpaid (customer changed their mind,
+     * it expired, staff generated one by mistake) and the tab needs to keep being worked on. A
+     * no-op if there's nothing PENDING. Marking every matching row CANCELLED (not just the latest)
+     * matters because regenerating the QR code leaves earlier attempts' rows behind still PENDING -
+     * each one is a correlationID Woovi could still deliver a late webhook for.
+     *
+     * <p>Bug fixed 2026-08-16 (see {@link CardChargeService#cancelPendingCharge}, mirrored here):
+     * this used to call the unconditional {@link TabService#unfreezeBillTotal} first, which throws
+     * once a real payment already landed on the tab (e.g. a split-comanda tab partially paid via
+     * card, with this Pix charge covering the remainder) - cancelling that charge threw an
+     * unhandled 500 straight to the Caixa UI instead of just cancelling the charge and correctly
+     * leaving the total frozen (a real payment is still counting on it).
      */
     @Transactional
     public void cancelPendingCharge(UUID restaurantId, UUID tabId) {
@@ -181,10 +193,10 @@ public class PixChargeService {
             return;
         }
 
-        tabService.unfreezeBillTotal(restaurantId, tabId);
-
         pending.forEach(charge -> charge.setStatus(PixChargeStatus.CANCELLED));
         pixChargeRepository.saveAll(pending);
+
+        tabService.unfreezeBillTotalIfNoCommitments(restaurantId, tabId);
     }
 
     /**

@@ -4,14 +4,17 @@ import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.AddTableToTabRequest;
 import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
+import com.example.restaurant_saas.dto.request.CreateCardChargeRequest;
 import com.example.restaurant_saas.dto.request.CreatePixChargeRequest;
 import com.example.restaurant_saas.dto.request.MergeTabRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
 import com.example.restaurant_saas.dto.request.VoidPaymentRequest;
+import com.example.restaurant_saas.dto.response.CardChargeResponse;
 import com.example.restaurant_saas.dto.response.PixChargeResponse;
 import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.security.UserDetailsImpl;
+import com.example.restaurant_saas.service.CardChargeService;
 import com.example.restaurant_saas.service.PixChargeService;
 import com.example.restaurant_saas.service.TabService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,6 +42,7 @@ public class TabController {
 
     private final TabService tabService;
     private final PixChargeService pixChargeService;
+    private final CardChargeService cardChargeService;
 
     @GetMapping
     @Operation(summary = "List tabs", description = "Lists the restaurant's tabs, optionally filtered by status.")
@@ -200,17 +204,82 @@ public class TabController {
 
     @DeleteMapping("/{id}/pix-charges")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
-    @Operation(summary = "Cancel every pending Pix charge for this tab", description = "Cancels all still-PENDING Pix charges on this tab and unfreezes its bill total, so items/discount/service-charge become editable again. A no-op if there's nothing PENDING (e.g. it was already paid, or there never was one).")
+    @Operation(summary = "Cancel every pending Pix charge for this tab", description = "Cancels all still-PENDING Pix charges on this tab and, if nothing else is still relying on it (no active payment landed yet, no sibling PENDING Pix/card charge), unfreezes its bill total so items/discount/service-charge become editable again. A no-op if there's nothing PENDING (e.g. it was already paid, or there never was one).")
     @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Pending charge(s), if any, cancelled and bill total unfrozen"),
+            @ApiResponse(responseCode = "204", description = "Pending charge(s), if any, cancelled; bill total unfrozen only if nothing else still needs it"),
             @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, or tab is not open"),
-            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission, or a payment has already been registered against this tab")
+            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission")
     })
     public ResponseEntity<Void> cancelAllPixCharges(
             @AuthenticationPrincipal UserDetailsImpl currentUser,
             @PathVariable UUID id
     ) {
         pixChargeService.cancelPendingCharge(currentUser.getRestaurantId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/card-charges")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "Create a card charge for this tab", description = "Freezes the tab's bill total (same freeze as the first registered payment) and asks Mercado Pago for a Checkout Pro preference. An OWNER/MANAGER caller may pass serviceChargePercentage to override the restaurant's default, same as registerPayments - any other role's override is ignored. Omitting amount charges the tab's full remaining balance (the common case); a caller splitting the bill passes an explicit partial amount instead, one call per checkout link - rejected if it exceeds what's not already paid or claimed by another still-PENDING Pix or card charge on the same tab. The charge is confirmed asynchronously by a webhook - poll GET /tabs/{id} and watch for the tab closing/its payments list updating, or GET this same path to list every outstanding charge, to know when it's been paid. Requires the restaurant to have configured Mercado Pago first (see /card-integration).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Charge created, returns the Mercado Pago checkout link"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, tab is not open, or the requested amount exceeds the tab's remaining uncommitted balance"),
+            @ApiResponse(responseCode = "403", description = "This restaurant hasn't configured card payment yet, or the tab has order items not yet DELIVERED or CANCELLED"),
+            @ApiResponse(responseCode = "502", description = "Mercado Pago could not be reached or returned an unexpected response")
+    })
+    public ResponseEntity<CardChargeResponse> createCardCharge(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id,
+            @RequestBody(required = false) CreateCardChargeRequest request
+    ) {
+        BigDecimal requestedServiceChargePercentage = request != null ? request.getServiceChargePercentage() : null;
+        boolean allowServiceChargeOverride = requestedServiceChargePercentage != null
+                && (currentUser.getRole() == UserRole.OWNER || currentUser.getRole() == UserRole.MANAGER);
+        BigDecimal requestedAmount = request != null ? request.getAmount() : null;
+        return ResponseEntity.ok(cardChargeService.createCharge(
+                currentUser.getRestaurantId(), id, allowServiceChargeOverride, requestedServiceChargePercentage, requestedAmount));
+    }
+
+    @GetMapping("/{id}/card-charges")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "List this tab's outstanding card charges", description = "Every PENDING, PAID or DECLINED charge on the tab (CANCELLED/EXPIRED ones are omitted) - lets the Checkout poll and reconcile concurrent split-comanda checkout links at once by id, and show a specific decline message when one fails.")
+    @ApiResponse(responseCode = "200", description = "List of outstanding charges, possibly empty")
+    public ResponseEntity<List<CardChargeResponse>> listCardCharges(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(cardChargeService.listCharges(currentUser.getRestaurantId(), id));
+    }
+
+    @DeleteMapping("/{id}/card-charges/{chargeId}")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "Cancel one specific pending card charge", description = "Cancels a single still-PENDING charge by id (one entry in a split-comanda payment) and unfreezes the tab's bill total only if nothing else - a real payment, or a sibling still-PENDING charge - is still relying on it. A no-op if the charge isn't PENDING anymore.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Charge cancelled (or was already resolved) - bill total unfrozen if nothing else needs it"),
+            @ApiResponse(responseCode = "400", description = "Card charge not found on this tab/restaurant")
+    })
+    public ResponseEntity<Void> cancelCardCharge(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id,
+            @PathVariable UUID chargeId
+    ) {
+        cardChargeService.cancelCharge(currentUser.getRestaurantId(), id, chargeId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}/card-charges")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "Cancel every pending card charge for this tab", description = "Cancels all still-PENDING card charges on this tab and, if nothing else is still relying on it (no active payment landed yet, no sibling PENDING Pix/card charge), unfreezes its bill total so items/discount/service-charge become editable again. A no-op if there's nothing PENDING.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Pending charge(s), if any, cancelled; bill total unfrozen only if nothing else still needs it"),
+            @ApiResponse(responseCode = "400", description = "Tab not found in this restaurant, or tab is not open"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user lacks permission")
+    })
+    public ResponseEntity<Void> cancelAllCardCharges(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id
+    ) {
+        cardChargeService.cancelPendingCharge(currentUser.getRestaurantId(), id);
         return ResponseEntity.noContent().build();
     }
 
@@ -228,7 +297,11 @@ public class TabController {
             @PathVariable UUID paymentId,
             @Valid @RequestBody VoidPaymentRequest request
     ) {
-        return ResponseEntity.ok(tabService.voidPayment(currentUser.getRestaurantId(), id, paymentId, currentUser.getId(), request));
+        // Routed through CardChargeService, not called on tabService directly: a payment linked to
+        // a card charge needs a real gateway refund before the internal ledger is touched, but a
+        // manual/cash/Pix payment just delegates straight through to TabService#voidPayment. See
+        // CardChargeService#voidPayment's javadoc.
+        return ResponseEntity.ok(cardChargeService.voidPayment(currentUser.getRestaurantId(), id, paymentId, currentUser.getId(), request));
     }
 
     @PatchMapping("/{id}/cancel")

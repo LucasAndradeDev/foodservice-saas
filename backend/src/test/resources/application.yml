@@ -75,6 +75,7 @@ app:
   upload-dir: ./target/test-uploads
   frontend-url: http://localhost:5173
   warehouse-frontend-url: http://localhost:5174
+  backend-url: http://localhost:8080
   credential-encryption-key: UsqfoO7W174yBbSHv1H5mVJHWYviXrVASixxnOtAc7g=
   datasource:
     runtime:
@@ -87,6 +88,9 @@ warehouse:
   sso-secret: fVAc+Q0nBv0H5okURqwD6VgUpF/sj+1QOoweA0Ph6npDHm6HkwAAxmjx4ZLF8NGdS/rCnZVtMzv/Y/Zv+z4CdQ==
 
 woovi:
+  base-url: http://localhost:0
+
+mercadopago:
   base-url: http://localhost:0
 
 gemini:

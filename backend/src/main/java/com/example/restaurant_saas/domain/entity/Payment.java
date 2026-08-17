@@ -62,6 +62,14 @@ public class Payment {
     @Column(name = "void_reason", length = 255)
     private String voidReason;
 
+    // Set only by CardChargeService's webhook handler when this payment was confirmed by Mercado
+    // Pago - never settable through the staff-facing RegisterPaymentsRequest DTO, so staff can
+    // never claim a manual entry is a gateway-confirmed card payment. Lets voidPayment trigger a
+    // real refund via the gateway instead of just editing this internal record.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "card_charge_id")
+    private CardCharge cardCharge;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

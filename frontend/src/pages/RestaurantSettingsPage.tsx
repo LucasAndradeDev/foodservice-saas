@@ -30,6 +30,7 @@ import { Link } from 'react-router-dom'
 import { getMyRestaurant, updateMyRestaurant, uploadRestaurantLogo } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
+import { CardIntegrationCard } from '../components/CardIntegrationCard'
 import { PageHeader } from '../components/PageHeader'
 import { PixIntegrationCard } from '../components/PixIntegrationCard'
 import { SectionTabs } from '../components/SectionTabs'
@@ -629,6 +630,8 @@ export function RestaurantSettingsPage() {
                         </GroupLabel>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                           <PixIntegrationCard canManage={canManage} />
+
+                          <CardIntegrationCard canManage={canManage} />
 
                           <Link
                             to="/dining-areas"
