@@ -25,7 +25,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { getMyRestaurant, updateMyRestaurant, uploadRestaurantLogo } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
@@ -60,49 +60,31 @@ const advancedPanelVariants: Variants = {
   },
 }
 
-type Tint = 'gold' | 'wine' | 'sage' | 'teal' | 'brand'
-
-const TINT_STYLES: Record<Tint, { badge: string; pill: string }> = {
-  gold: {
-    badge: 'bg-gold-100 text-gold-700 dark:bg-gold-500/15 dark:text-gold-400',
-    pill: 'bg-gold-100 text-gold-700 dark:bg-gold-500/15 dark:text-gold-400',
-  },
-  wine: {
-    badge: 'bg-wine-100 text-wine-700 dark:bg-wine-500/15 dark:text-wine-400',
-    pill: 'bg-wine-100 text-wine-700 dark:bg-wine-500/15 dark:text-wine-400',
-  },
-  sage: {
-    badge: 'bg-sage-100 text-sage-700 dark:bg-sage-500/15 dark:text-sage-400',
-    pill: 'bg-sage-100 text-sage-700 dark:bg-sage-500/15 dark:text-sage-400',
-  },
-  teal: {
-    badge: 'bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-400',
-    pill: 'bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-400',
-  },
-  brand: {
-    badge: 'bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400',
-    pill: 'bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400',
-  },
-}
-
-function IconBadge({ icon: Icon, tint }: { icon: LucideIcon; tint: Tint }) {
+function IconBadge({ icon: Icon }: { icon: LucideIcon }) {
   return (
-    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${TINT_STYLES[tint].badge}`}>
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
       <Icon className="h-4 w-4" />
     </span>
   )
 }
 
-function GroupLabel({ icon: Icon, tint, children }: { icon: LucideIcon; tint: Tint; children: React.ReactNode }) {
+// Icon chip + bold label + a hairline rule that fills the rest of the row — a single accent
+// color (brand) reused everywhere, so sections read as one family instead of each grabbing its
+// own color the way the old pill badges did.
+function SectionHeading({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
   return (
-    <span
-      className={`mb-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide uppercase ${TINT_STYLES[tint].pill}`}
-    >
-      <Icon className="h-3 w-3" />
-      {children}
-    </span>
+    <div className="mb-4 flex items-center gap-2.5">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <h2 className="text-sm font-semibold text-gray-800 dark:text-white">{children}</h2>
+      <span className="h-px flex-1 bg-gray-100 dark:bg-white/10" />
+    </div>
   )
 }
+
+const FIELD_CARD_CLASS =
+  'rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md dark:border-white/5 dark:bg-stone-900'
 
 export function RestaurantSettingsPage() {
   const { user, updateRestaurant } = useAuth()
@@ -230,13 +212,13 @@ export function RestaurantSettingsPage() {
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col gap-6">
           <div>
-            <GroupLabel icon={Palette} tint="brand">
+            <SectionHeading icon={Palette}>
               Identidade e contato
-            </GroupLabel>
+            </SectionHeading>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+              <div className={FIELD_CARD_CLASS}>
                 <div className="mb-3 flex items-center gap-2.5">
-                  <IconBadge icon={Store} tint="brand" />
+                  <IconBadge icon={Store} />
                   <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Dados do restaurante</p>
                 </div>
 
@@ -266,36 +248,44 @@ export function RestaurantSettingsPage() {
                 <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400" htmlFor="logo">
                   Logo
                 </label>
-                <div className="mb-1 flex flex-col gap-2 sm:flex-row">
-                  <input
-                    id="logo"
-                    type="text"
-                    placeholder="Cole uma URL..."
-                    disabled={!canManage}
-                    maxLength={255}
-                    value={logo}
-                    onChange={(e) => setLogo(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-                  />
-                  {canManage && (
-                    <label className="flex shrink-0 cursor-pointer items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5">
-                      {isUploadingLogo ? 'Enviando...' : 'Enviar do dispositivo'}
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="hidden"
-                        onChange={handleLogoFileChange}
-                        disabled={isUploadingLogo}
-                      />
-                    </label>
-                  )}
+                <div className="flex items-center gap-3">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-50 text-brand-300 ring-2 ring-white shadow dark:bg-brand-500/10 dark:text-brand-700 dark:ring-stone-800">
+                    {logo ? (
+                      <img src={logo} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <Store className="h-5 w-5" />
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
+                    <input
+                      id="logo"
+                      type="text"
+                      placeholder="Cole uma URL..."
+                      disabled={!canManage}
+                      maxLength={255}
+                      value={logo}
+                      onChange={(e) => setLogo(e.target.value)}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                    />
+                    {canManage && (
+                      <label className="flex shrink-0 cursor-pointer items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5">
+                        {isUploadingLogo ? 'Enviando...' : 'Enviar do dispositivo'}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={handleLogoFileChange}
+                          disabled={isUploadingLogo}
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
-                {logo && <img src={logo} alt="" className="h-16 w-16 rounded object-cover" />}
               </div>
 
-              <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+              <div className={FIELD_CARD_CLASS}>
                 <div className="mb-3 flex items-center gap-2.5">
-                  <IconBadge icon={MapPin} tint="brand" />
+                  <IconBadge icon={MapPin} />
                   <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Contato</p>
                 </div>
 
@@ -329,13 +319,13 @@ export function RestaurantSettingsPage() {
           </div>
 
           <div>
-            <GroupLabel icon={QrCode} tint="teal">
+            <SectionHeading icon={QrCode}>
               Cardápio digital
-            </GroupLabel>
+            </SectionHeading>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+              <div className={FIELD_CARD_CLASS}>
                 <div className="mb-3 flex items-center gap-2.5">
-                  <IconBadge icon={QrCode} tint="teal" />
+                  <IconBadge icon={QrCode} />
                   <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Slug do cardápio</p>
                 </div>
 
@@ -377,12 +367,12 @@ export function RestaurantSettingsPage() {
               </div>
 
               {menuUrl && (
-                <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md sm:flex-row dark:border-white/10">
-                  <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-md">
+                <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-brand-100 bg-brand-50/40 p-4 shadow-sm transition-shadow duration-200 hover:shadow-md sm:flex-row dark:border-brand-500/15 dark:bg-brand-500/5">
+                  <div className="rounded-xl bg-white p-3 shadow-md">
                     <QRCodeCanvas value={menuUrl} size={140} />
                   </div>
                   <div className="flex max-w-xs flex-col items-center gap-3">
-                    <p className="text-center text-xs text-gray-400 dark:text-stone-500">
+                    <p className="text-center text-xs text-gray-500 dark:text-stone-400">
                       Use pra divulgar o cardápio nas redes sociais, WhatsApp ou no site. Pra autoatendimento nas mesas,
                       gere o QR de cada mesa em Mesas.
                     </p>
@@ -403,9 +393,9 @@ export function RestaurantSettingsPage() {
                           setLinkCopied(true)
                           setTimeout(() => setLinkCopied(false), 2000)
                         }}
-                        className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:bg-transparent dark:text-stone-300 dark:hover:bg-white/5"
                       >
-                        {linkCopied ? <Check className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
+                        {linkCopied ? <Check className="h-4 w-4 text-sage-600 dark:text-sage-400" /> : <Copy className="h-4 w-4" />}
                         {linkCopied ? 'Copiado!' : 'Copiar'}
                       </button>
                     </div>
@@ -416,14 +406,18 @@ export function RestaurantSettingsPage() {
           </div>
 
           <div>
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
+            <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/5 dark:bg-stone-900">
               <button
                 type="button"
                 onClick={() => setShowAdvanced((prev) => !prev)}
-                className="flex w-full items-center justify-between gap-2 px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-white/5"
+                className={`flex w-full items-center justify-between gap-2 px-6 py-4 text-left transition-colors ${
+                  showAdvanced ? 'bg-brand-50/60 dark:bg-brand-500/5' : 'hover:bg-gray-50 dark:hover:bg-white/5'
+                }`}
               >
-                <span className="flex items-center gap-2">
-                  <SlidersHorizontal className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+                <span className="flex items-center gap-2.5">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                  </span>
                   <h2 className="text-sm font-semibold text-gray-800 dark:text-white">Configurações avançadas</h2>
                 </span>
                 <motion.span
@@ -445,13 +439,13 @@ export function RestaurantSettingsPage() {
                   >
                     <div className="flex flex-col gap-6 p-6">
                       <div>
-                        <GroupLabel icon={Receipt} tint="gold">
+                        <SectionHeading icon={Receipt}>
                           Fiscal e cobrança
-                        </GroupLabel>
+                        </SectionHeading>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                          <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+                          <div className={FIELD_CARD_CLASS}>
                             <div className="mb-1 flex items-center gap-2.5">
-                              <IconBadge icon={Receipt} tint="gold" />
+                              <IconBadge icon={Receipt} />
                               <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Dados fiscais e impressão</p>
                             </div>
                             <p className="mb-3 text-xs text-gray-500 dark:text-stone-400">
@@ -484,9 +478,9 @@ export function RestaurantSettingsPage() {
                             </p>
                           </div>
 
-                          <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+                          <div className={FIELD_CARD_CLASS}>
                             <div className="mb-3 flex items-center gap-2.5">
-                              <IconBadge icon={Percent} tint="gold" />
+                              <IconBadge icon={Percent} />
                               <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Taxa de serviço</p>
                             </div>
 
@@ -525,13 +519,13 @@ export function RestaurantSettingsPage() {
                       </div>
 
                       <div>
-                        <GroupLabel icon={AlertTriangle} tint="wine">
+                        <SectionHeading icon={AlertTriangle}>
                           Alertas operacionais
-                        </GroupLabel>
+                        </SectionHeading>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                          <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+                          <div className={FIELD_CARD_CLASS}>
                             <div className="mb-1 flex items-center gap-2.5">
-                              <IconBadge icon={Flame} tint="wine" />
+                              <IconBadge icon={Flame} />
                               <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Alerta de demora na cozinha</p>
                             </div>
                             <p className="mb-3 text-xs text-gray-500 dark:text-stone-400">
@@ -576,9 +570,9 @@ export function RestaurantSettingsPage() {
                             </div>
                           </div>
 
-                          <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+                          <div className={FIELD_CARD_CLASS}>
                             <div className="mb-1 flex items-center gap-2.5">
-                              <IconBadge icon={BellRing} tint="wine" />
+                              <IconBadge icon={BellRing} />
                               <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Alerta de mesa esquecida</p>
                             </div>
                             <p className="mb-3 text-xs text-gray-500 dark:text-stone-400">
@@ -625,29 +619,31 @@ export function RestaurantSettingsPage() {
                       </div>
 
                       <div>
-                        <GroupLabel icon={Puzzle} tint="sage">
+                        <SectionHeading icon={Puzzle}>
                           Integrações e organização
-                        </GroupLabel>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                          <PixIntegrationCard canManage={canManage} />
+                        </SectionHeading>
+                        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
+                          <div className="flex flex-col gap-4">
+                            <PixIntegrationCard canManage={canManage} />
 
-                          <CardIntegrationCard canManage={canManage} />
-
-                          <Link
-                            to="/dining-areas"
-                            className="flex items-center justify-between rounded-lg border border-gray-200 p-4 text-sm text-gray-700 transition-shadow hover:bg-gray-50 hover:shadow-md dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
-                          >
-                            <span className="flex items-center gap-2.5">
-                              <IconBadge icon={MapPin} tint="sage" />
-                              <span>
-                                <span className="block font-medium">Áreas do salão</span>
-                                <span className="block text-xs text-gray-500 dark:text-stone-400">
-                                  Agrupe as mesas por ambiente (salão, varanda, deck...)
+                            <Link
+                              to="/dining-areas"
+                              className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-5 text-sm text-gray-700 shadow-sm transition-shadow duration-200 hover:bg-gray-50 hover:shadow-md dark:border-white/5 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-white/5"
+                            >
+                              <span className="flex items-center gap-2.5">
+                                <IconBadge icon={MapPin} />
+                                <span>
+                                  <span className="block font-medium">Áreas do salão</span>
+                                  <span className="block text-xs text-gray-500 dark:text-stone-400">
+                                    Agrupe as mesas por ambiente (salão, varanda, deck...)
+                                  </span>
                                 </span>
                               </span>
-                            </span>
-                            <ChevronRight className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />
-                          </Link>
+                              <ChevronRight className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />
+                            </Link>
+                          </div>
+
+                          <CardIntegrationCard canManage={canManage} />
                         </div>
                       </div>
                     </div>
@@ -659,7 +655,7 @@ export function RestaurantSettingsPage() {
         </div>
 
         {error && <p className="mt-6 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
-        {success && <p className="mt-6 text-sm text-green-600 dark:text-green-400">Configurações salvas.</p>}
+        {success && <p className="mt-6 text-sm text-sage-600 dark:text-sage-400">Configurações salvas.</p>}
 
         {canManage && (
           <Button type="submit" disabled={updateMutation.isPending} className="mt-6 w-full lg:w-auto lg:px-8">

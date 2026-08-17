@@ -43,9 +43,9 @@ export function PixIntegrationCard({ canManage }: { canManage: boolean }) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 p-4 transition-shadow hover:shadow-md dark:border-white/10">
+    <div className="rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-white/10 dark:bg-stone-900">
       <div className="mb-1 flex items-center gap-2.5">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sage-100 text-sage-700 dark:bg-sage-500/15 dark:text-sage-400">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
           <QrCode className="h-4 w-4" />
         </span>
         <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Pagamento Pix (Woovi)</p>
@@ -60,7 +60,7 @@ export function PixIntegrationCard({ canManage }: { canManage: boolean }) {
 
       {!isEditing && status?.configured ? (
         <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-sm text-green-700 dark:text-green-400">
+          <span className="flex items-center gap-1.5 text-sm text-sage-700 dark:text-sage-400">
             <CheckCircle2 className="h-4 w-4" />
             Conectado
           </span>
