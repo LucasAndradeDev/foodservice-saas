@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarClock, ShoppingBag, Ticket } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { lookupCep } from '../api/cep'
 import {
   getDeliveryFeeQuote,
   getPublicMenu,
@@ -14,6 +15,7 @@ import {
 } from '../api/publicMenu'
 import { createTableRequest, type TableRequestType } from '../api/tableRequests'
 import { sameComboSelections, type SelectedComboSlot } from '../utils/combos'
+import { loadPublicOrderState, savePublicOrderState } from '../utils/publicOrderStorage'
 import { CartDrawer } from './publicMenu/CartDrawer'
 import { CategoryBanner } from './publicMenu/CategoryBanner'
 import { CategoryNav } from './publicMenu/CategoryNav'
@@ -61,7 +63,7 @@ export function PublicMenuPage() {
   const queryClient = useQueryClient()
   const { theme, toggleTheme } = usePublicMenuTheme()
   const [search, setSearch] = useState('')
-  const [cart, setCart] = useState<CartItem[]>([])
+  const [cart, setCart] = useState<CartItem[]>(() => loadPublicOrderState(slug!, tableId)?.cart ?? [])
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [orderError, setOrderError] = useState<string | null>(null)
   const [orderSuccess, setOrderSuccess] = useState(false)
@@ -78,9 +80,13 @@ export function PublicMenuPage() {
   const [isCardModalOpen, setIsCardModalOpen] = useState(false)
   const [customerPhone, setCustomerPhone] = useState('')
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
-  const [orderMode, setOrderMode] = useState<OrderMode>('DINE_IN')
-  const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddressForm>(emptyDeliveryAddress)
+  const [orderMode, setOrderMode] = useState<OrderMode>(() => loadPublicOrderState(slug!, tableId)?.orderMode ?? 'DINE_IN')
+  const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddressForm>(
+    () => loadPublicOrderState(slug!, tableId)?.deliveryAddress ?? emptyDeliveryAddress(),
+  )
   const [debouncedNeighborhood, setDebouncedNeighborhood] = useState('')
+  const [debouncedZipCode, setDebouncedZipCode] = useState('')
+  const lastCepLookedUpRef = useRef('')
 
   function updateDeliveryAddress(patch: Partial<DeliveryAddressForm>) {
     setDeliveryAddress((prev) => ({ ...prev, ...patch }))
@@ -97,6 +103,36 @@ export function PublicMenuPage() {
     queryFn: () => getDeliveryFeeQuote(slug!, debouncedNeighborhood),
     enabled: !!slug && orderMode === 'DELIVERY' && debouncedNeighborhood.length > 0,
   })
+
+  // Same debounce pattern as the neighborhood lookup above, keyed off the digit-only CEP.
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedZipCode(deliveryAddress.zipCode.replace(/\D/g, '')), 400)
+    return () => window.clearTimeout(timeout)
+  }, [deliveryAddress.zipCode])
+
+  const { data: cepAddress } = useQuery({
+    queryKey: ['cepLookup', debouncedZipCode],
+    queryFn: () => lookupCep(debouncedZipCode),
+    enabled: orderMode === 'DELIVERY' && debouncedZipCode.length === 8,
+  })
+
+  // Autofills street/neighborhood/city once per resolved CEP - the ref (not state) guards this so
+  // the user can still freely edit those fields afterwards without the effect stomping them again.
+  useEffect(() => {
+    if (!cepAddress || lastCepLookedUpRef.current === debouncedZipCode) return
+    lastCepLookedUpRef.current = debouncedZipCode
+    updateDeliveryAddress({
+      street: cepAddress.street,
+      neighborhood: cepAddress.neighborhood,
+      city: cepAddress.city,
+    })
+  }, [cepAddress, debouncedZipCode])
+
+  // Survives reload/back-navigation/tab crash - cleared once the order actually goes through.
+  useEffect(() => {
+    if (!slug) return
+    savePublicOrderState(slug, tableId, { cart, deliveryAddress, orderMode })
+  }, [slug, tableId, cart, deliveryAddress, orderMode])
 
   function toggleCategory(categoryId: string) {
     setCollapsedCategories((prev) => {

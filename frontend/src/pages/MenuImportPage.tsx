@@ -140,7 +140,8 @@ export function MenuImportPage() {
     setCommitResult(null)
   }
 
-  const hasMissingPrice = draftRows.some((row) => !row.price || Number(row.price) <= 0)
+  const missingPriceCount = draftRows.filter((row) => !row.price || Number(row.price) <= 0).length
+  const hasMissingPrice = missingPriceCount > 0
   const canConfirm = draftRows.length > 0 && !hasMissingPrice && !commitMutation.isPending
 
   function handleConfirm() {
@@ -376,7 +377,11 @@ export function MenuImportPage() {
                             step="0.01"
                             value={row.price}
                             onChange={(e) => updateRow(index, 'price', e.target.value)}
-                            className="w-24 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                            className={`w-24 rounded-md border px-2 py-1 text-sm focus:outline-none dark:bg-stone-800 dark:text-white ${
+                              !row.price || Number(row.price) <= 0
+                                ? 'border-wine-400 focus:border-wine-500 dark:border-wine-500/60'
+                                : 'border-gray-300 focus:border-brand-500 dark:border-white/10 dark:focus:border-brand-400'
+                            }`}
                           />
                         </td>
                         <td className="px-4 py-2 text-right align-top">
@@ -400,8 +405,21 @@ export function MenuImportPage() {
 
           {extractError && <p className="mt-4 text-sm text-wine-600 dark:text-wine-400">{extractError}</p>}
 
+          {hasMissingPrice && (
+            <p className="mt-4 text-sm font-medium text-wine-600 dark:text-wine-400">
+              {missingPriceCount === 1
+                ? '1 produto sem preço — role para revisar.'
+                : `${missingPriceCount} produtos sem preço — role para revisar.`}
+            </p>
+          )}
+
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <Button type="button" onClick={handleConfirm} disabled={!canConfirm}>
+            <Button
+              type="button"
+              onClick={handleConfirm}
+              disabled={!canConfirm}
+              title={hasMissingPrice ? 'Preencha o preço de todos os produtos antes de confirmar' : undefined}
+            >
               {commitMutation.isPending ? 'Importando...' : 'Confirmar importação'}
             </Button>
             <button

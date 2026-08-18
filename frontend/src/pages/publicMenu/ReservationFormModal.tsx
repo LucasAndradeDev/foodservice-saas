@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { CheckCircle2 } from 'lucide-react'
+import { Check, CheckCircle2, Copy } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { createPublicReservation, type PublicCreateReservationPayload } from '../../api/reservations'
 import { DateTimePicker } from '../../components/DateTimePicker'
@@ -13,6 +13,7 @@ interface ReservationFormModalProps {
 export function ReservationFormModal({ slug, onClose }: ReservationFormModalProps) {
   const [error, setError] = useState<string | null>(null)
   const [reservationTime, setReservationTime] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const createMutation = useMutation({
     mutationFn: (payload: PublicCreateReservationPayload) => createPublicReservation(slug, payload),
@@ -36,6 +37,12 @@ export function ReservationFormModal({ slug, onClose }: ReservationFormModalProp
     })
   }
 
+  function handleCopy(url: string) {
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   if (createMutation.isSuccess) {
     const reservation = createMutation.data
     const statusUrl = `${window.location.origin}/reservations/status/${reservation.accessToken}`
@@ -52,6 +59,14 @@ export function ReservationFormModal({ slug, onClose }: ReservationFormModalProp
           >
             {statusUrl}
           </a>
+          <button
+            type="button"
+            onClick={() => handleCopy(statusUrl)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+          >
+            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+            {copied ? 'Copiado!' : 'Copiar link'}
+          </button>
         </div>
       </Modal>
     )

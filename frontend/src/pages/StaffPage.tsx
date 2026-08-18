@@ -41,6 +41,12 @@ const STATUS_FILTER_OPTIONS: { value: 'active' | 'inactive' | 'all'; label: stri
   { value: 'all', label: 'Todos' },
 ]
 
+// Waiters are by far the most commonly hired role in bulk, so default to it instead of
+// whatever happens to be first in ASSIGNABLE_ROLES - MANAGER for an OWNER's dropdown.
+function defaultRole(assignableRoles: UserRole[]): UserRole {
+  return assignableRoles.includes('WAITER') ? 'WAITER' : assignableRoles[0]
+}
+
 export function StaffPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -57,7 +63,7 @@ export function StaffPage() {
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<UserRole>(assignableRoles[0])
+  const [role, setRole] = useState<UserRole>(defaultRole(assignableRoles))
   const [active, setActive] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -104,7 +110,7 @@ export function StaffPage() {
   function openCreateForm() {
     setName('')
     setEmail('')
-    setRole(assignableRoles[0])
+    setRole(defaultRole(assignableRoles))
     setError(null)
     setIsCreating(true)
   }

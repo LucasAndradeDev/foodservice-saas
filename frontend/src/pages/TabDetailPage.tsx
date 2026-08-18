@@ -232,6 +232,12 @@ export function TabDetailPage() {
     isSelectingForTransfer,
   ])
 
+  // Add-item is the most repeated action of a shift, so the search box gets focus the moment
+  // the modal opens instead of making staff click or press "/" first every time.
+  useEffect(() => {
+    if (isAddingItem) productSearchInputRef.current?.focus()
+  }, [isAddingItem])
+
   // "/" focuses the product search so staff can jump straight to typing between consecutive
   // tabs, without having to reach for the mouse -- ignored while already typing in a field.
   useEffect(() => {
@@ -967,7 +973,7 @@ export function TabDetailPage() {
               <div className="flex items-center gap-3">
                 {order.printedAt && <span className="text-xs text-gray-400 dark:text-stone-500">Impresso</span>}
                 <Link
-                  to={`/orders/${order.id}/print`}
+                  to={`/orders/${order.id}/print?auto=1`}
                   target="_blank"
                   className="flex items-center gap-1 text-brand-600 hover:underline dark:text-brand-400"
                 >
@@ -1476,6 +1482,7 @@ export function TabDetailPage() {
             <input
               id="discount-value"
               type="number"
+              autoFocus
               required
               min="0.01"
               step="0.01"
@@ -1532,6 +1539,7 @@ export function TabDetailPage() {
             <input
               id="void-payment-reason"
               type="text"
+              autoFocus
               required
               maxLength={255}
               value={voidReason}

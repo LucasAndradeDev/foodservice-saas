@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Receipt, TrendingUp, Wallet } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getPeakHours, getReportSummary } from '../api/reports'
 import { Card } from '../components/Card'
 import { DateRangePicker } from '../components/DateRangePicker'
@@ -12,6 +12,7 @@ import { MonthlyGoalCard } from './reports/MonthlyGoalCard'
 import { PeakHoursHeatmap, PeakHoursHeatmapSkeleton } from './reports/PeakHoursHeatmap'
 import { WaiterPerformanceCard } from './reports/WaiterPerformanceCard'
 import type { PaymentMethod } from '../api/tabs'
+import { loadLastReportsRange, saveLastReportsRange, type ReportsRangePreset } from '../utils/reportsRangeStorage'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -67,8 +68,23 @@ function formatDateShort(value: string, referenceYear: number) {
 
 export function ReportsPage() {
   const today = toDateInputValue(new Date())
-  const [start, setStart] = useState(today)
-  const [end, setEnd] = useState(today)
+  const sevenDaysAgo = new Date()
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
+  const presetRanges = {
+    today: { start: today, end: today },
+    last7days: { start: toDateInputValue(sevenDaysAgo), end: today },
+    thisMonth: { start: toDateInputValue(startOfMonth(new Date())), end: today },
+  } as const
+
+  const initialRange = (() => {
+    const stored = loadLastReportsRange()
+    if (stored?.preset === 'custom' && stored.start && stored.end) return { start: stored.start, end: stored.end }
+    if (stored?.preset && stored.preset in presetRanges) return presetRanges[stored.preset as keyof typeof presetRanges]
+    return presetRanges.today
+  })()
+
+  const [start, setStart] = useState(initialRange.start)
+  const [end, setEnd] = useState(initialRange.end)
 
   const { data, isLoading } = useQuery({
     queryKey: ['reports', 'summary', start, end],
@@ -80,32 +96,21 @@ export function ReportsPage() {
     queryFn: () => getPeakHours(start, end),
   })
 
-  function applyPreset(preset: 'today' | 'last7days' | 'thisMonth') {
-    const now = new Date()
-    if (preset === 'today') {
-      setStart(today)
-      setEnd(today)
-    } else if (preset === 'last7days') {
-      const sevenDaysAgo = new Date(now)
-      sevenDaysAgo.setDate(now.getDate() - 6)
-      setStart(toDateInputValue(sevenDaysAgo))
-      setEnd(today)
-    } else {
-      setStart(toDateInputValue(startOfMonth(now)))
-      setEnd(today)
-    }
+  function applyPreset(preset: keyof typeof presetRanges) {
+    setStart(presetRanges[preset].start)
+    setEnd(presetRanges[preset].end)
   }
 
-  const sevenDaysAgo = new Date()
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
-  const presetRanges = {
-    today: { start: today, end: today },
-    last7days: { start: toDateInputValue(sevenDaysAgo), end: today },
-    thisMonth: { start: toDateInputValue(startOfMonth(new Date())), end: today },
-  } as const
   const activePreset = (Object.keys(presetRanges) as Array<keyof typeof presetRanges>).find(
     (preset) => presetRanges[preset].start === start && presetRanges[preset].end === end,
   )
+
+  // Mirrors the doc'd fix: remember the last chosen range so navigating away and back doesn't
+  // reset a manager who always checks "Este mês" back to "Hoje" every time.
+  useEffect(() => {
+    const preset: ReportsRangePreset = activePreset ?? 'custom'
+    saveLastReportsRange(preset === 'custom' ? { preset, start, end } : { preset })
+  }, [start, end, activePreset])
 
   function presetButtonClasses(preset: keyof typeof presetRanges) {
     return `rounded-lg px-2 py-2 text-center text-xs font-medium leading-tight transition-colors sm:px-3 sm:text-sm sm:whitespace-nowrap ${

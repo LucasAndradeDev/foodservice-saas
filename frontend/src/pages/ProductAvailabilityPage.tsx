@@ -11,7 +11,7 @@ import {
   type AvailabilityWindowPayload,
   type DayOfWeek,
 } from '../api/productAvailability'
-import { getProduct } from '../api/products'
+import { getProduct, listProducts } from '../api/products'
 import { BackLink } from '../components/BackLink'
 import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
@@ -57,6 +57,28 @@ export function ProductAvailabilityPage() {
   const [startTime, setStartTime] = useState('11:00')
   const [endTime, setEndTime] = useState('15:00')
   const [error, setError] = useState<string | null>(null)
+  const [copySourceProductId, setCopySourceProductId] = useState('')
+  const [copySourceWindowId, setCopySourceWindowId] = useState('')
+
+  // Only offered while creating a new window - e.g. a "cardápio de almoço" of 10 dishes sharing
+  // the same window doesn't need each one retyped from scratch.
+  const { data: copySourceCandidates } = useQuery({
+    queryKey: ['products', 'forAvailabilityCopy'],
+    queryFn: () => listProducts({ active: true }),
+    enabled: isCreating,
+  })
+
+  const { data: copySourceWindows } = useQuery({
+    queryKey: ['products', copySourceProductId, 'availabilityWindows'],
+    queryFn: () => listAvailabilityWindows(copySourceProductId),
+    enabled: isCreating && !!copySourceProductId,
+  })
+
+  function applyCopiedWindow(window: AvailabilityWindow) {
+    setDayOfWeek(window.dayOfWeek ?? '')
+    setStartTime(formatTime(window.startTime))
+    setEndTime(formatTime(window.endTime))
+  }
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['products', productId, 'availabilityWindows'] })
@@ -95,6 +117,8 @@ export function ProductAvailabilityPage() {
     setStartTime('11:00')
     setEndTime('15:00')
     setError(null)
+    setCopySourceProductId('')
+    setCopySourceWindowId('')
     setIsCreating(true)
   }
 
@@ -223,6 +247,54 @@ export function ProductAvailabilityPage() {
       {isFormOpen && (
         <Modal title={editingWindow ? 'Editar horário' : 'Novo horário de disponibilidade'} onClose={closeForm}>
           <form onSubmit={handleSubmit}>
+            {!editingWindow && (copySourceCandidates ?? []).some((p) => p.id !== productId) && (
+              <div className="mb-4 rounded-md border border-dashed border-gray-300 bg-gray-50 p-3 dark:border-white/10 dark:bg-white/5">
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="copySourceProduct">
+                  Copiar de outro produto (opcional)
+                </label>
+                <select
+                  id="copySourceProduct"
+                  value={copySourceProductId}
+                  onChange={(e) => {
+                    setCopySourceProductId(e.target.value)
+                    setCopySourceWindowId('')
+                  }}
+                  className="mb-2 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                >
+                  <option value="">Selecione um produto...</option>
+                  {(copySourceCandidates ?? [])
+                    .filter((p) => p.id !== productId)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                </select>
+                {copySourceProductId && (copySourceWindows ?? []).length === 0 && (
+                  <p className="text-xs text-gray-500 dark:text-stone-400">Esse produto não tem horários cadastrados.</p>
+                )}
+                {copySourceProductId && (copySourceWindows ?? []).length > 0 && (
+                  <select
+                    value={copySourceWindowId}
+                    onChange={(e) => {
+                      const windowId = e.target.value
+                      setCopySourceWindowId(windowId)
+                      const sourceWindow = copySourceWindows?.find((w) => w.id === windowId)
+                      if (sourceWindow) applyCopiedWindow(sourceWindow)
+                    }}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                  >
+                    <option value="">Selecione um horário...</option>
+                    {(copySourceWindows ?? []).map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {dayLabel(w.dayOfWeek)}, {formatTime(w.startTime)}–{formatTime(w.endTime)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="dayOfWeek">
               Dia da semana
             </label>

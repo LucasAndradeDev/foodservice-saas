@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useRef } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useRef } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { listOrders } from '../api/orders'
 import { computeDiscountAmount, getTab, markTabReceiptPrinted, type PaymentMethod } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
@@ -18,6 +18,9 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 
 export function TabReceiptPrintPage() {
   const { tabId } = useParams<{ tabId: string }>()
+  const [searchParams] = useSearchParams()
+  const autoPrint = searchParams.get('auto') === '1'
+  const hasAutoPrinted = useRef(false)
   const receiptRef = useRef<HTMLDivElement>(null)
 
   const { data: tab, isLoading: isTabLoading } = useQuery({
@@ -46,6 +49,14 @@ export function TabReceiptPrintPage() {
     applyReceiptPrintPageSize(receiptRef.current)
     window.print()
   }
+
+  useEffect(() => {
+    if (autoPrint && tab && orders && !hasAutoPrinted.current) {
+      hasAutoPrinted.current = true
+      handlePrint()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPrint, tab, orders])
 
   if (isTabLoading || isOrdersLoading || !tab) {
     return (

@@ -961,7 +961,7 @@ export function CheckoutPage() {
                 </div>
               )}
               <Link
-                to={`/tabs/${selectedSummary.tab.id}/print`}
+                to={`/tabs/${selectedSummary.tab.id}/print?auto=1`}
                 target="_blank"
                 className="mb-2 flex w-full items-center justify-center gap-1.5 rounded-md bg-brand-600 px-3 py-2 text-center text-sm font-medium text-white hover:bg-brand-700"
               >

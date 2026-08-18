@@ -99,41 +99,42 @@ export function CartDrawer({
               </button>
             </div>
 
-            {discountAppliedLabel ? (
-              <div className="mb-4 flex items-center gap-2 rounded-xl bg-sage-100 px-3 py-2 text-sm font-medium text-sage-700 dark:bg-sage-500/10 dark:text-sage-400">
-                <Ticket className="h-4 w-4 shrink-0" />
-                <span className="flex-1">{discountAppliedLabel}</span>
-                <button
-                  type="button"
-                  onClick={onRemoveCoupon}
-                  disabled={isRemovingCoupon}
-                  className="shrink-0 text-xs font-semibold text-sage-700 underline hover:text-sage-600 disabled:opacity-50 dark:text-sage-300 dark:hover:text-sage-200"
-                >
-                  Remover
-                </button>
-              </div>
-            ) : (
-              <div className="mb-4">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => onCouponCodeChange(e.target.value.toUpperCase())}
-                    placeholder="Tenho um cupom"
-                    className="flex-1 rounded-xl border border-gray-200 px-3 py-2.5 text-sm uppercase focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500"
-                  />
+            {!showDeliveryFields &&
+              (discountAppliedLabel ? (
+                <div className="mb-4 flex items-center gap-2 rounded-xl bg-sage-100 px-3 py-2 text-sm font-medium text-sage-700 dark:bg-sage-500/10 dark:text-sage-400">
+                  <Ticket className="h-4 w-4 shrink-0" />
+                  <span className="flex-1">{discountAppliedLabel}</span>
                   <button
                     type="button"
-                    onClick={onApplyCoupon}
-                    disabled={!couponCode.trim() || isApplyingCoupon}
-                    className="shrink-0 rounded-xl border border-brand-600 px-4 py-2.5 text-sm font-semibold text-brand-600 hover:bg-brand-50 disabled:opacity-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-white/5"
+                    onClick={onRemoveCoupon}
+                    disabled={isRemovingCoupon}
+                    className="shrink-0 text-xs font-semibold text-sage-700 underline hover:text-sage-600 disabled:opacity-50 dark:text-sage-300 dark:hover:text-sage-200"
                   >
-                    Aplicar
+                    Remover
                   </button>
                 </div>
-                {couponError && <p className="mt-1.5 text-xs text-wine-600 dark:text-wine-400">{couponError}</p>}
-              </div>
-            )}
+              ) : (
+                <div className="mb-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => onCouponCodeChange(e.target.value.toUpperCase())}
+                      placeholder="Tenho um cupom"
+                      className="flex-1 rounded-xl border border-gray-200 px-3 py-2.5 text-sm uppercase focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={onApplyCoupon}
+                      disabled={!couponCode.trim() || isApplyingCoupon}
+                      className="shrink-0 rounded-xl border border-brand-600 px-4 py-2.5 text-sm font-semibold text-brand-600 hover:bg-brand-50 disabled:opacity-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-white/5"
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                  {couponError && <p className="mt-1.5 text-xs text-wine-600 dark:text-wine-400">{couponError}</p>}
+                </div>
+              ))}
 
             {cart.length === 0 ? (
               <p className="pb-4 text-sm text-gray-500 dark:text-stone-400">Seu carrinho está vazio.</p>
@@ -250,6 +251,19 @@ export function CartDrawer({
                   {showDeliveryFields && (
                     <div className="mb-3 space-y-2">
                       <p className="text-xs font-medium text-gray-500 dark:text-stone-400">Endereço de entrega</p>
+                      <div>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={deliveryAddress.zipCode}
+                          onChange={(e) => onDeliveryAddressChange({ zipCode: e.target.value })}
+                          placeholder="CEP"
+                          className={deliveryFieldClass}
+                        />
+                        <p className="mt-1 text-[11px] text-gray-400 dark:text-stone-500">
+                          Informe o CEP e preenchemos rua, bairro e cidade pra você.
+                        </p>
+                      </div>
                       <input
                         type="text"
                         value={deliveryAddress.customerName}
@@ -316,22 +330,13 @@ export function CartDrawer({
                             : `Ainda não entregamos em "${deliveryAddress.neighborhood}".`}
                         </p>
                       )}
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={deliveryAddress.zipCode}
-                          onChange={(e) => onDeliveryAddressChange({ zipCode: e.target.value })}
-                          placeholder="CEP (opcional)"
-                          className={`${deliveryFieldClass} flex-1`}
-                        />
-                        <input
-                          type="text"
-                          value={deliveryAddress.referencePoint}
-                          onChange={(e) => onDeliveryAddressChange({ referencePoint: e.target.value })}
-                          placeholder="Ponto de referência (opcional)"
-                          className={`${deliveryFieldClass} flex-[2]`}
-                        />
-                      </div>
+                      <input
+                        type="text"
+                        value={deliveryAddress.referencePoint}
+                        onChange={(e) => onDeliveryAddressChange({ referencePoint: e.target.value })}
+                        placeholder="Ponto de referência (opcional)"
+                        className={deliveryFieldClass}
+                      />
                     </div>
                   )}
 

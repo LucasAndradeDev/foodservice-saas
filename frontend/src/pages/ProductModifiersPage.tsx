@@ -12,7 +12,7 @@ import {
   type ModifierOptionInput,
   type SelectionType,
 } from '../api/productModifiers'
-import { getProduct } from '../api/products'
+import { getProduct, listProducts } from '../api/products'
 import { BackLink } from '../components/BackLink'
 import { Button } from '../components/Button'
 import { Modal } from '../components/Modal'
@@ -47,6 +47,30 @@ export function ProductModifiersPage() {
   const [required, setRequired] = useState(false)
   const [options, setOptions] = useState<OptionDraft[]>([{ name: '', priceDelta: '0' }])
   const [error, setError] = useState<string | null>(null)
+  const [copySourceProductId, setCopySourceProductId] = useState('')
+  const [copySourceGroupId, setCopySourceGroupId] = useState('')
+
+  // Only offered while creating a new group - other products with modifier groups already set
+  // up are the copy source, so a restaurant with several similar-priced pizzas doesn't have to
+  // retype "Tamanho: P/M/G" from scratch for every one of them.
+  const { data: copySourceCandidates } = useQuery({
+    queryKey: ['products', 'withModifierGroups'],
+    queryFn: () => listProducts({ active: true }),
+    enabled: isCreating,
+  })
+
+  const { data: copySourceGroups } = useQuery({
+    queryKey: ['products', copySourceProductId, 'modifierGroups'],
+    queryFn: () => listModifierGroups(copySourceProductId),
+    enabled: isCreating && !!copySourceProductId,
+  })
+
+  function applyCopiedGroup(group: ModifierGroup) {
+    setName(group.name)
+    setSelectionType(group.selectionType)
+    setRequired(group.required)
+    setOptions(group.options.map((option) => ({ name: option.name, priceDelta: String(option.priceDelta) })))
+  }
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['products', productId, 'modifierGroups'] })
@@ -82,6 +106,8 @@ export function ProductModifiersPage() {
     setRequired(false)
     setOptions([{ name: '', priceDelta: '0' }])
     setError(null)
+    setCopySourceProductId('')
+    setCopySourceGroupId('')
     setIsCreating(true)
   }
 
@@ -243,6 +269,51 @@ export function ProductModifiersPage() {
       {isFormOpen && (
         <Modal title={editingGroup ? 'Editar grupo' : 'Novo grupo de modificador'} onClose={closeForm}>
           <form onSubmit={handleSubmit}>
+            {!editingGroup && (copySourceCandidates ?? []).some((p) => p.hasModifierGroups && p.id !== productId) && (
+              <div className="mb-4 rounded-md border border-dashed border-gray-300 bg-gray-50 p-3 dark:border-white/10 dark:bg-white/5">
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="copySourceProduct">
+                  Copiar de outro produto (opcional)
+                </label>
+                <select
+                  id="copySourceProduct"
+                  value={copySourceProductId}
+                  onChange={(e) => {
+                    setCopySourceProductId(e.target.value)
+                    setCopySourceGroupId('')
+                  }}
+                  className="mb-2 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                >
+                  <option value="">Selecione um produto...</option>
+                  {(copySourceCandidates ?? [])
+                    .filter((p) => p.hasModifierGroups && p.id !== productId)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                </select>
+                {copySourceProductId && (
+                  <select
+                    value={copySourceGroupId}
+                    onChange={(e) => {
+                      const groupId = e.target.value
+                      setCopySourceGroupId(groupId)
+                      const group = copySourceGroups?.find((g) => g.id === groupId)
+                      if (group) applyCopiedGroup(group)
+                    }}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                  >
+                    <option value="">Selecione um grupo...</option>
+                    {(copySourceGroups ?? []).map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="groupName">
               Nome
             </label>

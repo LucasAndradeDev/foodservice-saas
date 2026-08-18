@@ -42,6 +42,10 @@ export function CashRegisterPage() {
     queryFn: () => listCashRegisterSessions(historyRange ?? undefined),
   })
 
+  const lastClosedSession = (sessions ?? [])
+    .filter((session) => session.status === 'CLOSED' && session.closedAt)
+    .sort((a, b) => new Date(b.closedAt!).getTime() - new Date(a.closedAt!).getTime())[0]
+
   const [isOpeningForm, setIsOpeningForm] = useState(false)
   const [openingAmount, setOpeningAmount] = useState('')
   const [isWithdrawalForm, setIsWithdrawalForm] = useState(false)
@@ -362,12 +366,24 @@ export function CashRegisterPage() {
       {isOpeningForm && (
         <Modal title="Abrir caixa" onClose={() => setIsOpeningForm(false)}>
           <form onSubmit={handleOpenSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="openingAmount">
-              Valor inicial em dinheiro
-            </label>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="openingAmount">
+                Valor inicial em dinheiro
+              </label>
+              {lastClosedSession && lastClosedSession.countedAmount !== null && (
+                <button
+                  type="button"
+                  onClick={() => setOpeningAmount(String(lastClosedSession.countedAmount))}
+                  className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+                >
+                  Usar valor do último fechamento
+                </button>
+              )}
+            </div>
             <input
               id="openingAmount"
               type="number"
+              autoFocus
               required
               min="0"
               step="0.01"
@@ -395,6 +411,7 @@ export function CashRegisterPage() {
             <input
               id="withdrawalAmount"
               type="number"
+              autoFocus
               required
               min="0.01"
               step="0.01"
@@ -437,12 +454,22 @@ export function CashRegisterPage() {
               </span>
             </p>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="countedAmount">
-              Valor contado na gaveta
-            </label>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="countedAmount">
+                Valor contado na gaveta
+              </label>
+              <button
+                type="button"
+                onClick={() => setCountedAmount(String(currentSession.expectedAmount))}
+                className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
+              >
+                Usar valor esperado
+              </button>
+            </div>
             <input
               id="countedAmount"
               type="number"
+              autoFocus
               required
               min="0"
               step="0.01"

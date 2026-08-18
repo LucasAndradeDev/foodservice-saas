@@ -21,6 +21,8 @@ export function PublicReservationStatusPage() {
     queryFn: () => getReservationByToken(token!),
     enabled: !!token,
     retry: false,
+    refetchInterval: 3000,
+    refetchIntervalInBackground: true,
   })
 
   const cancelMutation = useMutation({
