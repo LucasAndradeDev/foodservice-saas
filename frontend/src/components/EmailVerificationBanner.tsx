@@ -66,40 +66,42 @@ export function EmailVerificationBanner() {
           className="overflow-hidden"
         >
           {justVerified ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-green-200 bg-green-50 px-4 py-2.5 sm:px-6 dark:border-green-500/20 dark:bg-green-500/10">
-              <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
-              <p className="text-sm text-green-900 dark:text-green-300">
+            <div className="flex items-start gap-3 border-b border-green-200 bg-green-50 px-4 py-2.5 sm:px-6 dark:border-green-500/20 dark:bg-green-500/10">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
+              <p className="flex-1 text-sm text-green-900 dark:text-green-300">
                 <span className="font-semibold">Email confirmado!</span> Sua conta agora tem acesso total.
               </p>
               <button
                 type="button"
                 onClick={() => setJustVerified(false)}
                 aria-label="Fechar"
-                className="ml-auto shrink-0 rounded-md p-1 text-green-700/60 transition hover:bg-green-100 hover:text-green-800 dark:text-green-400/60 dark:hover:bg-white/5 dark:hover:text-green-300"
+                className="shrink-0 rounded-md p-1 text-green-700/60 transition hover:bg-green-100 hover:text-green-800 dark:text-green-400/60 dark:hover:bg-white/5 dark:hover:text-green-300"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
           ) : (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-brand-200 bg-brand-50 px-4 py-2.5 sm:px-6 dark:border-brand-500/20 dark:bg-brand-500/10">
-              <Mail className="h-4 w-4 shrink-0 text-brand-700 dark:text-brand-400" />
-              <p className="text-sm text-brand-900 dark:text-brand-200">
-                <span className="font-semibold">Confirme seu email.</span>{' '}
-                {feedback ?? `Enviamos um link de confirmação para ${user?.email ?? 'seu email'}.`}
-              </p>
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={isSending}
-                className="shrink-0 text-sm font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 transition hover:text-brand-800 disabled:opacity-50 dark:text-brand-400 dark:decoration-brand-500/40 dark:hover:text-brand-300"
-              >
-                {isSending ? 'Enviando...' : 'Reenviar email'}
-              </button>
+            <div className="flex items-start gap-3 border-b border-brand-200 bg-brand-50 px-4 py-2.5 sm:px-6 dark:border-brand-500/20 dark:bg-brand-500/10">
+              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-brand-700 dark:text-brand-400" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-brand-900 dark:text-brand-200">
+                  <span className="font-semibold">Confirme seu email.</span>{' '}
+                  {feedback ?? `Enviamos um link de confirmação para ${user?.email ?? 'seu email'}.`}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={isSending}
+                  className="mt-1 text-sm font-semibold text-brand-700 underline decoration-brand-300 underline-offset-2 transition hover:text-brand-800 disabled:opacity-50 dark:text-brand-400 dark:decoration-brand-500/40 dark:hover:text-brand-300"
+                >
+                  {isSending ? 'Enviando...' : 'Reenviar email'}
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsDismissed(true)}
                 aria-label="Fechar"
-                className="ml-auto shrink-0 rounded-md p-1 text-brand-700/60 transition hover:bg-brand-100 hover:text-brand-800 dark:text-brand-400/60 dark:hover:bg-white/5 dark:hover:text-brand-300"
+                className="shrink-0 rounded-md p-1 text-brand-700/60 transition hover:bg-brand-100 hover:text-brand-800 dark:text-brand-400/60 dark:hover:bg-white/5 dark:hover:text-brand-300"
               >
                 <X className="h-4 w-4" />
               </button>

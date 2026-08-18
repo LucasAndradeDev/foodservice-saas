@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion, type PanInfo } from 'framer-motion'
 import {
   AlertTriangle,
+  ArrowRight,
   Bell,
   CalendarClock,
   CheckCircle2,
@@ -14,6 +15,7 @@ import {
   Move,
   Plus,
   Table2,
+  Truck,
   Users,
   UtensilsCrossed,
   Wallet,
@@ -40,6 +42,7 @@ import {
   type TableStatus,
 } from '../api/tables'
 import { listDiningAreas } from '../api/diningAreas'
+import { DELIVERY_STATUS_LABELS } from '../api/deliveries'
 import { listTabs, openTab, type Tab } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
@@ -203,7 +206,17 @@ export function TablesPage() {
     return map
   }, [openTabs])
 
-  const counterTabs = useMemo(() => openTabs?.filter((tab) => tab.tables.length === 0) ?? [], [openTabs])
+  // Both are "no table" tabs, but a delivery order (has deliveryStatus) isn't a Balcao order - it
+  // already has its own operational home (DeliveryPage), so it gets a separate section here too
+  // instead of being lumped in with Balcao.
+  const counterTabs = useMemo(
+    () => openTabs?.filter((tab) => tab.tables.length === 0 && !tab.deliveryStatus) ?? [],
+    [openTabs],
+  )
+  const deliveryTabs = useMemo(
+    () => openTabs?.filter((tab) => tab.tables.length === 0 && tab.deliveryStatus) ?? [],
+    [openTabs],
+  )
 
   const statusCounts = useMemo(() => {
     const counts: Record<TableStatus, number> = { FREE: 0, OCCUPIED: 0, CLOSING: 0, RESERVED: 0 }
@@ -731,6 +744,30 @@ export function TablesPage() {
         </div>
       )}
 
+      {deliveryTabs.length > 0 && (
+        <div className="mb-6">
+          <p className="mb-2 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">
+            Entregas abertas
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {deliveryTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => navigate(`/tabs/${tab.id}`)}
+                className="flex items-center gap-2.5 rounded-full border border-gray-200 bg-white py-2 pl-2 pr-4 text-sm font-medium text-gray-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-stone-900 dark:text-stone-300"
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-400">
+                  <Truck className="h-3.5 w-3.5" />
+                </span>
+                {tab.deliveryStatus && DELIVERY_STATUS_LABELS[tab.deliveryStatus]}
+                <span className="text-gray-400 dark:text-stone-500">· há {minutesSince(tab.openedAt)} min</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
       {tables && tables.length === 0 && (
@@ -899,26 +936,49 @@ export function TablesPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="tableAreaCreate">
+            {areas && areas.length === 0 && (
+              <div className="mb-4 rounded-lg border border-dashed border-brand-200 bg-brand-50/60 p-3.5 dark:border-brand-500/30 dark:bg-brand-500/10">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm dark:bg-stone-900 dark:text-brand-400">
+                    <Layers className="h-3.5 w-3.5" />
+                  </span>
+                  <p className="text-xs leading-relaxed text-brand-800 dark:text-brand-300">
+                    Você pode organizar as mesas por área do salão (ex.: Salão principal, Varanda, Deck) — não é
+                    obrigatório, mas ajuda a visualizar e mover mesas depois.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreating(false)
+                    navigate('/dining-areas')
+                  }}
+                  className="mx-auto mt-2.5 flex items-center justify-center gap-1.5 rounded-lg border border-brand-300 bg-white px-3.5 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 active:scale-[0.98] sm:px-2.5 sm:py-1 sm:text-xs dark:border-brand-500/30 dark:bg-stone-900 dark:text-brand-400 dark:hover:bg-brand-500/10"
+                >
+                  Criar áreas primeiro
+                  <ArrowRight className="h-4 w-4 sm:h-3 sm:w-3" />
+                </button>
+              </div>
+            )}
+
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">
               Área <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
             </label>
-            <select
-              id="tableAreaCreate"
-              value={createAreaId}
-              onChange={(e) => setCreateAreaId(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-            >
-              <option value="">Sem área</option>
-              {areas?.map((area) => (
-                <option key={area.id} value={area.id}>
-                  {area.name}
-                </option>
-              ))}
-            </select>
+            <div className="mb-4">
+              <Dropdown
+                value={createAreaId}
+                options={[{ value: '', label: 'Sem área' }, ...(areas ?? []).map((area) => ({ value: area.id, label: area.name }))]}
+                onChange={setCreateAreaId}
+                fullWidth
+                panelClassName="w-full"
+                mobileTitle="Escolher área"
+                className="py-3 text-base sm:py-2 sm:text-sm"
+              />
+            </div>
 
             {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <Button type="submit" disabled={createMutation.isPending} className="w-full">
+            <Button type="submit" disabled={createMutation.isPending} className="w-full py-3 text-base sm:py-2 sm:text-sm">
               Salvar
             </Button>
           </form>
@@ -1044,23 +1104,18 @@ export function TablesPage() {
                     </p>
                   )}
 
-                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editArea">
-                    Área
-                  </label>
-                  <select
-                    id="editArea"
-                    disabled={!canManage}
-                    value={editAreaId}
-                    onChange={(e) => setEditAreaId(e.target.value)}
-                    className="mb-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-                  >
-                    <option value="">Sem área</option>
-                    {areas?.map((area) => (
-                      <option key={area.id} value={area.id}>
-                        {area.name}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">Área</label>
+                  <div className="mb-3">
+                    <Dropdown
+                      value={editAreaId}
+                      options={[{ value: '', label: 'Sem área' }, ...(areas ?? []).map((area) => ({ value: area.id, label: area.name }))]}
+                      onChange={setEditAreaId}
+                      disabled={!canManage}
+                      fullWidth
+                      panelClassName="w-full"
+                      mobileTitle="Escolher área"
+                    />
+                  </div>
 
                   {canManage && (
                     <label className="mb-3 flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">

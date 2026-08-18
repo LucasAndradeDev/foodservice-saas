@@ -1,6 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { CheckCircle2, Flame, LayoutDashboard, Receipt, TrendingUp, UtensilsCrossed, Wallet, type LucideIcon } from 'lucide-react'
+import {
+  ArrowRight,
+  CheckCircle2,
+  Flame,
+  LayoutDashboard,
+  Receipt,
+  Sparkles,
+  Table2,
+  TrendingUp,
+  UtensilsCrossed,
+  Wallet,
+  type LucideIcon,
+} from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { getDashboard } from '../api/dashboard'
 import { getReportSummary } from '../api/reports'
 import { useAuth } from '../auth/AuthContext'
@@ -41,6 +54,70 @@ function SimpleStatTile({ icon: Icon, label, value, accentClassName }: SimpleSta
   )
 }
 
+interface FirstStepProps {
+  icon: LucideIcon
+  title: string
+  description: string
+  to: string
+  ctaLabel: string
+}
+
+function FirstStep({ icon: Icon, title, description, to, ctaLabel }: FirstStepProps) {
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:bg-stone-900/60">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
+          <Icon className="h-4.5 w-4.5" />
+        </span>
+        <div>
+          <p className="text-sm font-medium text-gray-800 dark:text-white">{title}</p>
+          <p className="text-sm text-gray-500 dark:text-stone-400">{description}</p>
+        </div>
+      </div>
+      <Link
+        to={to}
+        className="flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 sm:justify-start"
+      >
+        {ctaLabel}
+        <ArrowRight className="h-4 w-4" />
+      </Link>
+    </div>
+  )
+}
+
+function GettingStartedCard() {
+  return (
+    <motion.div
+      variants={itemVariants}
+      className="mb-6 rounded-2xl border border-dashed border-brand-300 bg-brand-50/40 p-5 dark:border-brand-500/30 dark:bg-brand-500/5"
+    >
+      <div className="mb-4 flex items-center gap-2">
+        <Sparkles className="h-5 w-5 text-brand-700 dark:text-brand-400" />
+        <h2 className="text-base font-semibold text-gray-800 dark:text-white">Vamos configurar seu restaurante</h2>
+      </div>
+      <p className="mb-4 text-sm text-gray-500 dark:text-stone-400">
+        Ainda não encontramos mesas cadastradas — comece por aqui pra deixar tudo pronto pra receber os primeiros pedidos.
+      </p>
+      <div className="space-y-3">
+        <FirstStep
+          icon={UtensilsCrossed}
+          title="Cadastre seu cardápio"
+          description="Importe automaticamente de um PDF ou foto do cardápio, ou cadastre os produtos manualmente."
+          to="/products/import"
+          ctaLabel="Importar cardápio"
+        />
+        <FirstStep
+          icon={Table2}
+          title="Cadastre as mesas do salão"
+          description="Organize as mesas por área para começar a abrir comandas."
+          to="/tables"
+          ctaLabel="Cadastrar mesas"
+        />
+      </div>
+    </motion.div>
+  )
+}
+
 export function DashboardPage() {
   const { user } = useAuth()
   const canSeeTrends = user?.role === 'OWNER' || user?.role === 'MANAGER'
@@ -71,6 +148,8 @@ export function DashboardPage() {
       >
         <PageHeader icon={LayoutDashboard} title="Dashboard" />
       </motion.div>
+
+      {canSeeTrends && data.freeTables === 0 && data.occupiedTables === 0 && <GettingStartedCard />}
 
       <motion.div
         variants={itemVariants}

@@ -21,6 +21,9 @@ interface DropdownProps<T extends string> {
   fullWidth?: boolean
   /** Heading shown in the full-screen mobile sheet. */
   mobileTitle?: string
+  disabled?: boolean
+  /** Extra classes appended to the trigger button, e.g. to bump touch-target size on mobile. */
+  className?: string
 }
 
 export function Dropdown<T extends string>({
@@ -32,6 +35,8 @@ export function Dropdown<T extends string>({
   compact = false,
   fullWidth = false,
   mobileTitle,
+  disabled = false,
+  className = '',
 }: DropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -54,11 +59,12 @@ export function Dropdown<T extends string>({
     <div className={`relative ${fullWidth ? 'block w-full' : 'inline-block'}`} ref={containerRef}>
       <button
         type="button"
+        disabled={disabled}
         onClick={() => setIsOpen((open) => !open)}
         className={
           compact
-            ? 'flex w-full items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:py-1 sm:text-[11px] dark:border-white/10 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-white/10'
-            : `flex w-full items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-white/10 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-white/5 ${fullWidth ? '' : 'sm:w-auto'}`
+            ? `flex w-full items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-default disabled:bg-gray-50 disabled:text-gray-500 disabled:hover:bg-gray-50 sm:py-1 sm:text-[11px] dark:border-white/10 dark:bg-stone-800 dark:text-stone-200 dark:hover:bg-white/10 dark:disabled:bg-white/5 dark:disabled:text-stone-500 dark:disabled:hover:bg-white/5 ${className}`
+            : `flex w-full items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-default disabled:bg-gray-50 disabled:text-gray-500 disabled:hover:bg-gray-50 dark:border-white/10 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-white/5 dark:disabled:bg-white/5 dark:disabled:text-stone-500 dark:disabled:hover:bg-white/5 ${fullWidth ? '' : 'sm:w-auto'} ${className}`
         }
       >
         {TriggerIcon && <TriggerIcon className={compact ? 'h-3 w-3 shrink-0 text-gray-400 dark:text-stone-500' : 'h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500'} />}
