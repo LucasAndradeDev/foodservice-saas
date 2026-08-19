@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext'
 import { ActionMenu, type ActionMenuEntry } from '../components/ActionMenu'
 import { Badge } from '../components/Badge'
 import { Card } from '../components/Card'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { PageHeader } from '../components/PageHeader'
 import { SectionTabs } from '../components/SectionTabs'
 import { Table, TableHead, TableRow } from '../components/Table'
@@ -28,6 +29,7 @@ export function CombosPage() {
   })
 
   const [listError, setListError] = useState<string | null>(null)
+  const [comboToDelete, setComboToDelete] = useState<Product | null>(null)
 
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof updateProduct>[1] }) =>
@@ -49,11 +51,15 @@ export function CombosPage() {
   }
 
   function handleDelete(combo: Product) {
-    const confirmed = window.confirm(`Excluir o combo "${combo.name}"? Essa ação não pode ser desfeita.`)
-    if (confirmed) {
+    setComboToDelete(combo)
+  }
+
+  function confirmDelete() {
+    if (comboToDelete) {
       setListError(null)
-      deleteMutation.mutate(combo.id)
+      deleteMutation.mutate(comboToDelete.id)
     }
+    setComboToDelete(null)
   }
 
   return (
@@ -164,6 +170,18 @@ export function CombosPage() {
             </Table>
           </div>
         </>
+      )}
+
+      {comboToDelete && (
+        <ConfirmDialog
+          title="Excluir combo"
+          message={`Excluir o combo "${comboToDelete.name}"? Essa ação não pode ser desfeita.`}
+          confirmLabel="Excluir"
+          cancelLabel="Voltar"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setComboToDelete(null)}
+        />
       )}
     </div>
   )

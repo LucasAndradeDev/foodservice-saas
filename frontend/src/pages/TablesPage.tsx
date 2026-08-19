@@ -46,6 +46,7 @@ import { listTabs, openTab, type Tab } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
 import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
@@ -305,6 +306,7 @@ export function TablesPage() {
   const [editActive, setEditActive] = useState(true)
   const [editAreaId, setEditAreaId] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
 
   useEffect(() => {
     if (!isMoreMenuOpen) return
@@ -411,13 +413,15 @@ export function TablesPage() {
 
   function handleDelete() {
     if (!selectedTable) return
-    const confirmed = window.confirm(
-      `Excluir a Mesa ${selectedTable.number}? Essa ação não pode ser desfeita.`,
-    )
-    if (confirmed) {
+    setIsDeleteConfirmOpen(true)
+  }
+
+  function confirmDelete() {
+    if (selectedTable) {
       setError(null)
       deleteMutation.mutate(selectedTable.id)
     }
+    setIsDeleteConfirmOpen(false)
   }
 
   function handleCreateSubmit(event: FormEvent) {
@@ -1220,6 +1224,19 @@ export function TablesPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {isDeleteConfirmOpen && selectedTable && (
+        <ConfirmDialog
+          title="Excluir mesa"
+          message={`Excluir a Mesa ${selectedTable.number}? Essa ação não pode ser desfeita.`}
+          confirmLabel="Excluir"
+          cancelLabel="Voltar"
+          danger
+          isLoading={deleteMutation.isPending}
+          onConfirm={confirmDelete}
+          onCancel={() => setIsDeleteConfirmOpen(false)}
+        />
+      )}
     </div>
   )
 }

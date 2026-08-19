@@ -14,6 +14,7 @@ import {
 import { getProduct, listProducts } from '../api/products'
 import { BackLink } from '../components/BackLink'
 import { Button } from '../components/Button'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Modal } from '../components/Modal'
 
 const DAY_OPTIONS: { value: DayOfWeek | ''; label: string }[] = [
@@ -59,6 +60,7 @@ export function ProductAvailabilityPage() {
   const [error, setError] = useState<string | null>(null)
   const [copySourceProductId, setCopySourceProductId] = useState('')
   const [copySourceWindowId, setCopySourceWindowId] = useState('')
+  const [windowToDelete, setWindowToDelete] = useState<AvailabilityWindow | null>(null)
 
   // Only offered while creating a new window - e.g. a "cardápio de almoço" of 10 dishes sharing
   // the same window doesn't need each one retyped from scratch.
@@ -158,12 +160,14 @@ export function ProductAvailabilityPage() {
   }
 
   function confirmAndDelete(availabilityWindow: AvailabilityWindow) {
-    const confirmed = globalThis.confirm(
-      `Excluir a janela "${dayLabel(availabilityWindow.dayOfWeek)}, ${formatTime(availabilityWindow.startTime)}–${formatTime(availabilityWindow.endTime)}"?`,
-    )
-    if (confirmed) {
-      deleteMutation.mutate(availabilityWindow.id)
+    setWindowToDelete(availabilityWindow)
+  }
+
+  function confirmDelete() {
+    if (windowToDelete) {
+      deleteMutation.mutate(windowToDelete.id)
     }
+    setWindowToDelete(null)
   }
 
   const isFormOpen = isCreating || editingWindow !== null
@@ -347,6 +351,18 @@ export function ProductAvailabilityPage() {
             </Button>
           </form>
         </Modal>
+      )}
+
+      {windowToDelete && (
+        <ConfirmDialog
+          title="Excluir janela de disponibilidade"
+          message={`Excluir a janela "${dayLabel(windowToDelete.dayOfWeek)}, ${formatTime(windowToDelete.startTime)}–${formatTime(windowToDelete.endTime)}"?`}
+          confirmLabel="Excluir"
+          cancelLabel="Voltar"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setWindowToDelete(null)}
+        />
       )}
     </div>
   )

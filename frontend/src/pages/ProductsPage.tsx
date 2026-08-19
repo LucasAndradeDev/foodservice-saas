@@ -38,6 +38,7 @@ import { useAuth } from '../auth/AuthContext'
 import { ActionMenu, type ActionMenuEntry } from '../components/ActionMenu'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Dropdown } from '../components/Dropdown'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
@@ -76,6 +77,7 @@ export function ProductsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isBulkProcessing, setIsBulkProcessing] = useState(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
+  const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false)
 
   const categoryFilterOptions = [
     { value: '', label: 'Todas as categorias' },
@@ -115,6 +117,7 @@ export function ProductsPage() {
   const [error, setError] = useState<string | null>(null)
   const [listError, setListError] = useState<string | null>(null)
   const [showNoCategoryNotice, setShowNoCategoryNotice] = useState(false)
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [isUploadingGalleryPhoto, setIsUploadingGalleryPhoto] = useState(false)
 
@@ -223,11 +226,15 @@ export function ProductsPage() {
   }
 
   function handleDelete(product: Product) {
-    const confirmed = window.confirm(`Excluir o produto "${product.name}"? Essa ação não pode ser desfeita.`)
-    if (confirmed) {
+    setProductToDelete(product)
+  }
+
+  function confirmDelete() {
+    if (productToDelete) {
       setListError(null)
-      deleteMutation.mutate(product.id)
+      deleteMutation.mutate(productToDelete.id)
     }
+    setProductToDelete(null)
   }
 
   function toggleSelect(id: string) {
@@ -261,15 +268,18 @@ export function ProductsPage() {
     }
   }
 
-  async function handleBulkDelete() {
-    const ids = Array.from(selectedIds)
-    const confirmed = window.confirm(`Excluir ${ids.length} produtos selecionados? Essa ação não pode ser desfeita.`)
-    if (!confirmed) return
+  function handleBulkDelete() {
+    if (selectedIds.size === 0) return
+    setIsBulkDeleteConfirmOpen(true)
+  }
 
+  async function confirmBulkDelete() {
+    const ids = Array.from(selectedIds)
     setBulkError(null)
     setIsBulkProcessing(true)
     const results = await Promise.allSettled(ids.map((id) => deleteProduct(id)))
     setIsBulkProcessing(false)
+    setIsBulkDeleteConfirmOpen(false)
     setSelectedIds(new Set())
     queryClient.invalidateQueries({ queryKey: ['products'] })
     const failed = results.filter((result) => result.status === 'rejected').length
@@ -735,6 +745,31 @@ export function ProductsPage() {
             </Button>
           </form>
         </Modal>
+      )}
+
+      {productToDelete && (
+        <ConfirmDialog
+          title="Excluir produto"
+          message={`Excluir o produto "${productToDelete.name}"? Essa ação não pode ser desfeita.`}
+          confirmLabel="Excluir"
+          cancelLabel="Voltar"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setProductToDelete(null)}
+        />
+      )}
+
+      {isBulkDeleteConfirmOpen && (
+        <ConfirmDialog
+          title="Excluir produtos selecionados"
+          message={`Excluir ${selectedIds.size} produtos selecionados? Essa ação não pode ser desfeita.`}
+          confirmLabel="Excluir"
+          cancelLabel="Voltar"
+          danger
+          isLoading={isBulkProcessing}
+          onConfirm={confirmBulkDelete}
+          onCancel={() => setIsBulkDeleteConfirmOpen(false)}
+        />
       )}
     </div>
   )

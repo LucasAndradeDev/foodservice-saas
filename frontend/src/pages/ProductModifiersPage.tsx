@@ -15,6 +15,7 @@ import {
 import { getProduct, listProducts } from '../api/products'
 import { BackLink } from '../components/BackLink'
 import { Button } from '../components/Button'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Modal } from '../components/Modal'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -49,6 +50,7 @@ export function ProductModifiersPage() {
   const [error, setError] = useState<string | null>(null)
   const [copySourceProductId, setCopySourceProductId] = useState('')
   const [copySourceGroupId, setCopySourceGroupId] = useState('')
+  const [groupToDelete, setGroupToDelete] = useState<ModifierGroup | null>(null)
 
   // Only offered while creating a new group - other products with modifier groups already set
   // up are the copy source, so a restaurant with several similar-priced pizzas doesn't have to
@@ -160,10 +162,14 @@ export function ProductModifiersPage() {
   }
 
   function handleDelete(group: ModifierGroup) {
-    const confirmed = window.confirm(`Excluir o grupo "${group.name}"? Essa ação não pode ser desfeita.`)
-    if (confirmed) {
-      deleteMutation.mutate(group.id)
+    setGroupToDelete(group)
+  }
+
+  function confirmDelete() {
+    if (groupToDelete) {
+      deleteMutation.mutate(groupToDelete.id)
     }
+    setGroupToDelete(null)
   }
 
   const isFormOpen = isCreating || editingGroup !== null
@@ -427,6 +433,18 @@ export function ProductModifiersPage() {
             </Button>
           </form>
         </Modal>
+      )}
+
+      {groupToDelete && (
+        <ConfirmDialog
+          title="Excluir grupo"
+          message={`Excluir o grupo "${groupToDelete.name}"? Essa ação não pode ser desfeita.`}
+          confirmLabel="Excluir"
+          cancelLabel="Voltar"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setGroupToDelete(null)}
+        />
       )}
     </div>
   )

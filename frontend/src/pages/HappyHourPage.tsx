@@ -49,6 +49,7 @@ import { listCategories } from '../api/categories'
 import type { DayOfWeek } from '../api/productAvailability'
 import type { DiscountType } from '../api/orders'
 import { Button } from '../components/Button'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
 import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
@@ -187,6 +188,7 @@ export function HappyHourPage() {
   const [discountValue, setDiscountValue] = useState('20')
   const [active, setActive] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [ruleToDelete, setRuleToDelete] = useState<HappyHourRule | null>(null)
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['happyHourRules'] })
@@ -299,12 +301,14 @@ export function HappyHourPage() {
   }
 
   function confirmAndDelete(rule: HappyHourRule) {
-    const confirmed = globalThis.confirm(
-      `Excluir a regra de happy hour "${rule.categoryName}, ${daysLabel(rule.daysOfWeek)} ${formatTime(rule.startTime)}–${formatTime(rule.endTime)}"?`,
-    )
-    if (confirmed) {
-      deleteMutation.mutate(rule.id)
+    setRuleToDelete(rule)
+  }
+
+  function confirmDelete() {
+    if (ruleToDelete) {
+      deleteMutation.mutate(ruleToDelete.id)
     }
+    setRuleToDelete(null)
   }
 
   const isFormOpen = isCreating || editingRule !== null
@@ -558,6 +562,18 @@ export function HappyHourPage() {
             </Button>
           </form>
         </Modal>
+      )}
+
+      {ruleToDelete && (
+        <ConfirmDialog
+          title="Excluir regra de happy hour"
+          message={`Excluir a regra de happy hour "${ruleToDelete.categoryName}, ${daysLabel(ruleToDelete.daysOfWeek)} ${formatTime(ruleToDelete.startTime)}–${formatTime(ruleToDelete.endTime)}"?`}
+          confirmLabel="Excluir"
+          cancelLabel="Voltar"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setRuleToDelete(null)}
+        />
       )}
     </div>
   )
