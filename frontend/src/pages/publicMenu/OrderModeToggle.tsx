@@ -1,4 +1,5 @@
-import { Bike, UtensilsCrossed } from 'lucide-react'
+import { UtensilsCrossed } from 'lucide-react'
+import { DeliveryRiderIcon } from '../../components/DeliveryRiderIcon'
 
 export type OrderMode = 'DINE_IN' | 'DELIVERY'
 
@@ -31,7 +32,7 @@ export function OrderModeToggle({ mode, onChange }: OrderModeToggleProps) {
             : 'text-gray-500 dark:text-stone-400'
         }`}
       >
-        <Bike className="h-4 w-4" />
+        <DeliveryRiderIcon className="h-4 w-4" />
         Delivery
       </button>
     </div>

@@ -1,6 +1,7 @@
 package com.example.restaurant_saas.service;
 
 import com.example.restaurant_saas.config.TenantActivator;
+import com.example.restaurant_saas.domain.entity.DeliveryDetails;
 import com.example.restaurant_saas.domain.entity.PixCharge;
 import com.example.restaurant_saas.domain.entity.PixIntegration;
 import com.example.restaurant_saas.domain.entity.Restaurant;
@@ -16,6 +17,7 @@ import com.example.restaurant_saas.dto.response.PixChargeResponse;
 import com.example.restaurant_saas.dto.response.PixIntegrationStatusResponse;
 import com.example.restaurant_saas.exception.PixGatewayException;
 import com.example.restaurant_saas.repository.CardChargeRepository;
+import com.example.restaurant_saas.repository.DeliveryDetailsRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.PaymentRepository;
 import com.example.restaurant_saas.repository.PixChargeRepository;
@@ -50,6 +52,7 @@ public class PixChargeService {
     private final RestaurantRepository restaurantRepository;
     private final RestaurantTableRepository restaurantTableRepository;
     private final OrderItemRepository orderItemRepository;
+    private final DeliveryDetailsRepository deliveryDetailsRepository;
     private final CredentialEncryptionService credentialEncryptionService;
     private final WooviApiClient wooviApiClient;
     private final WooviWebhookSignatureVerifier signatureVerifier;
@@ -164,6 +167,41 @@ public class PixChargeService {
             // MANAGER callers. Always the full remaining balance too - the digital menu has no split
             // UI of its own.
             return createCharge(restaurant.getId(), tab.getId(), false, null, null);
+        } finally {
+            tenantActivator.deactivate();
+        }
+    }
+
+    /**
+     * Same as {@link #createChargeForTable}, but for a delivery order (task 29.1): resolved by the
+     * customer's own access token instead of slug+tableId (there's no table), and with no
+     * DELIVERED-item gate - a delivery order is paid immediately at submission, before the kitchen
+     * even starts. {@link TabService#freezeBillTotalForPixCharge} already knows to skip that gate
+     * for delivery tabs.
+     */
+    @Transactional
+    public PixChargeResponse createChargeForDeliveryOrder(String accessToken) {
+        DeliveryDetails deliveryDetails = deliveryDetailsRepository.findByAccessTokenBypassingRls(accessToken)
+                .orElseThrow(() -> new IllegalArgumentException("Delivery order not found."));
+
+        tenantActivator.activate(deliveryDetails.getRestaurantId());
+        try {
+            return createCharge(deliveryDetails.getRestaurantId(), deliveryDetails.getTab().getId(), false, null, null);
+        } finally {
+            tenantActivator.deactivate();
+        }
+    }
+
+    /** Same as {@link #cancelPendingCharge}, but for a customer backing out of a delivery order's
+     * own pending Pix charge (task 29.1) - e.g. they want to switch to card instead, or the QR
+     * code got stuck. Identified by access token, same as {@link #createChargeForDeliveryOrder}. */
+    @Transactional
+    public void cancelPendingChargeForDeliveryOrder(String accessToken) {
+        DeliveryDetails deliveryDetails = deliveryDetailsRepository.findByAccessTokenBypassingRls(accessToken)
+                .orElseThrow(() -> new IllegalArgumentException("Delivery order not found."));
+        tenantActivator.activate(deliveryDetails.getRestaurantId());
+        try {
+            cancelPendingCharge(deliveryDetails.getRestaurantId(), deliveryDetails.getTab().getId());
         } finally {
             tenantActivator.deactivate();
         }

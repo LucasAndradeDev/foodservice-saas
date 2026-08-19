@@ -24,6 +24,14 @@ import java.util.Map;
  * present. IMPORTANT: this format was captured from Mercado Pago's public docs during design and
  * MUST be double-checked against developers.mercadopago.com before the first real webhook is
  * processed in production - same caution the Woovi integration's RSA key needed.
+ *
+ * <p>Confirmed against real sandbox traffic (docs/CARD_PAYMENT.md, "Pegadinha do teste manual no
+ * sandbox"): this formula matches Mercado Pago's own docs exactly and validates correctly for
+ * simulated webhooks - a real sandbox purchase (live_mode: true) arrives signed with a different
+ * key than the one shown in the dashboard, a confirmed Mercado Pago sandbox quirk, not a bug here.
+ * Rejecting those is correct; see {@link com.example.restaurant_saas.service.CardChargeService
+ * #verifyPendingChargeByExternalReference} for the second, non-webhook confirmation path this
+ * relies on instead.
  */
 @Component
 public class MercadoPagoWebhookSignatureVerifier {

@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.domain.entity;
 
+import com.example.restaurant_saas.domain.enums.DeliveryStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -68,6 +69,10 @@ public class DeliveryDetails {
     // sequential.
     @Column(name = "access_token", nullable = false, unique = true, length = 36)
     private String accessToken;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private DeliveryStatus status;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

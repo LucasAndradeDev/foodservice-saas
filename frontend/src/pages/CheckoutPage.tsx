@@ -635,10 +635,11 @@ export function CheckoutPage() {
         // Best-effort reconstruction - same fallback reasoning as the Pix one above.
       }
     } else {
-      const defaultCharge = restaurant?.serviceChargeEnabled ? restaurant.serviceChargePercentage : null
+      const defaultCharge = restaurant?.serviceChargeEnabled && !summary.tab.deliveryStatus ? restaurant.serviceChargePercentage : null
       setServiceChargePercentage(defaultCharge)
       const chargeAmount = roundCurrency((summary.total * (defaultCharge ?? 0)) / 100)
-      setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(roundCurrency(summary.total + chargeAmount)) }])
+      const deliveryFee = summary.tab.deliveryFee ?? 0
+      setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(roundCurrency(summary.total + chargeAmount + deliveryFee)) }])
     }
   }
 
@@ -672,7 +673,7 @@ export function CheckoutPage() {
   const finalTotal = selectedSummary
     ? hasLockedTotal
       ? (selectedSummary.tab.billTotal ?? 0)
-      : roundCurrency(selectedSummary.total + serviceChargeAmount)
+      : roundCurrency(selectedSummary.total + serviceChargeAmount + (selectedSummary.tab.deliveryFee ?? 0))
     : 0
   const amountPaid = selectedSummary?.tab.amountPaid ?? 0
   const remainingBalance = hasLockedTotal ? (selectedSummary?.tab.remainingBalance ?? 0) : finalTotal
@@ -851,7 +852,7 @@ export function CheckoutPage() {
               }`}
             >
               <div className="text-base font-semibold text-gray-800 dark:text-white">
-                {formatTableLabel(summary.tab.tables.map((t) => t.number))}
+                {summary.tab.deliveryStatus ? 'Delivery' : formatTableLabel(summary.tab.tables.map((t) => t.number))}
               </div>
               {summary.isLoading ? (
                 <div className="mt-1 text-sm text-gray-500 dark:text-stone-400">Carregando itens...</div>
@@ -862,7 +863,7 @@ export function CheckoutPage() {
                     Pronta para fechar
                   </span>
                   <div className="mt-2 text-lg font-semibold text-gray-800 dark:text-white">
-                    {currencyFormatter.format(summary.total)}
+                    {currencyFormatter.format(roundCurrency(summary.total + (summary.tab.deliveryFee ?? 0)))}
                   </div>
                 </>
               ) : (
@@ -913,7 +914,7 @@ export function CheckoutPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-base font-semibold text-gray-800 dark:text-white">
-                            {formatTableLabel(tab.tables.map((t) => t.number))}
+                            {tab.deliveryStatus ? 'Delivery' : formatTableLabel(tab.tables.map((t) => t.number))}
                           </span>
                           <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-white/10 dark:text-stone-400">
                             <Lock className="h-3 w-3" />
@@ -944,7 +945,12 @@ export function CheckoutPage() {
       )}
 
       {selectedSummary && (
-        <Modal title={`Fechar conta — ${formatTableLabel(selectedSummary.tab.tables.map((t) => t.number))}`} onClose={handleCloseModal}>
+        <Modal
+          title={`Fechar conta — ${
+            selectedSummary.tab.deliveryStatus ? 'Delivery' : formatTableLabel(selectedSummary.tab.tables.map((t) => t.number))
+          }`}
+          onClose={handleCloseModal}
+        >
           {justPaidTabId === selectedSummary.tab.id ? (
             <>
               <p className="mb-4 flex items-center gap-1.5 text-sm font-medium text-green-700 dark:text-green-400">
@@ -1142,7 +1148,7 @@ export function CheckoutPage() {
                 </div>
               )}
 
-              {canPay && !hasLockedTotal && !isZeroBalance && (
+              {canPay && !hasLockedTotal && !isZeroBalance && !selectedSummary.tab.deliveryStatus && (
                 <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-white/10 dark:bg-white/5">
                   {!isEditingServiceCharge || !canDiscount ? (
                     <div className="flex items-center justify-between">
@@ -1210,6 +1216,12 @@ export function CheckoutPage() {
                   <div className="mb-1 flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
                     <span>Subtotal</span>
                     <span>{currencyFormatter.format(selectedSummary.total)}</span>
+                  </div>
+                )}
+                {selectedSummary.tab.deliveryFee != null && (
+                  <div className="mb-1 flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
+                    <span>Taxa de entrega</span>
+                    <span>{currencyFormatter.format(selectedSummary.tab.deliveryFee)}</span>
                   </div>
                 )}
                 <div className="flex items-baseline justify-between">

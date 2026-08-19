@@ -4,6 +4,7 @@ import com.example.restaurant_saas.config.TenantActivator;
 import com.example.restaurant_saas.domain.entity.DeliveryDetails;
 import com.example.restaurant_saas.domain.entity.DeliveryZone;
 import com.example.restaurant_saas.domain.entity.Restaurant;
+import com.example.restaurant_saas.domain.enums.DeliveryStatus;
 import com.example.restaurant_saas.dto.request.CreateDeliveryOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
@@ -96,6 +97,7 @@ public class PublicDeliveryOrderService {
                     .referencePoint(request.getReferencePoint())
                     .deliveryFee(zone.getFee())
                     .accessToken(UUID.randomUUID().toString())
+                    .status(DeliveryStatus.SEPARATING)
                     .build();
             deliveryDetailsRepository.save(deliveryDetails);
 

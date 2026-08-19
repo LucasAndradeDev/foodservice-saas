@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.service;
 
+import com.example.restaurant_saas.domain.entity.DeliveryDetails;
 import com.example.restaurant_saas.domain.entity.Order;
 import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
@@ -15,6 +16,7 @@ import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.dto.response.KitchenItemResponse;
 import com.example.restaurant_saas.dto.response.OrderItemModifierResponse;
 import com.example.restaurant_saas.dto.response.OrderItemResponse;
+import com.example.restaurant_saas.repository.DeliveryDetailsRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
@@ -28,8 +30,11 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -42,13 +47,24 @@ public class OrderItemService {
     private final OrderRepository orderRepository;
     private final TabRepository tabRepository;
     private final RestaurantRepository restaurantRepository;
+    private final DeliveryDetailsRepository deliveryDetailsRepository;
     private final WhatsAppService whatsAppService;
 
     @Transactional(readOnly = true)
     public List<KitchenItemResponse> listKitchenQueue(UUID restaurantId, List<ItemStatus> statusFilter) {
         List<ItemStatus> statuses = (statusFilter == null || statusFilter.isEmpty()) ? OPEN_STATUSES : statusFilter;
+        // Keyed by tab id so each delivery order gets its own card in the kitchen queue (grouped by
+        // tabId, see KitchenPage#groupByTable) instead of every delivery in the restaurant merging
+        // into one - and so the card can show which order it is (customerName).
+        Map<UUID, DeliveryDetails> deliveryDetailsByTabId = deliveryDetailsRepository.findByRestaurantId(restaurantId).stream()
+                .collect(Collectors.toMap(dd -> dd.getTab().getId(), Function.identity()));
+        // Kept out of the queue entirely while unpaid (2026-08-18 decision, docs/DELIVERY.md) - no
+        // food prepped for a delivery order that might never get paid. Once the tab closes (paid),
+        // it reappears here and flows through PENDING -> ... -> DELIVERED normally.
+        Set<UUID> unpaidDeliveryTabIds = deliveryDetailsRepository.findUnpaidTabIdsByRestaurantId(restaurantId);
         return orderItemRepository.findByOrder_Restaurant_IdAndStatusInAndParentOrderItemIsNullOrderByCreatedAtAsc(restaurantId, statuses).stream()
-                .map(this::toKitchenResponse)
+                .filter(item -> !unpaidDeliveryTabIds.contains(item.getOrder().getTab().getId()))
+                .map(item -> toKitchenResponse(item, deliveryDetailsByTabId))
                 .toList();
     }
 
@@ -69,6 +85,12 @@ public class OrderItemService {
         }
         if (!rolesAllowedFor(from, to).contains(currentUserRole)) {
             throw new IllegalStateException("Role " + currentUserRole + " is not allowed to perform this status change.");
+        }
+        // Mirrors the kitchen queue's own exclusion (listKitchenQueue) - an unpaid delivery order's
+        // items are invisible there, so nothing should be able to move them forward either, even
+        // via a direct call. CANCELLED is still allowed (e.g. staff spotting a genuinely dead order).
+        if (to != ItemStatus.CANCELLED && isUnpaidDeliveryItem(item)) {
+            throw new IllegalStateException("This delivery order hasn't been paid yet.");
         }
 
         OffsetDateTime now = OffsetDateTime.now();
@@ -243,6 +265,11 @@ public class OrderItemService {
         }
     }
 
+    private boolean isUnpaidDeliveryItem(OrderItem item) {
+        Tab tab = item.getOrder().getTab();
+        return deliveryDetailsRepository.findByTab_Id(tab.getId()).isPresent() && tab.getStatus() != TabStatus.CLOSED;
+    }
+
     private boolean isValidTransition(ItemStatus from, ItemStatus to) {
         return switch (from) {
             case PENDING -> to == ItemStatus.PREPARING || to == ItemStatus.CANCELLED;
@@ -263,16 +290,22 @@ public class OrderItemService {
         };
     }
 
-    private KitchenItemResponse toKitchenResponse(OrderItem item) {
+    private KitchenItemResponse toKitchenResponse(OrderItem item, Map<UUID, DeliveryDetails> deliveryDetailsByTabId) {
         Order order = item.getOrder();
+        UUID tabId = order.getTab().getId();
         List<Integer> tableNumbers = order.getTab().getTables().stream()
                 .map(RestaurantTable::getNumber)
                 .toList();
+        DeliveryDetails deliveryDetails = deliveryDetailsByTabId.get(tabId);
 
         return KitchenItemResponse.builder()
                 .id(item.getId())
                 .orderId(order.getId())
+                .tabId(tabId)
                 .tableNumbers(tableNumbers)
+                .isDelivery(deliveryDetails != null)
+                .deliveryCustomerName(deliveryDetails != null ? deliveryDetails.getCustomerName() : null)
+                .deliveryAddress(deliveryDetails != null ? formatDeliveryAddress(deliveryDetails) : null)
                 .productName(item.getProduct().getName())
                 .quantity(item.getQuantity())
                 .observation(item.getObservation())
@@ -280,8 +313,15 @@ public class OrderItemService {
                 .status(item.getStatus())
                 .createdAt(item.getCreatedAt())
                 .isComboHeader(item.isComboHeader())
-                .children(item.getChildren().stream().map(this::toKitchenResponse).toList())
+                .children(item.getChildren().stream().map(child -> toKitchenResponse(child, deliveryDetailsByTabId)).toList())
                 .build();
+    }
+
+    // Same format as the staff-facing delivery list (DeliveryPage.tsx) and the customer-facing
+    // status page - keeping it identical means the kitchen card's address genuinely matches what
+    // staff already sees elsewhere, not just something that looks similar.
+    private String formatDeliveryAddress(DeliveryDetails deliveryDetails) {
+        return deliveryDetails.getStreet() + ", " + deliveryDetails.getNumber() + " - " + deliveryDetails.getNeighborhood();
     }
 
     private OrderItemResponse toOrderItemResponse(OrderItem item) {

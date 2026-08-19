@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bike, Clock, Pencil, Plus, Store, Ticket, Trash2, Users } from 'lucide-react'
+import { Clock, Pencil, Plus, Store, Ticket, Trash2, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import {
   createDeliveryZone,
@@ -11,6 +11,7 @@ import {
 import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { TableHead, TableRow } from '../components/Table'
+import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
 import { SectionTabs } from '../components/SectionTabs'
@@ -20,7 +21,7 @@ const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral', icon: Store },
   { to: '/coupons', label: 'Cupons', icon: Ticket },
   { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
-  { to: '/delivery-zones', label: 'Entrega', icon: Bike },
+  { to: '/delivery-zones', label: 'Entrega', icon: DeliveryRiderIcon },
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 
@@ -117,7 +118,7 @@ export function DeliveryZonesPage() {
       <SectionTabs tabs={MANAGEMENT_TABS} />
 
       <div className="mb-5 flex items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
-        <PageHeader icon={Bike} title="Zonas de entrega" />
+        <PageHeader icon={DeliveryRiderIcon} title="Zonas de entrega" />
         <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">Nova zona</span>

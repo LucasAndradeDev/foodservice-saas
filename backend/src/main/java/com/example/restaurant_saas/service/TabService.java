@@ -305,7 +305,12 @@ public class TabService {
         if (isClosedTopUp && currentUserRole != UserRole.OWNER && currentUserRole != UserRole.MANAGER) {
             throw new IllegalStateException("Only OWNER or MANAGER may complete a payment correction on a closed tab.");
         }
-        if (startedOpen && orderItemRepository.existsByOrder_Tab_IdAndStatusNotIn(tabId, List.of(ItemStatus.DELIVERED, ItemStatus.CANCELLED))) {
+        // Same delivery exemption as freezeBillTotalForPixCharge - a delivery order has no "food
+        // reached the table" step to gate on, and staff may need to register its payment manually
+        // (a failed/missed webhook, or the customer paying by another means before the Pix/card
+        // charge confirms).
+        boolean isDeliveryOrder = deliveryDetailsRepository.findByTab_Id(tabId).isPresent();
+        if (startedOpen && !isDeliveryOrder && orderItemRepository.existsByOrder_Tab_IdAndStatusNotIn(tabId, List.of(ItemStatus.DELIVERED, ItemStatus.CANCELLED))) {
             throw new IllegalStateException("Tab has order items that are not DELIVERED or CANCELLED yet.");
         }
 
@@ -507,14 +512,22 @@ public class TabService {
         BigDecimal itemsTotal = computeItemsTotal(tab.getRestaurant().getId(), tab.getId());
         BigDecimal afterDiscount = itemsTotal.subtract(tab.getDiscountAmount(itemsTotal));
 
-        BigDecimal serviceChargePercentage = resolveServiceChargePercentage(tab.getRestaurant().getId(), allowServiceChargeOverride, requestedServiceChargePercentage);
+        Optional<DeliveryDetails> deliveryDetails = deliveryDetailsRepository.findByTab_Id(tab.getId());
+
+        // No service charge on delivery orders (2026-08-18 decision) - it exists to compensate
+        // table service, which doesn't happen here, and the delivery fee already covers the cost
+        // of getting the order to the customer. Charging both read as a hidden second fee (the
+        // total didn't match items + delivery fee, with nothing explaining the gap). Unconditional -
+        // not gated by allowServiceChargeOverride/the restaurant's own toggle, since this isn't a
+        // waivable adjustment, it's "the charge doesn't apply to this kind of order" at all.
+        BigDecimal serviceChargePercentage = deliveryDetails.isPresent()
+                ? null
+                : resolveServiceChargePercentage(tab.getRestaurant().getId(), allowServiceChargeOverride, requestedServiceChargePercentage);
         BigDecimal serviceChargeAmount = computeServiceChargeAmount(afterDiscount, serviceChargePercentage);
 
         // Already frozen at order creation time (PublicDeliveryOrderService) from the DeliveryZone
         // matched then - zero for every tab that isn't a delivery order (no DeliveryDetails row).
-        BigDecimal deliveryFee = deliveryDetailsRepository.findByTab_Id(tab.getId())
-                .map(DeliveryDetails::getDeliveryFee)
-                .orElse(BigDecimal.ZERO);
+        BigDecimal deliveryFee = deliveryDetails.map(DeliveryDetails::getDeliveryFee).orElse(BigDecimal.ZERO);
 
         tab.setServiceChargePercentage(serviceChargePercentage);
         tab.setServiceChargeAmount(serviceChargePercentage != null ? serviceChargeAmount : null);
@@ -561,7 +574,13 @@ public class TabService {
         if (tab.getStatus() != TabStatus.OPEN) {
             throw new IllegalArgumentException("Tab is not open.");
         }
-        if (orderItemRepository.existsByOrder_Tab_IdAndStatusNotIn(tabId, List.of(ItemStatus.DELIVERED, ItemStatus.CANCELLED))) {
+        // Delivery orders (task 29.1) skip the "must be DELIVERED first" gate: that rule exists so a
+        // dine-in tab's total can't be frozen for payment while items might still be added, using
+        // "food reached the table" as the signal the order is final. A delivery order has no such
+        // step - it's final the moment it's placed, and payment happens immediately, before the
+        // kitchen even starts (items are still PENDING) - see docs/DELIVERY.md.
+        boolean isDeliveryOrder = deliveryDetailsRepository.findByTab_Id(tabId).isPresent();
+        if (!isDeliveryOrder && orderItemRepository.existsByOrder_Tab_IdAndStatusNotIn(tabId, List.of(ItemStatus.DELIVERED, ItemStatus.CANCELLED))) {
             throw new IllegalStateException("Tab has order items that are not DELIVERED or CANCELLED yet.");
         }
 
@@ -629,11 +648,16 @@ public class TabService {
         }
     }
 
+    // Dine-in only counts DELIVERED items - the bill reflects what actually reached the table, and
+    // the earlier gate (must be all DELIVERED/CANCELLED) keeps anything else from being paid for
+    // at all. A delivery order has no per-item "delivered to table" step: it's paid immediately at
+    // submission (items still PENDING), so every non-cancelled item counts instead.
     private BigDecimal computeItemsTotal(UUID restaurantId, UUID tabId) {
-        return orderItemRepository
-                .findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatusAndParentOrderItemIsNull(tabId, restaurantId, ItemStatus.DELIVERED).stream()
-                .map(OrderItem::getNetSubtotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        boolean isDeliveryOrder = deliveryDetailsRepository.findByTab_Id(tabId).isPresent();
+        List<OrderItem> items = isDeliveryOrder
+                ? orderItemRepository.findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatusNotAndParentOrderItemIsNull(tabId, restaurantId, ItemStatus.CANCELLED)
+                : orderItemRepository.findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatusAndParentOrderItemIsNull(tabId, restaurantId, ItemStatus.DELIVERED);
+        return items.stream().map(OrderItem::getNetSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private Tab findByIdAndRestaurant(UUID restaurantId, UUID tabId) {
@@ -647,11 +671,14 @@ public class TabService {
                 .filter(payment -> payment.getStatus() == PaymentStatus.ACTIVE)
                 .map(Payment::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        Optional<DeliveryDetails> deliveryDetails = deliveryDetailsRepository.findByTab_Id(tab.getId());
 
         return TabResponse.builder()
                 .id(tab.getId())
                 .restaurantId(tab.getRestaurant().getId())
                 .status(tab.getStatus())
+                .deliveryStatus(deliveryDetails.map(DeliveryDetails::getStatus).orElse(null))
+                .deliveryFee(deliveryDetails.map(DeliveryDetails::getDeliveryFee).orElse(null))
                 .openedAt(tab.getOpenedAt())
                 .lastOrderAt(tab.getLastOrderAt())
                 .closedAt(tab.getClosedAt())

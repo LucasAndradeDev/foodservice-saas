@@ -4,7 +4,11 @@ import type { ItemStatus, OrderItem, OrderItemModifier } from './orders'
 export interface KitchenItem {
   id: string
   orderId: string
+  tabId: string
   tableNumbers: number[]
+  isDelivery: boolean
+  deliveryCustomerName: string | null
+  deliveryAddress: string | null
   productName: string
   quantity: number
   observation: string | null

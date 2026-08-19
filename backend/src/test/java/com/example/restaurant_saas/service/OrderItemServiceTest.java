@@ -8,6 +8,7 @@ import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
+import com.example.restaurant_saas.repository.DeliveryDetailsRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
@@ -29,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -51,6 +53,8 @@ class OrderItemServiceTest {
     @Mock
     private RestaurantRepository restaurantRepository;
     @Mock
+    private DeliveryDetailsRepository deliveryDetailsRepository;
+    @Mock
     private WhatsAppService whatsAppService;
 
     private OrderItemService orderItemService;
@@ -62,7 +66,9 @@ class OrderItemServiceTest {
 
     @BeforeEach
     void setUp() {
-        orderItemService = new OrderItemService(orderItemRepository, orderRepository, tabRepository, restaurantRepository, whatsAppService);
+        orderItemService = new OrderItemService(orderItemRepository, orderRepository, tabRepository, restaurantRepository, deliveryDetailsRepository, whatsAppService);
+        // None of these tests are about a delivery order - every tab here is a plain dine-in tab.
+        lenient().when(deliveryDetailsRepository.findByTab_Id(any())).thenReturn(Optional.empty());
 
         restaurant = Restaurant.builder()
                 .id(UUID.randomUUID())

@@ -2,6 +2,7 @@ import type { ItemStatus } from './orders'
 import type { ModifierGroup } from './productModifiers'
 import type { ComboComposition } from './combos'
 import type { CardCharge, PixCharge } from './tabs'
+import type { DeliveryDetails } from './deliveries'
 import { http } from './http'
 
 export interface PublicMenuProduct {
@@ -161,4 +162,31 @@ export function createPublicPixCharge(slug: string, tableId: string) {
  * customer is redirected to initPointUrl (their own browser) rather than shown a QR code. */
 export function createPublicCardCharge(slug: string, tableId: string) {
   return http.post<CardCharge>(`/public/menu/${slug}/tables/${tableId}/card-charges`).then((res) => res.data)
+}
+
+/** Delivery order status by access token (task 27.3/29.1) - meant to be polled while the order is
+ * in progress. No slug/tableId in the path, the token is the only credential. */
+export function getPublicDeliveryStatus(token: string) {
+  return http.get<DeliveryDetails>(`/public/deliveries/${token}/status`).then((res) => res.data)
+}
+
+/** Same freeze-and-generate-QR-code flow as createPublicPixCharge, but for a delivery order - paid
+ * immediately at submission, before the kitchen starts, identified by access token instead of
+ * tableId (there's no table). */
+export function createPublicDeliveryPixCharge(token: string) {
+  return http.post<PixCharge>(`/public/deliveries/${token}/pix-charges`).then((res) => res.data)
+}
+
+export function createPublicDeliveryCardCharge(token: string) {
+  return http.post<CardCharge>(`/public/deliveries/${token}/card-charges`).then((res) => res.data)
+}
+
+/** Lets the customer back out of their own still-PENDING charge (stuck QR/checkout link, or they
+ * changed their mind about the payment method) and unfreezes the total. */
+export function cancelPublicDeliveryPixCharge(token: string) {
+  return http.delete(`/public/deliveries/${token}/pix-charges`)
+}
+
+export function cancelPublicDeliveryCardCharge(token: string) {
+  return http.delete(`/public/deliveries/${token}/card-charges`)
 }

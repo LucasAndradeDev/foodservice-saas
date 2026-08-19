@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bike, CheckCircle2, Circle, Clock, Filter, Pencil, Plus, Power, Store, Ticket, Trash2, Users, XCircle } from 'lucide-react'
+import { CheckCircle2, Circle, Clock, Filter, Pencil, Plus, Power, Store, Ticket, Trash2, Users, XCircle } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { createCoupon, deleteCoupon, listCoupons, updateCoupon, type Coupon } from '../api/coupons'
 import type { DiscountType } from '../api/orders'
@@ -7,6 +7,7 @@ import { Badge, type BadgeTone } from '../components/Badge'
 import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DatePicker } from '../components/DatePicker'
+import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
 import { Dropdown } from '../components/Dropdown'
 import { TableHead, TableRow } from '../components/Table'
 import { Modal } from '../components/Modal'
@@ -17,7 +18,7 @@ const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral', icon: Store },
   { to: '/coupons', label: 'Cupons', icon: Ticket },
   { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
-  { to: '/delivery-zones', label: 'Entrega', icon: Bike },
+  { to: '/delivery-zones', label: 'Entrega', icon: DeliveryRiderIcon },
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 

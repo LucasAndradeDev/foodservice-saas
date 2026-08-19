@@ -30,3 +30,7 @@ export function loadPublicOrderState(slug: string, tableId: string | undefined):
 export function savePublicOrderState(slug: string, tableId: string | undefined, state: PublicOrderState): void {
   localStorage.setItem(storageKey(slug, tableId), JSON.stringify(state))
 }
+
+export function clearPublicOrderState(slug: string, tableId: string | undefined): void {
+  localStorage.removeItem(storageKey(slug, tableId))
+}

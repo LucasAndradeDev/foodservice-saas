@@ -30,6 +30,7 @@ import { useEffect, useState, useRef, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { getComboComposition } from '../api/combos'
 import { listCategories } from '../api/categories'
+import { DELIVERY_STATUS_LABELS, DELIVERY_STATUS_STYLES } from '../api/deliveries'
 import { applyItemDiscount, createOrder, listOrders, transferItems, type DiscountType, type ItemStatus, type Order, type OrderItem } from '../api/orders'
 import { listModifierGroups } from '../api/productModifiers'
 import { listProducts, type Product } from '../api/products'
@@ -730,8 +731,8 @@ export function TabDetailPage() {
 
   return (
     <div>
-      <BackLink onClick={() => navigate('/tables')} className="mb-4">
-        Voltar para Mesas
+      <BackLink onClick={() => navigate(tab.deliveryStatus ? '/deliveries' : '/tables')} className="mb-4">
+        {tab.deliveryStatus ? 'Voltar para Delivery' : 'Voltar para Mesas'}
       </BackLink>
 
       <div className="mb-6 flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:bg-stone-900">
@@ -741,7 +742,7 @@ export function TabDetailPage() {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-gray-800 dark:text-white">
-              {formatTableLabel(tab.tables.map((t) => t.number))}
+              {tab.deliveryStatus ? 'Delivery' : formatTableLabel(tab.tables.map((t) => t.number))}
             </h1>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
               <span
@@ -754,6 +755,11 @@ export function TabDetailPage() {
                 {isOpen ? <Clock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
                 {isOpen ? 'Aberta' : 'Fechada'}
               </span>
+              {tab.deliveryStatus && (
+                <span className={`rounded-full px-2 py-0.5 font-medium ${DELIVERY_STATUS_STYLES[tab.deliveryStatus]}`}>
+                  {DELIVERY_STATUS_LABELS[tab.deliveryStatus]}
+                </span>
+              )}
               {isOpen && (
                 <span className="flex items-center gap-1 text-gray-400 dark:text-stone-500">
                   há {minutesSince(tab.openedAt)} min
@@ -1035,13 +1041,19 @@ export function TabDetailPage() {
               Total da comanda
             </span>
             <span className="text-xl font-semibold text-brand-700 dark:text-brand-400">
-              {currencyFormatter.format(tab.billTotal ?? grandTotalAfterDiscount)}
+              {currencyFormatter.format(tab.billTotal ?? roundCurrency(grandTotalAfterDiscount + (tab.deliveryFee ?? 0)))}
             </span>
           </div>
           {tab.serviceChargePercentage != null && (
             <div className="mt-1 flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
               <span>Taxa de serviço ({tab.serviceChargePercentage}%)</span>
               <span>{currencyFormatter.format(tab.serviceChargeAmount ?? 0)}</span>
+            </div>
+          )}
+          {tab.deliveryFee != null && (
+            <div className="mt-1 flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
+              <span>Taxa de entrega</span>
+              <span>{currencyFormatter.format(tab.deliveryFee)}</span>
             </div>
           )}
         </div>

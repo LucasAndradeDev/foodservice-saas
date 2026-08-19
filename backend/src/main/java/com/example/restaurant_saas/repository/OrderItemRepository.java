@@ -23,8 +23,18 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     boolean existsByProductId(UUID productId);
     long countByOrder_Restaurant_IdAndStatusIn(UUID restaurantId, List<ItemStatus> statuses);
     List<OrderItem> findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatusAndParentOrderItemIsNull(UUID tabId, UUID restaurantId, ItemStatus status);
+    List<OrderItem> findByOrder_Tab_IdAndOrder_Restaurant_IdAndStatusNotAndParentOrderItemIsNull(UUID tabId, UUID restaurantId, ItemStatus status);
     List<OrderItem> findByOrder_Tab_IdOrderByCreatedAtAsc(UUID tabId);
     boolean existsByOrder_Restaurant_IdAndStatusAndCreatedAtAfter(UUID restaurantId, ItemStatus status, OffsetDateTime after);
+
+    // Same PENDING/createdAt shape as the one above, but excludes items belonging to a delivery
+    // order that isn't paid yet (2026-08-18 decision, docs/DELIVERY.md) - those don't show up in
+    // the kitchen queue at all (OrderItemService#listKitchenQueue), so the "new order" nav badge
+    // must not fire for them either.
+    @Query("SELECT CASE WHEN COUNT(oi) > 0 THEN true ELSE false END FROM OrderItem oi " +
+            "WHERE oi.order.restaurant.id = :restaurantId AND oi.status = 'PENDING' AND oi.createdAt > :after " +
+            "AND NOT EXISTS (SELECT 1 FROM DeliveryDetails dd WHERE dd.tab = oi.order.tab AND dd.tab.status <> 'CLOSED')")
+    boolean existsNewPaidKitchenPendingItem(@Param("restaurantId") UUID restaurantId, @Param("after") OffsetDateTime after);
     boolean existsByOrder_Restaurant_IdAndStatusAndUpdatedAtAfter(UUID restaurantId, ItemStatus status, OffsetDateTime after);
     List<OrderItem> findByParentOrderItem_Id(UUID parentOrderItemId);
     List<OrderItem> findByOrder_Restaurant_IdAndStatusInAndParentOrderItemIsNullOrderByCreatedAtAsc(UUID restaurantId, List<ItemStatus> statuses);

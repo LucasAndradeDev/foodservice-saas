@@ -7,6 +7,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -64,14 +65,17 @@ public class MercadoPagoApiClient {
                 "currency_id", "BRL"
         );
 
-        // No auto_return: Mercado Pago requires back_urls.success to be HTTPS for it to work at
-        // all (rejects the whole preference with "auto_return invalid. back_url.success must be
-        // defined" otherwise, confirmed against a real sandbox account during testing) - which
-        // local dev's http://localhost front end can never satisfy. Not a real loss: the redirect
-        // is only ever cosmetic feedback (see CardChargeService's security invariant), so the
-        // customer/staff seeing a manual "voltar ao site" button on Mercado Pago's page instead of
-        // an automatic redirect changes nothing about correctness or security.
-        Map<String, Object> requestBody = Map.of(
+        // auto_return only when successUrl is HTTPS: Mercado Pago rejects the whole preference
+        // ("auto_return invalid. back_url.success must be defined") if back_urls.success isn't
+        // HTTPS, which local dev's http://localhost front end can never satisfy - so it stays off
+        // there, same as always. Production's frontend is HTTPS, so it gets the real win: the
+        // customer/staff lands back on our own page automatically instead of needing to notice and
+        // click Mercado Pago's own "voltar ao site" button (reproduced for real in dev: a customer
+        // paid via the digital menu, closed nothing, just never came back on their own - the tab
+        // stayed OPEN until the next status poll happened to also re-verify the charge). Doesn't
+        // weaken the security invariant either way - the redirect was already only ever cosmetic
+        // feedback (see CardChargeService's own comment on this), never trusted to mutate state.
+        Map<String, Object> requestBody = new HashMap<>(Map.of(
                 "items", List.of(item),
                 "external_reference", externalReference,
                 "notification_url", notificationUrl,
@@ -80,7 +84,10 @@ public class MercadoPagoApiClient {
                         "pending", pendingUrl,
                         "failure", failureUrl
                 )
-        );
+        ));
+        if (successUrl.startsWith("https://")) {
+            requestBody.put("auto_return", "approved");
+        }
 
         try {
             @SuppressWarnings("unchecked")

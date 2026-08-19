@@ -3,6 +3,7 @@ package com.example.restaurant_saas.service;
 import com.example.restaurant_saas.config.TenantActivator;
 import com.example.restaurant_saas.domain.entity.CardCharge;
 import com.example.restaurant_saas.domain.entity.CardIntegration;
+import com.example.restaurant_saas.domain.entity.DeliveryDetails;
 import com.example.restaurant_saas.domain.entity.Payment;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.RestaurantTable;
@@ -21,6 +22,7 @@ import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.exception.CardGatewayException;
 import com.example.restaurant_saas.repository.CardChargeRepository;
 import com.example.restaurant_saas.repository.CardIntegrationRepository;
+import com.example.restaurant_saas.repository.DeliveryDetailsRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.PaymentRepository;
 import com.example.restaurant_saas.repository.PixChargeRepository;
@@ -34,6 +36,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -58,6 +61,7 @@ public class CardChargeService {
     private final RestaurantRepository restaurantRepository;
     private final RestaurantTableRepository restaurantTableRepository;
     private final OrderItemRepository orderItemRepository;
+    private final DeliveryDetailsRepository deliveryDetailsRepository;
     private final CredentialEncryptionService credentialEncryptionService;
     private final MercadoPagoApiClient mercadoPagoApiClient;
     private final MercadoPagoWebhookSignatureVerifier signatureVerifier;
@@ -218,6 +222,71 @@ public class CardChargeService {
         }
     }
 
+    /**
+     * Same as {@link #createChargeForTable}, but for a delivery order (task 29.1): resolved by the
+     * customer's own access token instead of slug+tableId (there's no table), and with no
+     * DELIVERED-item gate - a delivery order is paid immediately at submission, before the kitchen
+     * even starts. {@link TabService#freezeBillTotalForPixCharge} already knows to skip that gate
+     * for delivery tabs. Redirects back to the delivery status page instead of a table's menu URL.
+     */
+    @Transactional
+    public CardChargeResponse createChargeForDeliveryOrder(String accessToken) {
+        DeliveryDetails deliveryDetails = deliveryDetailsRepository.findByAccessTokenBypassingRls(accessToken)
+                .orElseThrow(() -> new IllegalArgumentException("Delivery order not found."));
+
+        tenantActivator.activate(deliveryDetails.getRestaurantId());
+        try {
+            UUID restaurantId = deliveryDetails.getRestaurantId();
+            UUID tabId = deliveryDetails.getTab().getId();
+
+            CardIntegration integration = cardIntegrationRepository.findByRestaurantId(restaurantId)
+                    .filter(i -> i.getAccessTokenEncrypted() != null && i.getWebhookSecretEncrypted() != null)
+                    .orElseThrow(() -> new IllegalStateException("This restaurant hasn't configured card payment yet."));
+
+            BigDecimal billTotal = tabService.freezeBillTotalForPixCharge(restaurantId, tabId, false, null);
+            BigDecimal amount = resolveAndValidateAmount(tabId, billTotal, null);
+
+            String mpAccessToken = credentialEncryptionService.decrypt(integration.getAccessTokenEncrypted());
+            String externalReference = UUID.randomUUID().toString();
+
+            MercadoPagoApiClient.PreferenceResult result = mercadoPagoApiClient.createPreference(
+                    mpAccessToken, externalReference, amount, "Comanda " + tabId,
+                    buildNotificationUrl(restaurantId),
+                    buildDeliveryReturnUrl(accessToken, "success", externalReference),
+                    buildDeliveryReturnUrl(accessToken, "pending", externalReference),
+                    buildDeliveryReturnUrl(accessToken, "failure", externalReference));
+
+            CardCharge charge = CardCharge.builder()
+                    .restaurantId(restaurantId)
+                    .tab(tabRepository.getReferenceById(tabId))
+                    .externalReference(externalReference)
+                    .amount(amount)
+                    .status(CardChargeStatus.PENDING)
+                    .initPointUrl(result.initPoint())
+                    .build();
+            charge = cardChargeRepository.save(charge);
+
+            return toResponse(charge);
+        } finally {
+            tenantActivator.deactivate();
+        }
+    }
+
+    /** Same as {@link #cancelPendingCharge}, but for a customer backing out of a delivery order's
+     * own pending card charge (task 29.1) - e.g. they want to switch to Pix instead, or the
+     * checkout link got stuck. Identified by access token, same as {@link #createChargeForDeliveryOrder}. */
+    @Transactional
+    public void cancelPendingChargeForDeliveryOrder(String accessToken) {
+        DeliveryDetails deliveryDetails = deliveryDetailsRepository.findByAccessTokenBypassingRls(accessToken)
+                .orElseThrow(() -> new IllegalArgumentException("Delivery order not found."));
+        tenantActivator.activate(deliveryDetails.getRestaurantId());
+        try {
+            cancelPendingCharge(deliveryDetails.getRestaurantId(), deliveryDetails.getTab().getId());
+        } finally {
+            tenantActivator.deactivate();
+        }
+    }
+
     private BigDecimal resolveAndValidateAmount(UUID tabId, BigDecimal billTotal, BigDecimal requestedAmount) {
         if (requestedAmount != null && requestedAmount.scale() > 2) {
             throw new IllegalArgumentException("Amount must not have more than 2 decimal places.");
@@ -363,8 +432,12 @@ public class CardChargeService {
      * a real PENDING charge - the same two checks {@link #handleWebhook} already relies on instead
      * of the signature. A no-op (never throws) for any charge that's missing, already resolved, or
      * not yet paid on Mercado Pago's side - safe to call as many times as the browser retries.
+     *
+     * <p>REQUIRES_NEW so this is safe to call from inside a read-only transaction (e.g.
+     * DeliveryService#getByAccessToken's polling-triggered check) - a nested REQUIRED transaction
+     * would inherit that read-only flag and fail the moment applyResolvedPayment tries to write.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void verifyPendingChargeByExternalReference(String externalReference) {
         CardCharge charge = cardChargeRepository.findByExternalReferenceBypassingRls(externalReference).orElse(null);
         if (charge == null || charge.getStatus() != CardChargeStatus.PENDING) {
@@ -492,6 +565,10 @@ public class CardChargeService {
 
     private String buildMenuReturnUrl(String slug, UUID tableId, String status, String externalReference) {
         return frontendUrl + "/pagamento/retorno?status=" + status + "&menu=" + slug + "&table=" + tableId + "&ref=" + externalReference;
+    }
+
+    private String buildDeliveryReturnUrl(String accessToken, String status, String externalReference) {
+        return frontendUrl + "/pagamento/retorno?status=" + status + "&delivery=" + accessToken + "&ref=" + externalReference;
     }
 
     private CardChargeResponse toResponse(CardCharge charge) {

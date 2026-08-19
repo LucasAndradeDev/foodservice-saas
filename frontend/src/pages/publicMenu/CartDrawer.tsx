@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, MessageCircle, Minus, Plus, Ticket, Trash2, X } from 'lucide-react'
 import type { CartItem, DeliveryAddressForm } from './utils'
 import { currencyFormatter, isDeliveryAddressComplete, modifiersTotal } from './utils'
+import { formatBrazilianPhone } from '../../utils/phone'
 
 interface CartDrawerProps {
   isOpen: boolean
@@ -241,7 +242,7 @@ export function CartDrawer({
                       <input
                         type="tel"
                         value={customerPhone}
-                        onChange={(e) => onCustomerPhoneChange(e.target.value)}
+                        onChange={(e) => onCustomerPhoneChange(formatBrazilianPhone(e.target.value))}
                         placeholder="(11) 91234-5678"
                         className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500"
                       />
@@ -274,7 +275,7 @@ export function CartDrawer({
                       <input
                         type="tel"
                         value={deliveryAddress.customerPhone}
-                        onChange={(e) => onDeliveryAddressChange({ customerPhone: e.target.value })}
+                        onChange={(e) => onDeliveryAddressChange({ customerPhone: formatBrazilianPhone(e.target.value) })}
                         placeholder="WhatsApp — (11) 91234-5678"
                         className={deliveryFieldClass}
                       />

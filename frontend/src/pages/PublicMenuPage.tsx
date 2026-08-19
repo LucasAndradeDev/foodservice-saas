@@ -15,7 +15,7 @@ import {
 } from '../api/publicMenu'
 import { createTableRequest, type TableRequestType } from '../api/tableRequests'
 import { sameComboSelections, type SelectedComboSlot } from '../utils/combos'
-import { loadPublicOrderState, savePublicOrderState } from '../utils/publicOrderStorage'
+import { clearPublicOrderState, loadPublicOrderState, savePublicOrderState } from '../utils/publicOrderStorage'
 import { CartDrawer } from './publicMenu/CartDrawer'
 import { CategoryBanner } from './publicMenu/CategoryBanner'
 import { CategoryNav } from './publicMenu/CategoryNav'
@@ -262,12 +262,11 @@ export function PublicMenuPage() {
         zipCode: deliveryAddress.zipCode.trim() || undefined,
         referencePoint: deliveryAddress.referencePoint.trim() || undefined,
       }),
-    onSuccess: () => {
-      setCart([])
-      setIsCartOpen(false)
-      setOrderError(null)
-      setOrderSuccess(true)
-      setTimeout(() => setOrderSuccess(false), 4000)
+    // Payment (Pix/card, task 29.1) is mandatory and happens on the status page next, not here -
+    // this order isn't "done" yet the way a dine-in self-order is, just handed off.
+    onSuccess: (result) => {
+      clearPublicOrderState(slug!, tableId)
+      navigate(`/delivery/status/${result.accessToken}`)
     },
     onError: () => setOrderError('Não foi possível enviar o pedido. Tente novamente.'),
   })

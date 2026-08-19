@@ -210,16 +210,11 @@ class PublicDeliveryOrderControllerIntegrationTest {
         String tabId = JsonPath.read(created.getResponse().getContentAsString(), "$.tabId");
         String itemId = JsonPath.read(created.getResponse().getContentAsString(), "$.order.items[0].id");
 
-        for (ItemStatus nextStatus : List.of(ItemStatus.PREPARING, ItemStatus.READY, ItemStatus.DELIVERED)) {
-            UpdateOrderItemStatusRequest statusRequest = new UpdateOrderItemStatusRequest();
-            statusRequest.setStatus(nextStatus);
-            mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
-                            .header("Authorization", "Bearer " + token)
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(objectMapper.writeValueAsString(statusRequest)))
-                    .andExpect(status().isOk());
-        }
-
+        // Payment happens first (task 29.1: a delivery order is paid immediately at submission,
+        // before the kitchen even starts) - moving PENDING -> PREPARING is blocked until then
+        // (2026-08-18 decision, docs/DELIVERY.md), so it must come after this, not before. It also
+        // doesn't affect the amount: computeItemsTotal counts every non-cancelled item on a
+        // delivery tab regardless of status, unlike the dine-in DELIVERED-only rule.
         // Items total is 2 x 25.90 = 51.80; delivery fee is 8.00; service charge waived explicitly
         // so the math stays simple - billTotal should be exactly itemsTotal + deliveryFee.
         RegisterPaymentsRequest paymentRequest = new RegisterPaymentsRequest();
@@ -239,6 +234,16 @@ class PublicDeliveryOrderControllerIntegrationTest {
                 .andExpect(jsonPath("$.status").value("CLOSED"))
                 .andExpect(jsonPath("$.billTotal").value(59.80))
                 .andExpect(jsonPath("$.remainingBalance").value(0));
+
+        for (ItemStatus nextStatus : List.of(ItemStatus.PREPARING, ItemStatus.READY, ItemStatus.DELIVERED)) {
+            UpdateOrderItemStatusRequest statusRequest = new UpdateOrderItemStatusRequest();
+            statusRequest.setStatus(nextStatus);
+            mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(statusRequest)))
+                    .andExpect(status().isOk());
+        }
     }
 
     @Test

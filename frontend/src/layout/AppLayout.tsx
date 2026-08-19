@@ -12,14 +12,14 @@ import {
   Table2,
   Wallet,
   Warehouse,
-  type LucideIcon,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ComponentType } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { UserRole } from '../auth/types'
 import { useAuth } from '../auth/AuthContext'
+import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
 import { EmailVerificationBanner } from '../components/EmailVerificationBanner'
 import { Modal } from '../components/Modal'
 import { NotificationToastStack, type ToastItem } from '../components/NotificationToastStack'
@@ -77,7 +77,9 @@ const ROLE_LABELS: Record<string, string> = {
 interface NavItem {
   to: string
   label: string
-  icon: LucideIcon
+  // Broader than LucideIcon so the Delivery item can use the custom DeliveryRiderIcon (traced SVG,
+  // not from lucide) - lucide has no icon that reads as a motorcycle at a glance.
+  icon: ComponentType<{ className?: string }>
   end?: boolean
   roles?: UserRole[]
   section?: NavSection
@@ -103,6 +105,7 @@ const PRIMARY_NAV_ITEMS: NavItem[] = [
     roles: ['OWNER', 'MANAGER', 'WAITER', 'CASHIER'],
     mobileOverflow: true,
   },
+  { to: '/deliveries', label: 'Delivery', icon: DeliveryRiderIcon, mobileOverflow: true },
 ]
 
 const MENU_NAV_ITEMS: NavItem[] = [

@@ -3,7 +3,6 @@ import { AnimatePresence, motion, type Variants } from 'framer-motion'
 import {
   AlertTriangle,
   BellRing,
-  Bike,
   Check,
   ChevronDown,
   ChevronRight,
@@ -31,6 +30,7 @@ import { getMyRestaurant, updateMyRestaurant, uploadRestaurantLogo } from '../ap
 import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
 import { CardIntegrationCard } from '../components/CardIntegrationCard'
+import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
 import { PageHeader } from '../components/PageHeader'
 import { PixIntegrationCard } from '../components/PixIntegrationCard'
 import { SectionTabs } from '../components/SectionTabs'
@@ -41,7 +41,7 @@ const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral', icon: Store },
   { to: '/coupons', label: 'Cupons', icon: Ticket },
   { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
-  { to: '/delivery-zones', label: 'Entrega', icon: Bike },
+  { to: '/delivery-zones', label: 'Entrega', icon: DeliveryRiderIcon },
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 

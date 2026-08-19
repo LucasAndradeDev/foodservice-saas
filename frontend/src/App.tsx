@@ -20,6 +20,8 @@ import { CombosPage } from './pages/CombosPage'
 import { ComboFormPage } from './pages/ComboFormPage'
 import { CouponsPage } from './pages/CouponsPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { DeliveryPage } from './pages/DeliveryPage'
+import { DeliveryStatusPage } from './pages/publicMenu/DeliveryStatusPage'
 import { DeliveryZonesPage } from './pages/DeliveryZonesPage'
 import { DiningAreasPage } from './pages/DiningAreasPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
@@ -109,6 +111,7 @@ function App() {
             <Route path="/menu/:slug/:tableId" element={<PublicMenuPage />} />
             <Route path="/feedback/:slug/:tabId" element={<PostMealFeedbackPage />} />
             <Route path="/reservations/status/:token" element={<PublicReservationStatusPage />} />
+            <Route path="/delivery/status/:token" element={<DeliveryStatusPage />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/orders/:orderId/print" element={<OrderTicketPrintPage />} />
               <Route path="/tabs/:tabId/print" element={<TabReceiptPrintPage />} />
@@ -120,6 +123,7 @@ function App() {
                 <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/cash-register" element={<CashRegisterPage />} />
                 <Route path="/reservations" element={<ReservationsPage />} />
+                <Route path="/deliveries" element={<DeliveryPage />} />
                 <Route path="/categories" element={<CategoriesPage />} />
                 <Route path="/dining-areas" element={<DiningAreasPage />} />
                 <Route path="/coupons" element={<CouponsPage />} />

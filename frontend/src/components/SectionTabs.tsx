@@ -1,11 +1,12 @@
-import type { LucideIcon } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ComponentType } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 
 interface SectionTab {
   to: string
   label: string
-  icon?: LucideIcon
+  // Broader than LucideIcon so a tab can use a custom SVG icon (e.g. the "Entrega" tab's
+  // DeliveryRiderIcon) when lucide has nothing that reads right for the concept.
+  icon?: ComponentType<{ className?: string }>
 }
 
 /**

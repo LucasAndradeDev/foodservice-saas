@@ -21,10 +21,11 @@ const STATUS_CONTENT = {
  * `ref` (our own externalReference, embedded in the back_url when the charge was created - never
  * anything Mercado Pago appends) - that endpoint re-asks Mercado Pago directly and only acts if
  * the answer matches a real PENDING charge, so it stays just as trustworthy as the webhook, only
- * triggered differently. When menu/table are present (the digital-menu flow), this redirects
- * back into the menu after a few seconds, where the existing polling (already proven for Pix)
- * detects the tab closing; the Caixa flow has nowhere meaningful to redirect back to (this is the
- * customer's own phone, no session), so it just shows a static message.
+ * triggered differently. When menu/table are present (the digital-menu flow) or delivery is
+ * present (the delivery flow, task 29.1), this redirects back after a few seconds, where the
+ * existing polling (already proven for Pix) detects the tab closing; the Caixa flow has nowhere
+ * meaningful to redirect back to (this is the customer's own phone, no session), so it just shows
+ * a static message.
  */
 export function CardPaymentReturnPage() {
   const [searchParams] = useSearchParams()
@@ -34,6 +35,7 @@ export function CardPaymentReturnPage() {
   const status = searchParams.get('status')
   const menu = searchParams.get('menu')
   const table = searchParams.get('table')
+  const delivery = searchParams.get('delivery')
   const ref = searchParams.get('ref')
   const content = STATUS_CONTENT[status as keyof typeof STATUS_CONTENT] ?? STATUS_CONTENT.pending
   const Icon = content.icon
@@ -47,16 +49,17 @@ export function CardPaymentReturnPage() {
   }, [ref])
 
   useEffect(() => {
-    if (!menu || !table) return
-    const timeout = setTimeout(() => navigate(`/menu/${menu}/${table}`, { replace: true }), 2500)
+    if (!menu && !delivery) return
+    const destination = delivery ? `/delivery/status/${delivery}` : `/menu/${menu}/${table}`
+    const timeout = setTimeout(() => navigate(destination, { replace: true }), 2500)
     return () => clearTimeout(timeout)
-  }, [menu, table, navigate])
+  }, [menu, table, delivery, navigate])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 px-4 text-center dark:bg-stone-950">
       <Icon className={`h-10 w-10 ${content.tone}`} />
       <p className="max-w-xs text-sm text-gray-700 dark:text-stone-300">{content.message}</p>
-      {!menu && <p className="text-xs text-gray-400 dark:text-stone-500">Pode fechar essa aba.</p>}
+      {!menu && !delivery && <p className="text-xs text-gray-400 dark:text-stone-500">Pode fechar essa aba.</p>}
     </div>
   )
 }

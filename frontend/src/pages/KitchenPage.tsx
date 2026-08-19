@@ -22,6 +22,7 @@ import type { ItemStatus } from '../api/orders'
 import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import { formatTableLabel } from '../utils/tableLabel'
@@ -86,6 +87,7 @@ function getDelayLevel(
 interface KitchenGroup {
   key: string
   label: string
+  address: string | null
   items: KitchenItem[]
   delayLevel: DelayLevel
 }
@@ -97,7 +99,13 @@ function groupByTable(
 ): KitchenGroup[] {
   const itemsByKey = new Map<string, KitchenItem[]>()
   for (const item of items) {
-    const key = [...item.tableNumbers].sort((a, b) => a - b).join(',')
+    // Delivery orders have no table, so they group by address instead - two orders to the same
+    // address (a repeat customer, or literally the same drop) belong on one card. customerName only
+    // breaks the tie when the address string collides across different customers (a condo building),
+    // so those don't get wrongly merged into a single card.
+    const key = item.isDelivery
+      ? `delivery-${item.deliveryAddress?.trim().toLowerCase()}-${item.deliveryCustomerName?.trim().toLowerCase()}`
+      : [...item.tableNumbers].sort((a, b) => a - b).join(',')
     const group = itemsByKey.get(key)
     if (group) {
       group.push(item)
@@ -106,13 +114,16 @@ function groupByTable(
     }
   }
 
-  const groups = Array.from(itemsByKey.values()).map((groupItems) => {
+  const groups = Array.from(itemsByKey.entries()).map(([key, groupItems]) => {
     const levels = groupItems.map((item) => getDelayLevel(item, warningThresholdMinutes, criticalThresholdMinutes))
     const delayLevel: DelayLevel = levels.includes('critical') ? 'critical' : levels.includes('warning') ? 'warning' : 'none'
 
     return {
-      key: groupItems[0].tableNumbers.slice().sort((a, b) => a - b).join(','),
-      label: formatTableLabel(groupItems[0].tableNumbers),
+      key,
+      label: groupItems[0].isDelivery
+        ? `Delivery — ${groupItems[0].deliveryCustomerName ?? 'Cliente'}`
+        : formatTableLabel(groupItems[0].tableNumbers),
+      address: groupItems[0].isDelivery ? groupItems[0].deliveryAddress : null,
       items: groupItems,
       delayLevel,
     }
@@ -232,6 +243,7 @@ export function KitchenPage() {
           {visibleGroups.map((group) => {
             const isCollapsed = collapsedGroups[group.key] ?? false
             const tableNumbers = group.items[0].tableNumbers
+            const isDelivery = group.items[0].isDelivery
 
             return (
               <div
@@ -259,7 +271,13 @@ export function KitchenPage() {
                             : 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400'
                       }`}
                     >
-                      {tableNumbers.length > 0 ? tableNumbers.join(',') : <UtensilsCrossed className="h-4 w-4" />}
+                      {isDelivery ? (
+                        <DeliveryRiderIcon className="h-4 w-4" />
+                      ) : tableNumbers.length > 0 ? (
+                        tableNumbers.join(',')
+                      ) : (
+                        <UtensilsCrossed className="h-4 w-4" />
+                      )}
                     </span>
                     <span className="min-w-0">
                       <span className="flex items-center gap-1.5">
@@ -273,7 +291,8 @@ export function KitchenPage() {
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
                         )}
                       </span>
-                      <span className="block text-xs text-gray-500 dark:text-stone-400">
+                      <span className="block truncate text-xs text-gray-500 dark:text-stone-400">
+                        {group.address && `${group.address} • `}
                         {group.items.length} {group.items.length > 1 ? 'itens' : 'item'}
                       </span>
                     </span>

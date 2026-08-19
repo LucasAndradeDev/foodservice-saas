@@ -15,7 +15,6 @@ import {
   Move,
   Plus,
   Table2,
-  Truck,
   Users,
   UtensilsCrossed,
   Wallet,
@@ -47,6 +46,7 @@ import { listTabs, openTab, type Tab } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
+import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
 import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
@@ -758,7 +758,7 @@ export function TablesPage() {
                 className="flex items-center gap-2.5 rounded-full border border-gray-200 bg-white py-2 pl-2 pr-4 text-sm font-medium text-gray-700 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-stone-900 dark:text-stone-300"
               >
                 <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-500/20 dark:text-brand-400">
-                  <Truck className="h-3.5 w-3.5" />
+                  <DeliveryRiderIcon className="h-3.5 w-3.5" />
                 </span>
                 {tab.deliveryStatus && DELIVERY_STATUS_LABELS[tab.deliveryStatus]}
                 <span className="text-gray-400 dark:text-stone-500">· há {minutesSince(tab.openedAt)} min</span>

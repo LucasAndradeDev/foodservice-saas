@@ -1,7 +1,9 @@
-import type { LucideIcon } from 'lucide-react'
+import type { ComponentType } from 'react'
 
 interface PageHeaderProps {
-  icon: LucideIcon
+  // Broader than LucideIcon so a page can use a custom SVG icon (e.g. DeliveryPage's
+  // DeliveryRiderIcon) when lucide has nothing that reads right for the concept.
+  icon: ComponentType<{ className?: string }>
   title: string
   className?: string
 }

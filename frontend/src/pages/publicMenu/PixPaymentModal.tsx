@@ -3,28 +3,35 @@ import { isAxiosError } from 'axios'
 import { Check, Copy, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { QRCodeCanvas } from 'qrcode.react'
-import { createPublicPixCharge } from '../../api/publicMenu'
+import { cancelPublicDeliveryPixCharge, createPublicDeliveryPixCharge, createPublicPixCharge } from '../../api/publicMenu'
 import { Modal } from '../../components/Modal'
 
-interface PixPaymentModalProps {
-  slug: string
-  tableId: string
-  onClose: () => void
-}
+type PixPaymentModalProps =
+  | { slug: string; tableId: string; deliveryToken?: undefined; onClose: () => void }
+  | { slug?: undefined; tableId?: undefined; deliveryToken: string; onClose: () => void }
 
-/** Lets the customer generate and pay a Pix charge for the table's open tab straight from the
- * digital menu, without calling the waiter. Confirmation is asynchronous (Woovi's webhook) - this
- * modal doesn't poll on its own, since PublicMenuPage already polls getPublicMenu and redirects to
- * the feedback page the moment the tab closes, which unmounts this modal along with the rest of
- * the page. */
-export function PixPaymentModal({ slug, tableId, onClose }: PixPaymentModalProps) {
+/** Lets the customer generate and pay a Pix charge straight from the digital menu, without calling
+ * the waiter - either for a table's open tab (slug+tableId), or for a delivery order paid
+ * immediately at submission (deliveryToken, task 29.1). Confirmation is asynchronous (Woovi's
+ * webhook) - this modal doesn't poll on its own: the dine-in flow relies on PublicMenuPage already
+ * polling getPublicMenu and redirecting once the tab closes; the delivery flow relies on
+ * DeliveryStatusPage's own polling of the same access token. */
+export function PixPaymentModal({ slug, tableId, deliveryToken, onClose }: PixPaymentModalProps) {
   const [copied, setCopied] = useState(false)
 
   const chargeMutation = useMutation({
-    mutationFn: () => createPublicPixCharge(slug, tableId),
+    mutationFn: () => (deliveryToken ? createPublicDeliveryPixCharge(deliveryToken) : createPublicPixCharge(slug, tableId)),
   })
 
   const charge = chargeMutation.data
+
+  // Delivery only (task 29.1) - the QR froze the tab's total, so backing out matters here (the
+  // customer might want to try card instead). The dine-in flow has no equivalent affordance yet;
+  // staff can already cancel a stuck charge from the Caixa if needed there.
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelPublicDeliveryPixCharge(deliveryToken!),
+    onSuccess: onClose,
+  })
 
   function handleCopy() {
     if (!charge) return
@@ -36,7 +43,7 @@ export function PixPaymentModal({ slug, tableId, onClose }: PixPaymentModalProps
   function errorMessage() {
     const err = chargeMutation.error
     if (isAxiosError(err) && err.response?.status === 400) {
-      return 'Ainda não há nada entregue na mesa pra pagar.'
+      return deliveryToken ? 'Não foi possível gerar a cobrança pra esse pedido.' : 'Ainda não há nada entregue na mesa pra pagar.'
     }
     return 'Não foi possível gerar a cobrança Pix. Chame o garçom.'
   }
@@ -103,6 +110,16 @@ export function PixPaymentModal({ slug, tableId, onClose }: PixPaymentModalProps
             {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             {copied ? 'Copiado!' : 'Copiar código'}
           </button>
+          {deliveryToken && (
+            <button
+              type="button"
+              onClick={() => cancelMutation.mutate()}
+              disabled={cancelMutation.isPending}
+              className="text-xs font-medium text-gray-400 underline hover:text-gray-600 disabled:opacity-50 dark:text-stone-500 dark:hover:text-stone-300"
+            >
+              {cancelMutation.isPending ? 'Cancelando...' : 'Cancelar e escolher outro método'}
+            </button>
+          )}
         </div>
       )}
     </Modal>

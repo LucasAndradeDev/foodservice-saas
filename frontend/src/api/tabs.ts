@@ -1,4 +1,5 @@
 import { http } from './http'
+import type { DeliveryStatus } from './deliveries'
 import type { ApplyDiscountPayload, DiscountType } from './orders'
 
 export type TabStatus = 'OPEN' | 'CLOSED' | 'MERGED'
@@ -33,6 +34,9 @@ export interface Tab {
   id: string
   restaurantId: string
   status: TabStatus
+  // Set only when this tab has a DeliveryDetails row (task 27) - null for a regular tab (table or
+  // Balcao), both of which have no tables either, so this is what actually tells them apart.
+  deliveryStatus: DeliveryStatus | null
   openedAt: string
   lastOrderAt: string | null
   closedAt: string | null
@@ -49,6 +53,7 @@ export interface Tab {
   discountAppliedAt: string | null
   serviceChargePercentage: number | null
   serviceChargeAmount: number | null
+  deliveryFee: number | null
 }
 
 /** Rounds to cents, avoiding binary floating-point artifacts (e.g. 51.3 + 38.9 === 90.19999999999999 in JS). */

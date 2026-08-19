@@ -10,6 +10,9 @@ export default defineConfig({
     // the digital menu during dev — QR codes are built from window.location.origin, so
     // scanning one only works if you loaded the admin panel itself from that LAN IP.
     host: true,
+    // Free ngrok tunnels get a random subdomain every run - the leading dot matches any of them,
+    // needed for testing payment webhook redirects (Pix/card) from a real phone during dev.
+    allowedHosts: ['.ngrok-free.dev', '.ngrok-free.app'],
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

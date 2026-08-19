@@ -4,7 +4,6 @@ import {
   Apple,
   Beef,
   Beer,
-  Bike,
   Cake,
   Clock,
   Coffee,
@@ -50,6 +49,7 @@ import { listCategories } from '../api/categories'
 import type { DayOfWeek } from '../api/productAvailability'
 import type { DiscountType } from '../api/orders'
 import { Button } from '../components/Button'
+import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
 import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
@@ -60,7 +60,7 @@ const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral', icon: Store },
   { to: '/coupons', label: 'Cupons', icon: Ticket },
   { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
-  { to: '/delivery-zones', label: 'Entrega', icon: Bike },
+  { to: '/delivery-zones', label: 'Entrega', icon: DeliveryRiderIcon },
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 

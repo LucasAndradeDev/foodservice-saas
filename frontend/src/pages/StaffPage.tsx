@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BarChart3, Bike, CheckCircle2, Circle, Clock, Filter, KeyRound, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
+import { BarChart3, CheckCircle2, Circle, Clock, Filter, KeyRound, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import type { UserRole } from '../auth/types'
@@ -8,6 +8,7 @@ import { useAuth } from '../auth/AuthContext'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
 import { Dropdown } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
@@ -18,7 +19,7 @@ const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral', icon: Store },
   { to: '/coupons', label: 'Cupons', icon: Ticket },
   { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
-  { to: '/delivery-zones', label: 'Entrega', icon: Bike },
+  { to: '/delivery-zones', label: 'Entrega', icon: DeliveryRiderIcon },
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 

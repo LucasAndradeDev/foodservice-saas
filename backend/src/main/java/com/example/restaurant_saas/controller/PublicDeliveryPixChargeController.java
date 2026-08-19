@@ -1,0 +1,48 @@
+package com.example.restaurant_saas.controller;
+
+import com.example.restaurant_saas.dto.response.PixChargeResponse;
+import com.example.restaurant_saas.service.PixChargeService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/public/deliveries/{token}/pix-charges")
+@RequiredArgsConstructor
+@Tag(name = "Public Menu", description = "Public, unauthenticated digital menu lookup by restaurant slug.")
+public class PublicDeliveryPixChargeController {
+
+    private final PixChargeService pixChargeService;
+
+    @PostMapping
+    @Operation(summary = "Create a Pix charge for a delivery order, started by the customer", description = "Same freeze-and-generate-QR-code flow as the staff Caixa endpoint, but for a delivery order (task 29.1) identified by its access token instead of a table id. Unlike the dine-in flow, there is no DELIVERED-item gate: a delivery order is paid immediately at submission, before the kitchen starts. Requires the restaurant to have configured its Woovi AppID. Confirmed asynchronously by a webhook.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Charge created, returns the Pix QR code/copy-paste code"),
+            @ApiResponse(responseCode = "400", description = "Delivery order not found, or nothing left to charge"),
+            @ApiResponse(responseCode = "403", description = "This restaurant hasn't configured Pix payment yet"),
+            @ApiResponse(responseCode = "502", description = "Woovi could not be reached or returned an unexpected response")
+    })
+    public ResponseEntity<PixChargeResponse> createCharge(@PathVariable String token) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(pixChargeService.createChargeForDeliveryOrder(token));
+    }
+
+    @DeleteMapping
+    @Operation(summary = "Cancel this delivery order's pending Pix charge", description = "Lets the customer back out of their own still-PENDING Pix charge (e.g. to try card instead, or a stuck QR code) and unfreezes the total if nothing else relies on it. A no-op if there's nothing PENDING.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Cancelled (or nothing to cancel)"),
+            @ApiResponse(responseCode = "400", description = "Delivery order not found")
+    })
+    public ResponseEntity<Void> cancelCharge(@PathVariable String token) {
+        pixChargeService.cancelPendingChargeForDeliveryOrder(token);
+        return ResponseEntity.noContent().build();
+    }
+}

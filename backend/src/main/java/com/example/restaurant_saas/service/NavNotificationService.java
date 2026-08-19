@@ -43,8 +43,7 @@ public class NavNotificationService {
         OffsetDateTime tablesSeen = lastSeen(restaurantId, userId, NavSection.TABLES);
         OffsetDateTime checkoutSeen = lastSeen(restaurantId, userId, NavSection.CHECKOUT);
 
-        boolean kitchen = orderItemRepository.existsByOrder_Restaurant_IdAndStatusAndCreatedAtAfter(
-                restaurantId, ItemStatus.PENDING, kitchenSeen);
+        boolean kitchen = orderItemRepository.existsNewPaidKitchenPendingItem(restaurantId, kitchenSeen);
 
         List<TableRequest> pendingRequests = tableRequestRepository.findByRestaurantIdAndAcknowledgedAtIsNull(restaurantId);
 
