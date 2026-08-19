@@ -33,6 +33,9 @@ public class Category {
     @Column(name = "banner_image_url", length = 500)
     private String bannerImageUrl;
 
+    @Column(length = 30)
+    private String icon;
+
     @Builder.Default
     private Boolean active = true;
 

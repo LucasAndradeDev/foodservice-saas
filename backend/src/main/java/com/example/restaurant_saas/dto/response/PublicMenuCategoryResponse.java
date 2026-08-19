@@ -12,5 +12,6 @@ public class PublicMenuCategoryResponse {
     private UUID id;
     private String name;
     private String bannerImageUrl;
+    private String icon;
     private List<PublicMenuProductResponse> products;
 }

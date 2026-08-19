@@ -73,7 +73,7 @@ public class CategoryController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
-    @Operation(summary = "Update category", description = "Updates name and/or active status. Fields omitted from the request body are left unchanged.")
+    @Operation(summary = "Update category", description = "Updates name, icon, and/or active status. Fields omitted from the request body are left unchanged.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Category updated"),
             @ApiResponse(responseCode = "400", description = "Category not found, validation error, or duplicate name"),
@@ -85,6 +85,22 @@ public class CategoryController {
             @Valid @RequestBody UpdateCategoryRequest request
     ) {
         return ResponseEntity.ok(categoryService.updateCategory(currentUser.getRestaurantId(), id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
+    @Operation(summary = "Delete category", description = "Permanently deletes a category. Only allowed if it has no products; otherwise deactivate it instead.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Category deleted"),
+            @ApiResponse(responseCode = "400", description = "Category not found in this restaurant"),
+            @ApiResponse(responseCode = "403", description = "Authenticated user is not OWNER or MANAGER, or category still has products")
+    })
+    public ResponseEntity<Void> deleteCategory(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @PathVariable UUID id
+    ) {
+        categoryService.deleteCategory(currentUser.getRestaurantId(), id);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/upload-banner")

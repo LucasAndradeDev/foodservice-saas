@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Search, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { PublicMenuCategory } from '../../api/publicMenu'
-import { getCategoryEmoji } from './categoryIcons'
+import { getCategoryIconImage } from './categoryIcons'
 import { scrollToCategory } from './utils'
 
 const SPY_RESUME_FALLBACK_MS = 1000
@@ -102,7 +102,7 @@ export function CategoryNav({ categories, search, onSearchChange }: CategoryNavP
             <div className="no-scrollbar flex snap-x snap-proximity gap-3 overflow-x-auto overscroll-x-contain scroll-smooth px-4 py-1.5 sm:justify-center [-webkit-overflow-scrolling:touch]">
               {categories.map((category) => {
                 const isActive = !isSearching && category.id === activeCategoryId
-                const emoji = getCategoryEmoji(category.name)
+                const iconImage = getCategoryIconImage(category.name, category.icon)
                 return (
                   <button
                     key={category.id}
@@ -122,7 +122,7 @@ export function CategoryNav({ categories, search, onSearchChange }: CategoryNavP
                         />
                       )}
                       {!isActive && <span className="absolute inset-0 rounded-2xl bg-gray-100 dark:bg-white/5" />}
-                      <span className="relative z-10 text-2xl">{emoji}</span>
+                      <img src={iconImage} alt="" className="relative z-10 h-7 w-7 object-contain" />
                     </span>
                     <span
                       className={`font-display line-clamp-2 text-center text-[11px] font-semibold leading-tight transition-colors ${

@@ -1,16 +1,35 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion, type Variants } from 'framer-motion'
-import { CheckCircle2, ChevronDown, Circle, Image as ImageIcon, Layers, Package, Pencil, Plus, Power, SlidersHorizontal, Tag } from 'lucide-react'
-import { useState, type ChangeEvent, type FormEvent } from 'react'
-import { createCategory, listCategories, updateCategory, uploadCategoryBanner, type Category } from '../api/categories'
+import { isAxiosError } from 'axios'
+import {
+  CheckCircle2,
+  ChevronDown,
+  Circle,
+  Image as ImageIcon,
+  Layers,
+  MoreVertical,
+  Package,
+  Pencil,
+  Plus,
+  Power,
+  SlidersHorizontal,
+  Tag,
+  Trash2,
+  Wand2,
+} from 'lucide-react'
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { createCategory, deleteCategory, listCategories, updateCategory, uploadCategoryBanner, type Category } from '../api/categories'
 import { useAuth } from '../auth/AuthContext'
+import { ActionMenu, type ActionMenuEntry } from '../components/ActionMenu'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { Card } from '../components/Card'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
 import { SectionTabs } from '../components/SectionTabs'
 import { Table, TableHead, TableRow } from '../components/Table'
+import { CATEGORY_ICON_OPTIONS } from './publicMenu/categoryIcons'
 
 const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1]
 
@@ -39,9 +58,12 @@ export function CategoriesPage() {
   const [isCreating, setIsCreating] = useState(false)
   const [name, setName] = useState('')
   const [bannerImageUrl, setBannerImageUrl] = useState('')
+  const [icon, setIcon] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isUploadingBanner, setIsUploadingBanner] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [listError, setListError] = useState<string | null>(null)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
 
   const createMutation = useMutation({
     mutationFn: createCategory,
@@ -58,9 +80,25 @@ export function CategoriesPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: deleteCategory,
+    onSuccess: () => {
+      setListError(null)
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+    },
+    onError: (err) => {
+      if (isAxiosError(err) && err.response?.status === 403) {
+        setListError('Não é possível excluir: a categoria ainda tem produtos. Mova ou exclua os produtos primeiro.')
+      } else {
+        setListError('Não foi possível excluir a categoria.')
+      }
+    },
+  })
+
   function openCreateForm() {
     setName('')
     setBannerImageUrl('')
+    setIcon('')
     setShowAdvanced(false)
     setError(null)
     setIsCreating(true)
@@ -70,6 +108,7 @@ export function CategoriesPage() {
     setEditingCategory(category)
     setName(category.name)
     setBannerImageUrl(category.bannerImageUrl ?? '')
+    setIcon(category.icon ?? '')
     setShowAdvanced(false)
     setError(null)
   }
@@ -84,11 +123,11 @@ export function CategoriesPage() {
     setError(null)
     if (editingCategory) {
       updateMutation.mutate(
-        { id: editingCategory.id, payload: { name, bannerImageUrl } },
+        { id: editingCategory.id, payload: { name, bannerImageUrl, icon } },
         { onSuccess: closeForm, onError: () => setError('Não foi possível salvar. Verifique se o nome já está em uso.') },
       )
     } else {
-      createMutation.mutate({ name, bannerImageUrl })
+      createMutation.mutate({ name, bannerImageUrl, icon })
     }
   }
 
@@ -113,6 +152,18 @@ export function CategoriesPage() {
     updateMutation.mutate({ id: category.id, payload: { active: !category.active } })
   }
 
+  function handleDelete(category: Category) {
+    setCategoryToDelete(category)
+  }
+
+  function confirmDelete() {
+    if (categoryToDelete) {
+      setListError(null)
+      deleteMutation.mutate(categoryToDelete.id)
+    }
+    setCategoryToDelete(null)
+  }
+
   const isFormOpen = isCreating || editingCategory !== null
 
   return (
@@ -128,6 +179,8 @@ export function CategoriesPage() {
           </Button>
         )}
       </div>
+
+      {listError && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{listError}</p>}
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
@@ -153,6 +206,7 @@ export function CategoriesPage() {
                     category={category}
                     onEdit={() => openEditForm(category)}
                     onToggleActive={() => toggleActive(category)}
+                    onDelete={() => handleDelete(category)}
                     align="end"
                   />
                 )}
@@ -186,6 +240,7 @@ export function CategoriesPage() {
                           category={category}
                           onEdit={() => openEditForm(category)}
                           onToggleActive={() => toggleActive(category)}
+                          onDelete={() => handleDelete(category)}
                           align="end"
                         />
                       </td>
@@ -272,6 +327,50 @@ export function CategoriesPage() {
                         <img src={bannerImageUrl} alt="" className="h-20 w-full rounded-md object-cover" />
                       )}
                     </div>
+
+                    <div className="border-t border-gray-100 p-3 dark:border-white/10">
+                      <label className="mb-1 flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-stone-300">
+                        <Wand2 className="h-3.5 w-3.5" />
+                        Ícone da categoria <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
+                      </label>
+                      <p className="mb-2 text-xs text-gray-500 dark:text-stone-400">
+                        Aparece no cardápio digital. Se não escolher, detectamos automaticamente pelo nome da categoria.
+                      </p>
+                      <div className="grid grid-cols-6 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIcon('')}
+                          title="Automático"
+                          aria-label="Detectar automaticamente"
+                          className={`flex h-10 w-10 items-center justify-center rounded-lg border transition ${
+                            icon === ''
+                              ? 'border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-400'
+                              : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50 dark:border-white/10 dark:bg-stone-800 dark:text-stone-400 dark:hover:bg-white/5'
+                          }`}
+                        >
+                          <Wand2 className="h-4 w-4" />
+                        </button>
+                        {CATEGORY_ICON_OPTIONS.map((option) => {
+                          const isSelected = icon === option.key
+                          return (
+                            <button
+                              key={option.key}
+                              type="button"
+                              onClick={() => setIcon(option.key)}
+                              title={option.label}
+                              aria-label={option.label}
+                              className={`flex h-10 w-10 items-center justify-center rounded-lg border transition ${
+                                isSelected
+                                  ? 'border-brand-500 bg-brand-50 dark:border-brand-400 dark:bg-brand-500/10'
+                                  : 'border-gray-200 bg-white hover:bg-gray-50 dark:border-white/10 dark:bg-stone-800 dark:hover:bg-white/5'
+                              }`}
+                            >
+                              <img src={option.image} alt="" className="h-6 w-6 object-contain" />
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -285,6 +384,18 @@ export function CategoriesPage() {
           </form>
         </Modal>
       )}
+
+      {categoryToDelete && (
+        <ConfirmDialog
+          title="Excluir categoria"
+          message={`Excluir a categoria "${categoryToDelete.name}"? Essa ação não pode ser desfeita.`}
+          confirmLabel="Excluir"
+          cancelLabel="Voltar"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setCategoryToDelete(null)}
+        />
+      )}
     </div>
   )
 }
@@ -293,10 +404,20 @@ interface CategoryActionButtonsProps {
   category: Category
   onEdit: () => void
   onToggleActive: () => void
+  onDelete: () => void
   align?: 'start' | 'end'
 }
 
-function CategoryActionButtons({ category, onEdit, onToggleActive, align = 'start' }: CategoryActionButtonsProps) {
+function CategoryActionButtons({ category, onEdit, onToggleActive, onDelete, align = 'start' }: CategoryActionButtonsProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  const items: ActionMenuEntry[] = [
+    { key: 'active', label: category.active ? 'Desativar' : 'Ativar', icon: Power, onClick: onToggleActive },
+    { divider: true },
+    { key: 'delete', label: 'Excluir', icon: Trash2, onClick: onDelete, tone: 'danger' },
+  ]
+
   return (
     <div className={`flex items-center gap-1 ${align === 'end' ? 'justify-end' : ''}`}>
       <button
@@ -308,15 +429,27 @@ function CategoryActionButtons({ category, onEdit, onToggleActive, align = 'star
       >
         <Pencil className="h-[18px] w-[18px]" />
       </button>
+
       <button
+        ref={triggerRef}
         type="button"
-        onClick={onToggleActive}
-        title={category.active ? 'Desativar' : 'Ativar'}
-        aria-label={category.active ? 'Desativar' : 'Ativar'}
-        className={`rounded-md p-2 hover:bg-gray-100 dark:hover:bg-white/5 ${category.active ? 'text-gray-500 hover:text-amber-700 dark:text-stone-400 dark:hover:text-amber-400' : 'text-gray-400 hover:text-green-700 dark:text-stone-500 dark:hover:text-green-400'}`}
+        onClick={() => setIsMenuOpen((open) => !open)}
+        title="Mais ações"
+        aria-label="Mais ações"
+        className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-stone-400 dark:hover:bg-white/5 dark:hover:text-stone-200"
       >
-        <Power className="h-[18px] w-[18px]" />
+        <MoreVertical className="h-[18px] w-[18px]" />
       </button>
+
+      <ActionMenu
+        isOpen={isMenuOpen}
+        onClose={() => setIsMenuOpen(false)}
+        triggerRef={triggerRef}
+        items={items}
+        align={align}
+        mobileTitle={category.name}
+        width={200}
+      />
     </div>
   )
 }

@@ -14,5 +14,11 @@ public class UpdateCategoryRequest {
     @Pattern(regexp = "^$|^https?://.+|^/.+", message = "Banner image URL must start with http:// or https://")
     private String bannerImageUrl;
 
+    @Pattern(
+            regexp = "^$|^(breakfast|combo|pizza|taco|hotdog|wrap|dumpling|seafood|fish|sandwich|fries|popcorn|soup|pasta|salad|chicken|meat|beer|wine|cocktail|drink|tea|coffee|bread|dessert|cake|cookie|donut)$",
+            message = "Icon must be one of the supported icon keys"
+    )
+    private String icon;
+
     private Boolean active;
 }

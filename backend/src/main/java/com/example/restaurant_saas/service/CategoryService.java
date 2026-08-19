@@ -45,6 +45,7 @@ public class CategoryService {
                 .restaurant(restaurantRepository.getReferenceById(restaurantId))
                 .name(request.getName())
                 .bannerImageUrl(blankToNull(request.getBannerImageUrl()))
+                .icon(blankToNull(request.getIcon()))
                 .active(true)
                 .build();
 
@@ -74,6 +75,9 @@ public class CategoryService {
         if (request.getBannerImageUrl() != null) {
             category.setBannerImageUrl(blankToNull(request.getBannerImageUrl()));
         }
+        if (request.getIcon() != null) {
+            category.setIcon(blankToNull(request.getIcon()));
+        }
         if (Boolean.FALSE.equals(request.getActive()) && productRepository.existsByCategoryIdAndActiveTrue(categoryId)) {
             throw new IllegalStateException("Cannot deactivate a category that still has active products.");
         }
@@ -82,6 +86,15 @@ public class CategoryService {
         }
 
         return toResponse(categoryRepository.save(category));
+    }
+
+    @Transactional
+    public void deleteCategory(UUID restaurantId, UUID categoryId) {
+        Category category = findByIdAndRestaurant(restaurantId, categoryId);
+        if (productRepository.existsByCategoryId(categoryId)) {
+            throw new IllegalStateException("Cannot delete a category that has products. Remove or move them first.");
+        }
+        categoryRepository.delete(category);
     }
 
     private Category findByIdAndRestaurant(UUID restaurantId, UUID categoryId) {
@@ -99,6 +112,7 @@ public class CategoryService {
                 .restaurantId(category.getRestaurant().getId())
                 .name(category.getName())
                 .bannerImageUrl(category.getBannerImageUrl())
+                .icon(category.getIcon())
                 .active(category.getActive())
                 .build();
     }

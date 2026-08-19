@@ -11,7 +11,7 @@ interface CategoryBannerProps {
 
 export function CategoryBanner({ category, isOpen, onToggle }: CategoryBannerProps) {
   const bannerImage = category.bannerImageUrl ?? category.products.find((product) => product.imageUrl)?.imageUrl ?? null
-  const Icon = getCategoryIcon(category.name)
+  const Icon = getCategoryIcon(category.name, category.icon)
 
   return (
     <button

@@ -27,6 +27,7 @@ export interface PublicMenuCategory {
   id: string
   name: string
   bannerImageUrl: string | null
+  icon: string | null
   products: PublicMenuProduct[]
 }
 

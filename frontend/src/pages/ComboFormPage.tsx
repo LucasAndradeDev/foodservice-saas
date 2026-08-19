@@ -138,7 +138,7 @@ export function ComboFormPage() {
   const slotCategorySelectOptions = slotCategoryOptions.map((category) => ({
     value: category.id,
     label: category.name,
-    icon: getCategoryIcon(category.name),
+    icon: getCategoryIcon(category.name, category.icon),
   }))
 
   const priceOf = (productIdValue: string) => otherProducts.find((p) => p.id === productIdValue)?.price

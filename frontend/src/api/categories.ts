@@ -5,12 +5,14 @@ export interface Category {
   restaurantId: string
   name: string
   bannerImageUrl: string | null
+  icon: string | null
   active: boolean
 }
 
 export interface CategoryPayload {
   name: string
   bannerImageUrl?: string
+  icon?: string
 }
 
 export function listCategories(active?: boolean) {
@@ -23,6 +25,10 @@ export function createCategory(payload: CategoryPayload) {
 
 export function updateCategory(id: string, payload: Partial<CategoryPayload & { active: boolean }>) {
   return http.put<Category>(`/categories/${id}`, payload).then((res) => res.data)
+}
+
+export function deleteCategory(id: string) {
+  return http.delete<void>(`/categories/${id}`).then((res) => res.data)
 }
 
 export function uploadCategoryBanner(file: File) {

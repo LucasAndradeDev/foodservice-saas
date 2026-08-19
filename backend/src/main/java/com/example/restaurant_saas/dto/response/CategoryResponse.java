@@ -12,5 +12,6 @@ public class CategoryResponse {
     private UUID restaurantId;
     private String name;
     private String bannerImageUrl;
+    private String icon;
     private Boolean active;
 }
