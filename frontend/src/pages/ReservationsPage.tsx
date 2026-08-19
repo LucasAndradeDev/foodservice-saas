@@ -310,7 +310,12 @@ export function ReservationsPage() {
                 <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="reservationTime">
                   Data e hora
                 </label>
-                <DateTimePicker id="reservationTime" value={reservationTime} onChange={setReservationTime} />
+                <DateTimePicker
+                  id="reservationTime"
+                  value={reservationTime}
+                  onChange={setReservationTime}
+                  initialViewDate={date}
+                />
               </div>
             </div>
 

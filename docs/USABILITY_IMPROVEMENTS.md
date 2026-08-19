@@ -138,6 +138,26 @@ Status de cada item: `[ ]` pendente, `[x]` implementado.
   Fix: esconder o campo de cupom quando `showDeliveryFields` for verdadeiro, ou dar
   suporte a cupom por delivery no backend.
 
+## Segunda varredura (2026-08-17/18)
+
+Depois de fechar os 14 itens acima, nova varredura completa sobre o restante do painel
+admin (Produtos, Categorias, Combos, Cupons, Happy Hour, Zonas de entrega, Áreas do salão,
+Mesas, Reservas, Cozinha, Dashboard, Avaliações, Configurações, Checkout/divisão por
+pessoa, guias de Pix/Cartão) — leitura completa do código-fonte de cada tela, mesma
+metodologia da primeira varredura. A maior parte já está limpa (bulk actions, `ConfirmDialog`,
+valores padrão sensatos, botões de copiar, pré-preenchimento) depois da primeira rodada;
+só um achado novo confirmado no código:
+
+- [x] **15. "Nova reserva" não parte do dia que já está sendo visualizado**
+  `frontend/src/pages/ReservationsPage.tsx:60,131-138`, `frontend/src/components/DateTimePicker.tsx`
+  A tela já deixa navegar por dia (setas ‹ › + `DatePicker`) e guarda esse dia em `date`.
+  Ao clicar em "Nova reserva", `reservationTime` sempre reseta pra `''` e o `DateTimePicker`
+  abre no mês/dia de hoje — se o gerente está vendo sábado que vem e cria uma reserva pra
+  esse mesmo dia, precisa navegar o calendário manualmente até lá de novo.
+  Fix: novo prop opcional `initialViewDate` no `DateTimePicker` (não seleciona nada sozinho,
+  só abre o calendário já no mês/dia certo) — passado como `date` a partir do
+  `ReservationsPage`.
+
 ## Descartado (já bem resolvido, sem fricção real confirmada)
 
 - Ações em massa em Produtos (`BulkActionsMenu` já existe).

@@ -25,6 +25,10 @@ interface DateTimePickerProps {
   onChange: (value: string) => void
   /** 'YYYY-MM-DD' -- days before this are disabled. Defaults to today. */
   minDate?: string
+  /** 'YYYY-MM-DD' -- which month the calendar opens on when value is still empty (e.g. the day
+   * a caller is already browsing). Doesn't select a date by itself -- only nudges the starting
+   * view so staff isn't stuck navigating months by hand to reach a day they were just looking at. */
+  initialViewDate?: string
   placeholder?: string
   id?: string
 }
@@ -114,10 +118,18 @@ function getCellClasses({
   return `${base} hover:bg-gray-100 dark:hover:bg-white/10 ${ring}`
 }
 
-export function DateTimePicker({ value, onChange, minDate, placeholder = 'Selecionar data e hora', id }: DateTimePickerProps) {
+export function DateTimePicker({
+  value,
+  onChange,
+  minDate,
+  initialViewDate,
+  placeholder = 'Selecionar data e hora',
+  id,
+}: DateTimePickerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const parsed = parseValue(value)
-  const [viewDate, setViewDate] = useState(() => parsed?.date ?? new Date())
+  const defaultViewDate = () => parsed?.date ?? (initialViewDate ? parseDateInput(initialViewDate) : new Date())
+  const [viewDate, setViewDate] = useState(defaultViewDate)
   const [desktopPosition, setDesktopPosition] = useState({ top: 0, left: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -125,7 +137,7 @@ export function DateTimePicker({ value, onChange, minDate, placeholder = 'Seleci
 
   useEffect(() => {
     if (!isOpen) return
-    setViewDate(parsed?.date ?? new Date())
+    setViewDate(defaultViewDate())
     // The popover is portaled to <body> with a fixed position (see below) so it isn't clipped by an
     // ancestor's overflow -- e.g. the scrollable form modal this picker normally sits inside.
     if (triggerRef.current) {
