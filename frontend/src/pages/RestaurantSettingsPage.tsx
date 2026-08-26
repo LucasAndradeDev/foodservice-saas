@@ -162,12 +162,15 @@ export function RestaurantSettingsPage() {
     }
 
     updateMutation.mutate({
-      cnpj: cnpj || undefined,
-      tradeName: tradeName || undefined,
+      cnpj,
+      tradeName,
+      // Unlike the other optional fields here, slug can't be safely cleared to '' - it's load-
+      // bearing for the public menu URL (/cardapio/:slug) and QR codes already printed/shared, so
+      // this one keeps the old "empty means don't touch" behavior on purpose.
       slug: slug || undefined,
-      logo: logo || undefined,
-      phone: phone || undefined,
-      address: address || undefined,
+      logo,
+      phone,
+      address,
       autoPrintKitchenTickets,
       kitchenWarningThresholdMinutes: warningMinutes,
       kitchenCriticalThresholdMinutes: criticalMinutes,

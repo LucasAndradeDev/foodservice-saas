@@ -54,6 +54,8 @@ export interface Tab {
   serviceChargePercentage: number | null
   serviceChargeAmount: number | null
   deliveryFee: number | null
+  deliveryCustomerName: string | null
+  deliveryAddress: string | null
 }
 
 /** Rounds to cents, avoiding binary floating-point artifacts (e.g. 51.3 + 38.9 === 90.19999999999999 in JS). */

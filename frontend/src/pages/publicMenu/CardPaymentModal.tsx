@@ -18,7 +18,10 @@ type CardPaymentModalProps =
  * the delivery flow relies on DeliveryStatusPage's own polling of the same access token. */
 export function CardPaymentModal({ slug, tableId, deliveryToken, onClose }: CardPaymentModalProps) {
   const chargeMutation = useMutation({
-    mutationFn: () => (deliveryToken ? createPublicDeliveryCardCharge(deliveryToken) : createPublicCardCharge(slug, tableId)),
+    // Non-null assertions: the discriminated CardPaymentModalProps union guarantees slug/tableId
+    // are both set whenever deliveryToken isn't - TS just can't correlate that across destructured
+    // params (tsc -b catches this even though tsc --noEmit -p . doesn't).
+    mutationFn: () => (deliveryToken ? createPublicDeliveryCardCharge(deliveryToken) : createPublicCardCharge(slug!, tableId!)),
     onSuccess: (charge) => {
       if (charge.initPointUrl) {
         window.location.href = charge.initPointUrl

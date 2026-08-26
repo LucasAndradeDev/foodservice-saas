@@ -480,6 +480,8 @@ export function PublicMenuPage() {
   )
   const cartDiscountAmount = computeDiscountAmount(menu.table?.discountType ?? null, menu.table?.discountValue ?? null, cartSubtotal)
   const cartTotal = roundCurrency(cartSubtotal - cartDiscountAmount)
+  const cartDeliveryFee = orderMode === 'DELIVERY' && deliveryFeeQuote?.available ? (deliveryFeeQuote.fee ?? 0) : 0
+  const cartTotalWithDelivery = roundCurrency(cartTotal + cartDeliveryFee)
 
   return (
     <div className={`${themeClass} isolate bg-gray-50 dark:bg-stone-950`}>
@@ -669,7 +671,7 @@ export function PublicMenuPage() {
               <span className="text-[11px] font-medium uppercase tracking-wide text-white/75">Ver pedido</span>
               <span className="text-sm font-semibold">{cartCount === 1 ? '1 item' : `${cartCount} itens`}</span>
             </span>
-            <span className="text-base font-bold">{currencyFormatter.format(cartTotal)}</span>
+            <span className="text-base font-bold">{currencyFormatter.format(cartTotalWithDelivery)}</span>
           </motion.button>
         )}
       </AnimatePresence>

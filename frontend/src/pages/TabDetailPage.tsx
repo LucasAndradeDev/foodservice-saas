@@ -742,8 +742,9 @@ export function TabDetailPage() {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-gray-800 dark:text-white">
-              {tab.deliveryStatus ? 'Delivery' : formatTableLabel(tab.tables.map((t) => t.number))}
+              {tab.deliveryStatus ? `Delivery — ${tab.deliveryCustomerName ?? ''}` : formatTableLabel(tab.tables.map((t) => t.number))}
             </h1>
+            {tab.deliveryAddress && <p className="text-xs text-gray-500 dark:text-stone-400">{tab.deliveryAddress}</p>}
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
               <span
                 className={`flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${
@@ -1161,7 +1162,7 @@ export function TabDetailPage() {
               <p className="py-4 text-center text-sm text-gray-400 dark:text-stone-500">Nenhum produto encontrado.</p>
             )}
             {filteredProductsByCategory.map(({ category, products: categoryProducts }) => {
-              const CategoryIcon = getCategoryIcon(category.name)
+              const CategoryIcon = getCategoryIcon(category.name, category.icon)
               return (
                 <div key={category.id}>
                   <div className="mb-1 flex items-center gap-1.5 px-1 text-xs font-semibold tracking-wide text-gray-400 uppercase dark:text-stone-500">

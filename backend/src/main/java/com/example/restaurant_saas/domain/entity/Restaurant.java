@@ -95,4 +95,12 @@ public class Restaurant {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
+
+    /** {@code tradeName} ("nome fantasia") when set, falling back to the legal {@code name}
+     * otherwise - used everywhere a restaurant's name is shown to a customer (menu, delivery
+     * tracking, order tickets, feedback page). Checks blank, not just null: {@code tradeName} can
+     * be an empty string since Configurações started letting staff clear it back out. */
+    public String getDisplayName() {
+        return tradeName != null && !tradeName.isBlank() ? tradeName : name;
+    }
 }

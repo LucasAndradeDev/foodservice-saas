@@ -346,7 +346,7 @@ export function AppLayout() {
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-gray-800 dark:text-white">
-                {restaurant?.tradeName ?? restaurant?.name}
+                {restaurant?.tradeName || restaurant?.name}
               </p>
               <p className="truncate text-xs text-gray-500 dark:text-stone-400">
                 {user?.name} · {user ? ROLE_LABELS[user.role] : ''}
@@ -379,7 +379,7 @@ export function AppLayout() {
         {/* Mobile top bar */}
         <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 sm:hidden dark:border-white/10 dark:bg-stone-900">
           <span className="font-semibold text-gray-800 dark:text-white">
-            {restaurant?.tradeName ?? restaurant?.name}
+            {restaurant?.tradeName || restaurant?.name}
           </span>
           <div className="flex items-center gap-2">
             <ThemeToggleButton />

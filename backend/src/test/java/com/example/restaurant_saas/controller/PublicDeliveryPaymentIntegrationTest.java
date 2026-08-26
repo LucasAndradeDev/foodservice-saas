@@ -107,8 +107,9 @@ class PublicDeliveryPaymentIntegrationTest {
     private record DeliveryOrder(String tabId, String accessToken) {
     }
 
-    // Cheeseburger (25.90) + the restaurant's default 10% service charge + the Centro zone's fee
-    // (8.00) = 36.49, same math as DeliveryControllerIntegrationTest#payTabInFull.
+    // Cheeseburger (25.90) + the Centro zone's fee (8.00) = 33.90 - no service charge on delivery
+    // orders (2026-08-18 decision, TabService#resolveBillTotal), same math as
+    // DeliveryControllerIntegrationTest#payTabInFull.
     private DeliveryOrder createDeliveryOrder(String token, String slug) throws Exception {
         CreateCategoryRequest categoryRequest = new CreateCategoryRequest();
         categoryRequest.setName("Burgers");
@@ -148,8 +149,11 @@ class PublicDeliveryPaymentIntegrationTest {
         body.set("items", objectMapper.valueToTree(List.of(item)));
         body.put("customerName", "Maria Souza");
         // Unique per call - the phone-based rate limiter (PublicDeliveryOrderService) is shared
-        // real state across every test method in this class, not reset between them.
-        body.put("customerPhone", "119" + (System.nanoTime() % 10_000_000L));
+        // real state across every test method in this class, not reset between them. Zero-padded
+        // to a fixed width - CreateDeliveryOrderRequest#customerPhone requires 10-15 digits, and an
+        // unpadded nanoTime remainder occasionally comes up short, intermittently failing
+        // validation with "Invalid phone number".
+        body.put("customerPhone", "1199" + String.format("%07d", System.nanoTime() % 10_000_000L));
         body.put("street", "Rua das Flores");
         body.put("number", "123");
         body.put("neighborhood", "Centro");
@@ -183,7 +187,7 @@ class PublicDeliveryPaymentIntegrationTest {
         // Items are still PENDING at this point - unlike the dine-in flow, that must not block it.
         MvcResult chargeResult = mockMvc.perform(post("/api/v1/public/deliveries/" + order.accessToken() + "/pix-charges"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.amount").value(36.49))
+                .andExpect(jsonPath("$.amount").value(33.90))
                 .andExpect(jsonPath("$.brCode").value("00020126brcode"))
                 .andReturn();
         String pixChargeId = JsonPath.read(chargeResult.getResponse().getContentAsString(), "$.id");
@@ -210,7 +214,7 @@ class PublicDeliveryPaymentIntegrationTest {
         mockMvc.perform(get("/api/v1/tabs/" + order.tabId()).header("Authorization", "Bearer " + owner.token()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CLOSED"))
-                .andExpect(jsonPath("$.amountPaid").value(36.49));
+                .andExpect(jsonPath("$.amountPaid").value(33.90));
     }
 
     @Test
@@ -232,7 +236,7 @@ class PublicDeliveryPaymentIntegrationTest {
 
         mockMvc.perform(post("/api/v1/public/deliveries/" + order.accessToken() + "/card-charges"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.amount").value(36.49))
+                .andExpect(jsonPath("$.amount").value(33.90))
                 .andExpect(jsonPath("$.initPointUrl").value("https://mercadopago.com/checkout/pref-id"));
     }
 

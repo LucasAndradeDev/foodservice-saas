@@ -133,9 +133,7 @@ public class DeliveryService {
                 .customerName(d.getCustomerName())
                 .customerPhone(d.getCustomerPhone())
                 .restaurantSlug(d.getTab().getRestaurant().getSlug())
-                .restaurantName(d.getTab().getRestaurant().getTradeName() != null
-                        ? d.getTab().getRestaurant().getTradeName()
-                        : d.getTab().getRestaurant().getName())
+                .restaurantName(d.getTab().getRestaurant().getDisplayName())
                 .restaurantPhone(d.getTab().getRestaurant().getPhone())
                 .street(d.getStreet())
                 .number(d.getNumber())

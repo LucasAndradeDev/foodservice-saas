@@ -679,6 +679,8 @@ public class TabService {
                 .status(tab.getStatus())
                 .deliveryStatus(deliveryDetails.map(DeliveryDetails::getStatus).orElse(null))
                 .deliveryFee(deliveryDetails.map(DeliveryDetails::getDeliveryFee).orElse(null))
+                .deliveryCustomerName(deliveryDetails.map(DeliveryDetails::getCustomerName).orElse(null))
+                .deliveryAddress(deliveryDetails.map(TabService::formatDeliveryAddress).orElse(null))
                 .openedAt(tab.getOpenedAt())
                 .lastOrderAt(tab.getLastOrderAt())
                 .closedAt(tab.getClosedAt())
@@ -701,6 +703,13 @@ public class TabService {
                                 .build())
                         .toList())
                 .build();
+    }
+
+    // Same format as the kitchen queue's delivery card (OrderItemService#formatDeliveryAddress) -
+    // keeping it identical means Fechar Conta's card genuinely matches what the kitchen already
+    // shows for the same order, not just something that looks similar.
+    private static String formatDeliveryAddress(DeliveryDetails deliveryDetails) {
+        return deliveryDetails.getStreet() + ", " + deliveryDetails.getNumber() + " - " + deliveryDetails.getNeighborhood();
     }
 
     private PaymentResponse toPaymentResponse(Payment payment) {

@@ -140,12 +140,13 @@ class DeliveryControllerIntegrationTest {
     // charge-gateway flow itself is covered separately, this just needs the tab to become paid.
     // registerPayments computes the total itself (it's not frozen yet on a fresh delivery tab, so
     // GET /tabs/{id}'s remainingBalance would come back null) - every test tab here is one
-    // Cheeseburger (25.90, see createProduct) plus the restaurant's default 10% service charge
-    // plus the Centro zone's fee (8.00, see createDeliveryZone): 25.90 * 1.10 + 8.00 = 36.49.
+    // Cheeseburger (25.90, see createProduct) plus the Centro zone's fee (8.00, see
+    // createDeliveryZone): 25.90 + 8.00 = 33.90. No service charge on delivery orders (2026-08-18
+    // decision, TabService#resolveBillTotal).
     private void payTabInFull(String token, String tabId) throws Exception {
         ObjectNode payment = objectMapper.createObjectNode();
         payment.put("paymentMethod", "PIX");
-        payment.put("amount", new BigDecimal("36.49"));
+        payment.put("amount", new BigDecimal("33.90"));
         ObjectNode body = objectMapper.createObjectNode();
         body.set("payments", objectMapper.valueToTree(List.of(payment)));
 

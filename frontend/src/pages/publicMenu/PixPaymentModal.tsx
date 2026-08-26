@@ -20,7 +20,10 @@ export function PixPaymentModal({ slug, tableId, deliveryToken, onClose }: PixPa
   const [copied, setCopied] = useState(false)
 
   const chargeMutation = useMutation({
-    mutationFn: () => (deliveryToken ? createPublicDeliveryPixCharge(deliveryToken) : createPublicPixCharge(slug, tableId)),
+    // Non-null assertions: the discriminated PixPaymentModalProps union guarantees slug/tableId are
+    // both set whenever deliveryToken isn't - TS just can't correlate that across destructured
+    // params (tsc -b catches this even though tsc --noEmit -p . doesn't).
+    mutationFn: () => (deliveryToken ? createPublicDeliveryPixCharge(deliveryToken) : createPublicPixCharge(slug!, tableId!)),
   })
 
   const charge = chargeMutation.data

@@ -117,7 +117,7 @@ public class MenuService {
                 .filter(category -> !category.getProducts().isEmpty())
                 .toList();
 
-        String restaurantName = restaurant.getTradeName() != null ? restaurant.getTradeName() : restaurant.getName();
+        String restaurantName = restaurant.getDisplayName();
 
         PublicMenuTableResponse tableResponse = null;
         if (tableId != null) {
@@ -182,6 +182,7 @@ public class MenuService {
                 .id(category.getId())
                 .name(category.getName())
                 .bannerImageUrl(category.getBannerImageUrl())
+                .icon(category.getIcon())
                 .products(products)
                 .build();
     }

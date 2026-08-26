@@ -219,7 +219,12 @@ export function CheckoutPage() {
       tab,
       items,
       isLoading,
-      isReady: !isLoading && items.length > 0 && pendingCount === 0,
+      // A delivery order is payable the moment it's placed - it has no "DELIVERED to the table"
+      // step to wait for, and in fact can't reach one until it's paid (the kitchen keeps an unpaid
+      // delivery order's items invisible/PENDING - see OrderItemService#listKitchenQueue). Gating
+      // on pendingCount === 0 here, like a dine-in tab, would make a delivery order's payment
+      // unreachable through this screen forever.
+      isReady: !isLoading && items.length > 0 && (tab.deliveryStatus != null || pendingCount === 0),
       itemsTotal,
       total,
     }
@@ -550,7 +555,8 @@ export function CheckoutPage() {
         if (!prev) return prev
         const total = roundCurrency(prev.itemsTotal - computeDiscountAmount(updatedTab.discountType, updatedTab.discountValue, prev.itemsTotal))
         const chargeAmount = roundCurrency((total * (serviceChargePercentage ?? 0)) / 100)
-        setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(roundCurrency(total + chargeAmount)) }])
+        const deliveryFee = updatedTab.deliveryFee ?? 0
+        setPendingEntries([{ id: nextEntryId(), method: 'PIX', amount: String(roundCurrency(total + chargeAmount + deliveryFee)) }])
         return { ...prev, tab: updatedTab, total }
       })
       setIsEditingDiscount(false)
@@ -852,8 +858,13 @@ export function CheckoutPage() {
               }`}
             >
               <div className="text-base font-semibold text-gray-800 dark:text-white">
-                {summary.tab.deliveryStatus ? 'Delivery' : formatTableLabel(summary.tab.tables.map((t) => t.number))}
+                {summary.tab.deliveryStatus
+                  ? `Delivery — ${summary.tab.deliveryCustomerName ?? ''}`
+                  : formatTableLabel(summary.tab.tables.map((t) => t.number))}
               </div>
+              {summary.tab.deliveryAddress && (
+                <div className="mt-0.5 text-xs text-gray-500 dark:text-stone-400">{summary.tab.deliveryAddress}</div>
+              )}
               {summary.isLoading ? (
                 <div className="mt-1 text-sm text-gray-500 dark:text-stone-400">Carregando itens...</div>
               ) : summary.isReady ? (
@@ -914,7 +925,7 @@ export function CheckoutPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-base font-semibold text-gray-800 dark:text-white">
-                            {tab.deliveryStatus ? 'Delivery' : formatTableLabel(tab.tables.map((t) => t.number))}
+                            {tab.deliveryStatus ? `Delivery — ${tab.deliveryCustomerName ?? ''}` : formatTableLabel(tab.tables.map((t) => t.number))}
                           </span>
                           <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-white/10 dark:text-stone-400">
                             <Lock className="h-3 w-3" />
@@ -947,7 +958,9 @@ export function CheckoutPage() {
       {selectedSummary && (
         <Modal
           title={`Fechar conta — ${
-            selectedSummary.tab.deliveryStatus ? 'Delivery' : formatTableLabel(selectedSummary.tab.tables.map((t) => t.number))
+            selectedSummary.tab.deliveryStatus
+              ? `Delivery — ${selectedSummary.tab.deliveryCustomerName ?? ''}`
+              : formatTableLabel(selectedSummary.tab.tables.map((t) => t.number))
           }`}
           onClose={handleCloseModal}
         >

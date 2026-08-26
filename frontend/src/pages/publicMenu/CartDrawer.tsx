@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, MessageCircle, Minus, Plus, Ticket, Trash2, X } from 'lucide-react'
 import type { CartItem, DeliveryAddressForm } from './utils'
-import { currencyFormatter, isDeliveryAddressComplete, modifiersTotal } from './utils'
+import { currencyFormatter, isDeliveryAddressComplete, modifiersTotal, roundCurrency } from './utils'
 import { formatBrazilianPhone } from '../../utils/phone'
 
 interface CartDrawerProps {
@@ -67,6 +67,10 @@ export function CartDrawer({
     'w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500'
   const deliveryComplete = isDeliveryAddressComplete(deliveryAddress)
   const deliveryZoneUnavailable = showDeliveryFields && deliveryComplete && deliveryFeeQuote?.available === false
+  // Known only once the neighborhood resolves to an active DeliveryZone - until then the fee is
+  // simply not part of the total yet, same as it not existing for a dine-in/Balcão order.
+  const deliveryFee = showDeliveryFields && deliveryFeeQuote?.available ? (deliveryFeeQuote.fee ?? 0) : 0
+  const totalWithDelivery = roundCurrency(cartTotal + deliveryFee)
   return (
     <AnimatePresence>
       {isOpen && (
@@ -228,9 +232,15 @@ export function CartDrawer({
                       </div>
                     </>
                   )}
+                  {deliveryFee > 0 && (
+                    <div className="mb-1 flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
+                      <span>Taxa de entrega</span>
+                      <span>{currencyFormatter.format(deliveryFee)}</span>
+                    </div>
+                  )}
                   <div className="mb-3 flex items-center justify-between">
                     <span className="text-sm text-gray-500 dark:text-stone-400">Total</span>
-                    <span className="text-xl font-bold text-gray-900 dark:text-white">{currencyFormatter.format(cartTotal)}</span>
+                    <span className="text-xl font-bold text-gray-900 dark:text-white">{currencyFormatter.format(totalWithDelivery)}</span>
                   </div>
 
                   {showPhoneField && (

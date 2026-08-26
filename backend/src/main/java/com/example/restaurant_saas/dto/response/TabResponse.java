@@ -44,4 +44,10 @@ public class TabResponse {
     // show it as its own line instead of leaving a gap between the items subtotal and the total
     // with nothing explaining it, the same complaint the customer's own tracking page had.
     private BigDecimal deliveryFee;
+
+    // Null for a regular tab, same presence check as deliveryStatus. Lets Fechar Conta tell several
+    // open delivery orders apart in its card list without opening each one - the same info the
+    // kitchen queue already shows per delivery item (KitchenItemResponse).
+    private String deliveryCustomerName;
+    private String deliveryAddress;
 }

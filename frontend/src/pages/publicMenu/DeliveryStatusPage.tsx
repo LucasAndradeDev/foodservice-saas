@@ -15,7 +15,7 @@ import {
   ShoppingBag,
   Sun,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   DELIVERY_ACCENT_STYLES,
@@ -34,7 +34,7 @@ import { CardPaymentModal } from './CardPaymentModal'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
-const STEPS: { status: DeliveryStatus; label: string; icon: typeof ChefHat }[] = [
+const STEPS: { status: DeliveryStatus; label: string; icon: ComponentType<{ className?: string }> }[] = [
   { status: 'SEPARATING', label: 'Preparando', icon: ChefHat },
   { status: 'OUT_FOR_DELIVERY', label: 'A caminho', icon: DeliveryRiderIcon },
   { status: 'DELIVERED', label: 'Entregue', icon: PartyPopper },

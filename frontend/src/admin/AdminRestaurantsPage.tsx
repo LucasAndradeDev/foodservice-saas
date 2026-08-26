@@ -76,10 +76,10 @@ export function AdminRestaurantsPage() {
                 {restaurants.map((restaurant) => (
                   <tr key={restaurant.id}>
                     <td className="px-4 py-3 text-gray-800 dark:text-white">
-                      {restaurant.tradeName ?? restaurant.name}
+                      {restaurant.tradeName || restaurant.name}
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-stone-400">
-                      {restaurant.phone ?? '—'}
+                      {restaurant.phone || '—'}
                       {restaurant.cnpj && <div className="text-xs">{restaurant.cnpj}</div>}
                     </td>
                     <td className="px-4 py-3">
@@ -135,8 +135,8 @@ export function AdminRestaurantsPage() {
           title={pendingBlock.active ? 'Bloquear restaurante?' : 'Desbloquear restaurante?'}
           message={
             pendingBlock.active
-              ? `${pendingBlock.tradeName ?? pendingBlock.name} vai perder o acesso ao sistema imediatamente.`
-              : `${pendingBlock.tradeName ?? pendingBlock.name} volta a ter acesso normal ao sistema.`
+              ? `${pendingBlock.tradeName || pendingBlock.name} vai perder o acesso ao sistema imediatamente.`
+              : `${pendingBlock.tradeName || pendingBlock.name} volta a ter acesso normal ao sistema.`
           }
           confirmLabel={pendingBlock.active ? 'Bloquear' : 'Desbloquear'}
           danger={pendingBlock.active}

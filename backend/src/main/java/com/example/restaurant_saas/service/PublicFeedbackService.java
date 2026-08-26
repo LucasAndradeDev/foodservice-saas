@@ -79,7 +79,7 @@ public class PublicFeedbackService {
 
     private PublicFeedbackContextResponse toResponse(Tab tab) {
         Restaurant restaurant = tab.getRestaurant();
-        String restaurantName = restaurant.getTradeName() != null ? restaurant.getTradeName() : restaurant.getName();
+        String restaurantName = restaurant.getDisplayName();
 
         return PublicFeedbackContextResponse.builder()
                 .restaurantName(restaurantName)

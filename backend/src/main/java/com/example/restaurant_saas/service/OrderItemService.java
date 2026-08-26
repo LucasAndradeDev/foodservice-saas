@@ -121,9 +121,7 @@ public class OrderItemService {
             return;
         }
 
-        String restaurantName = tab.getRestaurant().getTradeName() != null
-                ? tab.getRestaurant().getTradeName()
-                : tab.getRestaurant().getName();
+        String restaurantName = tab.getRestaurant().getDisplayName();
         try {
             whatsAppService.sendOrderReadyNotification(tab.getCustomerPhone(), restaurantName);
         } catch (RuntimeException ex) {
