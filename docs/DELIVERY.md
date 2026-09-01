@@ -15,7 +15,7 @@ A dependência técnica real que existe é pontual, não um bloqueio geral: o it
 | 25 | Endereço de entrega | ~1-2 dias | Reaproveita bastante — Balcão já suporta comanda sem mesa (`tableIds` vazio); só adiciona um modo "Delivery" no cardápio digital + formulário de endereço |
 | 26 | Cálculo de frete/raio | ~1-2 dias (v1, ver escolha abaixo) | Maior variável do grupo inteiro — decisão detalhada na próxima seção |
 | 27 | Status de entrega | ~1-2 dias | Copia o padrão de máquina de estado que já existe (`ItemStatus`, reserva computada) |
-| 28 | Gestão de entregador | ~1 dia | Lista simples + atribuição manual, sem rastreamento ao vivo (isso seria projeto à parte — app de entregador, Prioridade 7, item 23) |
+| 28 | Gestão de entregador | ~1 dia | **Redesenhado em 2026-08-31**: entregador é um `User` de verdade (role COURIER), com o mesmo convite/login por email que qualquer funcionário, e tela própria restrita (`/my-deliveries`) onde só marca o pedido dele como entregue. Despachar (`SEPARATING → OUT_FOR_DELIVERY`) continua sendo ação do staff na loja. |
 | 29 | Comanda de delivery (junta tudo) | ~1-2 dias | Integração final + UI de checkout em modo delivery; depende de pagamento online já estar pronto |
 
 **Total estimado pra v1: 6-10 dias**, no mesmo espírito das estimativas de Pix/cartão — teórico, ainda sem passar pela implementação de verdade. O Pix real (`docs/PIX_PAYMENT.md`) mostrou que esse tipo de estimativa costuma ser conservador pro ritmo observado neste projeto (v1 do Pix, estimado em 3-5 dias, saiu concentrado em ~1 sessão de trabalho) — então até esse "6-10 dias" pode encolher na prática, mas só temos como confirmar quando começar de verdade.

@@ -62,6 +62,16 @@ public class SecurityConfig {
                         // carries no restaurantId/TenantContext — can never reach a tenant endpoint that
                         // happens to be missing its own role check, and vice versa.
                         .requestMatchers("/api/v1/admin/**").hasRole("SUPER_ADMIN")
+                        // COURIER gets a narrow, explicit allow-list instead of the blanket tenant-role
+                        // rule below - the whole point of the role is a restricted, courier-only screen,
+                        // not the same broad access every other staff role gets from that fallback (a
+                        // lot of read endpoints - products, tabs, tables, dashboard... - rely on it alone
+                        // with no @PreAuthorize of their own, since every OTHER tenant role is meant to
+                        // reach them).
+                        .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout", "/api/v1/auth/change-password")
+                        .hasAnyRole("OWNER", "MANAGER", "WAITER", "KITCHEN", "CASHIER", "COURIER")
+                        .requestMatchers("/api/v1/deliveries/mine", "/api/v1/deliveries/*/status")
+                        .hasAnyRole("OWNER", "MANAGER", "WAITER", "KITCHEN", "CASHIER", "COURIER")
                         .anyRequest().hasAnyRole("OWNER", "MANAGER", "WAITER", "KITCHEN", "CASHIER")
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

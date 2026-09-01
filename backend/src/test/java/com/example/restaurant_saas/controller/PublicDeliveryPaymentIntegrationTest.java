@@ -148,11 +148,9 @@ class PublicDeliveryPaymentIntegrationTest {
         ObjectNode body = objectMapper.createObjectNode();
         body.set("items", objectMapper.valueToTree(List.of(item)));
         body.put("customerName", "Maria Souza");
-        // Unique per call - the phone-based rate limiter (PublicDeliveryOrderService) is shared
-        // real state across every test method in this class, not reset between them. Zero-padded
-        // to a fixed width - CreateDeliveryOrderRequest#customerPhone requires 10-15 digits, and an
-        // unpadded nanoTime remainder occasionally comes up short, intermittently failing
-        // validation with "Invalid phone number".
+        // Unique per call, zero-padded to a fixed width - CreateDeliveryOrderRequest#customerPhone
+        // requires 10-15 digits, and an unpadded nanoTime remainder occasionally comes up short,
+        // intermittently failing validation with "Invalid phone number".
         body.put("customerPhone", "1199" + String.format("%07d", System.nanoTime() % 10_000_000L));
         body.put("street", "Rua das Flores");
         body.put("number", "123");

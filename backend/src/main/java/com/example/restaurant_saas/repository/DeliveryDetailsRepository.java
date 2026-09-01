@@ -21,6 +21,12 @@ public interface DeliveryDetailsRepository extends JpaRepository<DeliveryDetails
 
     List<DeliveryDetails> findByRestaurantIdAndStatusNotOrderByCreatedAtAsc(UUID restaurantId, DeliveryStatus status);
 
+    // A courier's own restricted "my deliveries" screen (task 28 redesign) - scoped both to their
+    // own courier_id and to OUT_FOR_DELIVERY, since marking DELIVERED is the only self-service
+    // action they have; nothing still SEPARATING is theirs to act on yet.
+    List<DeliveryDetails> findByRestaurantIdAndCourier_IdAndStatusOrderByCreatedAtAsc(
+            UUID restaurantId, UUID courierId, DeliveryStatus status);
+
     // One query per kitchen-queue request instead of one per item (OrderItemService#toKitchenResponse)
     // - the queue can have dozens of items, and this only needs to happen once per restaurant. Kept
     // as full entities (not just tab ids) so the kitchen queue can also show which delivery order an

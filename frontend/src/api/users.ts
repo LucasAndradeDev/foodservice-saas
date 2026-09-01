@@ -1,6 +1,15 @@
 import type { UserRole } from '../auth/types'
 import { http } from './http'
 
+export type CourierVehicleType = 'MOTORCYCLE' | 'BICYCLE' | 'CAR' | 'ON_FOOT'
+
+export const COURIER_VEHICLE_TYPE_LABELS: Record<CourierVehicleType, string> = {
+  MOTORCYCLE: 'Moto',
+  BICYCLE: 'Bicicleta',
+  CAR: 'Carro',
+  ON_FOOT: 'A pé',
+}
+
 export interface StaffMember {
   id: string
   restaurantId: string
@@ -8,22 +17,32 @@ export interface StaffMember {
   email: string
   role: UserRole
   active: boolean
+  // Only populated for role = COURIER.
+  phone?: string | null
+  vehicleType?: CourierVehicleType | null
+  notes?: string | null
 }
 
 export interface CreateUserPayload {
   name: string
   email: string
   role: UserRole
+  phone?: string
+  vehicleType?: CourierVehicleType
+  notes?: string
 }
 
 export interface UpdateUserPayload {
   name?: string
   role?: UserRole
   active?: boolean
+  phone?: string
+  vehicleType?: CourierVehicleType
+  notes?: string
 }
 
-export function listUsers(active?: boolean) {
-  return http.get<StaffMember[]>('/users', { params: { active } }).then((res) => res.data)
+export function listUsers(params?: { active?: boolean; role?: UserRole }) {
+  return http.get<StaffMember[]>('/users', { params }).then((res) => res.data)
 }
 
 export function createUser(payload: CreateUserPayload) {

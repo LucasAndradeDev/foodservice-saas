@@ -26,9 +26,9 @@ interface AuthContextValue {
   user: StoredUser | null
   restaurant: StoredRestaurant | null
   isAuthenticated: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string) => Promise<AuthResponse>
   registerRestaurant: (payload: RegisterRestaurantPayload) => Promise<void>
-  resetPassword: (token: string, newPassword: string) => Promise<void>
+  resetPassword: (token: string, newPassword: string) => Promise<AuthResponse>
   updateRestaurant: (restaurant: Partial<StoredRestaurant>) => void
   refreshUser: () => Promise<void>
   resendVerificationEmail: () => Promise<void>
@@ -85,7 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function login(email: string, password: string) {
-    applyAuthResponse(await loginRequest(email, password))
+    const response = await loginRequest(email, password)
+    applyAuthResponse(response)
+    return response
   }
 
   async function registerRestaurant(payload: RegisterRestaurantPayload) {
@@ -93,7 +95,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function resetPassword(token: string, newPassword: string) {
-    applyAuthResponse(await resetPasswordRequest(token, newPassword))
+    const response = await resetPasswordRequest(token, newPassword)
+    applyAuthResponse(response)
+    return response
   }
 
   function logout() {

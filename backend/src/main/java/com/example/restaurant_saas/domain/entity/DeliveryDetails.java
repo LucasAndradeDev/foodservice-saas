@@ -74,6 +74,14 @@ public class DeliveryDetails {
     @Column(nullable = false, length = 20)
     private DeliveryStatus status;
 
+    // Nullable - most delivery orders never get one until task 27.1's SEPARATING stage, and it
+    // can be cleared (SET NULL) if the courier account is later deactivated. A User with
+    // role == COURIER, not a separate entity - couriers log in through the same account model
+    // as any other staff member (task 28 redesign, 2026-08-31).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "courier_id")
+    private User courier;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

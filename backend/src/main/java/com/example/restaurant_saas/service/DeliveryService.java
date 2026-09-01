@@ -4,17 +4,22 @@ import com.example.restaurant_saas.config.TenantActivator;
 import com.example.restaurant_saas.domain.entity.CardCharge;
 import com.example.restaurant_saas.domain.entity.DeliveryDetails;
 import com.example.restaurant_saas.domain.entity.OrderItem;
+import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.CardChargeStatus;
 import com.example.restaurant_saas.domain.enums.DeliveryStatus;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.TabStatus;
+import com.example.restaurant_saas.domain.enums.UserRole;
+import com.example.restaurant_saas.dto.request.AssignCourierRequest;
 import com.example.restaurant_saas.dto.request.UpdateDeliveryStatusRequest;
+import com.example.restaurant_saas.dto.response.CourierOptionResponse;
 import com.example.restaurant_saas.dto.response.DeliveryDetailsResponse;
 import com.example.restaurant_saas.dto.response.DeliveryItemResponse;
 import com.example.restaurant_saas.repository.CardChargeRepository;
 import com.example.restaurant_saas.repository.DeliveryDetailsRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.TabRepository;
+import com.example.restaurant_saas.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -44,6 +49,7 @@ public class DeliveryService {
     private final CardChargeService cardChargeService;
     private final TabRepository tabRepository;
     private final TenantActivator tenantActivator;
+    private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
     public List<DeliveryDetailsResponse> listOpenDeliveries(UUID restaurantId) {
@@ -58,7 +64,9 @@ public class DeliveryService {
     }
 
     @Transactional
-    public DeliveryDetailsResponse updateStatus(UUID restaurantId, UUID tabId, UpdateDeliveryStatusRequest request) {
+    public DeliveryDetailsResponse updateStatus(
+            UUID restaurantId, UUID actingUserId, UserRole actingRole, UUID tabId, UpdateDeliveryStatusRequest request
+    ) {
         DeliveryDetails deliveryDetails = deliveryDetailsRepository.findByTab_IdAndRestaurantId(tabId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Delivery order not found."));
 
@@ -68,6 +76,18 @@ public class DeliveryService {
         if (NEXT_STATUS.get(from) != to) {
             throw new IllegalArgumentException("Cannot change delivery status from " + from + " to " + to + ".");
         }
+
+        // A courier's only self-service action is marking their own order delivered - dispatching
+        // (SEPARATING -> OUT_FOR_DELIVERY) stays a staff action at the restaurant, same as the
+        // kitchen/payment gates below. The courier-required gate on OUT_FOR_DELIVERY guarantees
+        // getCourier() is non-null by the time an order can reach DELIVERED.
+        if (actingRole == UserRole.COURIER) {
+            boolean isOwnOrder = deliveryDetails.getCourier() != null && deliveryDetails.getCourier().getId().equals(actingUserId);
+            if (to != DeliveryStatus.DELIVERED || !isOwnOrder) {
+                throw new IllegalStateException("Couriers can only mark their own out-for-delivery orders as delivered.");
+            }
+        }
+
         if (to == DeliveryStatus.OUT_FOR_DELIVERY) {
             if (!isKitchenReady(tabId)) {
                 throw new IllegalArgumentException("Order still being prepared in the kitchen.");
@@ -75,11 +95,61 @@ public class DeliveryService {
             if (deliveryDetails.getTab().getStatus() != TabStatus.CLOSED) {
                 throw new IllegalArgumentException("Order not fully paid yet.");
             }
+            if (deliveryDetails.getCourier() == null) {
+                throw new IllegalArgumentException("No courier assigned yet.");
+            }
         }
 
         deliveryDetails.setStatus(to);
         DeliveryDetails saved = deliveryDetailsRepository.save(deliveryDetails);
         return toResponse(saved);
+    }
+
+    // A courier's own restricted screen (task 28 redesign) - only their currently out-for-delivery
+    // orders, the only ones they can act on (see updateStatus above).
+    @Transactional(readOnly = true)
+    public List<DeliveryDetailsResponse> listMyDeliveries(UUID restaurantId, UUID courierId) {
+        return deliveryDetailsRepository
+                .findByRestaurantIdAndCourier_IdAndStatusOrderByCreatedAtAsc(restaurantId, courierId, DeliveryStatus.OUT_FOR_DELIVERY)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    // Assignable-courier dropdown on the Delivery operation screen - open to every role that can
+    // call assignCourier below, deliberately returning less than the full staff-management
+    // UserResponse (see CourierOptionResponse).
+    @Transactional(readOnly = true)
+    public List<CourierOptionResponse> listAssignableCouriers(UUID restaurantId) {
+        return userRepository.findByRestaurantIdAndRoleOrderByNameAsc(restaurantId, UserRole.COURIER).stream()
+                .map(u -> CourierOptionResponse.builder().id(u.getId()).name(u.getName()).active(u.getActive()).build())
+                .toList();
+    }
+
+    // courierId null unassigns the current courier (task 28.3) - the DeliveryPage dropdown always
+    // offers a "no courier" option, same click either way.
+    @Transactional
+    public DeliveryDetailsResponse assignCourier(UUID restaurantId, UUID tabId, AssignCourierRequest request) {
+        DeliveryDetails deliveryDetails = deliveryDetailsRepository.findByTab_IdAndRestaurantId(tabId, restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Delivery order not found."));
+
+        // Once the order has left the restaurant, the courier carrying it is a fact about what
+        // already happened, not a plan still being drafted - swapping it out mid-route would just
+        // corrupt that record. SEPARATING is the only status where reassignment is still picking
+        // who to hand it to.
+        if (deliveryDetails.getStatus() != DeliveryStatus.SEPARATING) {
+            throw new IllegalArgumentException("Courier can only be changed before the order is out for delivery.");
+        }
+
+        if (request.getCourierId() == null) {
+            deliveryDetails.setCourier(null);
+        } else {
+            User courier = userRepository.findByIdAndRestaurantIdAndRole(request.getCourierId(), restaurantId, UserRole.COURIER)
+                    .orElseThrow(() -> new IllegalArgumentException("Courier not found."));
+            deliveryDetails.setCourier(courier);
+        }
+
+        return toResponse(deliveryDetailsRepository.save(deliveryDetails));
     }
 
     // Looked up by the customer's own access token (task 27.3/29.1), before the tenant is known -
@@ -143,6 +213,8 @@ public class DeliveryService {
                 .zipCode(d.getZipCode())
                 .referencePoint(d.getReferencePoint())
                 .deliveryFee(d.getDeliveryFee())
+                .courierId(d.getCourier() != null ? d.getCourier().getId() : null)
+                .courierName(d.getCourier() != null ? d.getCourier().getName() : null)
                 .items(toItemResponses(d.getTab().getId()))
                 .billTotal(d.getTab().getBillTotal())
                 .createdAt(d.getCreatedAt())

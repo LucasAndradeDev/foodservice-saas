@@ -1,11 +1,19 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.domain.entity.User;
+import com.example.restaurant_saas.domain.enums.CourierVehicleType;
+import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
 import com.example.restaurant_saas.dto.request.CreateDeliveryZoneRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
+import com.example.restaurant_saas.dto.request.CreateUserRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateDeliveryStatusRequest;
+import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.security.JwtService;
+import com.example.restaurant_saas.security.UserDetailsImpl;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.jayway.jsonpath.JsonPath;
@@ -14,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -22,6 +31,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -34,6 +44,15 @@ class DeliveryControllerIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private JwtService jwtService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     private String registerOwnerAndGetToken(String restaurantName) throws Exception {
         RegisterRestaurantRequest registerRequest = new RegisterRestaurantRequest();
@@ -93,6 +112,69 @@ class DeliveryControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
+    }
+
+    // A courier is a User with role COURIER now (task 28 redesign) - created through the same
+    // invite endpoint as any other staff member, just with the extra phone/vehicleType fields.
+    private String createCourier(String token, String name) throws Exception {
+        CreateUserRequest request = new CreateUserRequest();
+        request.setName(name);
+        request.setEmail("courier+" + System.nanoTime() + "@test.com");
+        request.setRole(UserRole.COURIER);
+        request.setPhone("11988887777");
+        request.setVehicleType(CourierVehicleType.MOTORCYCLE);
+        MvcResult result = mockMvc.perform(post("/api/v1/users")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+    }
+
+    private record OwnerSession(String token, User user) {
+    }
+
+    // Same registration flow as registerOwnerAndGetToken, but also hands back the persisted owner
+    // User row (via a bypass-RLS lookup by the email we just chose) so a courier's User row can be
+    // built directly against the same restaurant, without going through the invite-email flow.
+    private OwnerSession registerOwnerAndGetSession(String restaurantName) throws Exception {
+        String email = "owner+" + System.nanoTime() + "@test.com";
+        RegisterRestaurantRequest registerRequest = new RegisterRestaurantRequest();
+        registerRequest.setRestaurantName(restaurantName);
+        registerRequest.setOwnerName("Owner");
+        registerRequest.setOwnerEmail(email);
+        registerRequest.setOwnerPassword("password123");
+
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String token = JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        User owner = userRepository.findByEmailBypassingRls(email).orElseThrow();
+        return new OwnerSession(token, owner);
+    }
+
+    // Bypasses the invite-email flow (already covered by UserControllerIntegrationTest) - these
+    // tests only care about a courier's own self-service screen, so a directly-persisted courier
+    // User row with a directly-generated JWT is enough to act as them.
+    private User createCourierDirectly(User owner, String name) {
+        User user = User.builder()
+                .restaurant(owner.getRestaurant())
+                .name(name)
+                .email("courier+" + System.nanoTime() + "@test.com")
+                .password(passwordEncoder.encode("password123"))
+                .role(UserRole.COURIER)
+                .active(true)
+                .phone("11988887777")
+                .vehicleType(CourierVehicleType.MOTORCYCLE)
+                .build();
+        return TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(user));
+    }
+
+    private String tokenFor(User user) {
+        return jwtService.generateToken(new UserDetailsImpl(user));
     }
 
     private record DeliveryTab(String tabId, String itemId) {
@@ -157,6 +239,14 @@ class DeliveryControllerIntegrationTest {
                 .andExpect(status().isOk());
     }
 
+    private void assignCourierToTab(String token, String tabId, String courierId) throws Exception {
+        mockMvc.perform(patch("/api/v1/deliveries/" + tabId + "/courier")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courierId\":\"" + courierId + "\"}"))
+                .andExpect(status().isOk());
+    }
+
     private String createOrdinaryTab(String token) throws Exception {
         ObjectNode body = objectMapper.createObjectNode();
         body.set("tableIds", objectMapper.valueToTree(List.of()));
@@ -180,6 +270,7 @@ class DeliveryControllerIntegrationTest {
         String tabId = tab.tabId();
         payTabInFull(token, tabId);
         markItemReady(token, tab.itemId());
+        assignCourierToTab(token, tabId, createCourier(token, "Joao Motoboy"));
 
         mockMvc.perform(patch("/api/v1/deliveries/" + tabId + "/status")
                         .header("Authorization", "Bearer " + token)
@@ -210,6 +301,7 @@ class DeliveryControllerIntegrationTest {
         String deliveredTabId = deliveredTab.tabId();
         payTabInFull(token, deliveredTabId);
         markItemReady(token, deliveredTab.itemId());
+        assignCourierToTab(token, deliveredTabId, createCourier(token, "Joao Motoboy"));
 
         mockMvc.perform(patch("/api/v1/deliveries/" + deliveredTabId + "/status")
                         .header("Authorization", "Bearer " + token)
@@ -264,6 +356,7 @@ class DeliveryControllerIntegrationTest {
         String tabId = tab.tabId();
         payTabInFull(token, tabId);
         markItemReady(token, tab.itemId());
+        assignCourierToTab(token, tabId, createCourier(token, "Joao Motoboy"));
 
         mockMvc.perform(patch("/api/v1/deliveries/" + tabId + "/status")
                         .header("Authorization", "Bearer " + token)
@@ -300,6 +393,7 @@ class DeliveryControllerIntegrationTest {
                 .andExpect(jsonPath("$[0].kitchenReady").value(false));
 
         markItemReady(token, tab.itemId());
+        assignCourierToTab(token, tab.tabId(), createCourier(token, "Joao Motoboy"));
 
         mockMvc.perform(patch("/api/v1/deliveries/" + tab.tabId() + "/status")
                         .header("Authorization", "Bearer " + token)
@@ -353,6 +447,7 @@ class DeliveryControllerIntegrationTest {
                 .andExpect(jsonPath("$", hasSize(1)));
 
         markItemReady(token, tab.itemId());
+        assignCourierToTab(token, tab.tabId(), createCourier(token, "Joao Motoboy"));
 
         mockMvc.perform(patch("/api/v1/deliveries/" + tab.tabId() + "/status")
                         .header("Authorization", "Bearer " + token)
@@ -389,6 +484,234 @@ class DeliveryControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(statusRequest("OUT_FOR_DELIVERY"))))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateStatus_toOutForDeliveryWithoutCourier_shouldReturn400() throws Exception {
+        String token = registerOwnerAndGetToken("Burger House");
+        String slug = getSlug(token);
+        String categoryId = createCategory(token);
+        String productId = createProduct(token, categoryId);
+        createDeliveryZone(token);
+        DeliveryTab tab = createDeliveryTab(token, slug, productId, "11999990022");
+        payTabInFull(token, tab.tabId());
+        markItemReady(token, tab.itemId());
+
+        mockMvc.perform(patch("/api/v1/deliveries/" + tab.tabId() + "/status")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusRequest("OUT_FOR_DELIVERY"))))
+                .andExpect(status().isBadRequest());
+
+        assignCourierToTab(token, tab.tabId(), createCourier(token, "Joao Motoboy"));
+
+        mockMvc.perform(patch("/api/v1/deliveries/" + tab.tabId() + "/status")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusRequest("OUT_FOR_DELIVERY"))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void assignCourier_afterOutForDelivery_shouldReturn400() throws Exception {
+        String token = registerOwnerAndGetToken("Burger House");
+        String slug = getSlug(token);
+        String categoryId = createCategory(token);
+        String productId = createProduct(token, categoryId);
+        createDeliveryZone(token);
+        DeliveryTab tab = createDeliveryTab(token, slug, productId, "11999990023");
+        String tabId = tab.tabId();
+        payTabInFull(token, tabId);
+        markItemReady(token, tab.itemId());
+        String courierId = createCourier(token, "Joao Motoboy");
+        assignCourierToTab(token, tabId, courierId);
+
+        mockMvc.perform(patch("/api/v1/deliveries/" + tabId + "/status")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusRequest("OUT_FOR_DELIVERY"))))
+                .andExpect(status().isOk());
+
+        String otherCourierId = createCourier(token, "Pedro Motoboy");
+        mockMvc.perform(patch("/api/v1/deliveries/" + tabId + "/courier")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courierId\":\"" + otherCourierId + "\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(patch("/api/v1/deliveries/" + tabId + "/courier")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courierId\":null}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(get("/api/v1/deliveries")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].courierId").value(courierId));
+    }
+
+    @Test
+    void assignCourier_thenUnassign_shouldSucceed() throws Exception {
+        String token = registerOwnerAndGetToken("Burger House");
+        String slug = getSlug(token);
+        String categoryId = createCategory(token);
+        String productId = createProduct(token, categoryId);
+        createDeliveryZone(token);
+        String tabId = createDeliveryTab(token, slug, productId, "11999990020").tabId();
+        String courierId = createCourier(token, "Joao Motoboy");
+
+        mockMvc.perform(patch("/api/v1/deliveries/" + tabId + "/courier")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courierId\":\"" + courierId + "\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.courierId").value(courierId))
+                .andExpect(jsonPath("$.courierName").value("Joao Motoboy"));
+
+        mockMvc.perform(patch("/api/v1/deliveries/" + tabId + "/courier")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courierId\":null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.courierId").value(nullValue()));
+    }
+
+    @Test
+    void assignCourier_fromAnotherRestaurant_shouldReturn400() throws Exception {
+        String token = registerOwnerAndGetToken("Burger House");
+        String slug = getSlug(token);
+        String categoryId = createCategory(token);
+        String productId = createProduct(token, categoryId);
+        createDeliveryZone(token);
+        String tabId = createDeliveryTab(token, slug, productId, "11999990021").tabId();
+
+        String otherToken = registerOwnerAndGetToken("Burger House Other");
+        String otherCourierId = createCourier(otherToken, "Courier From Other Restaurant");
+
+        mockMvc.perform(patch("/api/v1/deliveries/" + tabId + "/courier")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courierId\":\"" + otherCourierId + "\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateStatus_courierMarksOwnDeliveryAsDelivered_shouldSucceed() throws Exception {
+        OwnerSession owner = registerOwnerAndGetSession("Burger House");
+        String slug = getSlug(owner.token());
+        String categoryId = createCategory(owner.token());
+        String productId = createProduct(owner.token(), categoryId);
+        createDeliveryZone(owner.token());
+        DeliveryTab tab = createDeliveryTab(owner.token(), slug, productId, "11999990030");
+        payTabInFull(owner.token(), tab.tabId());
+        markItemReady(owner.token(), tab.itemId());
+
+        User courier = createCourierDirectly(owner.user(), "Joao Motoboy");
+        assignCourierToTab(owner.token(), tab.tabId(), courier.getId().toString());
+        mockMvc.perform(patch("/api/v1/deliveries/" + tab.tabId() + "/status")
+                        .header("Authorization", "Bearer " + owner.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusRequest("OUT_FOR_DELIVERY"))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/deliveries/" + tab.tabId() + "/status")
+                        .header("Authorization", "Bearer " + tokenFor(courier))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusRequest("DELIVERED"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DELIVERED"));
+    }
+
+    @Test
+    void updateStatus_courierMarksAnotherCouriersDelivery_shouldReturn403() throws Exception {
+        OwnerSession owner = registerOwnerAndGetSession("Burger House");
+        String slug = getSlug(owner.token());
+        String categoryId = createCategory(owner.token());
+        String productId = createProduct(owner.token(), categoryId);
+        createDeliveryZone(owner.token());
+        DeliveryTab tab = createDeliveryTab(owner.token(), slug, productId, "11999990031");
+        payTabInFull(owner.token(), tab.tabId());
+        markItemReady(owner.token(), tab.itemId());
+
+        User assignedCourier = createCourierDirectly(owner.user(), "Joao Motoboy");
+        User otherCourier = createCourierDirectly(owner.user(), "Pedro Motoboy");
+        assignCourierToTab(owner.token(), tab.tabId(), assignedCourier.getId().toString());
+        mockMvc.perform(patch("/api/v1/deliveries/" + tab.tabId() + "/status")
+                        .header("Authorization", "Bearer " + owner.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusRequest("OUT_FOR_DELIVERY"))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/api/v1/deliveries/" + tab.tabId() + "/status")
+                        .header("Authorization", "Bearer " + tokenFor(otherCourier))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusRequest("DELIVERED"))))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void listMyDeliveries_scopedToOwnCourierAndOutForDeliveryOnly_shouldSucceed() throws Exception {
+        OwnerSession owner = registerOwnerAndGetSession("Burger House");
+        String slug = getSlug(owner.token());
+        String categoryId = createCategory(owner.token());
+        String productId = createProduct(owner.token(), categoryId);
+        createDeliveryZone(owner.token());
+
+        User courier = createCourierDirectly(owner.user(), "Joao Motoboy");
+        User otherCourier = createCourierDirectly(owner.user(), "Pedro Motoboy");
+
+        // Own order, still SEPARATING (assigned but not dispatched yet) - must not show up.
+        DeliveryTab notDispatched = createDeliveryTab(owner.token(), slug, productId, "11999990032");
+        assignCourierToTab(owner.token(), notDispatched.tabId(), courier.getId().toString());
+
+        // Own order, dispatched - must show up.
+        DeliveryTab dispatched = createDeliveryTab(owner.token(), slug, productId, "11999990033");
+        payTabInFull(owner.token(), dispatched.tabId());
+        markItemReady(owner.token(), dispatched.itemId());
+        assignCourierToTab(owner.token(), dispatched.tabId(), courier.getId().toString());
+        mockMvc.perform(patch("/api/v1/deliveries/" + dispatched.tabId() + "/status")
+                        .header("Authorization", "Bearer " + owner.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusRequest("OUT_FOR_DELIVERY"))))
+                .andExpect(status().isOk());
+
+        // Another courier's dispatched order - must not show up.
+        DeliveryTab othersOrder = createDeliveryTab(owner.token(), slug, productId, "11999990034");
+        payTabInFull(owner.token(), othersOrder.tabId());
+        markItemReady(owner.token(), othersOrder.itemId());
+        assignCourierToTab(owner.token(), othersOrder.tabId(), otherCourier.getId().toString());
+        mockMvc.perform(patch("/api/v1/deliveries/" + othersOrder.tabId() + "/status")
+                        .header("Authorization", "Bearer " + owner.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusRequest("OUT_FOR_DELIVERY"))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/deliveries/mine")
+                        .header("Authorization", "Bearer " + tokenFor(courier)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].tabId").value(dispatched.tabId()));
+    }
+
+    @Test
+    void courierRole_cannotListAllDeliveriesOrAssignCourier_shouldReturn403() throws Exception {
+        OwnerSession owner = registerOwnerAndGetSession("Burger House");
+        User courier = createCourierDirectly(owner.user(), "Joao Motoboy");
+
+        mockMvc.perform(get("/api/v1/deliveries")
+                        .header("Authorization", "Bearer " + tokenFor(courier)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/deliveries/couriers")
+                        .header("Authorization", "Bearer " + tokenFor(courier)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(patch("/api/v1/deliveries/" + UUID.randomUUID() + "/courier")
+                        .header("Authorization", "Bearer " + tokenFor(courier))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"courierId\":null}"))
+                .andExpect(status().isForbidden());
     }
 
     private UpdateDeliveryStatusRequest statusRequest(String status) {

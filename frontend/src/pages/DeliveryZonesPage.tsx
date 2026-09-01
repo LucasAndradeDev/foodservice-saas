@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Clock, Pencil, Plus, Store, Ticket, Trash2, Users } from 'lucide-react'
+import { Bike, Clock, Pencil, Plus, Store, Ticket, Trash2, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import {
   createDeliveryZone,
@@ -22,6 +22,7 @@ const MANAGEMENT_TABS = [
   { to: '/coupons', label: 'Cupons', icon: Ticket },
   { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
   { to: '/delivery-zones', label: 'Entrega', icon: DeliveryRiderIcon },
+  { to: '/couriers', label: 'Entregadores', icon: Bike },
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 

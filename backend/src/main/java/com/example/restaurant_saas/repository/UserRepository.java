@@ -30,4 +30,11 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByIdAndRestaurantId(UUID id, UUID restaurantId);
     List<User> findByRestaurantId(UUID restaurantId);
     long countByRestaurantIdAndRoleAndActive(UUID restaurantId, UserRole role, Boolean active);
+
+    // Assignment lookup (DeliveryService#assignCourier) - scoped to role so a WAITER's id can't
+    // be handed in and accepted as if it were a courier.
+    Optional<User> findByIdAndRestaurantIdAndRole(UUID id, UUID restaurantId, UserRole role);
+
+    // Assignable-couriers dropdown on the Delivery operation screen (DeliveryController#listCouriers).
+    List<User> findByRestaurantIdAndRoleOrderByNameAsc(UUID restaurantId, UserRole role);
 }

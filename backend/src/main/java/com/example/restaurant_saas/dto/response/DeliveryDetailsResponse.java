@@ -48,6 +48,12 @@ public class DeliveryDetailsResponse {
     private String referencePoint;
 
     private BigDecimal deliveryFee;
+
+    // Null until a courier is assigned on the operation screen (task 28.3) - courierName is
+    // resolved here so the frontend never needs a second lookup just to show who's carrying it.
+    private UUID courierId;
+    private String courierName;
+
     private List<DeliveryItemResponse> items;
     // The tab's own frozen total (items + service charge + deliveryFee) - same value staff sees,
     // not recomputed here, so this can never drift from what payment actually settles.

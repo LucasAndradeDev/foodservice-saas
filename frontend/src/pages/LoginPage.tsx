@@ -8,7 +8,7 @@ import { SUPPORT_EMAIL, SUPPORT_WHATSAPP_URL } from '../config/support'
 import { Logo } from '../theme/Logo'
 
 export function LoginPage() {
-  const { login, isAuthenticated } = useAuth()
+  const { login, isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,7 +18,7 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />
+    return <Navigate to={user?.role === 'COURIER' ? '/my-deliveries' : '/'} replace />
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -27,8 +27,8 @@ export function LoginPage() {
     setIsSuspended(false)
     setIsSubmitting(true)
     try {
-      await login(email, password)
-      navigate('/')
+      const response = await login(email, password)
+      navigate(response.user.role === 'COURIER' ? '/my-deliveries' : '/')
     } catch (err) {
       if (isAxiosError(err) && err.response?.status === 429) {
         setError('Muitas tentativas de login. Aguarde alguns minutos e tente novamente.')

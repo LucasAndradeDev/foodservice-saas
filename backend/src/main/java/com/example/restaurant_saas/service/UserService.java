@@ -29,8 +29,8 @@ import java.util.UUID;
 public class UserService {
 
     private static final Map<UserRole, Set<UserRole>> ASSIGNABLE_ROLES = Map.of(
-            UserRole.OWNER, EnumSet.of(UserRole.MANAGER, UserRole.WAITER, UserRole.KITCHEN, UserRole.CASHIER),
-            UserRole.MANAGER, EnumSet.of(UserRole.WAITER, UserRole.KITCHEN, UserRole.CASHIER)
+            UserRole.OWNER, EnumSet.of(UserRole.MANAGER, UserRole.WAITER, UserRole.KITCHEN, UserRole.CASHIER, UserRole.COURIER),
+            UserRole.MANAGER, EnumSet.of(UserRole.WAITER, UserRole.KITCHEN, UserRole.CASHIER, UserRole.COURIER)
     );
 
     private final UserRepository userRepository;
@@ -69,6 +69,10 @@ public class UserService {
             throw new IllegalArgumentException("Email already registered.");
         }
 
+        if (request.getRole() == UserRole.COURIER && (request.getPhone() == null || request.getPhone().isBlank() || request.getVehicleType() == null)) {
+            throw new IllegalArgumentException("Phone and vehicle type are required for a courier.");
+        }
+
         // No password is collected here: the account starts with a random, never-shared
         // password and an invite email carrying a set-password link, same token mechanism
         // as the forgot-password flow (see sendPasswordSetupEmail below).
@@ -79,6 +83,9 @@ public class UserService {
                 .password(passwordEncoder.encode(UUID.randomUUID().toString()))
                 .role(request.getRole())
                 .active(true)
+                .phone(request.getRole() == UserRole.COURIER ? request.getPhone() : null)
+                .vehicleType(request.getRole() == UserRole.COURIER ? request.getVehicleType() : null)
+                .notes(request.getRole() == UserRole.COURIER ? request.getNotes() : null)
                 .build();
 
         user = userRepository.save(user);
@@ -117,6 +124,15 @@ public class UserService {
         }
         if (request.getActive() != null) {
             target.setActive(request.getActive());
+        }
+        if (request.getPhone() != null) {
+            target.setPhone(request.getPhone());
+        }
+        if (request.getVehicleType() != null) {
+            target.setVehicleType(request.getVehicleType());
+        }
+        if (request.getNotes() != null) {
+            target.setNotes(request.getNotes());
         }
 
         return toResponse(userRepository.save(target));
@@ -186,6 +202,9 @@ public class UserService {
                 .role(user.getRole())
                 .active(user.getActive())
                 .emailVerified(user.getEmailVerified())
+                .phone(user.getPhone())
+                .vehicleType(user.getVehicleType())
+                .notes(user.getNotes())
                 .build();
     }
 }

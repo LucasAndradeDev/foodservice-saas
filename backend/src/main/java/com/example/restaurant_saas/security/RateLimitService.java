@@ -61,6 +61,19 @@ public class RateLimitService {
         attemptsByKey.remove(key(action, request, identifier));
     }
 
+    /**
+     * Wipes every bucket, including IP-only ones. Not used in production - this bean is a
+     * singleton that outlives any single request, and in the integration test suite it outlives
+     * any single test class too (Spring caches the {@code @SpringBootTest} context across all of
+     * them). Since MockMvc requests all share the same remote address, that shared IP-only bucket
+     * accumulates across every test that hits a rate-limited endpoint, eventually tripping for
+     * tests that never meant to exercise rate limiting at all. Test infrastructure calls this
+     * between tests to give each one a clean slate.
+     */
+    public void clearAllForTests() {
+        attemptsByKey.clear();
+    }
+
     private void checkKey(String key) {
         Attempt attempt = attemptsByKey.get(key);
         if (attempt != null && attempt.blockedUntil() != null && Instant.now().isBefore(attempt.blockedUntil())) {

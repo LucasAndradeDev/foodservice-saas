@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.domain.entity;
 
+import com.example.restaurant_saas.domain.enums.CourierVehicleType;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import jakarta.persistence.*;
 import lombok.*;
@@ -50,6 +51,19 @@ public class User {
 
     @Column(name = "terms_accepted_at")
     private OffsetDateTime termsAcceptedAt;
+
+    // The next three columns are only ever populated for role == COURIER - null for every other
+    // role. Kept directly on User rather than a side table: a courier is a User first (same
+    // login/invite flow as any other staff), these are just the extra fields that role needs.
+    @Column(length = 20)
+    private String phone;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "vehicle_type", length = 20)
+    private CourierVehicleType vehicleType;
+
+    @Column(length = 255)
+    private String notes;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

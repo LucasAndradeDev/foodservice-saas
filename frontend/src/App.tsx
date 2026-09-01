@@ -6,9 +6,13 @@ import { AdminProtectedRoute } from './admin/AdminProtectedRoute'
 import { AdminResetPasswordPage } from './admin/AdminResetPasswordPage'
 import { AdminRestaurantsPage } from './admin/AdminRestaurantsPage'
 import { AuthProvider } from './auth/AuthContext'
+import { BlockCourierRole } from './auth/BlockCourierRole'
 import { ProtectedRoute } from './auth/ProtectedRoute'
+import { RequireCourierRole } from './auth/RequireCourierRole'
 import { AuthLayout } from './components/AuthLayout'
 import { AppLayout } from './layout/AppLayout'
+import { CourierLayout } from './layout/CourierLayout'
+import { MyDeliveriesPage } from './pages/courier/MyDeliveriesPage'
 import { AllFeedbackPage } from './pages/AllFeedbackPage'
 import { AuthRoutes } from './pages/AuthRoutes'
 import { CardPaymentReturnPage } from './pages/CardPaymentReturnPage'
@@ -19,6 +23,7 @@ import { CheckoutPage } from './pages/CheckoutPage'
 import { CombosPage } from './pages/CombosPage'
 import { ComboFormPage } from './pages/ComboFormPage'
 import { CouponsPage } from './pages/CouponsPage'
+import { CouriersPage } from './pages/CouriersPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DeliveryPage } from './pages/DeliveryPage'
 import { DeliveryStatusPage } from './pages/publicMenu/DeliveryStatusPage'
@@ -113,33 +118,41 @@ function App() {
             <Route path="/reservations/status/:token" element={<PublicReservationStatusPage />} />
             <Route path="/delivery/status/:token" element={<DeliveryStatusPage />} />
             <Route element={<ProtectedRoute />}>
-              <Route path="/orders/:orderId/print" element={<OrderTicketPrintPage />} />
-              <Route path="/tabs/:tabId/print" element={<TabReceiptPrintPage />} />
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<DashboardPage />} />
-                <Route path="/tables" element={<TablesPage />} />
-                <Route path="/tabs/:tabId" element={<TabDetailPage />} />
-                <Route path="/kitchen" element={<KitchenPage />} />
-                <Route path="/checkout" element={<CheckoutPage />} />
-                <Route path="/cash-register" element={<CashRegisterPage />} />
-                <Route path="/reservations" element={<ReservationsPage />} />
-                <Route path="/deliveries" element={<DeliveryPage />} />
-                <Route path="/categories" element={<CategoriesPage />} />
-                <Route path="/dining-areas" element={<DiningAreasPage />} />
-                <Route path="/coupons" element={<CouponsPage />} />
-                <Route path="/happy-hour" element={<HappyHourPage />} />
-                <Route path="/delivery-zones" element={<DeliveryZonesPage />} />
-                <Route path="/products" element={<ProductsPage />} />
-                <Route path="/products/import" element={<MenuImportPage />} />
-                <Route path="/products/:productId/modifiers" element={<ProductModifiersPage />} />
-                <Route path="/products/:productId/availability" element={<ProductAvailabilityPage />} />
-                <Route path="/combos" element={<CombosPage />} />
-                <Route path="/combos/new" element={<ComboFormPage />} />
-                <Route path="/combos/:productId" element={<ComboFormPage />} />
-                <Route path="/reports" element={<ReportsPage />} />
-                <Route path="/reports/feedback" element={<AllFeedbackPage />} />
-                <Route path="/settings" element={<RestaurantSettingsPage />} />
-                <Route path="/staff" element={<StaffPage />} />
+              <Route element={<BlockCourierRole />}>
+                <Route path="/orders/:orderId/print" element={<OrderTicketPrintPage />} />
+                <Route path="/tabs/:tabId/print" element={<TabReceiptPrintPage />} />
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<DashboardPage />} />
+                  <Route path="/tables" element={<TablesPage />} />
+                  <Route path="/tabs/:tabId" element={<TabDetailPage />} />
+                  <Route path="/kitchen" element={<KitchenPage />} />
+                  <Route path="/checkout" element={<CheckoutPage />} />
+                  <Route path="/cash-register" element={<CashRegisterPage />} />
+                  <Route path="/reservations" element={<ReservationsPage />} />
+                  <Route path="/deliveries" element={<DeliveryPage />} />
+                  <Route path="/categories" element={<CategoriesPage />} />
+                  <Route path="/dining-areas" element={<DiningAreasPage />} />
+                  <Route path="/coupons" element={<CouponsPage />} />
+                  <Route path="/happy-hour" element={<HappyHourPage />} />
+                  <Route path="/delivery-zones" element={<DeliveryZonesPage />} />
+                  <Route path="/couriers" element={<CouriersPage />} />
+                  <Route path="/products" element={<ProductsPage />} />
+                  <Route path="/products/import" element={<MenuImportPage />} />
+                  <Route path="/products/:productId/modifiers" element={<ProductModifiersPage />} />
+                  <Route path="/products/:productId/availability" element={<ProductAvailabilityPage />} />
+                  <Route path="/combos" element={<CombosPage />} />
+                  <Route path="/combos/new" element={<ComboFormPage />} />
+                  <Route path="/combos/:productId" element={<ComboFormPage />} />
+                  <Route path="/reports" element={<ReportsPage />} />
+                  <Route path="/reports/feedback" element={<AllFeedbackPage />} />
+                  <Route path="/settings" element={<RestaurantSettingsPage />} />
+                  <Route path="/staff" element={<StaffPage />} />
+                </Route>
+              </Route>
+              <Route element={<RequireCourierRole />}>
+                <Route element={<CourierLayout />}>
+                  <Route path="/my-deliveries" element={<MyDeliveriesPage />} />
+                </Route>
               </Route>
             </Route>
           </Routes>

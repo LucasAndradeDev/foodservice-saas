@@ -63,16 +63,41 @@ export interface DeliveryDetails {
   zipCode: string | null
   referencePoint: string | null
   deliveryFee: number
+  courierId: string | null
+  courierName: string | null
   items: DeliveryItem[]
   billTotal: number | null
   createdAt: string
   updatedAt: string
 }
 
+export interface AssignableCourier {
+  id: string
+  name: string
+  active: boolean
+}
+
 export function listOpenDeliveries() {
   return http.get<DeliveryDetails[]>('/deliveries').then((res) => res.data)
 }
 
+// A courier's own restricted screen (MyDeliveriesPage) - only their own out-for-delivery orders.
+export function listMyDeliveries() {
+  return http.get<DeliveryDetails[]>('/deliveries/mine').then((res) => res.data)
+}
+
 export function updateDeliveryStatus(tabId: string, status: DeliveryStatus) {
   return http.patch<DeliveryDetails>(`/deliveries/${tabId}/status`, { status }).then((res) => res.data)
+}
+
+// courierId null unassigns the current courier - the DeliveryPage dropdown always offers a
+// "sem entregador" option that calls this the same way as picking a real one.
+export function assignCourier(tabId: string, courierId: string | null) {
+  return http.patch<DeliveryDetails>(`/deliveries/${tabId}/courier`, { courierId }).then((res) => res.data)
+}
+
+// Narrower than listUsers({role:'COURIER'}) - reachable by every role that can assign a courier
+// (WAITER/KITCHEN/CASHIER included), so it deliberately doesn't return an email/phone back.
+export function listAssignableCouriers() {
+  return http.get<AssignableCourier[]>('/deliveries/couriers').then((res) => res.data)
 }

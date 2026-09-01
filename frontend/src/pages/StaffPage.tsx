@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BarChart3, CheckCircle2, Circle, Clock, Filter, KeyRound, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
+import { BarChart3, Bike, CheckCircle2, Circle, Clock, Filter, KeyRound, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import type { UserRole } from '../auth/types'
@@ -20,6 +20,7 @@ const MANAGEMENT_TABS = [
   { to: '/coupons', label: 'Cupons', icon: Ticket },
   { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
   { to: '/delivery-zones', label: 'Entrega', icon: DeliveryRiderIcon },
+  { to: '/couriers', label: 'Entregadores', icon: Bike },
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 
@@ -29,6 +30,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   WAITER: 'Garçom',
   KITCHEN: 'Cozinha',
   CASHIER: 'Caixa',
+  COURIER: 'Entregador',
 }
 
 const ASSIGNABLE_ROLES: Record<'OWNER' | 'MANAGER', UserRole[]> = {
@@ -55,10 +57,15 @@ export function StaffPage() {
 
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active')
 
-  const { data: staff, isLoading } = useQuery({
+  const { data: staffAndCouriers, isLoading } = useQuery({
     queryKey: ['users', statusFilter],
-    queryFn: () => listUsers(statusFilter === 'all' ? undefined : statusFilter === 'active'),
+    queryFn: () => listUsers({ active: statusFilter === 'all' ? undefined : statusFilter === 'active' }),
   })
+
+  // Couriers are managed on their own page (CouriersPage) - a login-having account, but a
+  // completely different kind of "staff" (no restaurant-management access), so they don't
+  // clutter this table too.
+  const staff = staffAndCouriers?.filter((row) => row.role !== 'COURIER')
 
   const [isCreating, setIsCreating] = useState(false)
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null)

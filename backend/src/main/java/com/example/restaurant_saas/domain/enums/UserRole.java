@@ -5,5 +5,6 @@ public enum UserRole {
     MANAGER,
     WAITER,
     KITCHEN,
-    CASHIER
+    CASHIER,
+    COURIER
 }

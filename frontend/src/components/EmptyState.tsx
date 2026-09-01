@@ -1,8 +1,10 @@
 import { motion } from 'framer-motion'
-import type { LucideIcon } from 'lucide-react'
+import type { ComponentType } from 'react'
 
 interface EmptyStateProps {
-  icon: LucideIcon
+  // Broader than LucideIcon so a page can pass a custom SVG icon (e.g. DeliveryPage's
+  // DeliveryRiderIcon), same reasoning as PageHeader's icon prop.
+  icon: ComponentType<{ className?: string }>
   message: string
 }
 

@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.dto.response;
 
+import com.example.restaurant_saas.domain.enums.CourierVehicleType;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import lombok.Builder;
 import lombok.Data;
@@ -18,4 +19,8 @@ public class UserResponse {
     private Boolean active;
     private Boolean emailVerified;
     private OffsetDateTime termsAcceptedAt;
+    // Only populated for role = COURIER.
+    private String phone;
+    private CourierVehicleType vehicleType;
+    private String notes;
 }

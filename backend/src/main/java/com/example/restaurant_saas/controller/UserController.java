@@ -26,7 +26,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('OWNER','MANAGER')")
-@Tag(name = "Users", description = "Manage restaurant staff (OWNER/MANAGER/WAITER/KITCHEN/CASHIER). Restricted to OWNER and MANAGER.")
+@Tag(name = "Users", description = "Manage restaurant staff (OWNER/MANAGER/WAITER/KITCHEN/CASHIER/COURIER). Restricted to OWNER and MANAGER.")
 public class UserController {
 
     private final UserService userService;

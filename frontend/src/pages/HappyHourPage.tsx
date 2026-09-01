@@ -4,6 +4,7 @@ import {
   Apple,
   Beef,
   Beer,
+  Bike,
   Cake,
   Clock,
   Coffee,
@@ -62,6 +63,7 @@ const MANAGEMENT_TABS = [
   { to: '/coupons', label: 'Cupons', icon: Ticket },
   { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
   { to: '/delivery-zones', label: 'Entrega', icon: DeliveryRiderIcon },
+  { to: '/couriers', label: 'Entregadores', icon: Bike },
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 

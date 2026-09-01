@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertTriangle,
+  Bike,
   ChevronDown,
   Clock,
   MapPin,
@@ -11,10 +12,11 @@ import {
   Phone,
   Receipt,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ComponentType } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../components/Badge'
 import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
+import { Dropdown, type DropdownOption } from '../components/Dropdown'
 import { EmptyState } from '../components/EmptyState'
 import { PageHeader } from '../components/PageHeader'
 import {
@@ -22,13 +24,20 @@ import {
   DELIVERY_NEXT_STATUS,
   DELIVERY_NEXT_STATUS_LABELS,
   DELIVERY_STATUS_LABELS,
+  assignCourier,
+  listAssignableCouriers,
   listOpenDeliveries,
   updateDeliveryStatus,
   type DeliveryDetails,
   type DeliveryStatus,
 } from '../api/deliveries'
+import { buildMapsUrl, formatAddressLines } from '../utils/delivery'
 import { buildWhatsAppUrl } from '../utils/phone'
 import { minutesSince } from '../utils/time'
+
+// Represents "no courier assigned" as '' since Dropdown's generic is string-keyed - translated
+// back to null right before calling the API (courierId: null is what actually unassigns).
+const NO_COURIER_VALUE = ''
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -55,7 +64,7 @@ const STATUS_BADGE_TONE: Record<DeliveryStatus, 'reserved' | 'occupied' | 'free'
 // Flat fills for the avatar and progress bar, same status colors as DELIVERY_ACCENT_STYLES
 // but as solid Tailwind classes (that map already returns a plain "bg-X-500" string, reused
 // directly where a flat background is all that's needed).
-const NEXT_STATUS_ICON: Partial<Record<DeliveryStatus, typeof DeliveryRiderIcon>> = {
+const NEXT_STATUS_ICON: Partial<Record<DeliveryStatus, ComponentType<{ className?: string }>>> = {
   SEPARATING: DeliveryRiderIcon,
   OUT_FOR_DELIVERY: PackageCheck,
 }
@@ -63,19 +72,6 @@ const NEXT_STATUS_ICON: Partial<Record<DeliveryStatus, typeof DeliveryRiderIcon>
 // listOpenDeliveries never returns DELIVERED (see backend), so in practice only these two
 // sections ever render - the order here is the order they appear top to bottom.
 const SECTION_ORDER: DeliveryStatus[] = ['SEPARATING', 'OUT_FOR_DELIVERY']
-
-function formatAddressLines(delivery: DeliveryDetails) {
-  const line1 = `${delivery.street}, ${delivery.number}${delivery.complement ? ` - ${delivery.complement}` : ''}`
-  const line2 = [delivery.neighborhood, delivery.city].filter(Boolean).join(' - ')
-  return { line1, line2 }
-}
-
-function buildMapsUrl(delivery: DeliveryDetails) {
-  const query = [`${delivery.street}, ${delivery.number}`, delivery.neighborhood, delivery.city]
-    .filter(Boolean)
-    .join(', ')
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
-}
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
@@ -106,11 +102,39 @@ export function DeliveryPage() {
     refetchInterval: 15000,
   })
 
+  const { data: couriers } = useQuery({
+    queryKey: ['assignable-couriers'],
+    queryFn: listAssignableCouriers,
+  })
+
+  // Inactive couriers aren't offered for new assignments (task 28.3) - same reasoning as
+  // DeliveryZone's active flag gating the public fee quote.
+  const activeCouriers = useMemo(() => (couriers ?? []).filter((courier) => courier.active), [couriers])
+
   const advanceMutation = useMutation({
     mutationFn: ({ tabId, status }: { tabId: string; status: DeliveryDetails['status'] }) =>
       updateDeliveryStatus(tabId, status),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliveries'] }),
   })
+
+  const assignCourierMutation = useMutation({
+    mutationFn: ({ tabId, courierId }: { tabId: string; courierId: string | null }) => assignCourier(tabId, courierId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliveries'] }),
+  })
+
+  function courierOptionsFor(delivery: DeliveryDetails): DropdownOption<string>[] {
+    const options: DropdownOption<string>[] = [
+      { value: NO_COURIER_VALUE, label: 'Sem entregador' },
+      ...activeCouriers.map((courier) => ({ value: courier.id, label: courier.name })),
+    ]
+    // A courier deactivated after being assigned still needs to show up as the current value -
+    // otherwise Dropdown falls back to options[0] and silently displays "Sem entregador" for an
+    // order that's actually still out with them.
+    if (delivery.courierId && !activeCouriers.some((courier) => courier.id === delivery.courierId)) {
+      options.push({ value: delivery.courierId, label: delivery.courierName ?? 'Entregador' })
+    }
+    return options
+  }
 
   const sections = useMemo(() => {
     const byStatus = new Map<DeliveryStatus, DeliveryDetails[]>()
@@ -187,11 +211,18 @@ export function DeliveryPage() {
                     const NextIcon = NEXT_STATUS_ICON[delivery.status]
                     const blockedByKitchen = delivery.status === 'SEPARATING' && !delivery.kitchenReady
                     const blockedByPayment = delivery.status === 'SEPARATING' && !delivery.paid
-                    const isBlocked = blockedByKitchen || blockedByPayment
-                    const blockedLabel = blockedByPayment ? 'Aguardando pagamento' : 'Aguardando cozinha'
+                    const blockedByCourier = delivery.status === 'SEPARATING' && !delivery.courierId
+                    const isBlocked = blockedByKitchen || blockedByPayment || blockedByCourier
+                    const blockedLabel = blockedByPayment
+                      ? 'Aguardando pagamento'
+                      : blockedByKitchen
+                        ? 'Aguardando cozinha'
+                        : 'Sem entregador'
                     const blockedTitle = blockedByPayment
                       ? 'O cliente ainda não confirmou o pagamento desse pedido'
-                      : 'Aguardando a cozinha terminar de preparar o pedido'
+                      : blockedByKitchen
+                        ? 'Aguardando a cozinha terminar de preparar o pedido'
+                        : 'Atribua um entregador antes de sair para entrega'
                     const delayLevel = getDelayLevel(delivery)
                     const { line1, line2 } = formatAddressLines(delivery)
                     const itemsTotal = delivery.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
@@ -317,6 +348,23 @@ export function DeliveryPage() {
                               WhatsApp
                             </a>
                           </div>
+                        </div>
+
+                        <div className="border-t border-gray-100 px-4 py-2.5 dark:border-white/10">
+                          <Dropdown
+                            value={delivery.courierId ?? NO_COURIER_VALUE}
+                            options={courierOptionsFor(delivery)}
+                            onChange={(value) =>
+                              assignCourierMutation.mutate({ tabId: delivery.tabId, courierId: value || null })
+                            }
+                            icon={Bike}
+                            compact
+                            fullWidth
+                            mobileTitle="Atribuir entregador"
+                            // Once it's out for delivery, the courier is a record of who's actually
+                            // carrying it - not editable mid-route (backend rejects it too).
+                            disabled={delivery.status !== 'SEPARATING'}
+                          />
                         </div>
 
                         <button

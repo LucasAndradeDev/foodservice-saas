@@ -7,7 +7,7 @@ import { AuthInput } from '../components/AuthLayout'
 import { Logo } from '../theme/Logo'
 
 export function ResetPasswordPage() {
-  const { resetPassword, isAuthenticated } = useAuth()
+  const { resetPassword, isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const token = searchParams.get('token')
@@ -18,7 +18,7 @@ export function ResetPasswordPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />
+    return <Navigate to={user?.role === 'COURIER' ? '/my-deliveries' : '/'} replace />
   }
 
   if (!token) {
@@ -50,8 +50,8 @@ export function ResetPasswordPage() {
 
     setIsSubmitting(true)
     try {
-      await resetPassword(token!, newPassword)
-      navigate('/')
+      const response = await resetPassword(token!, newPassword)
+      navigate(response.user.role === 'COURIER' ? '/my-deliveries' : '/')
     } catch (err) {
       if (isAxiosError(err) && err.response?.status === 429) {
         setError('Muitas tentativas. Aguarde alguns minutos e tente novamente.')
