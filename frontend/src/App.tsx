@@ -23,7 +23,6 @@ import { CheckoutPage } from './pages/CheckoutPage'
 import { CombosPage } from './pages/CombosPage'
 import { ComboFormPage } from './pages/ComboFormPage'
 import { CouponsPage } from './pages/CouponsPage'
-import { CouriersPage } from './pages/CouriersPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DeliveryPage } from './pages/DeliveryPage'
 import { DeliveryStatusPage } from './pages/publicMenu/DeliveryStatusPage'
@@ -135,7 +134,6 @@ function App() {
                   <Route path="/coupons" element={<CouponsPage />} />
                   <Route path="/happy-hour" element={<HappyHourPage />} />
                   <Route path="/delivery-zones" element={<DeliveryZonesPage />} />
-                  <Route path="/couriers" element={<CouriersPage />} />
                   <Route path="/products" element={<ProductsPage />} />
                   <Route path="/products/import" element={<MenuImportPage />} />
                   <Route path="/products/:productId/modifiers" element={<ProductModifiersPage />} />

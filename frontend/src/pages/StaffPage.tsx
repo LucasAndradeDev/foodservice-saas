@@ -1,9 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BarChart3, Bike, CheckCircle2, Circle, Clock, Filter, KeyRound, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
+import { BarChart3, CheckCircle2, Circle, Clock, Filter, KeyRound, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import type { UserRole } from '../auth/types'
-import { createUser, listUsers, sendPasswordResetLink, updateUser, type StaffMember } from '../api/users'
+import {
+  COURIER_VEHICLE_TYPE_LABELS,
+  createUser,
+  listUsers,
+  sendPasswordResetLink,
+  updateUser,
+  type CourierVehicleType,
+  type StaffMember,
+} from '../api/users'
 import { useAuth } from '../auth/AuthContext'
 import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
@@ -20,7 +28,6 @@ const MANAGEMENT_TABS = [
   { to: '/coupons', label: 'Cupons', icon: Ticket },
   { to: '/happy-hour', label: 'Happy Hour', icon: Clock },
   { to: '/delivery-zones', label: 'Entrega', icon: DeliveryRiderIcon },
-  { to: '/couriers', label: 'Entregadores', icon: Bike },
   { to: '/staff', label: 'Funcionários', icon: Users },
 ]
 
@@ -34,9 +41,11 @@ const ROLE_LABELS: Record<UserRole, string> = {
 }
 
 const ASSIGNABLE_ROLES: Record<'OWNER' | 'MANAGER', UserRole[]> = {
-  OWNER: ['MANAGER', 'WAITER', 'KITCHEN', 'CASHIER'],
-  MANAGER: ['WAITER', 'KITCHEN', 'CASHIER'],
+  OWNER: ['MANAGER', 'WAITER', 'KITCHEN', 'CASHIER', 'COURIER'],
+  MANAGER: ['WAITER', 'KITCHEN', 'CASHIER', 'COURIER'],
 }
+
+const VEHICLE_TYPE_OPTIONS: CourierVehicleType[] = ['MOTORCYCLE', 'BICYCLE', 'CAR', 'ON_FOOT']
 
 const STATUS_FILTER_OPTIONS: { value: 'active' | 'inactive' | 'all'; label: string }[] = [
   { value: 'active', label: 'Ativos' },
@@ -57,21 +66,18 @@ export function StaffPage() {
 
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active')
 
-  const { data: staffAndCouriers, isLoading } = useQuery({
+  const { data: staff, isLoading } = useQuery({
     queryKey: ['users', statusFilter],
     queryFn: () => listUsers({ active: statusFilter === 'all' ? undefined : statusFilter === 'active' }),
   })
-
-  // Couriers are managed on their own page (CouriersPage) - a login-having account, but a
-  // completely different kind of "staff" (no restaurant-management access), so they don't
-  // clutter this table too.
-  const staff = staffAndCouriers?.filter((row) => row.role !== 'COURIER')
 
   const [isCreating, setIsCreating] = useState(false)
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<UserRole>(defaultRole(assignableRoles))
+  const [phone, setPhone] = useState('')
+  const [vehicleType, setVehicleType] = useState<CourierVehicleType>('MOTORCYCLE')
   const [active, setActive] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -119,6 +125,8 @@ export function StaffPage() {
     setName('')
     setEmail('')
     setRole(defaultRole(assignableRoles))
+    setPhone('')
+    setVehicleType('MOTORCYCLE')
     setError(null)
     setIsCreating(true)
   }
@@ -127,6 +135,8 @@ export function StaffPage() {
     setEditingStaff(row)
     setName(row.name)
     setRole(row.role)
+    setPhone(row.phone ?? '')
+    setVehicleType(row.vehicleType ?? 'MOTORCYCLE')
     setActive(row.active)
     setError(null)
   }
@@ -145,15 +155,22 @@ export function StaffPage() {
   function handleCreateSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
-    createMutation.mutate({ name, email, role })
+    createMutation.mutate(
+      role === 'COURIER' ? { name, email, role, phone, vehicleType } : { name, email, role },
+    )
   }
 
   function handleEditSubmit(event: FormEvent) {
     event.preventDefault()
     if (!editingStaff) return
     setError(null)
-    updateMutation.mutate({ id: editingStaff.id, payload: { name, role, active } })
+    updateMutation.mutate({
+      id: editingStaff.id,
+      payload: role === 'COURIER' ? { name, role, active, phone, vehicleType } : { name, role, active },
+    })
   }
+
+  const isFormOpen = isCreating || editingStaff !== null
 
   return (
     <div>
@@ -221,6 +238,7 @@ export function StaffPage() {
                 </div>
                 <div className="mb-2 text-sm text-gray-500 dark:text-stone-400">
                   {row.email} · {ROLE_LABELS[row.role]}
+                  {row.role === 'COURIER' && row.vehicleType && ` · ${COURIER_VEHICLE_TYPE_LABELS[row.vehicleType]}`}
                 </div>
                 {(canEditRow(row) || row.role === 'WAITER') && (
                   <div className="flex justify-end gap-1">
@@ -281,7 +299,14 @@ export function StaffPage() {
                       {row.name} {row.id === user?.id && <span className="text-gray-400 dark:text-stone-500">(você)</span>}
                     </td>
                     <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{row.email}</td>
-                    <td className="px-4 py-2 text-gray-600 dark:text-stone-400">{ROLE_LABELS[row.role]}</td>
+                    <td className="px-4 py-2 text-gray-600 dark:text-stone-400">
+                      {ROLE_LABELS[row.role]}
+                      {row.role === 'COURIER' && row.vehicleType && (
+                        <span className="block text-xs text-gray-400 dark:text-stone-500">
+                          {COURIER_VEHICLE_TYPE_LABELS[row.vehicleType]}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-2">
                       <Badge tone={row.active ? 'free' : 'neutral'}>
                         {row.active ? <CheckCircle2 className="h-3 w-3" /> : <Circle className="h-3 w-3" />}
@@ -332,9 +357,9 @@ export function StaffPage() {
         </>
       )}
 
-      {isCreating && (
-        <Modal title="Novo funcionário" onClose={closeForm}>
-          <form onSubmit={handleCreateSubmit}>
+      {isFormOpen && (
+        <Modal title={editingStaff ? `Editar ${editingStaff.name}` : 'Novo funcionário'} onClose={closeForm}>
+          <form onSubmit={editingStaff ? handleEditSubmit : handleCreateSubmit}>
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffName">
               Nome
             </label>
@@ -348,21 +373,25 @@ export function StaffPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffEmail">
-              Email
-            </label>
-            <input
-              id="staffEmail"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-            />
+            {!editingStaff && (
+              <>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffEmail">
+                  Email
+                </label>
+                <input
+                  id="staffEmail"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                />
 
-            <p className="mb-4 text-xs text-gray-500 dark:text-stone-400">
-              Vamos mandar um email pro funcionário com um link pra ele definir a própria senha.
-            </p>
+                <p className="mb-4 text-xs text-gray-500 dark:text-stone-400">
+                  Vamos mandar um email pro funcionário com um link pra ele definir a própria senha.
+                </p>
+              </>
+            )}
 
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffRole">
               Papel
@@ -380,56 +409,51 @@ export function StaffPage() {
               ))}
             </select>
 
-            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
+            {role === 'COURIER' && (
+              <>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffPhone">
+                  Telefone
+                </label>
+                <input
+                  id="staffPhone"
+                  type="tel"
+                  required
+                  maxLength={20}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(11) 91234-5678"
+                  className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                />
 
-            <Button type="submit" disabled={createMutation.isPending} className="w-full">
-              Cadastrar
-            </Button>
-          </form>
-        </Modal>
-      )}
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffVehicleType">
+                  Veículo
+                </label>
+                <select
+                  id="staffVehicleType"
+                  value={vehicleType}
+                  onChange={(e) => setVehicleType(e.target.value as CourierVehicleType)}
+                  className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                >
+                  {VEHICLE_TYPE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {COURIER_VEHICLE_TYPE_LABELS[option]}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
 
-      {editingStaff && (
-        <Modal title={`Editar ${editingStaff.name}`} onClose={closeForm}>
-          <form onSubmit={handleEditSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editStaffName">
-              Nome
-            </label>
-            <input
-              id="editStaffName"
-              type="text"
-              required
-              maxLength={100}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-            />
-
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editStaffRole">
-              Papel
-            </label>
-            <select
-              id="editStaffRole"
-              value={role}
-              onChange={(e) => setRole(e.target.value as UserRole)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-            >
-              {assignableRoles.map((option) => (
-                <option key={option} value={option}>
-                  {ROLE_LABELS[option]}
-                </option>
-              ))}
-            </select>
-
-            <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">
-              <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-              Funcionário ativo
-            </label>
+            {editingStaff && (
+              <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">
+                <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+                Funcionário ativo
+              </label>
+            )}
 
             {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <Button type="submit" disabled={updateMutation.isPending} className="w-full">
-              Salvar
+            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="w-full">
+              {editingStaff ? 'Salvar' : 'Cadastrar'}
             </Button>
           </form>
         </Modal>
