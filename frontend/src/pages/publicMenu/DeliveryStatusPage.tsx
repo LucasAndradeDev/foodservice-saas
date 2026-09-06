@@ -25,6 +25,7 @@ import {
   type DeliveryStatus,
 } from '../../api/deliveries'
 import { cancelPublicDeliveryCardCharge, cancelPublicDeliveryPixCharge, getPublicDeliveryStatus } from '../../api/publicMenu'
+import { CourierMap } from '../../components/CourierMap'
 import { DeliveryRiderIcon } from '../../components/DeliveryRiderIcon'
 import { buildWhatsAppUrl } from '../../utils/phone'
 import { minutesSince } from '../../utils/time'
@@ -276,6 +277,23 @@ export function DeliveryStatusPage() {
             {delivery.complement && ` - ${delivery.complement}`} - {delivery.neighborhood}
           </span>
         </div>
+
+        {/* Live courier position - only while OUT_FOR_DELIVERY and the courier has reported
+            recently (the backend already gates staleness); coordinates here are rounded to
+            ~100-150m, not exact, since this page is reachable by anyone with the link. */}
+        {delivery.status === 'OUT_FOR_DELIVERY' && delivery.courierLatitude != null && delivery.courierLongitude != null && (
+          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
+            <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3 dark:border-white/10">
+              <DeliveryRiderIcon className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+              <span className="text-sm font-semibold text-gray-800 dark:text-white">Seu entregador</span>
+            </div>
+            <CourierMap
+              positions={[
+                { id: 'courier', latitude: delivery.courierLatitude, longitude: delivery.courierLongitude },
+              ]}
+            />
+          </div>
+        )}
 
         {!delivery.paid && (
           <div className="rounded-2xl border border-gold-200 bg-gold-50 p-4 shadow-sm dark:border-gold-500/30 dark:bg-gold-500/10">

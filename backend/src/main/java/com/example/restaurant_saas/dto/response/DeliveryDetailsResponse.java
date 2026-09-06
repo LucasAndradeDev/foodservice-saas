@@ -58,6 +58,13 @@ public class DeliveryDetailsResponse {
     private UUID courierId;
     private String courierName;
 
+    // Null unless the order is OUT_FOR_DELIVERY and the assigned courier has reported a position
+    // recently (see DeliveryService#toResponse) - the frontend never has to reason about staleness
+    // itself. Rounded to ~100-150m on the public/unauthenticated path (getByAccessToken) only;
+    // exact everywhere else (staff, the courier's own view).
+    private Double courierLatitude;
+    private Double courierLongitude;
+
     private List<DeliveryItemResponse> items;
     // The tab's own frozen total (items + service charge + deliveryFee) - same value staff sees,
     // not recomputed here, so this can never drift from what payment actually settles.

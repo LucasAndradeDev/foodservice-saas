@@ -67,6 +67,11 @@ export interface DeliveryDetails {
   deliveryDistanceKm: number | null
   courierId: string | null
   courierName: string | null
+  // Null unless OUT_FOR_DELIVERY and the courier has reported a position recently - never needs
+  // staleness handling on this side, the backend already only sends it when it's worth showing.
+  // Rounded to ~100-150m on this (public) endpoint; exact on the authenticated staff/courier ones.
+  courierLatitude: number | null
+  courierLongitude: number | null
   items: DeliveryItem[]
   billTotal: number | null
   createdAt: string
@@ -77,6 +82,16 @@ export interface AssignableCourier {
   id: string
   name: string
   active: boolean
+}
+
+export interface CourierLiveLocation {
+  id: string
+  name: string
+  latitude: number
+  longitude: number
+  // False while they have a delivery currently OUT_FOR_DELIVERY with them - backs the
+  // "Livres/Todos" filter on the staff map.
+  available: boolean
 }
 
 export function listOpenDeliveries() {
@@ -102,4 +117,17 @@ export function assignCourier(tabId: string, courierId: string | null) {
 // (WAITER/KITCHEN/CASHIER included), so it deliberately doesn't return an email/phone back.
 export function listAssignableCouriers() {
   return http.get<AssignableCourier[]>('/deliveries/couriers').then((res) => res.data)
+}
+
+// Sent periodically by the courier's own browser while /my-deliveries is open, whenever logged
+// in - not gated on having an active delivery, so the staff map below can show who's free/nearby.
+export function updateMyLocation(latitude: number, longitude: number) {
+  return http.patch<void>('/deliveries/mine/location', { latitude, longitude }).then((res) => res.data)
+}
+
+// The staff dispatch map - every courier who has reported a position recently, whether or not
+// they're currently carrying a delivery. Exact coordinates (authenticated, unlike the fuzzed ones
+// on DeliveryDetails.courierLatitude/courierLongitude).
+export function listLiveCouriers() {
+  return http.get<CourierLiveLocation[]>('/deliveries/couriers/live').then((res) => res.data)
 }

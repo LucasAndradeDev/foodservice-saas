@@ -46,4 +46,9 @@ public interface DeliveryDetailsRepository extends JpaRepository<DeliveryDetails
     // restaurant_id up front, since discovering it is the whole point of the token.
     @Query(value = "SELECT * FROM delivery_details_by_access_token(:token)", nativeQuery = true)
     Optional<DeliveryDetails> findByAccessTokenBypassingRls(@Param("token") String token);
+
+    // Staff "who's free" map filter (DeliveryService#listLiveCouriers) - a courier not in this set
+    // has no delivery currently out with them, so they're available for the next assignment.
+    @Query("SELECT dd.courier.id FROM DeliveryDetails dd WHERE dd.restaurantId = :restaurantId AND dd.status = 'OUT_FOR_DELIVERY' AND dd.courier IS NOT NULL")
+    Set<UUID> findCourierIdsWithActiveDelivery(@Param("restaurantId") UUID restaurantId);
 }

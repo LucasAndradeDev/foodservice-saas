@@ -2,7 +2,9 @@ package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.AssignCourierRequest;
+import com.example.restaurant_saas.dto.request.UpdateCourierLocationRequest;
 import com.example.restaurant_saas.dto.request.UpdateDeliveryStatusRequest;
+import com.example.restaurant_saas.dto.response.CourierLiveLocationResponse;
 import com.example.restaurant_saas.dto.response.CourierOptionResponse;
 import com.example.restaurant_saas.dto.response.DeliveryDetailsResponse;
 import com.example.restaurant_saas.security.UserDetailsImpl;
@@ -85,6 +87,30 @@ public class DeliveryController {
             @AuthenticationPrincipal UserDetailsImpl currentUser
     ) {
         return ResponseEntity.ok(deliveryService.listAssignableCouriers(currentUser.getRestaurantId()));
+    }
+
+    @PatchMapping("/mine/location")
+    @PreAuthorize("hasRole('COURIER')")
+    @Operation(summary = "Report my location", description = "For the authenticated courier: updates their own last-known position. Sent periodically by the browser while /my-deliveries is open, whenever logged in - not gated on having an active delivery.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Location updated"),
+            @ApiResponse(responseCode = "400", description = "Validation error (latitude/longitude out of range)")
+    })
+    public ResponseEntity<Void> updateMyLocation(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @Valid @RequestBody UpdateCourierLocationRequest request
+    ) {
+        deliveryService.updateMyLocation(currentUser.getRestaurantId(), currentUser.getId(), request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/couriers/live")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','KITCHEN','CASHIER')")
+    @Operation(summary = "List online couriers", description = "Lists the restaurant's couriers who have reported a position recently, with their exact coordinates - for the staff dispatch map. Unlike /couriers, this only includes couriers currently online, whether or not they're carrying a delivery.")
+    public ResponseEntity<List<CourierLiveLocationResponse>> listLiveCouriers(
+            @AuthenticationPrincipal UserDetailsImpl currentUser
+    ) {
+        return ResponseEntity.ok(deliveryService.listLiveCouriers(currentUser.getRestaurantId()));
     }
 
     private UserRole extractRole(UserDetailsImpl currentUser) {

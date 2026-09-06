@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,4 +38,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     // Assignable-couriers dropdown on the Delivery operation screen (DeliveryController#listCouriers).
     List<User> findByRestaurantIdAndRoleOrderByNameAsc(UUID restaurantId, UserRole role);
+
+    // Staff "who's online" map (DeliveryService#listLiveCouriers) - "online" is derived from
+    // recency of locationUpdatedAt, not a stored flag, so this is the only place that concept
+    // exists at all.
+    List<User> findByRestaurantIdAndRoleAndLocationUpdatedAtAfter(UUID restaurantId, UserRole role, OffsetDateTime threshold);
 }

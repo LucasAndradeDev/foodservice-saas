@@ -70,7 +70,7 @@ public class SecurityConfig {
                         // reach them).
                         .requestMatchers("/api/v1/auth/me", "/api/v1/auth/logout", "/api/v1/auth/change-password")
                         .hasAnyRole("OWNER", "MANAGER", "WAITER", "KITCHEN", "CASHIER", "COURIER")
-                        .requestMatchers("/api/v1/deliveries/mine", "/api/v1/deliveries/*/status")
+                        .requestMatchers("/api/v1/deliveries/mine/**", "/api/v1/deliveries/*/status")
                         .hasAnyRole("OWNER", "MANAGER", "WAITER", "KITCHEN", "CASHIER", "COURIER")
                         .anyRequest().hasAnyRole("OWNER", "MANAGER", "WAITER", "KITCHEN", "CASHIER")
                 )

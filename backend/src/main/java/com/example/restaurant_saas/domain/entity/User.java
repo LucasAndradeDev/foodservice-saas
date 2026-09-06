@@ -65,6 +65,15 @@ public class User {
     @Column(length = 255)
     private String notes;
 
+    // Latest known position only - no history/trail. Also courier-only; updated by the courier's
+    // own browser while /my-deliveries is open (see DeliveryService#updateMyLocation).
+    private Double latitude;
+
+    private Double longitude;
+
+    @Column(name = "location_updated_at")
+    private OffsetDateTime locationUpdatedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

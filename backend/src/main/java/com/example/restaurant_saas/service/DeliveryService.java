@@ -11,7 +11,9 @@ import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.TabStatus;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.AssignCourierRequest;
+import com.example.restaurant_saas.dto.request.UpdateCourierLocationRequest;
 import com.example.restaurant_saas.dto.request.UpdateDeliveryStatusRequest;
+import com.example.restaurant_saas.dto.response.CourierLiveLocationResponse;
 import com.example.restaurant_saas.dto.response.CourierOptionResponse;
 import com.example.restaurant_saas.dto.response.DeliveryDetailsResponse;
 import com.example.restaurant_saas.dto.response.DeliveryItemResponse;
@@ -25,9 +27,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -42,6 +46,12 @@ public class DeliveryService {
     }
 
     private static final List<ItemStatus> KITCHEN_DONE_STATUSES = List.of(ItemStatus.READY, ItemStatus.DELIVERED, ItemStatus.CANCELLED);
+
+    // How long a courier's last reported position is trusted before treating them as offline/gone
+    // dark - both for the staff "who's online" map and for whether a delivery's tracking page gets
+    // a pin at all. Kept simple/hardcoded rather than a per-restaurant setting, same reasoning as
+    // DeliveryPage's own delay thresholds on the frontend: a UI/UX nicety, not a business rule.
+    private static final long LOCATION_STALE_AFTER_MINUTES = 5;
 
     private final DeliveryDetailsRepository deliveryDetailsRepository;
     private final OrderItemRepository orderItemRepository;
@@ -59,7 +69,7 @@ public class DeliveryService {
         // own status page poll (arguably more so: staff is far more likely to have this open).
         deliveries.forEach(d -> verifyPendingCardCharge(d.getTab().getId()));
         return deliveries.stream()
-                .map(this::toResponse)
+                .map(d -> toResponse(d, false))
                 .toList();
     }
 
@@ -102,7 +112,7 @@ public class DeliveryService {
 
         deliveryDetails.setStatus(to);
         DeliveryDetails saved = deliveryDetailsRepository.save(deliveryDetails);
-        return toResponse(saved);
+        return toResponse(saved, false);
     }
 
     // A courier's own restricted screen (task 28 redesign) - only their currently out-for-delivery
@@ -112,7 +122,38 @@ public class DeliveryService {
         return deliveryDetailsRepository
                 .findByRestaurantIdAndCourier_IdAndStatusOrderByCreatedAtAsc(restaurantId, courierId, DeliveryStatus.OUT_FOR_DELIVERY)
                 .stream()
-                .map(this::toResponse)
+                .map(d -> toResponse(d, false))
+                .toList();
+    }
+
+    // A courier reports their own position while /my-deliveries is open, whenever logged in - not
+    // gated on having an active delivery, so staff can also see who's free/nearby to hand the next
+    // order to (see listLiveCouriers below).
+    @Transactional
+    public void updateMyLocation(UUID restaurantId, UUID courierId, UpdateCourierLocationRequest request) {
+        User courier = userRepository.findByIdAndRestaurantIdAndRole(courierId, restaurantId, UserRole.COURIER)
+                .orElseThrow(() -> new IllegalArgumentException("Courier not found."));
+        courier.setLatitude(request.getLatitude());
+        courier.setLongitude(request.getLongitude());
+        courier.setLocationUpdatedAt(OffsetDateTime.now());
+        userRepository.save(courier);
+    }
+
+    // Staff "who's online" map - every courier who has reported a position recently, whether or
+    // not they're currently carrying a delivery. Exact coordinates: staff is a trusted,
+    // authenticated context, unlike the public tracking page (see toResponse below).
+    @Transactional(readOnly = true)
+    public List<CourierLiveLocationResponse> listLiveCouriers(UUID restaurantId) {
+        OffsetDateTime threshold = OffsetDateTime.now().minusMinutes(LOCATION_STALE_AFTER_MINUTES);
+        Set<UUID> busyCourierIds = deliveryDetailsRepository.findCourierIdsWithActiveDelivery(restaurantId);
+        return userRepository.findByRestaurantIdAndRoleAndLocationUpdatedAtAfter(restaurantId, UserRole.COURIER, threshold).stream()
+                .map(u -> CourierLiveLocationResponse.builder()
+                        .id(u.getId())
+                        .name(u.getName())
+                        .latitude(u.getLatitude())
+                        .longitude(u.getLongitude())
+                        .available(!busyCourierIds.contains(u.getId()))
+                        .build())
                 .toList();
     }
 
@@ -149,7 +190,7 @@ public class DeliveryService {
             deliveryDetails.setCourier(courier);
         }
 
-        return toResponse(deliveryDetailsRepository.save(deliveryDetails));
+        return toResponse(deliveryDetailsRepository.save(deliveryDetails), false);
     }
 
     // Looked up by the customer's own access token (task 27.3/29.1), before the tenant is known -
@@ -161,7 +202,7 @@ public class DeliveryService {
         tenantActivator.activate(deliveryDetails.getRestaurantId());
         try {
             verifyPendingCardCharge(deliveryDetails.getTab().getId());
-            return toResponse(deliveryDetails);
+            return toResponse(deliveryDetails, true);
         } finally {
             tenantActivator.deactivate();
         }
@@ -190,10 +231,27 @@ public class DeliveryService {
         return !orderItemRepository.existsByOrder_Tab_IdAndStatusNotIn(tabId, KITCHEN_DONE_STATUSES);
     }
 
-    private DeliveryDetailsResponse toResponse(DeliveryDetails d) {
+    // fuzzCourierLocation is true only for getByAccessToken, the sole public/unauthenticated
+    // caller - rounds the courier's position to ~100-150m instead of exposing exactly where they
+    // are to anyone holding the tracking link. The other three callers (all authenticated) get
+    // the exact position.
+    private DeliveryDetailsResponse toResponse(DeliveryDetails d, boolean fuzzCourierLocation) {
         // A projection, not d.getTab().getStatus() - see TabRepository#findStatusById on why the
         // entity's in-memory status can't be trusted here.
         boolean paid = tabRepository.findStatusById(d.getTab().getId()) == TabStatus.CLOSED;
+
+        // Null unless actually useful to show right now: OUT_FOR_DELIVERY, a courier assigned, and
+        // that courier's last report still fresh - the frontend never has to reason about
+        // staleness itself.
+        Double courierLatitude = null;
+        Double courierLongitude = null;
+        User courier = d.getCourier();
+        if (d.getStatus() == DeliveryStatus.OUT_FOR_DELIVERY && courier != null && courier.getLocationUpdatedAt() != null
+                && courier.getLocationUpdatedAt().isAfter(OffsetDateTime.now().minusMinutes(LOCATION_STALE_AFTER_MINUTES))) {
+            courierLatitude = fuzzCourierLocation ? roundCoordinate(courier.getLatitude()) : courier.getLatitude();
+            courierLongitude = fuzzCourierLocation ? roundCoordinate(courier.getLongitude()) : courier.getLongitude();
+        }
+
         return DeliveryDetailsResponse.builder()
                 .id(d.getId())
                 .tabId(d.getTab().getId())
@@ -214,13 +272,25 @@ public class DeliveryService {
                 .referencePoint(d.getReferencePoint())
                 .deliveryFee(d.getDeliveryFee())
                 .deliveryDistanceKm(d.getDeliveryDistanceKm())
-                .courierId(d.getCourier() != null ? d.getCourier().getId() : null)
-                .courierName(d.getCourier() != null ? d.getCourier().getName() : null)
+                .courierId(courier != null ? courier.getId() : null)
+                .courierName(courier != null ? courier.getName() : null)
+                .courierLatitude(courierLatitude)
+                .courierLongitude(courierLongitude)
                 .items(toItemResponses(d.getTab().getId()))
                 .billTotal(d.getTab().getBillTotal())
                 .createdAt(d.getCreatedAt())
                 .updatedAt(d.getUpdatedAt())
                 .build();
+    }
+
+    // ~3 decimal places is ~100-150m of imprecision (less east-west the further from the equator) -
+    // enough to keep the "getting close" feeling on the public tracking page without pinpointing
+    // exactly where the courier is to anyone holding the link.
+    private Double roundCoordinate(Double value) {
+        if (value == null) {
+            return null;
+        }
+        return Math.round(value * 1000.0) / 1000.0;
     }
 
     // Top-level items only (no combo children, no modifiers/observation) - the customer's tracking

@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, MapPin, MessageCircle, Navigation, Phone } from 'lucide-react'
+import { CheckCircle2, MapPin, MapPinOff, MessageCircle, Navigation, Phone } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { DeliveryRiderIcon } from '../../components/DeliveryRiderIcon'
 import { EmptyState } from '../../components/EmptyState'
-import { listMyDeliveries, updateDeliveryStatus } from '../../api/deliveries'
+import { listMyDeliveries, updateDeliveryStatus, updateMyLocation } from '../../api/deliveries'
 import { buildMapsUrl, formatAddressLines } from '../../utils/delivery'
 import { buildWhatsAppUrl } from '../../utils/phone'
 
@@ -15,8 +16,35 @@ const cardVariants = {
   exit: { opacity: 0, y: -12 },
 }
 
+// watchPosition can fire far more often than needed (every few seconds on a moving phone) -
+// throttle actual network sends to once per this interval instead of hitting the backend on
+// every callback.
+const LOCATION_SEND_MIN_INTERVAL_MS = 20000
+
 export function MyDeliveriesPage() {
   const queryClient = useQueryClient()
+  const [locationDenied, setLocationDenied] = useState(false)
+  const lastSentAtRef = useRef(0)
+
+  // Reports position whenever this screen is open, not gated on having an active delivery - the
+  // staff map (DeliveryPage) is only useful for "who's free/nearby" if it shows every online
+  // courier, not just ones currently carrying an order. Runs once for the life of the page;
+  // permission denial fails silently (a small note below, nothing blocks marking deliveries done).
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const now = Date.now()
+        if (now - lastSentAtRef.current < LOCATION_SEND_MIN_INTERVAL_MS) return
+        lastSentAtRef.current = now
+        updateMyLocation(position.coords.latitude, position.coords.longitude).catch(() => {})
+      },
+      () => setLocationDenied(true),
+      { enableHighAccuracy: false, maximumAge: 15000 },
+    )
+    return () => navigator.geolocation.clearWatch(watchId)
+  }, [])
 
   const { data: deliveries, isLoading } = useQuery({
     queryKey: ['my-deliveries'],
@@ -32,6 +60,13 @@ export function MyDeliveriesPage() {
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
       <h1 className="mb-4 text-lg font-bold text-gray-900 dark:text-white">Minhas entregas</h1>
+
+      {locationDenied && (
+        <p className="mb-4 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+          <MapPinOff className="h-3.5 w-3.5 shrink-0" />
+          Não conseguimos acessar sua localização — a loja não vai te ver no mapa.
+        </p>
+      )}
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 

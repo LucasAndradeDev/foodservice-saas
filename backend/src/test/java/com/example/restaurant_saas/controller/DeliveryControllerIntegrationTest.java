@@ -27,6 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -177,7 +178,7 @@ class DeliveryControllerIntegrationTest {
         return jwtService.generateToken(new UserDetailsImpl(user));
     }
 
-    private record DeliveryTab(String tabId, String itemId) {
+    private record DeliveryTab(String tabId, String itemId, String accessToken) {
     }
 
     private DeliveryTab createDeliveryTab(String token, String slug, String productId, String phone) throws Exception {
@@ -200,7 +201,10 @@ class DeliveryControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         String content = result.getResponse().getContentAsString();
-        return new DeliveryTab(JsonPath.read(content, "$.tabId"), JsonPath.read(content, "$.order.items[0].id"));
+        return new DeliveryTab(
+                JsonPath.read(content, "$.tabId"),
+                JsonPath.read(content, "$.order.items[0].id"),
+                JsonPath.read(content, "$.accessToken"));
     }
 
     // Kitchen must finish (READY) before a delivery order is allowed to move OUT_FOR_DELIVERY -
@@ -712,6 +716,169 @@ class DeliveryControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"courierId\":null}"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updateMyLocation_shouldShowUpInLiveCouriersRegardlessOfActiveDelivery() throws Exception {
+        OwnerSession owner = registerOwnerAndGetSession("Burger House");
+        User courier = createCourierDirectly(owner.user(), "Joao Motoboy");
+
+        mockMvc.perform(patch("/api/v1/deliveries/mine/location")
+                        .header("Authorization", "Bearer " + tokenFor(courier))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"latitude\":-23.5505,\"longitude\":-46.6333}"))
+                .andExpect(status().isNoContent());
+
+        // No active delivery at all - still shows up, so staff can see who's free/nearby.
+        mockMvc.perform(get("/api/v1/deliveries/couriers/live")
+                        .header("Authorization", "Bearer " + owner.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].id").value(courier.getId().toString()))
+                .andExpect(jsonPath("$[0].latitude").value(-23.5505))
+                .andExpect(jsonPath("$[0].longitude").value(-46.6333))
+                .andExpect(jsonPath("$[0].available").value(true));
+    }
+
+    @Test
+    void listLiveCouriers_marksCourierUnavailableWhileOutForDelivery() throws Exception {
+        OwnerSession owner = registerOwnerAndGetSession("Burger House");
+        String slug = getSlug(owner.token());
+        String categoryId = createCategory(owner.token());
+        String productId = createProduct(owner.token(), categoryId);
+        createDeliveryZone(owner.token());
+
+        User busyCourier = createCourierDirectly(owner.user(), "Joao Motoboy");
+        busyCourier.setLatitude(-23.55);
+        busyCourier.setLongitude(-46.63);
+        busyCourier.setLocationUpdatedAt(OffsetDateTime.now());
+        TenantTestSupport.withTenant(owner.user().getRestaurant().getId(), () -> { userRepository.save(busyCourier); });
+
+        User freeCourier = createCourierDirectly(owner.user(), "Pedro Motoboy");
+        freeCourier.setLatitude(-23.56);
+        freeCourier.setLongitude(-46.64);
+        freeCourier.setLocationUpdatedAt(OffsetDateTime.now());
+        TenantTestSupport.withTenant(owner.user().getRestaurant().getId(), () -> { userRepository.save(freeCourier); });
+
+        DeliveryTab tab = createDeliveryTab(owner.token(), slug, productId, "11999990050");
+        assignCourierToTab(owner.token(), tab.tabId(), busyCourier.getId().toString());
+        payTabInFull(owner.token(), tab.tabId());
+        markItemReady(owner.token(), tab.itemId());
+        mockMvc.perform(patch("/api/v1/deliveries/" + tab.tabId() + "/status")
+                        .header("Authorization", "Bearer " + owner.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusRequest("OUT_FOR_DELIVERY"))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/deliveries/couriers/live")
+                        .header("Authorization", "Bearer " + owner.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[?(@.id=='" + busyCourier.getId() + "')].available").value(org.hamcrest.Matchers.contains(false)))
+                .andExpect(jsonPath("$[?(@.id=='" + freeCourier.getId() + "')].available").value(org.hamcrest.Matchers.contains(true)));
+    }
+
+    @Test
+    void updateMyLocation_nonCourierRole_shouldReturn403() throws Exception {
+        String token = registerOwnerAndGetToken("Burger House");
+
+        mockMvc.perform(patch("/api/v1/deliveries/mine/location")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"latitude\":-23.5505,\"longitude\":-46.6333}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updateMyLocation_outOfRangeCoordinates_shouldReturn400() throws Exception {
+        OwnerSession owner = registerOwnerAndGetSession("Burger House");
+        User courier = createCourierDirectly(owner.user(), "Joao Motoboy");
+
+        mockMvc.perform(patch("/api/v1/deliveries/mine/location")
+                        .header("Authorization", "Bearer " + tokenFor(courier))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"latitude\":-91,\"longitude\":-46.6333}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void listLiveCouriers_excludesStaleAndNeverReportedAndOtherRestaurants() throws Exception {
+        OwnerSession owner = registerOwnerAndGetSession("Burger House");
+
+        User online = createCourierDirectly(owner.user(), "Joao Motoboy");
+        online.setLatitude(-23.55);
+        online.setLongitude(-46.63);
+        online.setLocationUpdatedAt(OffsetDateTime.now());
+        TenantTestSupport.withTenant(owner.user().getRestaurant().getId(), () -> { userRepository.save(online); });
+
+        // Reported a position once, but it's stale - the 5-minute window has passed.
+        User stale = createCourierDirectly(owner.user(), "Pedro Motoboy");
+        stale.setLatitude(-23.55);
+        stale.setLongitude(-46.63);
+        stale.setLocationUpdatedAt(OffsetDateTime.now().minusMinutes(10));
+        TenantTestSupport.withTenant(owner.user().getRestaurant().getId(), () -> { userRepository.save(stale); });
+
+        // Never reported a position at all.
+        createCourierDirectly(owner.user(), "Carlos Motoboy");
+
+        OwnerSession otherOwner = registerOwnerAndGetSession("Burger House Other");
+        User otherRestaurantCourier = createCourierDirectly(otherOwner.user(), "Courier From Other Restaurant");
+        otherRestaurantCourier.setLatitude(-23.55);
+        otherRestaurantCourier.setLongitude(-46.63);
+        otherRestaurantCourier.setLocationUpdatedAt(OffsetDateTime.now());
+        TenantTestSupport.withTenant(otherOwner.user().getRestaurant().getId(), () -> { userRepository.save(otherRestaurantCourier); });
+
+        mockMvc.perform(get("/api/v1/deliveries/couriers/live")
+                        .header("Authorization", "Bearer " + owner.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].id").value(online.getId().toString()));
+    }
+
+    @Test
+    void getByAccessToken_publicResponse_hasFuzzedCourierLocationOnlyWhenOutForDeliveryAndFresh() throws Exception {
+        OwnerSession owner = registerOwnerAndGetSession("Burger House");
+        String slug = getSlug(owner.token());
+        String categoryId = createCategory(owner.token());
+        String productId = createProduct(owner.token(), categoryId);
+        createDeliveryZone(owner.token());
+        DeliveryTab tab = createDeliveryTab(owner.token(), slug, productId, "11999990040");
+
+        // Still SEPARATING - no pin yet, even though a courier is already assigned with a position.
+        User courier = createCourierDirectly(owner.user(), "Joao Motoboy");
+        assignCourierToTab(owner.token(), tab.tabId(), courier.getId().toString());
+        courier.setLatitude(-23.550519);
+        courier.setLongitude(-46.633309);
+        courier.setLocationUpdatedAt(OffsetDateTime.now());
+        TenantTestSupport.withTenant(owner.user().getRestaurant().getId(), () -> { userRepository.save(courier); });
+
+        mockMvc.perform(get("/api/v1/public/deliveries/" + tab.accessToken() + "/status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SEPARATING"))
+                .andExpect(jsonPath("$.courierLatitude").value(nullValue()))
+                .andExpect(jsonPath("$.courierLongitude").value(nullValue()));
+
+        payTabInFull(owner.token(), tab.tabId());
+        markItemReady(owner.token(), tab.itemId());
+        mockMvc.perform(patch("/api/v1/deliveries/" + tab.tabId() + "/status")
+                        .header("Authorization", "Bearer " + owner.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(statusRequest("OUT_FOR_DELIVERY"))))
+                .andExpect(status().isOk());
+
+        // Now OUT_FOR_DELIVERY with a fresh position - rounded to 3 decimal places on the public
+        // path, not the exact value the courier reported (-23.550519 / -46.633309).
+        mockMvc.perform(get("/api/v1/public/deliveries/" + tab.accessToken() + "/status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.courierLatitude").value(-23.551))
+                .andExpect(jsonPath("$.courierLongitude").value(-46.633));
+
+        // Staff's own view of the same order gets the exact, unrounded position.
+        mockMvc.perform(get("/api/v1/deliveries")
+                        .header("Authorization", "Bearer " + owner.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].courierLatitude").value(-23.550519))
+                .andExpect(jsonPath("$[0].courierLongitude").value(-46.633309));
     }
 
     private UpdateDeliveryStatusRequest statusRequest(String status) {

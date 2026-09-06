@@ -5,6 +5,7 @@ import {
   Bike,
   ChevronDown,
   Clock,
+  Map as MapIcon,
   MapPin,
   MessageCircle,
   Navigation,
@@ -12,9 +13,10 @@ import {
   Phone,
   Receipt,
 } from 'lucide-react'
-import { useMemo, useState, type ComponentType } from 'react'
+import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../components/Badge'
+import { CourierMap } from '../components/CourierMap'
 import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
 import { Dropdown, type DropdownOption } from '../components/Dropdown'
 import { EmptyState } from '../components/EmptyState'
@@ -26,6 +28,7 @@ import {
   DELIVERY_STATUS_LABELS,
   assignCourier,
   listAssignableCouriers,
+  listLiveCouriers,
   listOpenDeliveries,
   updateDeliveryStatus,
   type DeliveryDetails,
@@ -38,6 +41,10 @@ import { minutesSince } from '../utils/time'
 // Represents "no courier assigned" as '' since Dropdown's generic is string-keyed - translated
 // back to null right before calling the API (courierId: null is what actually unassigns).
 const NO_COURIER_VALUE = ''
+
+// The map's courier-focus dropdown default - "show everyone" (auto-fit), as opposed to picking a
+// specific courier to fly the map to.
+const SHOW_ALL_COURIERS_VALUE = ''
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -95,6 +102,9 @@ export function DeliveryPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({})
+  const [showMap, setShowMap] = useState(false)
+  const [courierFilter, setCourierFilter] = useState<'available' | 'all'>('all')
+  const [focusedCourierId, setFocusedCourierId] = useState(SHOW_ALL_COURIERS_VALUE)
 
   const { data: deliveries, isLoading } = useQuery({
     queryKey: ['deliveries'],
@@ -107,9 +117,43 @@ export function DeliveryPage() {
     queryFn: listAssignableCouriers,
   })
 
+  // Only polled while the map panel is open - every online courier, whether or not they're
+  // currently carrying a delivery, so staff can see who's free/nearby to hand the next one to.
+  const { data: liveCouriers } = useQuery({
+    queryKey: ['live-couriers'],
+    queryFn: listLiveCouriers,
+    refetchInterval: 15000,
+    enabled: showMap,
+  })
+
   // Inactive couriers aren't offered for new assignments (task 28.3) - same reasoning as
   // DeliveryZone's active flag gating the public fee quote.
   const activeCouriers = useMemo(() => (couriers ?? []).filter((courier) => courier.active), [couriers])
+
+  // "Livres" narrows the map to couriers with no delivery currently out with them - the actual
+  // dispatch question ("who can take the next order") - "Todos" keeps busy ones visible too, just
+  // greyed out on the map (CourierMap), so their last known position is never fully hidden.
+  const visibleLiveCouriers = useMemo(
+    () => (courierFilter === 'available' ? (liveCouriers ?? []).filter((courier) => courier.available) : (liveCouriers ?? [])),
+    [liveCouriers, courierFilter],
+  )
+
+  const courierFocusOptions: DropdownOption<string>[] = useMemo(
+    () => [
+      { value: SHOW_ALL_COURIERS_VALUE, label: 'Ver todos no mapa' },
+      ...visibleLiveCouriers.map((courier) => ({ value: courier.id, label: courier.name })),
+    ],
+    [visibleLiveCouriers],
+  )
+
+  // A focused courier who drops off the visible list (went offline, or got filtered out by
+  // "Livres") shouldn't leave the dropdown pointing at someone the map can no longer show.
+  useEffect(() => {
+    if (focusedCourierId === SHOW_ALL_COURIERS_VALUE) return
+    if (!visibleLiveCouriers.some((courier) => courier.id === focusedCourierId)) {
+      setFocusedCourierId(SHOW_ALL_COURIERS_VALUE)
+    }
+  }, [visibleLiveCouriers, focusedCourierId])
 
   const advanceMutation = useMutation({
     mutationFn: ({ tabId, status }: { tabId: string; status: DeliveryDetails['status'] }) =>
@@ -161,27 +205,95 @@ export function DeliveryPage() {
     <div>
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
         <PageHeader icon={DeliveryRiderIcon} title="Delivery" />
-        {deliveries && deliveries.length > 0 && (
-          <div className="flex items-center gap-2">
-            {sections.map((section) => (
-              <span
-                key={section.status}
-                className="flex items-center gap-1.5 rounded-full bg-gray-50 px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:bg-white/5 dark:text-stone-300"
-              >
-                <span className={`h-1.5 w-1.5 rounded-full ${DELIVERY_ACCENT_STYLES[section.status]}`} />
-                {DELIVERY_STATUS_LABELS[section.status]}
-                <span className="font-semibold text-gray-800 dark:text-white">{section.deliveries.length}</span>
-              </span>
-            ))}
-            {delayedCount > 0 && (
-              <span className="flex items-center gap-1.5 rounded-full border border-amber-400 bg-amber-100 px-2.5 py-1.5 text-xs font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-400">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                {delayedCount} atrasado{delayedCount > 1 ? 's' : ''}
-              </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {deliveries && deliveries.length > 0 && (
+            <>
+              {sections.map((section) => (
+                <span
+                  key={section.status}
+                  className="flex items-center gap-1.5 rounded-full bg-gray-50 px-2.5 py-1.5 text-xs font-medium text-gray-600 dark:bg-white/5 dark:text-stone-300"
+                >
+                  <span className={`h-1.5 w-1.5 rounded-full ${DELIVERY_ACCENT_STYLES[section.status]}`} />
+                  {DELIVERY_STATUS_LABELS[section.status]}
+                  <span className="font-semibold text-gray-800 dark:text-white">{section.deliveries.length}</span>
+                </span>
+              ))}
+              {delayedCount > 0 && (
+                <span className="flex items-center gap-1.5 rounded-full border border-amber-400 bg-amber-100 px-2.5 py-1.5 text-xs font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-400">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {delayedCount} atrasado{delayedCount > 1 ? 's' : ''}
+                </span>
+              )}
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowMap((show) => !show)}
+            className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium transition ${
+              showMap
+                ? 'bg-brand-600 text-white'
+                : 'bg-gray-50 text-gray-600 hover:bg-gray-100 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10'
+            }`}
+          >
+            <MapIcon className="h-3.5 w-3.5" />
+            Ver mapa dos entregadores
+          </button>
+        </div>
+      </div>
+
+      {showMap && (
+        <div className="mb-5 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-white/10">
+            <span className="text-sm font-semibold text-gray-800 dark:text-white">Entregadores online</span>
+            <div className="flex items-center gap-2">
+              <Dropdown
+                value={focusedCourierId}
+                onChange={setFocusedCourierId}
+                options={courierFocusOptions}
+                compact
+                panelClassName="w-56"
+                disabled={visibleLiveCouriers.length === 0}
+              />
+              <div className="flex items-center gap-1 rounded-full bg-gray-50 p-1 text-xs font-medium dark:bg-white/5">
+                {(['available', 'all'] as const).map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    onClick={() => setCourierFilter(filter)}
+                    className={`rounded-full px-2.5 py-1 transition ${
+                      courierFilter === filter
+                        ? 'bg-white text-gray-900 shadow-sm dark:bg-stone-700 dark:text-white'
+                        : 'text-gray-500 hover:text-gray-700 dark:text-stone-400 dark:hover:text-stone-200'
+                    }`}
+                  >
+                    {filter === 'available' ? 'Livres' : 'Todos'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* relative z-0 caps Leaflet's internal controls (they use z-index up to 1000) inside
+              this stacking context, so they can't paint over the courier-focus dropdown above. */}
+          <div className="relative z-0 overflow-hidden rounded-b-2xl">
+            {visibleLiveCouriers.length > 0 ? (
+              <CourierMap
+                positions={visibleLiveCouriers.map((courier) => ({
+                  id: courier.id,
+                  latitude: courier.latitude,
+                  longitude: courier.longitude,
+                  label: courier.name,
+                  available: courier.available,
+                }))}
+                focusedId={focusedCourierId || null}
+              />
+            ) : (
+              <p className="p-5 text-sm text-gray-500 dark:text-stone-400">
+                {courierFilter === 'available' ? 'Nenhum entregador livre no momento.' : 'Nenhum entregador online no momento.'}
+              </p>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
