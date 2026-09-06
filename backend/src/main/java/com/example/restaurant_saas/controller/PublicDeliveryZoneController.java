@@ -21,11 +21,15 @@ public class PublicDeliveryZoneController {
     private final PublicDeliveryZoneService publicDeliveryZoneService;
 
     @GetMapping("/fee")
-    @Operation(summary = "Quote a delivery fee", description = "Looks up the fixed fee for a neighborhood (case-insensitive, exact match, no geocoding). Always returns 200 - available=false means the neighborhood isn't served, not an error. This is a preview only; the fee actually charged is looked up again server-side when the order is created.")
+    @Operation(summary = "Quote a delivery fee", description = "Priority is distance (geocodes street/number/neighborhood/city via Nominatim, prices by the restaurant's base fee + price/km) when the restaurant has both a confirmed location and that pricing configured; falls back to the fixed neighborhood/DeliveryZone table (case-insensitive, exact match) otherwise. Always returns 200 - available=false means neither method could price this address, not an error. This is a preview only; the fee actually charged is looked up again server-side when the order is created.")
     public ResponseEntity<DeliveryFeeQuoteResponse> getFeeQuote(
             @PathVariable String slug,
-            @RequestParam String neighborhood
+            @RequestParam String street,
+            @RequestParam String number,
+            @RequestParam String neighborhood,
+            @RequestParam String city,
+            @RequestParam(required = false) String zipCode
     ) {
-        return ResponseEntity.ok(publicDeliveryZoneService.getFeeQuote(slug, neighborhood));
+        return ResponseEntity.ok(publicDeliveryZoneService.getFeeQuote(slug, street, number, neighborhood, city, zipCode));
     }
 }

@@ -1,6 +1,8 @@
 package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.entity.DeliveryDetails;
+import com.example.restaurant_saas.domain.entity.Restaurant;
+import com.example.restaurant_saas.domain.enums.DeliveryFeeMethod;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
@@ -13,6 +15,7 @@ import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.repository.DeliveryDetailsRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
+import com.example.restaurant_saas.service.GeocodingService;
 import com.example.restaurant_saas.support.TenantTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -23,15 +26,20 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -50,6 +58,9 @@ class PublicDeliveryOrderControllerIntegrationTest {
 
     @Autowired
     private DeliveryDetailsRepository deliveryDetailsRepository;
+
+    @MockBean
+    private GeocodingService geocodingService;
 
     private RegisterRestaurantRequest registerRequest;
 
@@ -114,6 +125,15 @@ class PublicDeliveryOrderControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
+    }
+
+    private void configureDistanceMode(String slug) {
+        Restaurant restaurant = restaurantRepository.findBySlug(slug).orElseThrow();
+        restaurant.setLatitude(-23.5505);
+        restaurant.setLongitude(-46.6333);
+        restaurant.setDeliveryBaseFee(new BigDecimal("5.00"));
+        restaurant.setDeliveryFeePerKm(new BigDecimal("2.00"));
+        restaurantRepository.save(restaurant);
     }
 
     private ObjectNode deliveryOrderBody(String productId, String phone) {
@@ -287,5 +307,60 @@ class PublicDeliveryOrderControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(deliveryOrderBody(productId, "11999990005"))))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createDeliveryOrder_withDistanceModeConfigured_andGeocodeSucceeds_shouldPriceByDistance() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String categoryId = createCategory(token, "Burgers");
+        String productId = createProduct(token, categoryId, "Cheeseburger", "25.90");
+        configureDistanceMode(slug);
+        // No DeliveryZone created for "Centro" at all - proves distance wins on its own, not
+        // merely because the zone fallback happened to also match.
+        when(geocodingService.geocodeStructured(anyString(), anyString(), anyString(), any()))
+                .thenReturn(Optional.of(new GeocodingService.GeoPoint(-23.5637, -46.6528)));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/public/menu/" + slug + "/delivery/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(deliveryOrderBody(productId, "11999990008"))))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String tabId = JsonPath.read(result.getResponse().getContentAsString(), "$.tabId");
+
+        UUID restaurantId = restaurantRepository.findBySlug(slug).orElseThrow().getId();
+        TenantTestSupport.withTenant(restaurantId, () -> {
+            DeliveryDetails details = deliveryDetailsRepository.findByTab_Id(UUID.fromString(tabId)).orElseThrow();
+            Assertions.assertEquals(DeliveryFeeMethod.DISTANCE, details.getDeliveryFeeMethod());
+            Assertions.assertNotNull(details.getDeliveryDistanceKm());
+            // base 5.00 + 2.00/km over a non-zero distance must exceed the base fee alone.
+            Assertions.assertTrue(details.getDeliveryFee().compareTo(new BigDecimal("5.00")) > 0);
+        });
+    }
+
+    @Test
+    void createDeliveryOrder_withDistanceModeConfigured_andGeocodeFails_shouldFallBackToZone() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String categoryId = createCategory(token, "Burgers");
+        String productId = createProduct(token, categoryId, "Cheeseburger", "25.90");
+        configureDistanceMode(slug);
+        createDeliveryZone(token, "Centro", "8.00");
+        when(geocodingService.geocodeStructured(anyString(), anyString(), anyString(), any())).thenReturn(Optional.empty());
+
+        MvcResult result = mockMvc.perform(post("/api/v1/public/menu/" + slug + "/delivery/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(deliveryOrderBody(productId, "11999990009"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.deliveryFee").value(8.00))
+                .andReturn();
+        String tabId = JsonPath.read(result.getResponse().getContentAsString(), "$.tabId");
+
+        UUID restaurantId = restaurantRepository.findBySlug(slug).orElseThrow().getId();
+        TenantTestSupport.withTenant(restaurantId, () -> {
+            DeliveryDetails details = deliveryDetailsRepository.findByTab_Id(UUID.fromString(tabId)).orElseThrow();
+            Assertions.assertEquals(DeliveryFeeMethod.ZONE, details.getDeliveryFeeMethod());
+            Assertions.assertNull(details.getDeliveryDistanceKm());
+        });
     }
 }

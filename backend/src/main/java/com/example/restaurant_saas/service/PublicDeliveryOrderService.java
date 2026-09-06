@@ -2,7 +2,6 @@ package com.example.restaurant_saas.service;
 
 import com.example.restaurant_saas.config.TenantActivator;
 import com.example.restaurant_saas.domain.entity.DeliveryDetails;
-import com.example.restaurant_saas.domain.entity.DeliveryZone;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.enums.DeliveryStatus;
 import com.example.restaurant_saas.dto.request.CreateDeliveryOrderRequest;
@@ -12,7 +11,6 @@ import com.example.restaurant_saas.dto.response.DeliveryOrderResponse;
 import com.example.restaurant_saas.dto.response.OrderResponse;
 import com.example.restaurant_saas.dto.response.TabResponse;
 import com.example.restaurant_saas.repository.DeliveryDetailsRepository;
-import com.example.restaurant_saas.repository.DeliveryZoneRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.TabRepository;
 import com.example.restaurant_saas.security.RateLimitService;
@@ -33,7 +31,7 @@ public class PublicDeliveryOrderService {
 
     private final RestaurantRepository restaurantRepository;
     private final DeliveryDetailsRepository deliveryDetailsRepository;
-    private final DeliveryZoneRepository deliveryZoneRepository;
+    private final DeliveryFeeResolver deliveryFeeResolver;
     private final TabRepository tabRepository;
     private final TabService tabService;
     private final OrderService orderService;
@@ -66,12 +64,12 @@ public class PublicDeliveryOrderService {
 
         tenantActivator.activate(restaurant.getId());
         try {
-            // Looked up (and rejected if unserved) before creating anything - never trust a fee
-            // the client might have shown from the preview quote (task 26.3), and never leave a
-            // tab/order behind for a neighborhood the restaurant doesn't actually deliver to.
-            DeliveryZone zone = deliveryZoneRepository
-                    .findByRestaurantIdAndNeighborhoodIgnoreCaseAndActiveTrue(restaurant.getId(), request.getNeighborhood())
-                    .orElseThrow(() -> new IllegalArgumentException("We don't deliver to this neighborhood yet."));
+            // Resolved (and rejected if unserved) before creating anything - never trust a fee
+            // the client might have shown from the preview quote (task 26.3/26.5), and never
+            // leave a tab/order behind for an address the restaurant doesn't actually deliver to.
+            DeliveryFeeResolver.ResolvedFee resolvedFee = deliveryFeeResolver
+                    .resolve(restaurant, request.getStreet(), request.getNumber(), request.getNeighborhood(), request.getCity(), request.getZipCode())
+                    .orElseThrow(() -> new IllegalArgumentException("We don't deliver to this address yet."));
 
             // No tables, same shape as a Balcao tab - what marks this one as a delivery order is
             // the DeliveryDetails row created below, not anything on the Tab itself.
@@ -95,7 +93,9 @@ public class PublicDeliveryOrderService {
                     .city(request.getCity())
                     .zipCode(request.getZipCode())
                     .referencePoint(request.getReferencePoint())
-                    .deliveryFee(zone.getFee())
+                    .deliveryFee(resolvedFee.fee())
+                    .deliveryDistanceKm(resolvedFee.distanceKm())
+                    .deliveryFeeMethod(resolvedFee.method())
                     .accessToken(UUID.randomUUID().toString())
                     .status(DeliveryStatus.SEPARATING)
                     .build();

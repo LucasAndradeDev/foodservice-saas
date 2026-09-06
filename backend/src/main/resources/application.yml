@@ -158,6 +158,12 @@ gemini:
   models: ${GEMINI_MODELS:gemini-flash-latest,gemini-3.6-flash,gemini-3.1-flash-lite}
   base-url: https://generativelanguage.googleapis.com
 
+nominatim:
+  # Free, no API key/signup (OpenStreetMap's public geocoding service) - see docs/DELIVERY.md
+  # "v2: geo real". Usage policy requires identifying the app + a contact in User-Agent
+  # (GeocodingService sets it), and asks for max 1 req/sec - fine at this project's volume.
+  base-url: https://nominatim.openstreetmap.org
+
 sentry:
   # Blank dsn (the default) leaves the SDK disabled - it only reports errors once a real
   # DSN is set (production only, see render.yaml). Never enabled in local dev/tests.

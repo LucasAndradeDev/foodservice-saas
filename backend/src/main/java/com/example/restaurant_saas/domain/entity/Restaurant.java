@@ -34,6 +34,27 @@ public class Restaurant {
 
     private String address;
 
+    // Structured address (task 26.5 follow-up), same shape as DeliveryDetails' customer address -
+    // additive alongside `address` above, which stays as the display/backfill fallback for
+    // restaurants that haven't re-entered their address through these fields yet.
+    @Column(length = 255)
+    private String street;
+
+    @Column(length = 20)
+    private String number;
+
+    @Column(length = 255)
+    private String complement;
+
+    @Column(length = 100)
+    private String neighborhood;
+
+    @Column(length = 100)
+    private String city;
+
+    @Column(name = "zip_code", length = 10)
+    private String zipCode;
+
     @Column(name = "trade_name", length = 100)
     private String tradeName;
 
@@ -87,6 +108,21 @@ public class Restaurant {
     @Column(name = "reservation_block_after_minutes", nullable = false)
     @Builder.Default
     private Integer reservationBlockAfterMinutes = 30;
+
+    // Geocoded from `address` above whenever it's saved (RestaurantService#updateMyRestaurant) -
+    // null until a successful geocode, or after `address` changes and the new one fails to
+    // geocode (never left pointing at a stale address). Both null = distance-based delivery fee
+    // is unavailable, falls back to DeliveryZone.
+    private Double latitude;
+
+    private Double longitude;
+
+    // Both null = distance mode not configured; DeliveryFeeResolver falls back to DeliveryZone.
+    @Column(name = "delivery_base_fee", precision = 10, scale = 2)
+    private BigDecimal deliveryBaseFee;
+
+    @Column(name = "delivery_fee_per_km", precision = 10, scale = 2)
+    private BigDecimal deliveryFeePerKm;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

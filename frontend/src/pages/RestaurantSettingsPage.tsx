@@ -24,8 +24,9 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
-import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { lookupCep } from '../api/cep'
 import { getMyRestaurant, updateMyRestaurant, uploadRestaurantLogo } from '../api/restaurant'
 import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
@@ -35,6 +36,7 @@ import { PageHeader } from '../components/PageHeader'
 import { PixIntegrationCard } from '../components/PixIntegrationCard'
 import { SectionTabs } from '../components/SectionTabs'
 import { Toggle } from '../components/Toggle'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { publicMenuUrl } from '../utils/publicMenuUrl'
 
 const MANAGEMENT_TABS = [
@@ -86,6 +88,9 @@ function SectionHeading({ icon: Icon, children }: { icon: LucideIcon; children: 
 const FIELD_CARD_CLASS =
   'rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow duration-200 hover:shadow-md dark:border-white/5 dark:bg-stone-900'
 
+const ADDRESS_FIELD_CLASS =
+  'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500'
+
 export function RestaurantSettingsPage() {
   const { user, updateRestaurant } = useAuth()
   const canManage = user?.role === 'OWNER' || user?.role === 'MANAGER'
@@ -101,7 +106,13 @@ export function RestaurantSettingsPage() {
   const [slug, setSlug] = useState('')
   const [logo, setLogo] = useState('')
   const [phone, setPhone] = useState('')
-  const [address, setAddress] = useState('')
+  const [street, setStreet] = useState('')
+  const [number, setNumber] = useState('')
+  const [complement, setComplement] = useState('')
+  const [neighborhood, setNeighborhood] = useState('')
+  const [city, setCity] = useState('')
+  const [zipCode, setZipCode] = useState('')
+  const lastCepLookedUpRef = useRef('')
   const [autoPrintKitchenTickets, setAutoPrintKitchenTickets] = useState(false)
   const [kitchenWarningThresholdMinutes, setKitchenWarningThresholdMinutes] = useState('10')
   const [kitchenCriticalThresholdMinutes, setKitchenCriticalThresholdMinutes] = useState('20')
@@ -122,7 +133,12 @@ export function RestaurantSettingsPage() {
     setSlug(restaurant.slug ?? '')
     setLogo(restaurant.logo ?? '')
     setPhone(restaurant.phone ?? '')
-    setAddress(restaurant.address ?? '')
+    setStreet(restaurant.street ?? '')
+    setNumber(restaurant.number ?? '')
+    setComplement(restaurant.complement ?? '')
+    setNeighborhood(restaurant.neighborhood ?? '')
+    setCity(restaurant.city ?? '')
+    setZipCode(restaurant.zipCode ?? '')
     setAutoPrintKitchenTickets(restaurant.autoPrintKitchenTickets)
     setKitchenWarningThresholdMinutes(String(restaurant.kitchenWarningThresholdMinutes))
     setKitchenCriticalThresholdMinutes(String(restaurant.kitchenCriticalThresholdMinutes))
@@ -131,6 +147,24 @@ export function RestaurantSettingsPage() {
     setServiceChargeEnabled(restaurant.serviceChargeEnabled)
     setServiceChargePercentage(String(restaurant.serviceChargePercentage))
   }, [restaurant])
+
+  // Same CEP autofill as the customer delivery form (PublicMenuPage) - lets the owner type just
+  // the CEP and get street/neighborhood/city filled in, rather than typing the whole address by
+  // hand. The ref (not state) guards it so the owner can still freely edit those fields afterwards
+  // without the effect stomping them again.
+  const debouncedZipCode = useDebouncedValue(zipCode.replace(/\D/g, ''), 400)
+  const { data: cepAddress } = useQuery({
+    queryKey: ['cepLookup', debouncedZipCode],
+    queryFn: () => lookupCep(debouncedZipCode),
+    enabled: debouncedZipCode.length === 8,
+  })
+  useEffect(() => {
+    if (!cepAddress || lastCepLookedUpRef.current === debouncedZipCode) return
+    lastCepLookedUpRef.current = debouncedZipCode
+    setStreet(cepAddress.street)
+    setNeighborhood(cepAddress.neighborhood)
+    setCity(cepAddress.city)
+  }, [cepAddress, debouncedZipCode])
 
   const updateMutation = useMutation({
     mutationFn: updateMyRestaurant,
@@ -170,7 +204,12 @@ export function RestaurantSettingsPage() {
       slug: slug || undefined,
       logo,
       phone,
-      address,
+      street,
+      number,
+      complement,
+      neighborhood,
+      city,
+      zipCode,
       autoPrintKitchenTickets,
       kitchenWarningThresholdMinutes: warningMinutes,
       kitchenCriticalThresholdMinutes: criticalMinutes,
@@ -305,18 +344,75 @@ export function RestaurantSettingsPage() {
                   className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
                 />
 
-                <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400" htmlFor="address">
-                  Endereço
-                </label>
-                <input
-                  id="address"
-                  type="text"
-                  disabled={!canManage}
-                  maxLength={255}
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
-                />
+                <p className="mb-1 block text-xs font-medium text-gray-600 dark:text-stone-400">Endereço</p>
+                <p className="mb-2 text-xs text-gray-500 dark:text-stone-400">
+                  Usado pra calcular a taxa de entrega por distância. Informe o CEP e preenchemos rua, bairro e
+                  cidade pra você.
+                </p>
+                <div className="space-y-2">
+                  <div>
+                    <input
+                      id="zipCode"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="CEP"
+                      disabled={!canManage}
+                      maxLength={10}
+                      value={zipCode}
+                      onChange={(e) => setZipCode(e.target.value)}
+                      className={ADDRESS_FIELD_CLASS}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Rua"
+                      disabled={!canManage}
+                      maxLength={255}
+                      value={street}
+                      onChange={(e) => setStreet(e.target.value)}
+                      className={`${ADDRESS_FIELD_CLASS} flex-[3]`}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Número"
+                      disabled={!canManage}
+                      maxLength={20}
+                      value={number}
+                      onChange={(e) => setNumber(e.target.value)}
+                      className={`${ADDRESS_FIELD_CLASS} flex-1`}
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Complemento (opcional)"
+                    disabled={!canManage}
+                    maxLength={255}
+                    value={complement}
+                    onChange={(e) => setComplement(e.target.value)}
+                    className={ADDRESS_FIELD_CLASS}
+                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Bairro"
+                      disabled={!canManage}
+                      maxLength={100}
+                      value={neighborhood}
+                      onChange={(e) => setNeighborhood(e.target.value)}
+                      className={`${ADDRESS_FIELD_CLASS} flex-1`}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Cidade"
+                      disabled={!canManage}
+                      maxLength={100}
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      className={`${ADDRESS_FIELD_CLASS} flex-1`}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

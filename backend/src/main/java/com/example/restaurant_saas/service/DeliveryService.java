@@ -213,6 +213,7 @@ public class DeliveryService {
                 .zipCode(d.getZipCode())
                 .referencePoint(d.getReferencePoint())
                 .deliveryFee(d.getDeliveryFee())
+                .deliveryDistanceKm(d.getDeliveryDistanceKm())
                 .courierId(d.getCourier() != null ? d.getCourier().getId() : null)
                 .courierName(d.getCourier() != null ? d.getCourier().getName() : null)
                 .items(toItemResponses(d.getTab().getId()))

@@ -31,7 +31,7 @@ interface CartDrawerProps {
   showDeliveryFields: boolean
   deliveryAddress: DeliveryAddressForm
   onDeliveryAddressChange: (patch: Partial<DeliveryAddressForm>) => void
-  deliveryFeeQuote?: { available: boolean; fee: number | null }
+  deliveryFeeQuote?: { available: boolean; fee: number | null; distanceKm: number | null; method: 'DISTANCE' | 'ZONE' | null }
 }
 
 export function CartDrawer({
@@ -337,7 +337,9 @@ export function CartDrawer({
                           }`}
                         >
                           {deliveryFeeQuote.available
-                            ? `Taxa de entrega pra ${deliveryAddress.neighborhood}: ${currencyFormatter.format(deliveryFeeQuote.fee ?? 0)}`
+                            ? deliveryFeeQuote.method === 'DISTANCE'
+                              ? `Entrega: ${deliveryFeeQuote.distanceKm?.toFixed(1).replace('.', ',')} km — ${currencyFormatter.format(deliveryFeeQuote.fee ?? 0)}`
+                              : `Taxa de entrega pra ${deliveryAddress.neighborhood}: ${currencyFormatter.format(deliveryFeeQuote.fee ?? 0)}`
                             : `Ainda não entregamos em "${deliveryAddress.neighborhood}".`}
                         </p>
                       )}

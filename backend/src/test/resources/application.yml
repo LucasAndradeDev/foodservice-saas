@@ -98,6 +98,9 @@ gemini:
   models: gemini-2.0-flash
   base-url: https://generativelanguage.googleapis.com
 
+nominatim:
+  base-url: http://localhost:0
+
 supabase:
   url: http://localhost:54321
   service-role-key: test-service-role-key

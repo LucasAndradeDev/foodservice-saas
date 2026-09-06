@@ -4,6 +4,7 @@ import { CalendarClock, ShoppingBag, Ticket } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { lookupCep } from '../api/cep'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import {
   getDeliveryFeeQuote,
   getPublicMenu,
@@ -84,31 +85,40 @@ export function PublicMenuPage() {
   const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddressForm>(
     () => loadPublicOrderState(slug!, tableId)?.deliveryAddress ?? emptyDeliveryAddress(),
   )
-  const [debouncedNeighborhood, setDebouncedNeighborhood] = useState('')
-  const [debouncedZipCode, setDebouncedZipCode] = useState('')
   const lastCepLookedUpRef = useRef('')
 
   function updateDeliveryAddress(patch: Partial<DeliveryAddressForm>) {
     setDeliveryAddress((prev) => ({ ...prev, ...patch }))
   }
 
-  // Debounced so typing each letter of the neighborhood doesn't fire a request per keystroke.
-  useEffect(() => {
-    const timeout = window.setTimeout(() => setDebouncedNeighborhood(deliveryAddress.neighborhood.trim()), 400)
-    return () => window.clearTimeout(timeout)
-  }, [deliveryAddress.neighborhood])
+  // Debounced so typing each letter of the address doesn't fire a request per keystroke. The
+  // full address (not just neighborhood) is needed now that distance-based pricing (task 26.5)
+  // geocodes street/number/city too - zone-based fallback still only needs neighborhood, but the
+  // backend decides that, not this page. Debounced per-field (primitives), not as one object -
+  // an object literal gets a new reference every render regardless of content, which would keep
+  // resetting the debounce timer on unrelated re-renders instead of settling.
+  const debouncedStreet = useDebouncedValue(deliveryAddress.street.trim(), 400)
+  const debouncedNumber = useDebouncedValue(deliveryAddress.number.trim(), 400)
+  const debouncedNeighborhood = useDebouncedValue(deliveryAddress.neighborhood.trim(), 400)
+  const debouncedCity = useDebouncedValue(deliveryAddress.city.trim(), 400)
+  const debouncedFeeZipCode = useDebouncedValue(deliveryAddress.zipCode.trim(), 400)
+  const feeAddressComplete =
+    debouncedStreet.length > 0 && debouncedNumber.length > 0 && debouncedNeighborhood.length > 0 && debouncedCity.length > 0
 
   const { data: deliveryFeeQuote } = useQuery({
-    queryKey: ['deliveryFeeQuote', slug, debouncedNeighborhood],
-    queryFn: () => getDeliveryFeeQuote(slug!, debouncedNeighborhood),
-    enabled: !!slug && orderMode === 'DELIVERY' && debouncedNeighborhood.length > 0,
+    queryKey: ['deliveryFeeQuote', slug, debouncedStreet, debouncedNumber, debouncedNeighborhood, debouncedCity, debouncedFeeZipCode],
+    queryFn: () =>
+      getDeliveryFeeQuote(slug!, {
+        street: debouncedStreet,
+        number: debouncedNumber,
+        neighborhood: debouncedNeighborhood,
+        city: debouncedCity,
+        zipCode: debouncedFeeZipCode || undefined,
+      }),
+    enabled: !!slug && orderMode === 'DELIVERY' && feeAddressComplete,
   })
 
-  // Same debounce pattern as the neighborhood lookup above, keyed off the digit-only CEP.
-  useEffect(() => {
-    const timeout = window.setTimeout(() => setDebouncedZipCode(deliveryAddress.zipCode.replace(/\D/g, '')), 400)
-    return () => window.clearTimeout(timeout)
-  }, [deliveryAddress.zipCode])
+  const debouncedZipCode = useDebouncedValue(deliveryAddress.zipCode.replace(/\D/g, ''), 400)
 
   const { data: cepAddress } = useQuery({
     queryKey: ['cepLookup', debouncedZipCode],

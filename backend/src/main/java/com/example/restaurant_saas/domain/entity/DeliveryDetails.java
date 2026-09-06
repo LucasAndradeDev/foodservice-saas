@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.domain.entity;
 
+import com.example.restaurant_saas.domain.enums.DeliveryFeeMethod;
 import com.example.restaurant_saas.domain.enums.DeliveryStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -63,6 +64,14 @@ public class DeliveryDetails {
     // from the client, see docs/DELIVERY.md security section.
     @Column(name = "delivery_fee", nullable = false, precision = 10, scale = 2)
     private BigDecimal deliveryFee;
+
+    // Transparency only, not recomputed/trusted for anything - see deliveryFee above.
+    @Column(name = "delivery_distance_km", precision = 6, scale = 2)
+    private BigDecimal deliveryDistanceKm;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_fee_method", length = 20)
+    private DeliveryFeeMethod deliveryFeeMethod;
 
     // Unguessable link for the customer to check delivery status without an account (task 27),
     // same pattern as Reservation.accessToken - generated as a random UUID by the app, never

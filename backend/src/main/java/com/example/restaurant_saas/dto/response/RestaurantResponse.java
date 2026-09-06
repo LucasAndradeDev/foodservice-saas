@@ -17,6 +17,18 @@ public class RestaurantResponse {
     private String cnpj;
     private String phone;
     private String address;
+    private String street;
+    private String number;
+    private String complement;
+    private String neighborhood;
+    private String city;
+    private String zipCode;
+    // Geocoded from address above (task 26.5) - null means distance-based delivery pricing is
+    // unavailable, whether because the address hasn't geocoded yet or address itself is blank.
+    private Double latitude;
+    private Double longitude;
+    private BigDecimal deliveryBaseFee;
+    private BigDecimal deliveryFeePerKm;
     private String logo;
     private Integer tableCount;
     private Boolean active;

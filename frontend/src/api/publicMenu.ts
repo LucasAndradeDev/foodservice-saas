@@ -122,13 +122,26 @@ export function submitDeliveryOrder(slug: string, payload: DeliveryOrderPayload)
 export interface DeliveryFeeQuote {
   available: boolean
   fee: number | null
+  // Both null when available is false, or when method is ZONE (no distance to show).
+  distanceKm: number | null
+  method: 'DISTANCE' | 'ZONE' | null
+}
+
+export interface DeliveryFeeQuoteAddress {
+  street: string
+  number: string
+  neighborhood: string
+  city: string
+  zipCode?: string
 }
 
 // Preview only - the fee actually charged is looked up again server-side when the order is
-// created (submitDeliveryOrder), never trusted from this response.
-export function getDeliveryFeeQuote(slug: string, neighborhood: string) {
+// created (submitDeliveryOrder), never trusted from this response. Distance is tried first
+// (needs the full address to geocode); falls back to the neighborhood/DeliveryZone table
+// server-side when the restaurant hasn't set up distance pricing or the address doesn't geocode.
+export function getDeliveryFeeQuote(slug: string, address: DeliveryFeeQuoteAddress) {
   return http
-    .get<DeliveryFeeQuote>(`/public/menu/${slug}/delivery/fee`, { params: { neighborhood } })
+    .get<DeliveryFeeQuote>(`/public/menu/${slug}/delivery/fee`, { params: address })
     .then((res) => res.data)
 }
 

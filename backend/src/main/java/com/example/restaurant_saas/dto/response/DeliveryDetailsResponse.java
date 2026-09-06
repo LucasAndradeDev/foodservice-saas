@@ -49,6 +49,10 @@ public class DeliveryDetailsResponse {
 
     private BigDecimal deliveryFee;
 
+    // Staff-facing transparency only, showing how deliveryFee was computed (task 26.5) - null for
+    // orders priced by neighborhood (DeliveryFeeMethod.ZONE) or placed before this existed.
+    private BigDecimal deliveryDistanceKm;
+
     // Null until a courier is assigned on the operation screen (task 28.3) - courierName is
     // resolved here so the frontend never needs a second lookup just to show who's carrying it.
     private UUID courierId;

@@ -410,7 +410,14 @@ export function DeliveryPage() {
                                   </div>
                                 ))}
                                 <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-1.5 text-gray-500 dark:border-white/10 dark:text-stone-400">
-                                  <span>Taxa de entrega</span>
+                                  <span>
+                                    Taxa de entrega
+                                    {delivery.deliveryDistanceKm != null && (
+                                      <span className="ml-1.5 text-xs text-gray-400 dark:text-stone-500">
+                                        ({delivery.deliveryDistanceKm.toFixed(1).replace('.', ',')} km)
+                                      </span>
+                                    )}
+                                  </span>
                                   <span>{currencyFormatter.format(delivery.deliveryFee)}</span>
                                 </div>
                                 <div className="flex items-center justify-between gap-2 font-semibold text-gray-900 dark:text-white">

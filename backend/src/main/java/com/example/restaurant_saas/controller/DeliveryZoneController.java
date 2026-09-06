@@ -23,7 +23,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/delivery-zones")
 @RequiredArgsConstructor
-@Tag(name = "Delivery Zones", description = "Neighborhood -> fixed delivery fee list (docs/DELIVERY.md, no geocoding in v1). Write operations restricted to OWNER and MANAGER.")
+@Tag(name = "Delivery Zones", description = "Neighborhood -> fixed delivery fee list (docs/DELIVERY.md). Now the fallback pricing method - used only when the restaurant hasn't configured distance-based pricing, or a customer's address doesn't geocode (see DeliveryFeeResolver). Write operations restricted to OWNER and MANAGER.")
 public class DeliveryZoneController {
 
     private final DeliveryZoneService deliveryZoneService;

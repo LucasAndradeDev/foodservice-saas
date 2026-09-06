@@ -63,6 +63,8 @@ export interface DeliveryDetails {
   zipCode: string | null
   referencePoint: string | null
   deliveryFee: number
+  // Staff-facing transparency only (task 26.5) - null for orders priced by neighborhood.
+  deliveryDistanceKm: number | null
   courierId: string | null
   courierName: string | null
   items: DeliveryItem[]

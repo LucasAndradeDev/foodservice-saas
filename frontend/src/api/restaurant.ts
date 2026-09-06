@@ -8,6 +8,20 @@ export interface Restaurant {
   cnpj: string | null
   phone: string | null
   address: string | null
+  // Structured address (task 26.5 follow-up), same shape as the customer delivery address -
+  // additive alongside `address` above, which stays as the display/backfill fallback.
+  street: string | null
+  number: string | null
+  complement: string | null
+  neighborhood: string | null
+  city: string | null
+  zipCode: string | null
+  // Geocoded from address above - null means distance-based delivery pricing is unavailable
+  // (falls back to bairro/DeliveryZone), whether because address hasn't geocoded yet or is blank.
+  latitude: number | null
+  longitude: number | null
+  deliveryBaseFee: number | null
+  deliveryFeePerKm: number | null
   logo: string | null
   tableCount: number | null
   active: boolean
@@ -26,6 +40,12 @@ export interface UpdateRestaurantPayload {
   logo?: string
   phone?: string
   address?: string
+  street?: string
+  number?: string
+  complement?: string
+  neighborhood?: string
+  city?: string
+  zipCode?: string
   cnpj?: string
   autoPrintKitchenTickets?: boolean
   kitchenWarningThresholdMinutes?: number
@@ -34,6 +54,8 @@ export interface UpdateRestaurantPayload {
   tableForgottenCriticalThresholdMinutes?: number
   serviceChargeEnabled?: boolean
   serviceChargePercentage?: number
+  deliveryBaseFee?: number
+  deliveryFeePerKm?: number
 }
 
 export function getMyRestaurant() {
