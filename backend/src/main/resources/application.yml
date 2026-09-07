@@ -96,6 +96,13 @@ security:
     max-attempts: ${PUBLIC_ORDER_PHONE_RATE_LIMIT_MAX_ATTEMPTS:3}
     window-minutes: ${PUBLIC_ORDER_PHONE_RATE_LIMIT_WINDOW_MINUTES:60}
     block-minutes: ${PUBLIC_ORDER_PHONE_RATE_LIMIT_BLOCK_MINUTES:120}
+  public-delivery-fee-quote-rate-limit:
+    # Caps how many fee quotes a single IP can request - each one can chain a geocoding call plus
+    # up to 3 routing providers, so an unthrottled loop here can burn through the shared external
+    # API quotas (and get Nominatim's IP banned) for every restaurant, not just one.
+    max-attempts: ${PUBLIC_DELIVERY_FEE_QUOTE_RATE_LIMIT_MAX_ATTEMPTS:30}
+    window-minutes: ${PUBLIC_DELIVERY_FEE_QUOTE_RATE_LIMIT_WINDOW_MINUTES:15}
+    block-minutes: ${PUBLIC_DELIVERY_FEE_QUOTE_RATE_LIMIT_BLOCK_MINUTES:15}
 
 app:
   upload-dir: ${UPLOAD_DIR:./uploads}

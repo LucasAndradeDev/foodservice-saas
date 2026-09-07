@@ -12,6 +12,7 @@ import java.util.List;
 public class CreateOrderRequest {
 
     @NotEmpty(message = "At least one item is required")
+    @Size(max = 100, message = "At most 100 items are allowed per order")
     @Valid
     private List<CreateOrderItemRequest> items;
 

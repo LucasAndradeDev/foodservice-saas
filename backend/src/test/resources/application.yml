@@ -70,6 +70,10 @@ security:
     max-attempts: 3
     window-minutes: 60
     block-minutes: 120
+  public-delivery-fee-quote-rate-limit:
+    max-attempts: 30
+    window-minutes: 15
+    block-minutes: 15
 
 app:
   upload-dir: ./target/test-uploads
