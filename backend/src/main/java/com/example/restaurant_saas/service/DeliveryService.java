@@ -114,7 +114,30 @@ public class DeliveryService {
 
         deliveryDetails.setStatus(to);
         DeliveryDetails saved = deliveryDetailsRepository.save(deliveryDetails);
+
+        // Found testing task 29.3 end to end: without this, an order marked DELIVERED here (the
+        // courier physically handed it over) left its items sitting at READY forever - there's no
+        // dine-in-style "garcom entrega o prato" step afterwards for the kitchen to close out, so
+        // nothing else ever advances ItemStatus. The item stayed stuck in the kitchen queue
+        // indefinitely (listKitchenQueue only excludes READY/DELIVERED/CANCELLED) even though the
+        // order was already done, invisible on the Delivery screen but still cluttering Cozinha.
+        if (to == DeliveryStatus.DELIVERED) {
+            markItemsDelivered(tabId);
+        }
+
         return toResponse(saved, false);
+    }
+
+    private void markItemsDelivered(UUID tabId) {
+        OffsetDateTime now = OffsetDateTime.now();
+        List<OrderItem> items = orderItemRepository.findByOrder_Tab_IdOrderByCreatedAtAsc(tabId).stream()
+                .filter(item -> item.getStatus() != ItemStatus.DELIVERED && item.getStatus() != ItemStatus.CANCELLED)
+                .peek(item -> {
+                    item.setStatus(ItemStatus.DELIVERED);
+                    item.setDeliveredAt(now);
+                })
+                .toList();
+        orderItemRepository.saveAll(items);
     }
 
     // A courier's own restricted screen (task 28 redesign) - only their currently out-for-delivery
