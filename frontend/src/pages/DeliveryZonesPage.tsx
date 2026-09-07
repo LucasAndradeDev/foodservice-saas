@@ -3,6 +3,7 @@ import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Check, CheckCircle2, Clock, Pencil, Plus, Route, Store, Ticket, Trash2, Users } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import {
   createDeliveryZone,
   deleteDeliveryZone,
@@ -329,7 +330,11 @@ export function DeliveryZonesPage() {
               ) : (
                 <>
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  Não conseguimos localizar o endereço do restaurante — confira em Configurações Gerais.
+                  Não conseguimos localizar o endereço do restaurante —{' '}
+                  <Link to="/settings" className="underline">
+                    confira em Configurações Gerais
+                  </Link>
+                  .
                 </>
               )}
             </div>

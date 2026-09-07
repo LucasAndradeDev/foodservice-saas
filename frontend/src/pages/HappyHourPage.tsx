@@ -37,6 +37,7 @@ import {
   Wine,
 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import {
   createHappyHourRule,
   deleteHappyHourRule,
@@ -340,10 +341,11 @@ export function HappyHourPage() {
       </p>
 
       {categories && categories.length === 0 && (
-        <div className="mb-4 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center dark:border-white/10 dark:bg-white/5">
-          <p className="text-sm text-gray-500 dark:text-stone-400">
-            Cadastre uma categoria de produtos antes de criar uma regra de happy hour.
-          </p>
+        <div className="mb-4 flex flex-col gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
+          <span>Cadastre uma categoria de produtos antes de criar uma regra de happy hour.</span>
+          <Link to="/categories" className="font-medium underline">
+            Ir para Categorias
+          </Link>
         </div>
       )}
 
