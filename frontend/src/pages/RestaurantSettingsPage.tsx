@@ -735,22 +735,6 @@ export function RestaurantSettingsPage() {
                         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
                           <div className="flex flex-col gap-4">
                             <PixIntegrationCard canManage={canManage} />
-
-                            <Link
-                              to="/dining-areas"
-                              className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-5 text-sm text-gray-700 shadow-sm transition-shadow duration-200 hover:bg-gray-50 hover:shadow-md dark:border-white/5 dark:bg-stone-900 dark:text-stone-300 dark:hover:bg-white/5"
-                            >
-                              <span className="flex items-center gap-2.5">
-                                <IconBadge icon={MapPin} />
-                                <span>
-                                  <span className="block font-medium">Áreas do salão</span>
-                                  <span className="block text-xs text-gray-500 dark:text-stone-400">
-                                    Agrupe as mesas por ambiente (salão, varanda, deck...)
-                                  </span>
-                                </span>
-                              </span>
-                              <ChevronRight className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />
-                            </Link>
                           </div>
 
                           <CardIntegrationCard canManage={canManage} />

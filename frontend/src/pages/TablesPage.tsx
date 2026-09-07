@@ -11,6 +11,7 @@ import {
   Flame,
   Info,
   Layers,
+  MapPin,
   MoreVertical,
   Move,
   Plus,
@@ -715,9 +716,17 @@ export function TablesPage() {
             <Move className="h-4 w-4" />
             Arraste uma mesa ou use o menu no card pra escolher a área. A mudança é salva na hora.
           </span>
-          <Button type="button" onClick={() => setIsOrganizingAreas(false)}>
-            Concluir
-          </Button>
+          <div className="flex items-center gap-2">
+            {canManage && (
+              <Button type="button" variant="secondary" onClick={() => navigate('/dining-areas')}>
+                <MapPin className="h-4 w-4" />
+                Gerenciar áreas
+              </Button>
+            )}
+            <Button type="button" onClick={() => setIsOrganizingAreas(false)}>
+              Concluir
+            </Button>
+          </div>
         </div>
       )}
 
