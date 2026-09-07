@@ -308,7 +308,7 @@ Itens já entregues fora do roadmap original, puxados do backlog conforme o prod
 
 O que falta, organizado por prioridade. **Reorganizado em 2026-08-02 a pedido do usuário**, em torno de um objetivo novo: **tornar o produto vendável** pro uso presencial + autoatendimento que já existe — em vez de só ordenar por facilidade de implementação (critério da reorg anterior, 2026-07-28). Cobrança/assinatura do próprio SaaS continua fora de escopo, decisão reconfirmada em 2026-08-02: os primeiros clientes entram por venda manual (contrato/PIX/boleto combinado por fora), sem fluxo de trial/plano dentro do sistema — ver "Fora de escopo" no fim.
 
-Nenhum dos itens que dependem de terceiro (gateway de pagamento, NFC-e, TEF, iFood, WhatsApp oficial) bloqueia a venda hoje: a obrigação fiscal (NFC-e) é do restaurante, não do SaaS, e a maioria resolve isso por fora; pagamento online só é pré-requisito de verdade pro delivery (ainda travado); TEF/iFood/WhatsApp são conveniências. Por isso caíram pra Prioridade 6, "só se um cliente concreto pedir", em vez de bloquear o lançamento.
+Nenhum dos itens que dependem de terceiro (gateway de pagamento, NFC-e, TEF, iFood, WhatsApp oficial) bloqueia a venda hoje: a obrigação fiscal (NFC-e) é do restaurante, não do SaaS, e a maioria resolve isso por fora; pagamento online era pré-requisito de verdade pro delivery (Prioridade 8, concluída em 2026-09-07); TEF/iFood/WhatsApp são conveniências. Por isso caíram pra Prioridade 6, "só se um cliente concreto pedir", em vez de bloquear o lançamento.
 
 #### Prioridade 2 — trivial (sem migration nem entidade nova, só query ou campo simples)
 **Concluída inteira** ✅ 2026-07-29 — os 3 itens (relatório de horário de pico, ficha técnica/custo de produto, metas e comparativos) já foram entregues, ver lista de "já entregues" acima.
@@ -354,14 +354,15 @@ Nenhum dos itens que dependem de terceiro (gateway de pagamento, NFC-e, TEF, iFo
 23. **Aplicativo para garçons / Aplicativo para clientes**.
 24. **Multiunidade (redes de restaurantes)**.
 
-#### Prioridade 8 — Delivery (travado até o presencial estar completo)
+#### Prioridade 8 — Delivery
 > **Decisão explícita do usuário (2026-07-27): não começar nada de Prioridade 8 enquanto qualquer item das Prioridades 2 a 7 (operação presencial) ainda estiver em aberto.** Delivery só entra depois que o fluxo de pedido presencial estiver todo redondo. **Atualização 2026-08-02**: com a reorg em torno de "vendável", "presencial redondo" passa a significar a Prioridade 4 completa (não mais as Prioridades 5-7 inteiras, que agora são "não bloqueia"/"só se pedir"/"bônus") — se essa leitura não for a intenção, ajustar aqui.
 
-25. **Cadastro de endereço de entrega** — capturado no pedido (cardápio digital em modo delivery, sem mesa associada).
-26. **Cálculo de frete / raio de entrega** — por distância ou bairro atendido.
-27. **Status de entrega** — separando → saiu pra entrega → entregue; extensão do fluxo de status de item que já existe (`PENDING`/`PREPARING`/`READY`/`DELIVERED`).
-28. **Gestão de entregador** — próprio ou terceirizado, atribuição de pedido a entregador.
-29. **Comanda específica pra delivery** — endereço, contato do cliente, forma de pagamento (depende do pagamento online da Prioridade 6, já que não dá pra cobrar na entrega sem risco).
+**Concluída inteira** ✅ 2026-09-07 — os 5 itens implementados, testados (suíte automatizada + ponta a ponta manual no navegador contra um restaurante de teste: endereço → frete → pagamento → separando → saiu → entregue) e commitados; raciocínio de arquitetura e progresso task a task com todo o detalhe em `docs/DELIVERY.md`.
+- [x] **25. Cadastro de endereço de entrega** — alternância "Comer no local"/"Delivery" no cardápio digital (`OrderModeToggle`), formulário de endereço no `CartDrawer`, endpoint público que abre uma `Tab` sem mesa (mesmo formato do Balcão) e cria o pedido + `DeliveryDetails` com token de acompanhamento numa transação só.
+- [x] **26. Cálculo de frete/raio** — v1 por bairro (`DeliveryZone`, taxa fixa cadastrada pelo dono); v2 promovida a método prioritário, geo real por distância (base + preço/km, endereço do restaurante também estruturado e geocodificado); v3 troca a linha reta por distância de rota real (`RouteDistanceService`, cadeia OpenRouteService → Mapbox → OSRM, cai pra Haversine se os três falharem — nunca bloqueia o pedido). Bairro continua como fallback automático quando a distância não está configurada ou o endereço não geocodifica.
+- [x] **27. Status de entrega** — `DeliveryStatus` (`SEPARATING → OUT_FOR_DELIVERY → DELIVERED`), transição só pra frente com gates de cozinha/pagamento/entregador, aba "Delivery" própria na barra de gestão, tela pública de acompanhamento pro cliente (`/delivery/status/{token}`) com mapa ao vivo do entregador e ETA por rota real, recalculado no servidor no máximo uma vez por minuto.
+- [x] **28. Gestão de entregador** — redesenhado em 2026-08-31: em vez de entidade própria, entregador é um `User` normal com `UserRole.COURIER` (reaproveita login/cadastro/permissões já existentes), aparece na aba Funcionários, tem tela própria restrita só com seus pedidos em rota e reporta posição pro mapa de despacho da equipe. Atribuição de entregador feita na tela de operação, exigida antes de despachar.
+- [x] **29. Comanda específica pra delivery** — a saída pra entrega exige a comanda já paga (Pix/cartão, sem opção de "pagar na entrega"); taxa de entrega exibida e somada no Caixa/Checkout, mesmo padrão da taxa de serviço. Achado e corrigido no teste ponta a ponta: a comanda marcada como entregue não avançava o status dos itens, deixando-os presos indefinidamente na fila da Cozinha.
 
 #### Fora de escopo por enquanto (decisão explícita do usuário, 2026-07-25; reconfirmada em 2026-08-02)
 - **Cobrança/assinatura do próprio SaaS** (planos, trial, gateway de pagamento) — mesmo com o foco em tornar o produto vendável, os primeiros clientes entram por venda manual (contrato/PIX/boleto combinado por fora); construir cobrança automatizada antes de validar se alguém paga foi visto como prematuro.
