@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
@@ -113,6 +114,23 @@ public class GlobalExceptionHandler {
         body.put("message", ex.getMessage());
 
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
+    }
+
+    // Catches races the pre-check-then-save pattern can't close (e.g. two concurrent signups for
+    // the same email both pass existsByEmail before either commits - finding #6, 2026-09-07
+    // review): without this, the loser hit an unhandled DataIntegrityViolationException and got a
+    // bare 500. 409 + a generic message keeps whatever column/constraint tripped it out of the
+    // response - Spring Boot already withholds the raw SQL message by default, this just stops it
+    // falling through to an unhandled-exception 500 instead of a clean, expected error shape.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", OffsetDateTime.now());
+        body.put("status", HttpStatus.CONFLICT.value());
+        body.put("error", "Conflict");
+        body.put("message", "This request conflicts with an existing record.");
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

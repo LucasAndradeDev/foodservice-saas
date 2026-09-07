@@ -22,6 +22,7 @@ export interface Restaurant {
   longitude: number | null
   deliveryBaseFee: number | null
   deliveryFeePerKm: number | null
+  maxDeliveryDistanceKm: number | null
   logo: string | null
   tableCount: number | null
   active: boolean
@@ -56,6 +57,7 @@ export interface UpdateRestaurantPayload {
   serviceChargePercentage?: number
   deliveryBaseFee?: number
   deliveryFeePerKm?: number
+  maxDeliveryDistanceKm?: number
 }
 
 export function getMyRestaurant() {

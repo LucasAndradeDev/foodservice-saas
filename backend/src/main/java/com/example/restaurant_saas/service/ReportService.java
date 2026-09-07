@@ -6,7 +6,6 @@ import com.example.restaurant_saas.domain.entity.RestaurantTable;
 import com.example.restaurant_saas.domain.entity.Tab;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
-import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.response.FeedbackEntryResponse;
 import com.example.restaurant_saas.dto.response.FeedbackPageResponse;
 import com.example.restaurant_saas.dto.response.FeedbackReportResponse;
@@ -179,12 +178,13 @@ public class ReportService {
         OffsetDateTime rangeStart = start.atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime();
         OffsetDateTime rangeEnd = end.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime();
 
+        // Grouped by the order's actual createdBy, regardless of role: an OWNER/MANAGER covering a
+        // table during a rush placed the order themselves (not the customer via self-order, which
+        // is what the null-waiter/self-service row means) and used to be silently dropped here,
+        // making this report's totals undercount getSummary's (finding #5, 2026-09-07 review).
         Map<UUID, List<OrderItem>> itemsByWaiter = new HashMap<>();
         for (OrderItem item : orderItemRepository.findForWaiterPerformance(restaurantId, rangeStart, rangeEnd)) {
             User waiter = item.getOrder().getCreatedBy();
-            if (waiter != null && waiter.getRole() != UserRole.WAITER) {
-                continue;
-            }
             itemsByWaiter.computeIfAbsent(waiter != null ? waiter.getId() : null, key -> new ArrayList<>()).add(item);
         }
 

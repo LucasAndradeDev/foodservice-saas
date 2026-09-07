@@ -4,6 +4,8 @@ import com.example.restaurant_saas.dto.response.BackupResponse;
 import com.example.restaurant_saas.exception.BackupProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -33,6 +35,8 @@ import java.util.regex.Pattern;
  */
 @Service
 public class BackupService {
+
+    private static final Logger log = LoggerFactory.getLogger(BackupService.class);
 
     private static final DateTimeFormatter FILENAME_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'");
     private static final Pattern JDBC_URL_PATTERN = Pattern.compile("^jdbc:postgresql://([^/]+)/(.+)$");
@@ -112,7 +116,12 @@ public class BackupService {
             }
             int exitCode = process.waitFor();
             if (exitCode != 0) {
-                throw new BackupProcessingException("pg_dump exited with code " + exitCode + ": " + new String(stderr, StandardCharsets.UTF_8));
+                // Detail (host/username in connectionUri, pg_dump's stderr) stays server-side only
+                // (finding #11, 2026-09-07 review) - GlobalExceptionHandler echoes this exception's
+                // own message straight to the caller, and this endpoint's shared X-Backup-Token
+                // doesn't need to double as a way to fingerprint the database setup too.
+                log.error("pg_dump exited with code {}: {}", exitCode, new String(stderr, StandardCharsets.UTF_8));
+                throw new BackupProcessingException("Backup failed: pg_dump exited with a non-zero status. Check server logs.");
             }
             return dump;
         } catch (IOException e) {
@@ -132,7 +141,8 @@ public class BackupService {
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception e) {
-            throw new BackupProcessingException("Failed to upload backup to Supabase Storage: " + describe(e), e);
+            log.error("Failed to upload backup to Supabase Storage: {}", describe(e), e);
+            throw new BackupProcessingException("Backup failed: could not upload to storage. Check server logs.", e);
         }
     }
 
@@ -162,7 +172,8 @@ public class BackupService {
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception e) {
-            throw new BackupProcessingException("Failed to prune old backups from Supabase Storage: " + describe(e), e);
+            log.error("Failed to prune old backups from Supabase Storage: {}", describe(e), e);
+            throw new BackupProcessingException("Backup failed: could not prune old backups. Check server logs.", e);
         }
 
         return toDelete.size();
@@ -191,7 +202,8 @@ public class BackupService {
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to parse Supabase Storage list response.", e);
         } catch (Exception e) {
-            throw new BackupProcessingException("Failed to list existing backups from Supabase Storage: " + describe(e), e);
+            log.error("Failed to list existing backups from Supabase Storage: {}", describe(e), e);
+            throw new BackupProcessingException("Backup failed: could not list existing backups. Check server logs.", e);
         }
     }
 }

@@ -88,4 +88,10 @@ public class UpdateRestaurantRequest {
 
     @DecimalMin(value = "0.0", message = "Delivery price per km cannot be negative")
     private BigDecimal deliveryFeePerKm;
+
+    // Optional radius cap for the DISTANCE method (finding #3, 2026-09-07 review) - null keeps it
+    // unlimited, same "both/all null = not configured" convention as the two fields above.
+    @DecimalMin(value = "0.1", message = "Max delivery distance must be greater than zero")
+    @DecimalMax(value = "1000", message = "Max delivery distance must be at most 1000 km")
+    private BigDecimal maxDeliveryDistanceKm;
 }

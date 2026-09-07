@@ -29,6 +29,7 @@ public class RestaurantResponse {
     private Double longitude;
     private BigDecimal deliveryBaseFee;
     private BigDecimal deliveryFeePerKm;
+    private BigDecimal maxDeliveryDistanceKm;
     private String logo;
     private Integer tableCount;
     private Boolean active;

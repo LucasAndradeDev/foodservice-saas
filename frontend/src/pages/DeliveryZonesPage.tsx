@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Check, CheckCircle2, Clock, Pencil, Plus, Route, Store, Ticket, Trash2, Users } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
@@ -55,27 +56,42 @@ export function DeliveryZonesPage() {
 
   const [deliveryBaseFee, setDeliveryBaseFee] = useState<number | null>(null)
   const [deliveryFeePerKm, setDeliveryFeePerKm] = useState<number | null>(null)
+  const [maxDeliveryDistanceKm, setMaxDeliveryDistanceKm] = useState<number | null>(null)
   const [distanceFeeSaved, setDistanceFeeSaved] = useState(false)
+  const [distanceFeeError, setDistanceFeeError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!restaurant) return
     setDeliveryBaseFee(restaurant.deliveryBaseFee)
     setDeliveryFeePerKm(restaurant.deliveryFeePerKm)
+    setMaxDeliveryDistanceKm(restaurant.maxDeliveryDistanceKm)
   }, [restaurant])
 
   const distanceFeeMutation = useMutation({
     mutationFn: updateMyRestaurant,
     onSuccess: (data) => {
       queryClient.setQueryData(['restaurant'], data)
+      setDistanceFeeError(null)
       setDistanceFeeSaved(true)
       window.setTimeout(() => setDistanceFeeSaved(false), 2000)
     },
+    // This form previously had no error path at all (finding #10, 2026-09-07 review) - a rejected
+    // save (e.g. an out-of-range raio máximo) looked identical to a successful one, just without
+    // the "Salvo" flash, with no indication anything went wrong.
+    onError: (err) =>
+      setDistanceFeeError(
+        isAxiosError(err) && err.response?.data?.message ? (err.response.data.message as string) : 'Não foi possível salvar.'
+      ),
   })
 
   function handleSaveDistanceFee(event: FormEvent) {
     event.preventDefault()
     if (deliveryBaseFee == null || deliveryFeePerKm == null) return
-    distanceFeeMutation.mutate({ deliveryBaseFee, deliveryFeePerKm })
+    distanceFeeMutation.mutate({
+      deliveryBaseFee,
+      deliveryFeePerKm,
+      ...(maxDeliveryDistanceKm != null ? { maxDeliveryDistanceKm } : {}),
+    })
   }
 
   const distanceFeeComplete = deliveryBaseFee != null && deliveryFeePerKm != null
@@ -211,7 +227,8 @@ export function DeliveryZonesPage() {
           <p className="mb-4 text-sm text-gray-500 dark:text-stone-400">
             Calcula a entrega pela distância até o cliente — o endereço dele é localizado automaticamente, sem
             precisar cadastrar bairro por bairro. As zonas por bairro logo abaixo passam a ser a alternativa,
-            usada só quando essa distância não estiver disponível.
+            usada só quando essa distância não estiver disponível. O raio máximo é opcional: acima dele, a
+            entrega cai pra zona por bairro (ou fica indisponível, se nenhuma zona atender o cliente).
           </p>
 
           <form onSubmit={handleSaveDistanceFee} className="flex flex-wrap items-end gap-3">
@@ -234,6 +251,22 @@ export function DeliveryZonesPage() {
                 id="deliveryFeePerKm"
                 value={deliveryFeePerKm}
                 onChange={setDeliveryFeePerKm}
+                className={CURRENCY_INPUT_CLASS}
+              />
+            </div>
+            <div className="w-32">
+              <label className="mb-1 block text-xs font-medium text-gray-700 dark:text-stone-300" htmlFor="maxDeliveryDistanceKm">
+                Raio máximo (km)
+              </label>
+              <input
+                id="maxDeliveryDistanceKm"
+                type="number"
+                inputMode="decimal"
+                min="0.1"
+                step="0.1"
+                placeholder="Sem limite"
+                value={maxDeliveryDistanceKm ?? ''}
+                onChange={(event) => setMaxDeliveryDistanceKm(event.target.value === '' ? null : Number(event.target.value))}
                 className={CURRENCY_INPUT_CLASS}
               />
             </div>
@@ -265,6 +298,8 @@ export function DeliveryZonesPage() {
               </AnimatePresence>
             </Button>
           </form>
+
+          {distanceFeeError && <p className="mt-2 text-sm text-wine-600 dark:text-wine-400">{distanceFeeError}</p>}
 
           {distanceFeeComplete && (
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl bg-gray-50 px-4 py-3 dark:bg-white/5">

@@ -245,6 +245,12 @@ export function DateTimePicker({
             type="time"
             value={parsed?.time ?? ''}
             onChange={(e) => handleTimeChange(e.target.value)}
+            // isDisabled above only blocks whole past days -- picking "today" left every hour
+            // selectable regardless of the current time, so a customer opening the form at 20h
+            // could pick "hoje, 14h" and get a misleading "no table available" error instead of
+            // the real cause (finding #8, 2026-09-07 review). min only applies once a day is
+            // picked and that day is today.
+            min={parsed && isSameDay(parsed.date, new Date()) ? toTimeValue(new Date()) : undefined}
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-900 dark:text-white"
           />
         </div>

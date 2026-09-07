@@ -124,6 +124,11 @@ public class Restaurant {
     @Column(name = "delivery_fee_per_km", precision = 10, scale = 2)
     private BigDecimal deliveryFeePerKm;
 
+    // Null = no cap (default, backward compatible) - set to reject/fall back to DeliveryZone for
+    // any address farther than this from the restaurant. Only applies to the DISTANCE method.
+    @Column(name = "max_delivery_distance_km", precision = 6, scale = 2)
+    private BigDecimal maxDeliveryDistanceKm;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

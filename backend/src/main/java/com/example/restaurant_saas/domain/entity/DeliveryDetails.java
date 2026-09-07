@@ -98,4 +98,13 @@ public class DeliveryDetails {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
+
+    // Optimistic lock (finding #9, 2026-09-07 review) - a concurrent staff write (assign courier,
+    // status change) racing DeliveryEtaService's throttled background refresh used to silently
+    // last-write-wins. DeliveryEtaService already wraps its save in a best-effort catch
+    // (DeliveryService#refreshEtaBestEffort), so a lost race there just logs and self-corrects on
+    // the next poll instead of failing loudly.
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 }

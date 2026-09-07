@@ -13,6 +13,7 @@ import com.example.restaurant_saas.repository.RestaurantTableRepository;
 import com.example.restaurant_saas.repository.TabRepository;
 import com.example.restaurant_saas.repository.TableRequestRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,7 @@ public class PublicTableRequestService {
     private final TabRepository tabRepository;
     private final OrderItemRepository orderItemRepository;
     private final TenantActivator tenantActivator;
+    private final TableRequestInsertService tableRequestInsertService;
 
     @Transactional
     public TableRequestResponse createRequest(String slug, UUID tableId, TableRequestType type) {
@@ -62,7 +64,24 @@ public class PublicTableRequestService {
                     .type(type)
                     .build();
 
-            return toResponse(tableRequestRepository.save(request));
+            try {
+                // Delegates to a separate REQUIRES_NEW transaction (own pooled connection) - not a
+                // plain save() in this one. Confirmed live under real concurrency: a bare try/catch
+                // around save() in this same transaction turned every losing request into a raw
+                // 500, because Postgres aborts the *whole* transaction on a constraint violation,
+                // and the fallback read below then ran on that same now-aborted connection. See
+                // TableRequestInsertService's javadoc for the full explanation.
+                return toResponse(tableRequestInsertService.insert(request));
+            } catch (DataIntegrityViolationException e) {
+                // The read above and this insert aren't atomic - a concurrent duplicate click/retry
+                // can pass the same null-pending check before either commits (finding #13, 2026-09-07
+                // review). idx_table_requests_pending_unique (V76) makes the database the tiebreaker:
+                // the loser lands here and returns the winner's row instead of erroring - idempotent
+                // from the caller's perspective, same result as if it had read second.
+                return tableRequestRepository.findByTableIdAndTypeAndAcknowledgedAtIsNull(tableId, type)
+                        .map(this::toResponse)
+                        .orElseThrow(() -> e);
+            }
         } finally {
             tenantActivator.deactivate();
         }

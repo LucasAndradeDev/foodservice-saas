@@ -302,6 +302,14 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid or expired reset link.");
         }
 
+        // The real race guard - this read-then-check above can't close the window between two
+        // concurrent requests for the same link (finding #7, 2026-09-07 review); this atomic
+        // UPDATE can, and must run before any other side effect below. Only the caller that
+        // actually flips used=false -> true is allowed to proceed.
+        if (passwordResetTokenRepository.markUsedIfUnused(resetToken.getId()) == 0) {
+            throw new IllegalArgumentException("Invalid or expired reset link.");
+        }
+
         // resetToken.getUser() is a lazy proxy with only its id populated (no query yet); loading
         // the actual row needs the same RLS bypass as login/refreshToken above, since nothing has
         // set app.tenant_id at this point either. Restaurant itself carries no RLS, so it's safe
@@ -316,8 +324,7 @@ public class AuthService {
             user.setPassword(passwordEncoder.encode(request.getNewPassword()));
             userRepository.save(user);
 
-            resetToken.setUsed(true);
-            passwordResetTokenRepository.save(resetToken);
+            // Token is already marked used - done atomically above, before the password change.
 
             try {
                 emailService.sendPasswordChangedNotification(user.getEmail());
@@ -350,6 +357,12 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid or expired verification link.");
         }
 
+        // Atomic claim (finding #7, 2026-09-07 review) - see markUsedIfUnused javadoc; must run
+        // before setEmailVerified below.
+        if (emailVerificationTokenRepository.markUsedIfUnused(verificationToken.getId()) == 0) {
+            throw new IllegalArgumentException("Invalid or expired verification link.");
+        }
+
         User user = userRepository.findByIdBypassingRls(verificationToken.getUser().getId())
                 .orElseThrow(() -> new IllegalArgumentException("User not found."));
 
@@ -357,9 +370,6 @@ public class AuthService {
         try {
             user.setEmailVerified(true);
             userRepository.save(user);
-
-            verificationToken.setUsed(true);
-            emailVerificationTokenRepository.save(verificationToken);
         } finally {
             tenantActivator.deactivate();
         }
@@ -461,6 +471,17 @@ public class AuthService {
                 .cnpj(restaurant.getCnpj())
                 .phone(restaurant.getPhone())
                 .address(restaurant.getAddress())
+                .street(restaurant.getStreet())
+                .number(restaurant.getNumber())
+                .complement(restaurant.getComplement())
+                .neighborhood(restaurant.getNeighborhood())
+                .city(restaurant.getCity())
+                .zipCode(restaurant.getZipCode())
+                .latitude(restaurant.getLatitude())
+                .longitude(restaurant.getLongitude())
+                .deliveryBaseFee(restaurant.getDeliveryBaseFee())
+                .deliveryFeePerKm(restaurant.getDeliveryFeePerKm())
+                .maxDeliveryDistanceKm(restaurant.getMaxDeliveryDistanceKm())
                 .logo(restaurant.getLogo())
                 .tableCount(restaurant.getTableCount())
                 .active(restaurant.getActive())

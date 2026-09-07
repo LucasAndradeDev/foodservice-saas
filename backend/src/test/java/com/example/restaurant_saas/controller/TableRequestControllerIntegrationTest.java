@@ -11,9 +11,11 @@ import com.example.restaurant_saas.dto.request.CreateTableRequestRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.domain.enums.TableRequestType;
 import com.example.restaurant_saas.repository.UserRepository;
+import com.example.restaurant_saas.repository.TableRequestRepository;
 import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
+import com.example.restaurant_saas.service.PublicTableRequestService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,8 +29,17 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -51,6 +62,12 @@ class TableRequestControllerIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private PublicTableRequestService publicTableRequestService;
+
+    @Autowired
+    private TableRequestRepository tableRequestRepository;
 
     private RegisterRestaurantRequest registerRequest;
 
@@ -325,6 +342,67 @@ class TableRequestControllerIntegrationTest {
                         .header("Authorization", "Bearer " + waiterToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(2)));
+    }
+
+    // Regression test for a real bug found testing this session: the read-then-insert in
+    // PublicTableRequestService#createRequest isn't atomic, so several truly concurrent
+    // double-clicks/retries on "chamar garçom" can all pass the same null-pending check before any
+    // of them commits. idx_table_requests_pending_unique (V76) makes the database the tiebreaker,
+    // but the very first version of the fix - a plain try/catch around save() inside the caller's
+    // own transaction - turned every losing thread into an unhandled 500 instead of the intended
+    // graceful fallback: Postgres aborts the *whole* transaction on a constraint violation, so the
+    // fallback read that same catch block tried next ran on that now-poisoned connection and threw
+    // too. TableRequestInsertService#insert's own REQUIRES_NEW transaction (a separate pooled
+    // connection) is what actually fixes it - confirmed live under 15-way real concurrency before
+    // this test was written.
+    @Test
+    void createRequest_underRealConcurrency_shouldNeverDuplicateOrThrow() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String slug = getSlug(ownerToken);
+        String tableId = createTable(ownerToken, 1);
+
+        int threadCount = 8;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch ready = new CountDownLatch(threadCount);
+        CountDownLatch go = new CountDownLatch(1);
+        ConcurrentLinkedQueue<UUID> resultIds = new ConcurrentLinkedQueue<>();
+        try {
+            List<Future<?>> futures = new ArrayList<>();
+            for (int i = 0; i < threadCount; i++) {
+                futures.add(executor.submit(() -> {
+                    ready.countDown();
+                    try {
+                        go.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    resultIds.add(TenantTestSupport.withTenant(
+                            restaurantIdFor(registerRequest.getOwnerEmail()),
+                            () -> publicTableRequestService.createRequest(slug, UUID.fromString(tableId), TableRequestType.CALL_WAITER).getId()));
+                }));
+            }
+            ready.await(5, TimeUnit.SECONDS);
+            go.countDown();
+            // Propagates any exception a thread threw - the whole point of this test is that none should.
+            for (Future<?> future : futures) {
+                future.get(10, TimeUnit.SECONDS);
+            }
+        } finally {
+            executor.shutdown();
+        }
+
+        Set<UUID> distinctIds = resultIds.stream().collect(Collectors.toSet());
+        org.assertj.core.api.Assertions.assertThat(resultIds).hasSize(threadCount);
+        org.assertj.core.api.Assertions.assertThat(distinctIds).hasSize(1);
+
+        long rowCount = TenantTestSupport.withTenant(restaurantIdFor(registerRequest.getOwnerEmail()),
+                () -> tableRequestRepository.findByTableIdAndTypeAndAcknowledgedAtIsNull(UUID.fromString(tableId), TableRequestType.CALL_WAITER))
+                .stream().count();
+        org.assertj.core.api.Assertions.assertThat(rowCount).isEqualTo(1);
+    }
+
+    private UUID restaurantIdFor(String email) {
+        return userRepository.findByEmailBypassingRls(email).orElseThrow().getRestaurant().getId();
     }
 
     @Test

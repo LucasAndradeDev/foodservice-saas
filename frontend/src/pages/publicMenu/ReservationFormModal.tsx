@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { Check, CheckCircle2, Copy } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { createPublicReservation, type PublicCreateReservationPayload } from '../../api/reservations'
@@ -10,6 +11,23 @@ interface ReservationFormModalProps {
   onClose: () => void
 }
 
+// Branches by HTTP status rather than passing the backend's own message through - that message is
+// in English (project convention), fine for staff screens but wrong to show a customer here. 403
+// is genuinely "no table available" (ReservationService); 429 is the per-phone/IP rate limit; a
+// 400 (bad party size, a past date slipping past DateTimePicker's own guard, etc.) used to get the
+// same "no table available" text, hiding what was actually wrong (finding #8, 2026-09-07 review).
+function reservationErrorMessage(error: unknown): string {
+  const status = isAxiosError(error) ? error.response?.status : undefined
+
+  if (status === 429) {
+    return 'Muitas tentativas. Aguarde alguns minutos e tente de novo.'
+  }
+  if (status === 400) {
+    return 'Não foi possível fazer a reserva. Confira o número de pessoas e o horário escolhido.'
+  }
+  return 'Não há mesa disponível para esse horário e número de pessoas. Tente outro horário.'
+}
+
 export function ReservationFormModal({ slug, onClose }: ReservationFormModalProps) {
   const [error, setError] = useState<string | null>(null)
   const [reservationTime, setReservationTime] = useState('')
@@ -17,13 +35,22 @@ export function ReservationFormModal({ slug, onClose }: ReservationFormModalProp
 
   const createMutation = useMutation({
     mutationFn: (payload: PublicCreateReservationPayload) => createPublicReservation(slug, payload),
-    onError: () => setError('Não há mesa disponível para esse horário e número de pessoas. Tente outro horário.'),
+    onError: (err) => setError(reservationErrorMessage(err)),
   })
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!reservationTime) {
       setError('Escolha a data e o horário da reserva.')
+      return
+    }
+    // DateTimePicker's time input carries a `min` for "today", but that input is portaled to
+    // document.body - outside this <form>'s DOM subtree - so the browser's native constraint
+    // validation on submit never actually sees it and doesn't block the request (confirmed live:
+    // picking today + an already-passed hour still reached the API). Catching it here, before the
+    // round-trip, is what actually prevents it (finding #8, 2026-09-07 review).
+    if (new Date(reservationTime).getTime() <= Date.now()) {
+      setError('Escolha um horário no futuro.')
       return
     }
     setError(null)

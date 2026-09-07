@@ -154,7 +154,10 @@ export function MyDeliveriesPage() {
                   <button
                     type="button"
                     onClick={() => deliverMutation.mutate(delivery.tabId)}
-                    disabled={deliverMutation.isPending}
+                    // Scoped to this card's own tabId (finding #14, 2026-09-07 review) - isPending
+                    // alone is shared across the whole mutation, so with 2+ deliveries in progress
+                    // it used to disable every card's button while only one submission was in flight.
+                    disabled={deliverMutation.isPending && deliverMutation.variables === delivery.tabId}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
                   >
                     <CheckCircle2 className="h-4 w-4" />

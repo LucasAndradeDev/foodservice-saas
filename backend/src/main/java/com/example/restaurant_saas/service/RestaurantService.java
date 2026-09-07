@@ -90,6 +90,9 @@ public class RestaurantService {
         if (request.getDeliveryFeePerKm() != null) {
             restaurant.setDeliveryFeePerKm(request.getDeliveryFeePerKm());
         }
+        if (request.getMaxDeliveryDistanceKm() != null) {
+            restaurant.setMaxDeliveryDistanceKm(request.getMaxDeliveryDistanceKm());
+        }
         if (request.getCnpj() != null) {
             if (!request.getCnpj().isBlank() && restaurantRepository.existsByCnpjAndIdNot(request.getCnpj(), restaurantId)) {
                 throw new IllegalArgumentException("CNPJ already registered.");
@@ -175,6 +178,7 @@ public class RestaurantService {
                 .longitude(restaurant.getLongitude())
                 .deliveryBaseFee(restaurant.getDeliveryBaseFee())
                 .deliveryFeePerKm(restaurant.getDeliveryFeePerKm())
+                .maxDeliveryDistanceKm(restaurant.getMaxDeliveryDistanceKm())
                 .logo(restaurant.getLogo())
                 .tableCount(restaurant.getTableCount())
                 .active(restaurant.getActive())
