@@ -1,10 +1,10 @@
 import { useMutation } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
 import { Check, Copy, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { QRCodeCanvas } from 'qrcode.react'
 import { cancelPublicDeliveryPixCharge, createPublicDeliveryPixCharge, createPublicPixCharge } from '../../api/publicMenu'
 import { Modal } from '../../components/Modal'
+import { paymentErrorMessage } from '../../utils/paymentErrorMessage'
 
 type PixPaymentModalProps =
   | { slug: string; tableId: string; deliveryToken?: undefined; onClose: () => void }
@@ -43,14 +43,6 @@ export function PixPaymentModal({ slug, tableId, deliveryToken, onClose }: PixPa
     setTimeout(() => setCopied(false), 2000)
   }
 
-  function errorMessage() {
-    const err = chargeMutation.error
-    if (isAxiosError(err) && err.response?.status === 400) {
-      return deliveryToken ? 'Não foi possível gerar a cobrança pra esse pedido.' : 'Ainda não há nada entregue na mesa pra pagar.'
-    }
-    return 'Não foi possível gerar a cobrança Pix. Chame o garçom.'
-  }
-
   return (
     <Modal title="Pagar com Pix" onClose={onClose}>
       {!charge && !chargeMutation.isPending && !chargeMutation.isError && (
@@ -77,7 +69,9 @@ export function PixPaymentModal({ slug, tableId, deliveryToken, onClose }: PixPa
 
       {chargeMutation.isError && (
         <div className="flex flex-col items-center gap-3 text-center">
-          <p className="text-sm text-wine-600 dark:text-wine-400">{errorMessage()}</p>
+          <p className="text-sm text-wine-600 dark:text-wine-400">
+            {paymentErrorMessage(chargeMutation.error, 'pix', !!deliveryToken)}
+          </p>
           <button
             type="button"
             onClick={() => chargeMutation.mutate()}

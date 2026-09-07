@@ -16,6 +16,7 @@ import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.repository.DeliveryDetailsRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.service.GeocodingService;
+import com.example.restaurant_saas.service.RouteDistanceService;
 import com.example.restaurant_saas.support.TenantTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -38,6 +39,7 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -61,6 +63,9 @@ class PublicDeliveryOrderControllerIntegrationTest {
 
     @MockBean
     private GeocodingService geocodingService;
+
+    @MockBean
+    private RouteDistanceService routeDistanceService;
 
     private RegisterRestaurantRequest registerRequest;
 
@@ -335,6 +340,41 @@ class PublicDeliveryOrderControllerIntegrationTest {
             Assertions.assertNotNull(details.getDeliveryDistanceKm());
             // base 5.00 + 2.00/km over a non-zero distance must exceed the base fee alone.
             Assertions.assertTrue(details.getDeliveryFee().compareTo(new BigDecimal("5.00")) > 0);
+        });
+    }
+
+    @Test
+    void createDeliveryOrder_withRouteDistanceAvailable_shouldUseItInsteadOfHaversine() throws Exception {
+        String token = registerOwnerAndGetToken();
+        String slug = getSlug(token);
+        String categoryId = createCategory(token, "Burgers");
+        String productId = createProduct(token, categoryId, "Cheeseburger", "25.90");
+        configureDistanceMode(slug);
+        when(geocodingService.geocodeStructured(anyString(), anyString(), anyString(), any()))
+                .thenReturn(Optional.of(new GeocodingService.GeoPoint(-23.5637, -46.6528)));
+        // Deliberately far from what Haversine would compute for these two points (~1.5km) - the
+        // assertion below can only pass if the route distance actually won out end to end.
+        when(routeDistanceService.route(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(Optional.of(new RouteDistanceService.RouteResult(10.0, 18.0)));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/public/menu/" + slug + "/delivery/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(deliveryOrderBody(productId, "11999990010"))))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String tabId = JsonPath.read(result.getResponse().getContentAsString(), "$.tabId");
+
+        UUID restaurantId = restaurantRepository.findBySlug(slug).orElseThrow().getId();
+        TenantTestSupport.withTenant(restaurantId, () -> {
+            DeliveryDetails details = deliveryDetailsRepository.findByTab_Id(UUID.fromString(tabId)).orElseThrow();
+            Assertions.assertEquals(DeliveryFeeMethod.DISTANCE, details.getDeliveryFeeMethod());
+            Assertions.assertEquals(0, details.getDeliveryDistanceKm().compareTo(new BigDecimal("10.00")));
+            // base 5.00 + 2.00/km * 10.00km = 25.00.
+            Assertions.assertEquals(0, details.getDeliveryFee().compareTo(new BigDecimal("25.00")));
+            // Geocoded point cached for the live ETA (DeliveryService#refreshEtaIfStale) instead of
+            // re-geocoding the customer's address on every refresh.
+            Assertions.assertEquals(-23.5637, details.getCustomerLatitude());
+            Assertions.assertEquals(-46.6528, details.getCustomerLongitude());
         });
     }
 

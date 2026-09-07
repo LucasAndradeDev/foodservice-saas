@@ -105,6 +105,14 @@ gemini:
 nominatim:
   base-url: http://localhost:0
 
+routing:
+  ors:
+    base-url: http://localhost:0
+  mapbox:
+    base-url: http://localhost:0
+  osrm:
+    base-url: http://localhost:0
+
 supabase:
   url: http://localhost:54321
   service-role-key: test-service-role-key

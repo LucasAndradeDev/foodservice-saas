@@ -31,6 +31,7 @@ import java.time.OffsetDateTime;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -57,6 +58,7 @@ public class DeliveryService {
     private final OrderItemRepository orderItemRepository;
     private final CardChargeRepository cardChargeRepository;
     private final CardChargeService cardChargeService;
+    private final DeliveryEtaService deliveryEtaService;
     private final TabRepository tabRepository;
     private final TenantActivator tenantActivator;
     private final UserRepository userRepository;
@@ -187,6 +189,13 @@ public class DeliveryService {
         } else {
             User courier = userRepository.findByIdAndRestaurantIdAndRole(request.getCourierId(), restaurantId, UserRole.COURIER)
                     .orElseThrow(() -> new IllegalArgumentException("Courier not found."));
+            // listAssignableCouriers already tells the frontend who's active (CourierOptionResponse
+            // filters/greys out inactive ones client-side) - enforced here too (found missing in
+            // review 2026-09-07) so a direct API call can't assign a deactivated/former employee to
+            // a live order regardless of what the UI shows.
+            if (!Boolean.TRUE.equals(courier.getActive())) {
+                throw new IllegalArgumentException("Courier is not active.");
+            }
             deliveryDetails.setCourier(courier);
         }
 
@@ -202,6 +211,13 @@ public class DeliveryService {
         tenantActivator.activate(deliveryDetails.getRestaurantId());
         try {
             verifyPendingCardCharge(deliveryDetails.getTab().getId());
+            // refreshEtaBestEffort's write happens in its own REQUIRES_NEW transaction - this
+            // outer read-only one wouldn't see it on the same in-memory entity otherwise (no
+            // flush/refresh happens across transactions automatically, and re-fetching by id here
+            // would just resolve back to this same persistence-context-cached instance). Applying
+            // the returned value directly avoids that trap.
+            refreshEtaBestEffort(deliveryDetails.getRestaurantId(), deliveryDetails.getId())
+                    .ifPresent(deliveryDetails::setEtaMinutes);
             return toResponse(deliveryDetails, true);
         } finally {
             tenantActivator.deactivate();
@@ -227,6 +243,23 @@ public class DeliveryService {
         }
     }
 
+    // Best-effort wrapper around deliveryEtaService.refreshEtaIfStale, same pattern as
+    // verifyPendingCardCharge above - a routing-provider hiccup must never break the customer's
+    // tracking page read. Delegates to a *different* bean rather than a same-class private method
+    // on purpose: DeliveryEtaService.refreshEtaIfStale needs REQUIRES_NEW, and that only takes
+    // effect on a call that actually crosses Spring's transaction proxy - a same-class
+    // `this.refreshEtaIfStale(...)` call bypasses the proxy entirely and silently runs inside
+    // whatever transaction the caller already has open (see DeliveryEtaService's own javadoc for
+    // the incident this comment is warning about).
+    private Optional<Integer> refreshEtaBestEffort(UUID restaurantId, UUID deliveryDetailsId) {
+        try {
+            return deliveryEtaService.refreshEtaIfStale(restaurantId, deliveryDetailsId);
+        } catch (Exception e) {
+            log.warn("Best-effort ETA refresh failed for delivery {}", deliveryDetailsId, e);
+            return Optional.empty();
+        }
+    }
+
     private boolean isKitchenReady(UUID tabId) {
         return !orderItemRepository.existsByOrder_Tab_IdAndStatusNotIn(tabId, KITCHEN_DONE_STATUSES);
     }
@@ -245,11 +278,16 @@ public class DeliveryService {
         // staleness itself.
         Double courierLatitude = null;
         Double courierLongitude = null;
+        Integer etaMinutes = null;
         User courier = d.getCourier();
         if (d.getStatus() == DeliveryStatus.OUT_FOR_DELIVERY && courier != null && courier.getLocationUpdatedAt() != null
                 && courier.getLocationUpdatedAt().isAfter(OffsetDateTime.now().minusMinutes(LOCATION_STALE_AFTER_MINUTES))) {
             courierLatitude = fuzzCourierLocation ? roundCoordinate(courier.getLatitude()) : courier.getLatitude();
             courierLongitude = fuzzCourierLocation ? roundCoordinate(courier.getLongitude()) : courier.getLongitude();
+            // Same gate as the position above (OUT_FOR_DELIVERY + fresh courier) - a stale cached
+            // value from before the courier went quiet (or from a previous delivery entirely, once
+            // this one wraps to DELIVERED) is never shown.
+            etaMinutes = d.getEtaMinutes();
         }
 
         return DeliveryDetailsResponse.builder()
@@ -276,6 +314,7 @@ public class DeliveryService {
                 .courierName(courier != null ? courier.getName() : null)
                 .courierLatitude(courierLatitude)
                 .courierLongitude(courierLongitude)
+                .etaMinutes(etaMinutes)
                 .items(toItemResponses(d.getTab().getId()))
                 .billTotal(d.getTab().getBillTotal())
                 .createdAt(d.getCreatedAt())

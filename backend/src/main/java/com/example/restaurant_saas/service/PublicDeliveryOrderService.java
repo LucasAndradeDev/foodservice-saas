@@ -96,6 +96,8 @@ public class PublicDeliveryOrderService {
                     .deliveryFee(resolvedFee.fee())
                     .deliveryDistanceKm(resolvedFee.distanceKm())
                     .deliveryFeeMethod(resolvedFee.method())
+                    .customerLatitude(resolvedFee.customerLatitude())
+                    .customerLongitude(resolvedFee.customerLongitude())
                     .accessToken(UUID.randomUUID().toString())
                     .status(DeliveryStatus.SEPARATING)
                     .build();

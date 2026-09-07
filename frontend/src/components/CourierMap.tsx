@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css'
 import { setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MapContainer, Marker, Tooltip, useMap } from 'react-leaflet'
 import { DeliveryRiderIcon } from './DeliveryRiderIcon'
@@ -27,10 +27,12 @@ export interface CourierMapPosition {
 // Leaflet map instance via @maplibre/maplibre-gl-leaflet, so markers/tooltips below are untouched.
 const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty'
 
-// A colored circle behind the existing rider icon, not Leaflet's default marker image - sidesteps
-// the well-known "default Leaflet marker icon 404s under a bundler" issue entirely, and stays
-// on-brand with the rest of the delivery UI. className: '' drops leaflet-div-icon's own default
-// white-box styling, which would otherwise show through behind ours.
+// How long a marker takes to glide from its last reported position to a new one, instead of
+// teleporting there the instant a poll (every 4s on the customer page, throttled updates from the
+// courier's phone every ~20s) returns a moved coordinate - makes the courier actually look like
+// they're moving instead of hopping around, which is the whole point of showing a live map.
+const MOVE_ANIMATION_MS = 1000
+
 function buildCourierIcon(colorClassName: string) {
   return L.divIcon({
     html: renderToStaticMarkup(
@@ -68,9 +70,62 @@ function VectorBaseLayer() {
   return null
 }
 
+// A Marker whose position glides to each new (latitude, longitude) instead of jumping there -
+// react-leaflet's own `position` prop just calls setLatLng synchronously on change, so this only
+// ever passes it the marker's very first position (captured once via useState's lazy initializer)
+// and drives every position after that itself, imperatively, via a requestAnimationFrame loop.
+function AnimatedMarker({
+  id: _id,
+  latitude,
+  longitude,
+  icon,
+  label,
+}: CourierMapPosition & { icon: L.DivIcon }) {
+  const [initialPosition] = useState<[number, number]>([latitude, longitude])
+  const markerRef = useRef<L.Marker>(null)
+  const animationFrameRef = useRef<number | undefined>(undefined)
+
+  useEffect(() => {
+    const marker = markerRef.current
+    if (!marker) return
+
+    const from = marker.getLatLng()
+    const to = L.latLng(latitude, longitude)
+    if (from.equals(to)) return
+
+    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
+    const start = performance.now()
+
+    function step(now: number) {
+      const progress = Math.min((now - start) / MOVE_ANIMATION_MS, 1)
+      marker!.setLatLng([from.lat + (to.lat - from.lat) * progress, from.lng + (to.lng - from.lng) * progress])
+      if (progress < 1) {
+        animationFrameRef.current = requestAnimationFrame(step)
+      }
+    }
+    animationFrameRef.current = requestAnimationFrame(step)
+
+    return () => {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
+    }
+  }, [latitude, longitude])
+
+  return (
+    <Marker ref={markerRef} position={initialPosition} icon={icon}>
+      {label && (
+        <Tooltip permanent direction="top" offset={[0, -16]}>
+          {label}
+        </Tooltip>
+      )}
+    </Marker>
+  )
+}
+
 // Recenters/refits the map whenever the set of positions (or the focused courier) changes - a
 // focused courier gets centered close up, otherwise a single marker gets centered at a fixed zoom
-// and multiple markers get fitBounds so every one of them stays visible.
+// and multiple markers get fitBounds so every one of them stays visible. Follow-up pans (once the
+// map already has a view) glide instead of jumping, same reasoning as AnimatedMarker above - only
+// the very first view of a session is instant, via MapContainer's own initial `center`.
 function MapAutoView({ positions, focusedId }: { positions: CourierMapPosition[]; focusedId?: string | null }) {
   const map = useMap()
 
@@ -84,7 +139,10 @@ function MapAutoView({ positions, focusedId }: { positions: CourierMapPosition[]
     }
 
     if (positions.length === 1) {
-      map.setView([positions[0].latitude, positions[0].longitude], 15)
+      // flyTo, not panTo - panTo only moves the center and leaves zoom wherever fitBounds last
+      // left it (e.g. zoomed out to fit several couriers a moment ago, before the rest went
+      // offline/unavailable and this became the only marker left) - flyTo animates both.
+      map.flyTo([positions[0].latitude, positions[0].longitude], 15)
       return
     }
     const bounds = L.latLngBounds(positions.map((p) => [p.latitude, p.longitude] as [number, number]))
@@ -113,13 +171,7 @@ export function CourierMap({
       <VectorBaseLayer />
       <MapAutoView positions={positions} focusedId={focusedId} />
       {positions.map((position) => (
-        <Marker
-          key={position.id}
-          position={[position.latitude, position.longitude]}
-          icon={position.available === false ? busyCourierIcon : courierIcon}
-        >
-          {position.label && <Tooltip permanent direction="top" offset={[0, -16]}>{position.label}</Tooltip>}
-        </Marker>
+        <AnimatedMarker key={position.id} {...position} icon={position.available === false ? busyCourierIcon : courierIcon} />
       ))}
     </MapContainer>
   )

@@ -65,6 +65,14 @@ public class DeliveryDetailsResponse {
     private Double courierLatitude;
     private Double courierLongitude;
 
+    // Live route-based ETA (docs/DELIVERY.md live courier tracking follow-up) - null under the
+    // exact same conditions as courierLatitude/Longitude above (not OUT_FOR_DELIVERY, no fresh
+    // courier position), plus whenever the customer's address was priced via DeliveryZone (never
+    // geocoded, so there's no point to route from) or every routing provider was unavailable.
+    // Refreshed at most once a minute server-side (DeliveryService#refreshEtaIfStale) - not tied
+    // to how often the frontend polls.
+    private Integer etaMinutes;
+
     private List<DeliveryItemResponse> items;
     // The tab's own frozen total (items + service charge + deliveryFee) - same value staff sees,
     // not recomputed here, so this can never drift from what payment actually settles.

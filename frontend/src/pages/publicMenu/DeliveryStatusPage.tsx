@@ -283,9 +283,17 @@ export function DeliveryStatusPage() {
             ~100-150m, not exact, since this page is reachable by anyone with the link. */}
         {delivery.status === 'OUT_FOR_DELIVERY' && delivery.courierLatitude != null && delivery.courierLongitude != null && (
           <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
-            <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3 dark:border-white/10">
-              <DeliveryRiderIcon className="h-4 w-4 text-gray-400 dark:text-stone-500" />
-              <span className="text-sm font-semibold text-gray-800 dark:text-white">Seu entregador</span>
+            <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-white/10">
+              <span className="flex items-center gap-2">
+                <DeliveryRiderIcon className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+                <span className="text-sm font-semibold text-gray-800 dark:text-white">Seu entregador</span>
+              </span>
+              {delivery.etaMinutes != null && (
+                <span className="flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-stone-400">
+                  <Clock className="h-3.5 w-3.5" />
+                  Chegada estimada: ~{delivery.etaMinutes} min
+                </span>
+              )}
             </div>
             <CourierMap
               positions={[

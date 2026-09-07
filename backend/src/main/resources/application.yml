@@ -171,6 +171,19 @@ nominatim:
   # (GeocodingService sets it), and asks for max 1 req/sec - fine at this project's volume.
   base-url: https://nominatim.openstreetmap.org
 
+# Real road-network distance for the delivery fee (docs/DELIVERY.md "v3: rota real"), tried in
+# this order by RouteDistanceService. Blank api-key = that provider isn't set up yet, skipped -
+# the chain still ends at OSRM (no key needed), then Haversine, so pricing never breaks.
+routing:
+  ors:
+    api-key: ${ORS_API_KEY:}
+    base-url: https://api.openrouteservice.org
+  mapbox:
+    api-key: ${MAPBOX_API_KEY:}
+    base-url: https://api.mapbox.com
+  osrm:
+    base-url: https://router.project-osrm.org
+
 sentry:
   # Blank dsn (the default) leaves the SDK disabled - it only reports errors once a real
   # DSN is set (production only, see render.yaml). Never enabled in local dev/tests.

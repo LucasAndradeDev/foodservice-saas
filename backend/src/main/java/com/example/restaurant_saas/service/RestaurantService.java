@@ -139,12 +139,22 @@ public class RestaurantService {
 
     // Structured fields (street + city, task 26.5 follow-up) geocode more reliably with Nominatim
     // than free text - preferred whenever they're filled in, falling back to the free-text
-    // `address` for restaurants that haven't re-entered their address through the new fields yet.
+    // `address` for restaurants that haven't re-entered their address through the new fields yet
+    // *and* for a structured lookup that comes back empty (found 2026-09-07 in review): since
+    // geocodeStructured started cross-checking the returned postcode against the restaurant's own
+    // zipCode, a restaurant whose saved zip doesn't closely match what Nominatim considers correct
+    // for that street (a plausible data-entry mismatch, not necessarily wrong) would otherwise get
+    // no geocode at all on save, silently disabling distance-based delivery pricing. Free text has
+    // no postcode to cross-check against, so it can still find *something* even when the
+    // structured, stricter path can't.
     private Optional<GeocodingService.GeoPoint> geocodeRestaurantAddress(Restaurant restaurant) {
         if (restaurant.getStreet() != null && !restaurant.getStreet().isBlank()
                 && restaurant.getCity() != null && !restaurant.getCity().isBlank()) {
-            return geocodingService.geocodeStructured(
+            Optional<GeocodingService.GeoPoint> structured = geocodingService.geocodeStructured(
                     restaurant.getStreet(), restaurant.getNumber(), restaurant.getCity(), restaurant.getZipCode());
+            if (structured.isPresent()) {
+                return structured;
+            }
         }
         if (restaurant.getAddress() != null && !restaurant.getAddress().isBlank()) {
             return geocodingService.geocode(restaurant.getAddress());

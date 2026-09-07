@@ -73,6 +73,24 @@ public class DeliveryDetails {
     @Column(name = "delivery_fee_method", length = 20)
     private DeliveryFeeMethod deliveryFeeMethod;
 
+    // Geocoded once at order creation (DeliveryFeeResolver already geocodes the address to price
+    // the distance-based fee) and reused by DeliveryService's live ETA refresh instead of
+    // re-geocoding on every poll. Null whenever the order priced via DeliveryZone instead (no
+    // geocoding happened) - ETA is just never shown in that case, same as courier location.
+    @Column(name = "customer_latitude")
+    private Double customerLatitude;
+
+    @Column(name = "customer_longitude")
+    private Double customerLongitude;
+
+    // Cached, throttled route-duration estimate (see DeliveryService#refreshEtaIfStale) - not
+    // recomputed on every 4s status poll, only when eta_updated_at is stale (>1 min old).
+    @Column(name = "eta_minutes")
+    private Integer etaMinutes;
+
+    @Column(name = "eta_updated_at")
+    private OffsetDateTime etaUpdatedAt;
+
     // Unguessable link for the customer to check delivery status without an account (task 27),
     // same pattern as Reservation.accessToken - generated as a random UUID by the app, never
     // sequential.

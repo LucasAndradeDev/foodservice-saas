@@ -17,6 +17,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -26,6 +27,9 @@ class DeliveryFeeResolverTest {
 
     @Mock
     private GeocodingService geocodingService;
+
+    @Mock
+    private RouteDistanceService routeDistanceService;
 
     @Mock
     private DeliveryZoneRepository deliveryZoneRepository;
@@ -41,13 +45,17 @@ class DeliveryFeeResolverTest {
     }
 
     @Test
-    void resolve_withDistanceModeConfigured_andGeocodeSucceeds_shouldPriceByDistance() {
+    void resolve_withDistanceModeConfigured_andGeocodeSucceeds_butNoRouteProviderAvailable_shouldFallBackToHaversine() {
         restaurant.setLatitude(-23.5505);
         restaurant.setLongitude(-46.6333);
         restaurant.setDeliveryBaseFee(new BigDecimal("5.00"));
         restaurant.setDeliveryFeePerKm(new BigDecimal("2.00"));
         when(geocodingService.geocodeStructured(anyString(), anyString(), anyString(), any()))
                 .thenReturn(Optional.of(new GeocodingService.GeoPoint(-23.5629, -46.6544)));
+        // Unstubbed routeDistanceService already defaults to Optional.empty() (Mockito's built-in
+        // behavior for Optional-returning methods) - spelled out here so the fallback this test
+        // actually exercises is obvious at a glance, not an accident of Mockito defaults.
+        when(routeDistanceService.route(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(Optional.empty());
 
         Optional<DeliveryFeeResolver.ResolvedFee> resolved = resolver.resolve(restaurant, "Rua A", "1", "Centro", "Sao Paulo", null);
 
@@ -59,6 +67,33 @@ class DeliveryFeeResolverTest {
         // Rounded to the nearest 50 cents - never a distance-math artifact like "R$ 15,45".
         assertThat(resolved.get().fee().remainder(new BigDecimal("0.50"))).isEqualByComparingTo(BigDecimal.ZERO);
         verifyNoInteractions(deliveryZoneRepository);
+    }
+
+    @Test
+    void resolve_withRouteDistanceAvailable_shouldUseItInsteadOfHaversine() {
+        restaurant.setLatitude(-23.5505);
+        restaurant.setLongitude(-46.6333);
+        restaurant.setDeliveryBaseFee(new BigDecimal("5.00"));
+        restaurant.setDeliveryFeePerKm(new BigDecimal("2.00"));
+        when(geocodingService.geocodeStructured(anyString(), anyString(), anyString(), any()))
+                .thenReturn(Optional.of(new GeocodingService.GeoPoint(-23.5629, -46.6544)));
+        // Deliberately far from the ~2.55km Haversine distance between these two points, so the
+        // assertion below can only pass if the route distance actually won out.
+        when(routeDistanceService.route(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(Optional.of(new RouteDistanceService.RouteResult(10.0, 18.0)));
+
+        Optional<DeliveryFeeResolver.ResolvedFee> resolved = resolver.resolve(restaurant, "Rua A", "1", "Centro", "Sao Paulo", null);
+
+        assertThat(resolved).isPresent();
+        assertThat(resolved.get().method()).isEqualTo(DeliveryFeeMethod.DISTANCE);
+        assertThat(resolved.get().distanceKm()).isEqualByComparingTo("10.00");
+        // base 5.00 + 2.00 * 10.00 = 25.00, already a multiple of 0.50 - no rounding drift to
+        // account for in this assertion.
+        assertThat(resolved.get().fee()).isEqualByComparingTo("25.00");
+        // Geocoded point carried through - DeliveryService's live ETA reuses it instead of
+        // re-geocoding the customer's address on every refresh.
+        assertThat(resolved.get().customerLatitude()).isEqualTo(-23.5629);
+        assertThat(resolved.get().customerLongitude()).isEqualTo(-46.6544);
     }
 
     @Test
@@ -78,6 +113,8 @@ class DeliveryFeeResolverTest {
         assertThat(resolved.get().method()).isEqualTo(DeliveryFeeMethod.ZONE);
         assertThat(resolved.get().distanceKm()).isNull();
         assertThat(resolved.get().fee()).isEqualByComparingTo("8.00");
+        assertThat(resolved.get().customerLatitude()).isNull();
+        assertThat(resolved.get().customerLongitude()).isNull();
     }
 
     @Test
@@ -91,6 +128,49 @@ class DeliveryFeeResolverTest {
         assertThat(resolved).isPresent();
         assertThat(resolved.get().method()).isEqualTo(DeliveryFeeMethod.ZONE);
         verifyNoInteractions(geocodingService);
+    }
+
+    @Test
+    void resolve_withDistanceWithinMaxDeliveryDistance_shouldPriceByDistance() {
+        restaurant.setLatitude(-23.5505);
+        restaurant.setLongitude(-46.6333);
+        restaurant.setDeliveryBaseFee(new BigDecimal("5.00"));
+        restaurant.setDeliveryFeePerKm(new BigDecimal("2.00"));
+        restaurant.setMaxDeliveryDistanceKm(new BigDecimal("15.00"));
+        when(geocodingService.geocodeStructured(anyString(), anyString(), anyString(), any()))
+                .thenReturn(Optional.of(new GeocodingService.GeoPoint(-23.5629, -46.6544)));
+        when(routeDistanceService.route(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(Optional.of(new RouteDistanceService.RouteResult(10.0, 18.0)));
+
+        Optional<DeliveryFeeResolver.ResolvedFee> resolved = resolver.resolve(restaurant, "Rua A", "1", "Centro", "Sao Paulo", null);
+
+        assertThat(resolved).isPresent();
+        assertThat(resolved.get().method()).isEqualTo(DeliveryFeeMethod.DISTANCE);
+    }
+
+    // finding #3, 2026-09-07 review: without this cap, any address that geocodes successfully was
+    // priced and accepted no matter how far - even a different city.
+    @Test
+    void resolve_withDistanceBeyondMaxDeliveryDistance_shouldFallBackToZone() {
+        restaurant.setLatitude(-23.5505);
+        restaurant.setLongitude(-46.6333);
+        restaurant.setDeliveryBaseFee(new BigDecimal("5.00"));
+        restaurant.setDeliveryFeePerKm(new BigDecimal("2.00"));
+        restaurant.setMaxDeliveryDistanceKm(new BigDecimal("15.00"));
+        when(geocodingService.geocodeStructured(anyString(), anyString(), anyString(), any()))
+                .thenReturn(Optional.of(new GeocodingService.GeoPoint(-23.5629, -46.6544)));
+        // Beyond the 15km cap - route distance wins over Haversine as usual, but now rejects.
+        when(routeDistanceService.route(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(Optional.of(new RouteDistanceService.RouteResult(20.0, 30.0)));
+        DeliveryZone zone = DeliveryZone.builder().neighborhood("Centro").fee(new BigDecimal("8.00")).build();
+        when(deliveryZoneRepository.findByRestaurantIdAndNeighborhoodIgnoreCaseAndActiveTrue(restaurant.getId(), "Centro"))
+                .thenReturn(Optional.of(zone));
+
+        Optional<DeliveryFeeResolver.ResolvedFee> resolved = resolver.resolve(restaurant, "Rua A", "1", "Centro", "Sao Paulo", null);
+
+        assertThat(resolved).isPresent();
+        assertThat(resolved.get().method()).isEqualTo(DeliveryFeeMethod.ZONE);
+        assertThat(resolved.get().fee()).isEqualByComparingTo("8.00");
     }
 
     @Test

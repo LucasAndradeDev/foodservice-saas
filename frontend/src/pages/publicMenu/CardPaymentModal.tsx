@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
 import { Loader2 } from 'lucide-react'
 import { createPublicCardCharge, createPublicDeliveryCardCharge } from '../../api/publicMenu'
 import { Modal } from '../../components/Modal'
+import { paymentErrorMessage } from '../../utils/paymentErrorMessage'
 
 type CardPaymentModalProps =
   | { slug: string; tableId: string; deliveryToken?: undefined; onClose: () => void }
@@ -21,21 +21,23 @@ export function CardPaymentModal({ slug, tableId, deliveryToken, onClose }: Card
     // Non-null assertions: the discriminated CardPaymentModalProps union guarantees slug/tableId
     // are both set whenever deliveryToken isn't - TS just can't correlate that across destructured
     // params (tsc -b catches this even though tsc --noEmit -p . doesn't).
-    mutationFn: () => (deliveryToken ? createPublicDeliveryCardCharge(deliveryToken) : createPublicCardCharge(slug!, tableId!)),
-    onSuccess: (charge) => {
-      if (charge.initPointUrl) {
-        window.location.href = charge.initPointUrl
+    mutationFn: async () => {
+      const charge = await (deliveryToken ? createPublicDeliveryCardCharge(deliveryToken) : createPublicCardCharge(slug!, tableId!))
+      // Without this, a charge created without a redirect URL (unexpected Mercado Pago response
+      // shape, no exception thrown) left the mutation stuck at isSuccess with the spinner showing
+      // forever - nothing ever calls window.location.href, and isError never becomes true so the
+      // "Tentar de novo" button never appears (finding #4, 2026-09-07 review).
+      if (!charge.initPointUrl) {
+        throw new Error('Missing initPointUrl in card charge response')
       }
+      return charge
+    },
+    onSuccess: (charge) => {
+      // Non-null assertion: mutationFn above already throws when initPointUrl is missing, so
+      // onSuccess only ever runs with it present - TS just can't see that across the callback.
+      window.location.href = charge.initPointUrl!
     },
   })
-
-  function errorMessage() {
-    const err = chargeMutation.error
-    if (isAxiosError(err) && err.response?.status === 400) {
-      return deliveryToken ? 'Não foi possível gerar a cobrança pra esse pedido.' : 'Ainda não há nada entregue na mesa pra pagar.'
-    }
-    return 'Não foi possível gerar a cobrança no cartão. Chame o garçom.'
-  }
 
   return (
     <Modal title="Pagar com cartão" onClose={onClose}>
@@ -63,7 +65,9 @@ export function CardPaymentModal({ slug, tableId, deliveryToken, onClose }: Card
 
       {chargeMutation.isError && (
         <div className="flex flex-col items-center gap-3 text-center">
-          <p className="text-sm text-wine-600 dark:text-wine-400">{errorMessage()}</p>
+          <p className="text-sm text-wine-600 dark:text-wine-400">
+            {paymentErrorMessage(chargeMutation.error, 'card', !!deliveryToken)}
+          </p>
           <button
             type="button"
             onClick={() => chargeMutation.mutate()}

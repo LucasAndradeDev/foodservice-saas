@@ -23,9 +23,17 @@ import java.util.Optional;
 public class DeliveryFeeResolver {
 
     private final GeocodingService geocodingService;
+    private final RouteDistanceService routeDistanceService;
     private final DeliveryZoneRepository deliveryZoneRepository;
 
-    public record ResolvedFee(BigDecimal fee, DeliveryFeeMethod method, BigDecimal distanceKm) {
+    // customerLatitude/Longitude are null for a ZONE fee (no geocoding happens) - carried through
+    // so PublicDeliveryOrderService can cache them on DeliveryDetails, letting DeliveryService's
+    // live ETA (once the order is OUT_FOR_DELIVERY) route from the courier's position without
+    // re-geocoding the address on every refresh.
+    public record ResolvedFee(
+            BigDecimal fee, DeliveryFeeMethod method, BigDecimal distanceKm,
+            Double customerLatitude, Double customerLongitude
+    ) {
     }
 
     // Rounded to the nearest 50 cents so the customer sees "R$ 15,50" instead of a distance-math
@@ -49,20 +57,35 @@ public class DeliveryFeeResolver {
             return Optional.empty();
         }
 
-        return geocodingService.geocodeStructured(street, number, city, zipCode).map(point -> {
-            double distance = HaversineUtil.distanceKm(
-                    restaurant.getLatitude(), restaurant.getLongitude(), point.latitude(), point.longitude());
-            BigDecimal distanceKm = BigDecimal.valueOf(distance).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal rawFee = restaurant.getDeliveryBaseFee()
-                    .add(restaurant.getDeliveryFeePerKm().multiply(distanceKm));
-            BigDecimal fee = rawFee.divide(ROUNDING_STEP, 0, RoundingMode.HALF_UP)
-                    .multiply(ROUNDING_STEP)
-                    .setScale(2, RoundingMode.HALF_UP);
-            return new ResolvedFee(fee, DeliveryFeeMethod.DISTANCE, distanceKm);
-        });
+        return geocodingService.geocodeStructured(street, number, city, zipCode)
+                .flatMap(point -> {
+                    // Real road distance (docs/DELIVERY.md "v3: rota real") whenever a routing provider
+                    // is available; straight-line Haversine is only the fallback for when all three of
+                    // them are unavailable (see RouteDistanceService) - never blocks pricing either way.
+                    double distance = routeDistanceService
+                            .route(restaurant.getLatitude(), restaurant.getLongitude(), point.latitude(), point.longitude())
+                            .map(RouteDistanceService.RouteResult::distanceKm)
+                            .orElseGet(() -> HaversineUtil.distanceKm(
+                                    restaurant.getLatitude(), restaurant.getLongitude(), point.latitude(), point.longitude()));
+
+                    BigDecimal distanceKm = BigDecimal.valueOf(distance).setScale(2, RoundingMode.HALF_UP);
+                    // Farther than the restaurant's configured radius (finding #3, 2026-09-07 review):
+                    // fall back to DeliveryZone instead of pricing/accepting an out-of-range address.
+                    if (restaurant.getMaxDeliveryDistanceKm() != null
+                            && distanceKm.compareTo(restaurant.getMaxDeliveryDistanceKm()) > 0) {
+                        return Optional.empty();
+                    }
+
+                    BigDecimal rawFee = restaurant.getDeliveryBaseFee()
+                            .add(restaurant.getDeliveryFeePerKm().multiply(distanceKm));
+                    BigDecimal fee = rawFee.divide(ROUNDING_STEP, 0, RoundingMode.HALF_UP)
+                            .multiply(ROUNDING_STEP)
+                            .setScale(2, RoundingMode.HALF_UP);
+                    return Optional.of(new ResolvedFee(fee, DeliveryFeeMethod.DISTANCE, distanceKm, point.latitude(), point.longitude()));
+                });
     }
 
     private ResolvedFee toZoneFee(DeliveryZone zone) {
-        return new ResolvedFee(zone.getFee(), DeliveryFeeMethod.ZONE, null);
+        return new ResolvedFee(zone.getFee(), DeliveryFeeMethod.ZONE, null, null, null);
     }
 }

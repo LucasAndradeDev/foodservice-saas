@@ -2,6 +2,7 @@ package com.example.restaurant_saas.service;
 
 import com.example.restaurant_saas.domain.entity.PasswordResetToken;
 import com.example.restaurant_saas.domain.entity.User;
+import com.example.restaurant_saas.domain.enums.CourierVehicleType;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.CreateUserRequest;
 import com.example.restaurant_saas.dto.request.UpdateUserRequest;
@@ -114,6 +115,20 @@ public class UserService {
             if (activeOwners <= 1) {
                 throw new IllegalStateException("Cannot deactivate the restaurant's only active owner.");
             }
+        }
+
+        // Mirrors createUser's own courier check (found missing here in review 2026-09-07) -
+        // without it, a direct API call changing just the role (e.g. {"role":"COURIER"}) could
+        // promote an existing WAITER/KITCHEN/etc. straight to COURIER with null phone/vehicleType,
+        // a state the rest of the courier UI (StaffPage badges, the assignment dropdown,
+        // DeliveryPage) never expects to see. Checked against the *effective* post-update values,
+        // not just what's in this request, since phone/vehicleType might already be set from
+        // before (e.g. a courier's own profile edit that doesn't touch role at all).
+        UserRole effectiveRole = request.getRole() != null ? request.getRole() : target.getRole();
+        String effectivePhone = request.getPhone() != null ? request.getPhone() : target.getPhone();
+        CourierVehicleType effectiveVehicleType = request.getVehicleType() != null ? request.getVehicleType() : target.getVehicleType();
+        if (effectiveRole == UserRole.COURIER && (effectivePhone == null || effectivePhone.isBlank() || effectiveVehicleType == null)) {
+            throw new IllegalArgumentException("Phone and vehicle type are required for a courier.");
         }
 
         if (request.getName() != null) {

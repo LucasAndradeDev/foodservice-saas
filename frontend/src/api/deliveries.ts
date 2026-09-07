@@ -72,6 +72,10 @@ export interface DeliveryDetails {
   // Rounded to ~100-150m on this (public) endpoint; exact on the authenticated staff/courier ones.
   courierLatitude: number | null
   courierLongitude: number | null
+  // Live route-based ETA, refreshed server-side at most once a minute - same null conditions as
+  // courierLatitude/Longitude above, plus whenever the order was priced by neighborhood (no
+  // geocoded customer point to route to) or no routing provider was available.
+  etaMinutes: number | null
   items: DeliveryItem[]
   billTotal: number | null
   createdAt: string
