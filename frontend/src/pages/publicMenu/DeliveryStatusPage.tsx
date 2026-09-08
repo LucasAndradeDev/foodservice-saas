@@ -299,11 +299,16 @@ export function DeliveryStatusPage() {
               positions={[
                 { id: 'courier', latitude: delivery.courierLatitude, longitude: delivery.courierLongitude },
               ]}
+              destinations={
+                delivery.customerLatitude != null && delivery.customerLongitude != null
+                  ? [{ id: 'destination', latitude: delivery.customerLatitude, longitude: delivery.customerLongitude, label: 'Você' }]
+                  : []
+              }
             />
           </div>
         )}
 
-        {!delivery.paid && (
+        {!delivery.paid && delivery.status !== 'CANCELLED' && (
           <div className="rounded-2xl border border-gold-200 bg-gold-50 p-4 shadow-sm dark:border-gold-500/30 dark:bg-gold-500/10">
             <p className="mb-3 text-sm font-medium text-gold-800 dark:text-gold-300">
               Falta confirmar o pagamento pra sua comanda seguir pra cozinha.

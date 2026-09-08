@@ -134,3 +134,54 @@ Cada task abaixo é pensada pra ser um commit (ou poucos) testável isoladamente
 - [x] **29.3** (2026-09-07) Teste de ponta a ponta manual no navegador contra o "Restaurante Teste": alternar pro modo Delivery → adicionar item → preencher endereço no `CartDrawer` (Meireles, Fortaleza) → cotação de frete real por rota (14,1 km — R$ 11,50) → "Enviar pedido" → QR Pix real gerado via sandbox da Woovi (confirmação por webhook não testável sem túnel ngrok ativo nesta sessão — cobrança cancelada e pagamento registrado manualmente pelo Caixa, o mesmo fallback documentado pra quando o aviso do gateway nunca chega) → item preparado na Cozinha → entregador atribuído na tela Delivery → "Saiu pra entrega" → "Marcar como entregue" → tela pública do cliente mostrou "Pedido entregue. Bom apetite!". **Bug real encontrado e corrigido no caminho**: `DeliveryService.updateStatus` nunca atualizava o `ItemStatus` dos itens ao mover a comanda pra `DELIVERED` — o item ficava preso em `READY` na fila da Cozinha pra sempre (`listKitchenQueue` só exclui `READY`/`DELIVERED`/`CANCELLED`), invisível na tela Delivery mas entulhando a Cozinha indefinidamente. `updateStatus` agora marca todos os itens da comanda como `DELIVERED` (com `deliveredAt`) na mesma transição, mesmo padrão que `OrderItemService.applyStatusChange` já usa. Validado reproduzindo o bug, aplicando o fix, reiniciando o backend e repetindo o pedido do zero — item some da Cozinha automaticamente ao marcar a entrega. Suíte automatizada (`DeliveryControllerIntegrationTest`, `PublicDeliveryOrderControllerIntegrationTest`, `PublicDeliveryPaymentIntegrationTest`, `OrderItemServiceTest`, `OrderItemControllerIntegrationTest`) sem regressões.
 - [ ] **29.4** Atualizar `docs/SCOPE.md` marcando Prioridade 8 como entregue, com o mesmo nível de detalhe dos itens anteriores.
 - [x] **29.5** ✅ 2026-09-06 (achado testando delivery localmente) `CardPaymentModal`/`PixPaymentModal` mostravam "Chame o garçom" pra qualquer erro que não fosse 400 — não fazia sentido no fluxo de delivery, sem garçom pra chamar. Extraído `paymentErrorMessage` (`frontend/src/utils/paymentErrorMessage.ts`, compartilhado pelos dois modais) que agora também distingue 403 (restaurante sem Mercado Pago/Woovi configurado): mesa continua "Chame o garçom" (staff pode configurar/registrar manual na hora); delivery passa a sugerir o outro método ou contato com o restaurante, nunca "garçom". Testado com testes unitários (`paymentErrorMessage.test.ts`) e ponta a ponta no navegador contra o pedido real do bug (restaurante sem `card_integrations` configurado).
+
+## Melhorias na operação (staff) e no entregador, achados de uso real (2026-09-08)
+
+Três pedidos diretos do usuário depois de usar a tela `DeliveryPage` (staff) e a tela do
+entregador (`MyDeliveriesPage`) em produção.
+
+- [x] **1. Aviso "Não conseguimos acessar sua localização" ficava preso até dar F5** -
+  `MyDeliveriesPage.tsx`: o callback de erro do `watchPosition` setava `locationDenied`,
+  mas nada limpava de volta quando a posição voltava a resolver (GPS momentaneamente
+  indisponível, timeout pontual) - só um reload remontava o efeito do zero. Fix: o
+  callback de sucesso agora também chama `setLocationDenied(false)`, já que
+  `watchPosition` continua chamando os callbacks sozinho sem precisar de reload.
+
+- [x] **2. Ponto de destino não aparecia em nenhum mapa** - `DeliveryDetails.customerLatitude/Longitude`
+  (já existia no backend, geocodado na criação do pedido pra cobrar a taxa por distância)
+  agora também é exposto em `DeliveryDetailsResponse`/`DeliveryDetails` (frontend).
+  `CourierMap` ganhou uma prop `destinations` (pin de bandeira, não animado - ao contrário
+  do entregador, um destino nunca se move) somada ao cálculo de enquadramento
+  (`MapAutoView`) que já existia para os entregadores. Ligado em dois lugares: a tela do
+  cliente (`DeliveryStatusPage`, o próprio endereço dele) e o mapa de despacho do staff
+  (`DeliveryPage`, um pino por entregador atualmente "Saiu pra entrega", casado pelo
+  `courierId`). Null sempre que o pedido foi precificado por bairro (`DeliveryZone`),
+  nunca geocodado - mesma condição já usada por `deliveryDistanceKm`.
+
+- [x] **3. Sem jeito de cancelar um pedido de delivery** - novo status `CANCELLED` em
+  `DeliveryStatus`, tratado como saída lateral (não um "próximo passo" do fluxo normal)
+  em `DeliveryService#updateStatus`: permitido a partir de `SEPARATING` ou
+  `OUT_FOR_DELIVERY`, nunca a partir de um estado terminal, e nunca por um `COURIER`
+  (mesma checagem de papel que já restringia "marcar como entregue" à própria entrega).
+  Cancelar marca todos os itens da comanda como `CANCELLED` (mesmo padrão de
+  `markItemsDelivered`, senão ficariam presos na fila da Cozinha pra sempre) e some da
+  tela de operação (`listOpenDeliveries` passou a excluir `CANCELLED` junto com
+  `DELIVERED`). Frontend: botão "Cancelar pedido" em cada card do `DeliveryPage`, com
+  `ConfirmDialog` (mesmo componente/padrão do cancelamento de reserva), avisando quando o
+  pedido já estava pago que o reembolso é manual. A tela pública do cliente
+  (`DeliveryStatusPage`) troca a barra de progresso por um aviso simples quando o status é
+  `CANCELLED`, já que uma barra de progresso não faz sentido pra um pedido parado.
+
+**Testado**: backend compila limpo, suíte `DeliveryControllerIntegrationTest`/
+`PublicDeliveryOrderControllerIntegrationTest`/`PublicDeliveryPaymentIntegrationTest` sem
+regressões (exit code 0). Frontend: `npm run build` (o mesmo `tsc -b` do Render) e
+`vitest run` (57 testes) limpos. **Testado ponta a ponta no navegador** contra o
+"Restaurante Teste" local, depois de reiniciar o backend pra pegar o código novo:
+cancelar um pedido de teste travado há 909 min (o mesmo tipo de pedido que motivou o
+pedido 3) removeu ele da lista e a tela pública do cliente passou a mostrar "Este pedido
+foi cancelado pelo restaurante." no lugar da barra de progresso, com o aviso de reembolso
+manual aparecendo certo por já estar pago; atribuir um entregador e avançar pra "Saiu pra
+entrega" mostrou os dois pinos no mapa de despacho do staff (entregador + "Destino de
+{nome}") e o pino "Você" no mapa da tela pública do cliente. Não testado com GPS real de
+celular (correção da melhoria 1) - a mudança é pequena e de baixo risco (só limpa um
+estado que antes nunca era limpo).

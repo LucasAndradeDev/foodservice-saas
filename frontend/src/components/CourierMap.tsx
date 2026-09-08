@@ -1,6 +1,7 @@
 import { maplibreGL } from '@maplibre/maplibre-gl-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { MapPin } from 'lucide-react'
 import { setWorkerUrl } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
@@ -8,6 +9,13 @@ import { useEffect, useRef, useState } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MapContainer, Marker, Tooltip, useMap } from 'react-leaflet'
 import { DeliveryRiderIcon } from './DeliveryRiderIcon'
+
+export interface CourierMapDestination {
+  id: string
+  latitude: number
+  longitude: number
+  label?: string
+}
 
 setWorkerUrl(maplibreWorkerUrl)
 
@@ -50,6 +58,19 @@ const courierIcon = buildCourierIcon('bg-brand-600')
 // Grey rather than hidden - still worth showing where a busy courier is (e.g. on the way back
 // past a new order's neighborhood), just visually secondary to who's actually free.
 const busyCourierIcon = buildCourierIcon('bg-gray-400')
+
+// A flag pin, not the rider icon above - visually distinct at a glance ("where they're headed" vs
+// "who's moving"), and never animates/glides since a destination never moves.
+const destinationIcon = L.divIcon({
+  html: renderToStaticMarkup(
+    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gold-600 text-white shadow-md ring-2 ring-white">
+      <MapPin className="h-4 w-4" fill="currentColor" />
+    </div>,
+  ),
+  className: '',
+  iconSize: [28, 28],
+  iconAnchor: [14, 26],
+})
 
 // Adds the MapLibre GL vector basemap to the underlying Leaflet map once, on mount - there's only
 // ever one style, so nothing here needs to react to prop changes.
@@ -126,52 +147,81 @@ function AnimatedMarker({
 // and multiple markers get fitBounds so every one of them stays visible. Follow-up pans (once the
 // map already has a view) glide instead of jumping, same reasoning as AnimatedMarker above - only
 // the very first view of a session is instant, via MapContainer's own initial `center`.
-function MapAutoView({ positions, focusedId }: { positions: CourierMapPosition[]; focusedId?: string | null }) {
+function MapAutoView({
+  positions,
+  destinations,
+  focusedId,
+}: {
+  positions: CourierMapPosition[]
+  destinations: CourierMapDestination[]
+  focusedId?: string | null
+}) {
   const map = useMap()
 
   useEffect(() => {
-    if (positions.length === 0) return
+    if (positions.length === 0 && destinations.length === 0) return
 
+    // An explicit focus always wins and only ever targets a courier - picking one flies in close
+    // regardless of how many destination pins are also on the map.
     const focused = focusedId ? positions.find((p) => p.id === focusedId) : undefined
     if (focused) {
       map.flyTo([focused.latitude, focused.longitude], 16)
       return
     }
 
-    if (positions.length === 1) {
+    const points = [...positions, ...destinations]
+    if (points.length === 1) {
       // flyTo, not panTo - panTo only moves the center and leaves zoom wherever fitBounds last
       // left it (e.g. zoomed out to fit several couriers a moment ago, before the rest went
       // offline/unavailable and this became the only marker left) - flyTo animates both.
-      map.flyTo([positions[0].latitude, positions[0].longitude], 15)
+      map.flyTo([points[0].latitude, points[0].longitude], 15)
       return
     }
-    const bounds = L.latLngBounds(positions.map((p) => [p.latitude, p.longitude] as [number, number]))
+    const bounds = L.latLngBounds(points.map((p) => [p.latitude, p.longitude] as [number, number]))
     map.fitBounds(bounds, { padding: [32, 32] })
-    // positions is a fresh array/objects each poll - comparing its serialized coordinates avoids
-    // re-fitting (and fighting the user's own pan/zoom) on every 15s refetch when nothing moved.
+    // positions/destinations are fresh arrays/objects each poll - comparing serialized coordinates
+    // avoids re-fitting (and fighting the user's own pan/zoom) on every 15s refetch when nothing moved.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusedId, JSON.stringify(positions.map((p) => [p.id, p.latitude, p.longitude]))])
+  }, [
+    focusedId,
+    JSON.stringify(positions.map((p) => [p.id, p.latitude, p.longitude])),
+    JSON.stringify(destinations.map((d) => [d.id, d.latitude, d.longitude])),
+  ])
 
   return null
 }
 
 export function CourierMap({
   positions,
+  destinations = [],
   focusedId,
 }: {
   positions: CourierMapPosition[]
+  // Static pins for where a delivery is headed - never animated/gliding, unlike the courier
+  // markers above, since a destination never moves.
+  destinations?: CourierMapDestination[]
   // Selecting a courier elsewhere (e.g. DeliveryPage's dropdown) flies the map to them, overriding
   // the default fit-everyone-in-view behavior until cleared.
   focusedId?: string | null
 }) {
-  if (positions.length === 0) return null
+  const first = positions[0] ?? destinations[0]
+  if (!first) return null
 
   return (
-    <MapContainer center={[positions[0].latitude, positions[0].longitude]} zoom={15} scrollWheelZoom className="h-64 w-full rounded-xl">
+    <MapContainer center={[first.latitude, first.longitude]} zoom={15} scrollWheelZoom className="h-64 w-full rounded-xl">
       <VectorBaseLayer />
-      <MapAutoView positions={positions} focusedId={focusedId} />
+      <MapAutoView positions={positions} destinations={destinations} focusedId={focusedId} />
       {positions.map((position) => (
         <AnimatedMarker key={position.id} {...position} icon={position.available === false ? busyCourierIcon : courierIcon} />
+      ))}
+      {destinations.map((destination) => (
+        <Marker key={destination.id} position={[destination.latitude, destination.longitude]} icon={destinationIcon}>
+          {destination.label && (
+            <Tooltip permanent direction="top" offset={[0, -22]}>
+              {destination.label}
+            </Tooltip>
+          )}
+        </Marker>
       ))}
     </MapContainer>
   )

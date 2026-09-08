@@ -35,6 +35,10 @@ export function MyDeliveriesPage() {
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
+        // A prior error (e.g. GPS briefly unavailable indoors, or a timeout) doesn't mean
+        // permission was denied for good - watchPosition keeps calling back on its own once the
+        // signal comes back, so clear the warning here instead of leaving it stuck until reload.
+        setLocationDenied(false)
         const now = Date.now()
         if (now - lastSentAtRef.current < LOCATION_SEND_MIN_INTERVAL_MS) return
         lastSentAtRef.current = now

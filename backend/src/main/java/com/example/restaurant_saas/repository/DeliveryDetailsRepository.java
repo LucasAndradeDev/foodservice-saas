@@ -19,7 +19,9 @@ public interface DeliveryDetailsRepository extends JpaRepository<DeliveryDetails
 
     Optional<DeliveryDetails> findByTab_IdAndRestaurantId(UUID tabId, UUID restaurantId);
 
-    List<DeliveryDetails> findByRestaurantIdAndStatusNotOrderByCreatedAtAsc(UUID restaurantId, DeliveryStatus status);
+    // Excludes both terminal statuses (DELIVERED and CANCELLED) - the staff Delivery screen only
+    // ever wants orders still being worked on.
+    List<DeliveryDetails> findByRestaurantIdAndStatusNotInOrderByCreatedAtAsc(UUID restaurantId, List<DeliveryStatus> statuses);
 
     // A courier's own restricted "my deliveries" screen (task 28 redesign) - scoped both to their
     // own courier_id and to OUT_FOR_DELIVERY, since marking DELIVERED is the only self-service

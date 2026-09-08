@@ -1,11 +1,12 @@
 import { http } from './http'
 
-export type DeliveryStatus = 'SEPARATING' | 'OUT_FOR_DELIVERY' | 'DELIVERED'
+export type DeliveryStatus = 'SEPARATING' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED'
 
 export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
   SEPARATING: 'Separando',
   OUT_FOR_DELIVERY: 'Saiu pra entrega',
   DELIVERED: 'Entregue',
+  CANCELLED: 'Cancelado',
 }
 
 export const DELIVERY_NEXT_STATUS: Partial<Record<DeliveryStatus, DeliveryStatus>> = {
@@ -22,12 +23,14 @@ export const DELIVERY_STATUS_STYLES: Record<DeliveryStatus, string> = {
   SEPARATING: 'bg-teal-100 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
   OUT_FOR_DELIVERY: 'bg-brand-100 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400',
   DELIVERED: 'bg-sage-100 text-sage-700 dark:bg-sage-500/10 dark:text-sage-400',
+  CANCELLED: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-stone-400',
 }
 
 export const DELIVERY_ACCENT_STYLES: Record<DeliveryStatus, string> = {
   SEPARATING: 'bg-teal-500',
   OUT_FOR_DELIVERY: 'bg-brand-500',
   DELIVERED: 'bg-sage-500',
+  CANCELLED: 'bg-gray-400',
 }
 
 // Customer-facing copy for the tracking page (DeliveryStatusPage) - warmer than the staff-facing
@@ -36,6 +39,7 @@ export const DELIVERY_STATUS_MESSAGES: Record<DeliveryStatus, string> = {
   SEPARATING: 'O restaurante está preparando seu pedido.',
   OUT_FOR_DELIVERY: 'Seu pedido saiu pra entrega!',
   DELIVERED: 'Pedido entregue. Bom apetite!',
+  CANCELLED: 'Este pedido foi cancelado pelo restaurante.',
 }
 
 export interface DeliveryItem {
@@ -62,6 +66,10 @@ export interface DeliveryDetails {
   city: string
   zipCode: string | null
   referencePoint: string | null
+  // Geocoded destination point - null whenever the order was priced via neighborhood zone instead
+  // of by distance (never geocoded), same condition as deliveryDistanceKm above.
+  customerLatitude: number | null
+  customerLongitude: number | null
   deliveryFee: number
   // Staff-facing transparency only (task 26.5) - null for orders priced by neighborhood.
   deliveryDistanceKm: number | null

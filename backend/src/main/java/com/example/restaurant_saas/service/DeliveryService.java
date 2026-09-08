@@ -48,6 +48,10 @@ public class DeliveryService {
 
     private static final List<ItemStatus> KITCHEN_DONE_STATUSES = List.of(ItemStatus.READY, ItemStatus.DELIVERED, ItemStatus.CANCELLED);
 
+    // Terminal delivery statuses - excluded from the staff's active Delivery screen either way,
+    // an order is done being worked on whether it finished normally or got cancelled.
+    private static final List<DeliveryStatus> CLOSED_DELIVERY_STATUSES = List.of(DeliveryStatus.DELIVERED, DeliveryStatus.CANCELLED);
+
     // How long a courier's last reported position is trusted before treating them as offline/gone
     // dark - both for the staff "who's online" map and for whether a delivery's tracking page gets
     // a pin at all. Kept simple/hardcoded rather than a per-restaurant setting, same reasoning as
@@ -65,7 +69,7 @@ public class DeliveryService {
 
     @Transactional(readOnly = true)
     public List<DeliveryDetailsResponse> listOpenDeliveries(UUID restaurantId) {
-        List<DeliveryDetails> deliveries = deliveryDetailsRepository.findByRestaurantIdAndStatusNotOrderByCreatedAtAsc(restaurantId, DeliveryStatus.DELIVERED);
+        List<DeliveryDetails> deliveries = deliveryDetailsRepository.findByRestaurantIdAndStatusNotInOrderByCreatedAtAsc(restaurantId, CLOSED_DELIVERY_STATUSES);
         // Same reasoning as getByAccessToken's own call - this list is what staff actually watches
         // waiting for a card payment to clear, so it's just as valid a trigger as the customer's
         // own status page poll (arguably more so: staff is far more likely to have this open).
@@ -77,7 +81,7 @@ public class DeliveryService {
 
     @Transactional
     public DeliveryDetailsResponse updateStatus(
-            UUID restaurantId, UUID actingUserId, UserRole actingRole, UUID tabId, UpdateDeliveryStatusRequest request
+            UUID restaurantId, UUID actingUserId, UserRole actingRole, String actingUserName, UUID tabId, UpdateDeliveryStatusRequest request
     ) {
         DeliveryDetails deliveryDetails = deliveryDetailsRepository.findByTab_IdAndRestaurantId(tabId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Delivery order not found."));
@@ -85,7 +89,13 @@ public class DeliveryService {
         DeliveryStatus from = deliveryDetails.getStatus();
         DeliveryStatus to = request.getStatus();
 
-        if (NEXT_STATUS.get(from) != to) {
+        // CANCELLED is a side-exit, not the next step in NEXT_STATUS's forward chain - allowed from
+        // SEPARATING or OUT_FOR_DELIVERY (an order still being handled), never from a terminal state.
+        if (to == DeliveryStatus.CANCELLED) {
+            if (from == DeliveryStatus.DELIVERED || from == DeliveryStatus.CANCELLED) {
+                throw new IllegalArgumentException("Cannot cancel a delivery that is already " + from + ".");
+            }
+        } else if (NEXT_STATUS.get(from) != to) {
             throw new IllegalArgumentException("Cannot change delivery status from " + from + " to " + to + ".");
         }
 
@@ -123,6 +133,8 @@ public class DeliveryService {
         // order was already done, invisible on the Delivery screen but still cluttering Cozinha.
         if (to == DeliveryStatus.DELIVERED) {
             markItemsDelivered(tabId);
+        } else if (to == DeliveryStatus.CANCELLED) {
+            markItemsCancelled(tabId, actingUserName);
         }
 
         return toResponse(saved, false);
@@ -135,6 +147,22 @@ public class DeliveryService {
                 .peek(item -> {
                     item.setStatus(ItemStatus.DELIVERED);
                     item.setDeliveredAt(now);
+                })
+                .toList();
+        orderItemRepository.saveAll(items);
+    }
+
+    // Same reasoning as markItemsDelivered above - listKitchenQueue only excludes
+    // READY/DELIVERED/CANCELLED, so a cancelled delivery's items would otherwise sit in the
+    // kitchen queue forever even though the order itself dropped off the Delivery screen.
+    private void markItemsCancelled(UUID tabId, String actingUserName) {
+        OffsetDateTime now = OffsetDateTime.now();
+        List<OrderItem> items = orderItemRepository.findByOrder_Tab_IdOrderByCreatedAtAsc(tabId).stream()
+                .filter(item -> item.getStatus() != ItemStatus.DELIVERED && item.getStatus() != ItemStatus.CANCELLED)
+                .peek(item -> {
+                    item.setStatus(ItemStatus.CANCELLED);
+                    item.setCancelledAt(now);
+                    item.setCancelledBy(actingUserName);
                 })
                 .toList();
         orderItemRepository.saveAll(items);
@@ -331,6 +359,8 @@ public class DeliveryService {
                 .city(d.getCity())
                 .zipCode(d.getZipCode())
                 .referencePoint(d.getReferencePoint())
+                .customerLatitude(d.getCustomerLatitude())
+                .customerLongitude(d.getCustomerLongitude())
                 .deliveryFee(d.getDeliveryFee())
                 .deliveryDistanceKm(d.getDeliveryDistanceKm())
                 .courierId(courier != null ? courier.getId() : null)

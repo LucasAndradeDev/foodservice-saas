@@ -12,10 +12,12 @@ import {
   PackageCheck,
   Phone,
   Receipt,
+  XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../components/Badge'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { CourierMap } from '../components/CourierMap'
 import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
 import { Dropdown, type DropdownOption } from '../components/Dropdown'
@@ -62,10 +64,13 @@ function getDelayLevel(delivery: DeliveryDetails): DelayLevel {
   return 'none'
 }
 
-const STATUS_BADGE_TONE: Record<DeliveryStatus, 'reserved' | 'occupied' | 'free'> = {
+const STATUS_BADGE_TONE: Record<DeliveryStatus, 'reserved' | 'occupied' | 'free' | 'neutral'> = {
   SEPARATING: 'reserved',
   OUT_FOR_DELIVERY: 'occupied',
   DELIVERED: 'free',
+  // Never actually rendered here - listOpenDeliveries excludes CANCELLED - but DeliveryStatus is
+  // shared with the customer-facing DELIVERY_STATUS_* records, which do need every case covered.
+  CANCELLED: 'neutral',
 }
 
 // Flat fills for the avatar and progress bar, same status colors as DELIVERY_ACCENT_STYLES
@@ -105,6 +110,7 @@ export function DeliveryPage() {
   const [showMap, setShowMap] = useState(false)
   const [courierFilter, setCourierFilter] = useState<'available' | 'all'>('all')
   const [focusedCourierId, setFocusedCourierId] = useState(SHOW_ALL_COURIERS_VALUE)
+  const [deliveryPendingCancel, setDeliveryPendingCancel] = useState<DeliveryDetails | null>(null)
 
   const { data: deliveries, isLoading } = useQuery({
     queryKey: ['deliveries'],
@@ -146,6 +152,33 @@ export function DeliveryPage() {
     [visibleLiveCouriers],
   )
 
+  // Where each visible courier is actually headed - only orders currently OUT_FOR_DELIVERY have
+  // a courier "in transit" in a way a destination pin makes sense for, and only when the address
+  // was geocoded (by-distance pricing, not a DeliveryZone).
+  const destinationsByCourierId = useMemo(() => {
+    const map = new Map<string, { latitude: number; longitude: number }>()
+    for (const delivery of deliveries ?? []) {
+      if (
+        delivery.status === 'OUT_FOR_DELIVERY' &&
+        delivery.courierId &&
+        delivery.customerLatitude != null &&
+        delivery.customerLongitude != null
+      ) {
+        map.set(delivery.courierId, { latitude: delivery.customerLatitude, longitude: delivery.customerLongitude })
+      }
+    }
+    return map
+  }, [deliveries])
+
+  const visibleDestinations = useMemo(
+    () =>
+      visibleLiveCouriers.flatMap((courier) => {
+        const destination = destinationsByCourierId.get(courier.id)
+        return destination ? [{ id: `destination-${courier.id}`, ...destination, label: `Destino de ${courier.name}` }] : []
+      }),
+    [visibleLiveCouriers, destinationsByCourierId],
+  )
+
   // A focused courier who drops off the visible list (went offline, or got filtered out by
   // "Livres") shouldn't leave the dropdown pointing at someone the map can no longer show.
   useEffect(() => {
@@ -164,6 +197,14 @@ export function DeliveryPage() {
   const assignCourierMutation = useMutation({
     mutationFn: ({ tabId, courierId }: { tabId: string; courierId: string | null }) => assignCourier(tabId, courierId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliveries'] }),
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: (tabId: string) => updateDeliveryStatus(tabId, 'CANCELLED'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deliveries'] })
+      setDeliveryPendingCancel(null)
+    },
   })
 
   function courierOptionsFor(delivery: DeliveryDetails): DropdownOption<string>[] {
@@ -284,6 +325,7 @@ export function DeliveryPage() {
                   label: courier.name,
                   available: courier.available,
                 }))}
+                destinations={visibleDestinations}
                 focusedId={focusedCourierId || null}
               />
             ) : (
@@ -541,8 +583,8 @@ export function DeliveryPage() {
                           )}
                         </AnimatePresence>
 
-                        {nextStatus && nextStatusLabel && (
-                          <div className="border-t border-gray-100 p-3 dark:border-white/10">
+                        <div className="border-t border-gray-100 p-3 dark:border-white/10">
+                          {nextStatus && nextStatusLabel && (
                             <button
                               type="button"
                               onClick={() => advanceMutation.mutate({ tabId: delivery.tabId, status: nextStatus })}
@@ -553,8 +595,16 @@ export function DeliveryPage() {
                               {!isBlocked && NextIcon && <NextIcon className="h-4 w-4" />}
                               {isBlocked ? blockedLabel : nextStatusLabel}
                             </button>
-                          </div>
-                        )}
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setDeliveryPendingCancel(delivery)}
+                            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-wine-600 transition hover:bg-wine-50 dark:text-wine-400 dark:hover:bg-wine-500/10"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            Cancelar pedido
+                          </button>
+                        </div>
                       </motion.div>
                     )
                   })}
@@ -563,6 +613,23 @@ export function DeliveryPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {deliveryPendingCancel && (
+        <ConfirmDialog
+          title="Cancelar pedido"
+          message={
+            deliveryPendingCancel.paid
+              ? `Cancelar o pedido de "${deliveryPendingCancel.customerName}"? Esse pedido já foi pago - o reembolso precisa ser feito manualmente.`
+              : `Cancelar o pedido de "${deliveryPendingCancel.customerName}"? Essa ação não pode ser desfeita.`
+          }
+          confirmLabel="Cancelar pedido"
+          cancelLabel="Voltar"
+          danger
+          isLoading={cancelMutation.isPending}
+          onConfirm={() => cancelMutation.mutate(deliveryPendingCancel.tabId)}
+          onCancel={() => setDeliveryPendingCancel(null)}
+        />
       )}
     </div>
   )

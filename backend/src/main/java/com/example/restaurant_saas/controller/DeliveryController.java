@@ -41,7 +41,7 @@ public class DeliveryController {
 
     @PatchMapping("/{tabId}/status")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','KITCHEN','CASHIER','COURIER')")
-    @Operation(summary = "Update delivery status", description = "Moves a delivery order to the next status in the flow. Skipping a step or going backwards is rejected. A courier may only mark their own out-for-delivery order as delivered.")
+    @Operation(summary = "Update delivery status", description = "Moves a delivery order to the next status in the flow, or cancels it. CANCELLED is a side-exit allowed from SEPARATING or OUT_FOR_DELIVERY (never from a terminal state), otherwise skipping a step or going backwards is rejected. A courier may only mark their own out-for-delivery order as delivered - they can't cancel.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Status updated"),
             @ApiResponse(responseCode = "400", description = "Delivery order not found in this restaurant, or invalid status transition"),
@@ -53,7 +53,7 @@ public class DeliveryController {
             @Valid @RequestBody UpdateDeliveryStatusRequest request
     ) {
         return ResponseEntity.ok(deliveryService.updateStatus(
-                currentUser.getRestaurantId(), currentUser.getId(), extractRole(currentUser), tabId, request));
+                currentUser.getRestaurantId(), currentUser.getId(), extractRole(currentUser), currentUser.getName(), tabId, request));
     }
 
     @PatchMapping("/{tabId}/courier")

@@ -47,6 +47,13 @@ public class DeliveryDetailsResponse {
     private String zipCode;
     private String referencePoint;
 
+    // Geocoded destination point (DeliveryDetails.customerLatitude/Longitude) - null whenever the
+    // order was priced via DeliveryZone instead of by-distance (never geocoded). Not fuzzed like
+    // courierLatitude/Longitude below: it's the customer's own address, already sent in plaintext
+    // as street/number/neighborhood above.
+    private Double customerLatitude;
+    private Double customerLongitude;
+
     private BigDecimal deliveryFee;
 
     // Staff-facing transparency only, showing how deliveryFee was computed (task 26.5) - null for
