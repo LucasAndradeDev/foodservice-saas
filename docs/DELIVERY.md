@@ -135,6 +135,129 @@ Cada task abaixo é pensada pra ser um commit (ou poucos) testável isoladamente
 - [ ] **29.4** Atualizar `docs/SCOPE.md` marcando Prioridade 8 como entregue, com o mesmo nível de detalhe dos itens anteriores.
 - [x] **29.5** ✅ 2026-09-06 (achado testando delivery localmente) `CardPaymentModal`/`PixPaymentModal` mostravam "Chame o garçom" pra qualquer erro que não fosse 400 — não fazia sentido no fluxo de delivery, sem garçom pra chamar. Extraído `paymentErrorMessage` (`frontend/src/utils/paymentErrorMessage.ts`, compartilhado pelos dois modais) que agora também distingue 403 (restaurante sem Mercado Pago/Woovi configurado): mesa continua "Chame o garçom" (staff pode configurar/registrar manual na hora); delivery passa a sugerir o outro método ou contato com o restaurante, nunca "garçom". Testado com testes unitários (`paymentErrorMessage.test.ts`) e ponta a ponta no navegador contra o pedido real do bug (restaurante sem `card_integrations` configurado).
 
+## Melhorias de UX pós-lançamento (achados de uso real, 2026-09-08)
+
+Levantamento motivado por um caso concreto relatado pelo usuário: na tela de status
+(`DeliveryStatusPage`), "Fazer novo pedido" abria o cardápio na mesma aba — o cliente
+perdia a tela de acompanhamento do pedido que acabou de fazer. A partir daí, revisão do
+resto da jornada "cliente que já fez um pedido de delivery e volta a interagir com o
+cardápio" em busca de fricção parecida.
+
+### Implementadas nesta sessão
+
+- [x] **1. "Fazer novo pedido" abria na mesma aba** — `frontend/src/pages/publicMenu/DeliveryStatusPage.tsx:361-368`.
+  Trocado de `<Link>` (navegação client-side, mesma aba) para `<a target="_blank" rel="noopener noreferrer">`,
+  preservando a tela de acompanhamento aberta.
+
+- [x] **2. Nenhum indício no cardápio de que já existe um pedido em andamento** —
+  novo `frontend/src/utils/activeDeliveryStorage.ts` (guarda `token`+`createdAt` no
+  `localStorage`, chaveado por `slug`) integrado em `PublicMenuPage.tsx:94-115` (grava no
+  `onSuccess` de `submitDeliveryOrderMutation`, consulta `getPublicDeliveryStatus` a cada
+  15s, limpa sozinho quando o status vira `DELIVERED` ou o token para de resolver) e em
+  `MenuHero.tsx` (ícone de sacola com indicador pulsante no topo do cardápio). Clicar no
+  ícone abre um dropdown com status, ETA (quando disponível), itens e total, e um link
+  "Ver pedido completo" pra tela cheia — em vez de navegar direto, seguindo sugestão do
+  usuário de não tirar o cliente do cardápio só pra checar o pedido.
+  **Bug corrigido no caminho**: o dropdown não aparecia visualmente (ficava com
+  `opacity:1`/`display:block` mas invisível) porque tanto o `<header>` da `MenuHero`
+  quanto o `<div>` da `CategoryNav` logo abaixo usam `backdrop-blur`, que cria um
+  contexto de empilhamento próprio — como a `CategoryNav` vem depois no HTML, ela sempre
+  pintava por cima de tudo dentro do header, independente do `z-index` do dropdown. Fix:
+  `relative z-10` explícito no `<header>` (`MenuHero.tsx`).
+
+- [x] **3. Endereço não é lembrado entre pedidos** — novo
+  `frontend/src/utils/lastDeliveryAddressStorage.ts` (mesmo padrão de
+  `activeDeliveryStorage.ts`, chaveado por `slug`, guarda o `DeliveryAddressForm`
+  completo). Salvo em `PublicMenuPage.tsx` no `onSuccess` de
+  `submitDeliveryOrderMutation` (depois de `clearPublicOrderState`, que continua zerando
+  o carrinho-em-andamento normalmente); o estado inicial de `deliveryAddress` passa a
+  cair nele quando não há rascunho de pedido em andamento (`loadPublicOrderState(...) ??
+  loadLastDeliveryAddress(...) ?? emptyDeliveryAddress()`).
+  **Bug real encontrado e corrigido no caminho**: o endereço restaurado (seja de um
+  rascunho em andamento ou da memória de último pedido) era imediatamente sobrescrito
+  pelo efeito de autofill de CEP (`lastCepLookedUpRef`, `PublicMenuPage.tsx`) assim que a
+  página montava, porque o ref começava vazio (`''`) e não sabia que aquele CEP já tinha
+  sido "resolvido" antes — qualquer correção manual que o cliente tivesse feito depois do
+  autofill original (ex: trocar o bairro devolvido pelo CEP por um que realmente bate com
+  a zona de entrega cadastrada) se perdia. Fix: `lastCepLookedUpRef` agora começa
+  primado com o CEP do endereço restaurado, não com `''`, então o efeito só refaz o
+  autofill se o cliente de fato editar o campo de CEP depois. Reproduzido e confirmado
+  via `localStorage` (endereço salvo ficava com o bairro certo, mas o formulário exibia o
+  bairro cru devolvido pelo ViaCEP) antes do fix, e via teste manual completo (dois
+  pedidos seguidos, segundo com bairro corrigido preservado) depois.
+  **Segundo bug real, achado pelo usuário testando manualmente**: o fix acima quebrou o
+  autofill de CEP pra quem tinha um rascunho salvo com o CEP já digitado mas rua/bairro/
+  cidade ainda vazios (ex: preencheu o CEP, saiu da página antes do autofill completar, ou
+  antes desta sessão) — o ref primado tratava esse CEP "sem rua nenhuma" como já resolvido
+  e nunca disparava a consulta ao ViaCEP, deixando os campos vazios pra sempre. Fix:
+  `lastCepLookedUpRef` só prima com o CEP quando o endereço restaurado já tem uma `street`
+  preenchida (indício de que o CEP foi de fato resolvido antes); com `street` vazia, o ref
+  começa em `''` normalmente e o autofill roda assim que o CEP for digitado. Reproduzido
+  no navegador real do usuário (mesmo `localStorage`, resgatado via automação) e
+  confirmado com o mesmo teste de dois pedidos seguidos: autofill funciona no primeiro
+  pedido (rascunho sem `street`) e o bairro corrigido continua preservado no segundo
+  (endereço com `street` já resolvida).
+
+- [x] **4. Cliente precisa manter a aba aberta olhando "Ao vivo" pra saber quando o pedido muda** —
+  `DeliveryStatusPage.tsx` ganhou um botão de sino (ícone `Bell`/`BellOff` do lucide, ao
+  lado do badge "Ao vivo") que pede permissão de notificação do navegador
+  (`Notification.requestPermission`) sob clique explícito do cliente, não
+  automaticamente ao carregar a página. Um `useEffect` compara o status anterior
+  (`previousStatusRef`) com o atual a cada resposta do polling e dispara uma
+  `Notification` só numa transição real de status, só com permissão concedida, e só
+  quando `document.visibilityState !== 'visible'` (evita notificação redundante enquanto
+  o cliente já está olhando a barra de progresso mudar ao vivo). **Limitação de teste**:
+  o prompt nativo do navegador pra conceder permissão é UI do Chrome, fora da página —
+  não dá pra confirmar via screenshot de automação que ele aparece corretamente; testado
+  visualmente só até o clique no botão, falta validação manual do prompt + notificação
+  real disparando.
+  **Achado pelo usuário testando manualmente**: depois de negar a permissão uma vez, o
+  ícone virava um `<span>` inerte (`BellOff` sem `onClick`) — sem explicar nada, parecia
+  quebrado, e não tinha como reativar. Causa raiz é limitação do próprio navegador: uma
+  vez em `denied`, `Notification.requestPermission()` nunca mostra o prompt de novo, só
+  resolve direto pra `denied` — o site não tem como reverter isso via JS, só o usuário
+  desbloqueando manualmente nas configurações do site. Fix: o `BellOff` virou `<button>`
+  clicável que mostra um toast (`showNotificationBlockedHint`, mesmo padrão de
+  `AnimatePresence` já usado pros toasts de sucesso/erro) explicando "toque no cadeado ao
+  lado do endereço e permita notificações", em vez de ficar em silêncio.
+
+- [x] **5. Barra de progresso não tem etapa de pagamento** — `STEPS` virou
+  `DELIVERY_STEPS` (as 3 etapas originais) mais um novo array `STEPS` com "Pagamento"
+  prependado como primeira etapa, sempre renderizada (removido o `{delivery.paid && (...)}`
+  que escondia a barra inteira, e removido o badge de status solto que existia como
+  alternativa quando `!delivery.paid` — virou redundante). `currentStepIndex` passa a ser
+  `delivery.paid ? deliveryStatusStepIndex + 1 : 0`. Testado ponta a ponta: pedido recém
+  criado mostra a etapa "Pagamento" destacada e as demais apagadas, sem o pulo visual que
+  existia antes.
+
+- [x] **6. Nada avisa se o cliente já tem um pedido em aberto ao montar outro** —
+  `CartDrawer` ganhou a prop `activeDeliveryWarning` (`{ paid: boolean } | null`),
+  passada por `PublicMenuPage.tsx` a partir do mesmo `activeDeliveryToken`/`activeDelivery`
+  já usados pelo badge da melhoria 2. Primeiro clique em "Enviar pedido" com um aviso
+  ativo só revela uma confirmação inline (⚠️ "Você já tem um pedido em aberto..." +
+  "Cancelar"/"Enviar mesmo assim") em vez de enviar direto; segundo clique (ou o botão
+  "Enviar mesmo assim") envia de fato. Testado ponta a ponta: segundo pedido de delivery
+  com o primeiro ainda "Aguardando pagamento" mostrou o aviso; "Cancelar" manteve o
+  carrinho intacto sem enviar.
+
+- [x] **7. Sem botão de copiar/compartilhar o link de acompanhamento** — implementado
+  primeiro como "Copiar link" (mesmo padrão de `ReservationFormModal.tsx`/
+  `PixPaymentModal.tsx`), depois trocado por sugestão do usuário pra "Compartilhar
+  pedido": usa a Web Share API (`navigator.share`) quando disponível — abre o menu nativo
+  de compartilhamento do celular (WhatsApp, SMS, etc.) direto com o link, mais fluido que
+  copiar e colar manualmente — e cai pra copiar o link (ícone `Copy`/`Check`, feedback
+  "Link copiado!" por 2s) só em navegador sem suporte (a maioria dos desktops). Cancelar o
+  compartilhamento (`AbortError`) é tratado como resultado normal, não erro.
+
+**Observado durante o teste, não investigado**: a taxa de entrega cotada no carrinho
+(`CartDrawer`, `deliveryFeeQuote`) às vezes difere da taxa cobrada de fato no pedido
+criado (`DeliveryStatusPage`) pro mesmo endereço — ex. R$ 9,00 cotado vs. R$ 11,00
+cobrado no teste local de hoje. Como o cálculo é por distância real de rota (`RouteDistanceService`,
+task 26.3), suspeita é variação entre chamadas ao provedor de geocoding/roteamento
+(ORS/Mapbox/OSRM) entre a cotação e a criação do pedido, não um bug introduzido pelas
+melhorias desta sessão. Vale investigar numa próxima sessão se o usuário notar o mesmo
+em produção.
+
 ## Melhorias na operação (staff) e no entregador, achados de uso real (2026-09-08)
 
 Três pedidos diretos do usuário depois de usar a tela `DeliveryPage` (staff) e a tela do

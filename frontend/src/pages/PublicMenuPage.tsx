@@ -7,6 +7,7 @@ import { lookupCep } from '../api/cep'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import {
   getDeliveryFeeQuote,
+  getPublicDeliveryStatus,
   getPublicMenu,
   redeemCoupon,
   removeCoupon,
@@ -15,7 +16,9 @@ import {
   type PublicMenuProduct,
 } from '../api/publicMenu'
 import { createTableRequest, type TableRequestType } from '../api/tableRequests'
+import { clearActiveDeliveryOrder, loadActiveDeliveryOrder, saveActiveDeliveryOrder } from '../utils/activeDeliveryStorage'
 import { sameComboSelections, type SelectedComboSlot } from '../utils/combos'
+import { loadLastDeliveryAddress, saveLastDeliveryAddress } from '../utils/lastDeliveryAddressStorage'
 import { clearPublicOrderState, loadPublicOrderState, savePublicOrderState } from '../utils/publicOrderStorage'
 import { CartDrawer } from './publicMenu/CartDrawer'
 import { CategoryBanner } from './publicMenu/CategoryBanner'
@@ -83,9 +86,45 @@ export function PublicMenuPage() {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
   const [orderMode, setOrderMode] = useState<OrderMode>(() => loadPublicOrderState(slug!, tableId)?.orderMode ?? 'DINE_IN')
   const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddressForm>(
-    () => loadPublicOrderState(slug!, tableId)?.deliveryAddress ?? emptyDeliveryAddress(),
+    () =>
+      loadPublicOrderState(slug!, tableId)?.deliveryAddress ??
+      (slug ? loadLastDeliveryAddress(slug) : null) ??
+      emptyDeliveryAddress(),
   )
-  const lastCepLookedUpRef = useRef('')
+  // Primed with the restored address's own zip code (in-progress draft or remembered last
+  // address, task 3) - but only when that address already has a street, i.e. the CEP was
+  // genuinely resolved before. Otherwise the autofill effect below would treat a freshly restored
+  // *unresolved* zip code (typed but never looked up - e.g. the draft was left mid-entry) as
+  // "already done" and skip filling street/neighborhood/city forever. With a street already
+  // present, priming the ref preserves any manual correction the customer made after the original
+  // autofill (e.g. fixing the neighborhood ViaCEP returned to match the registered delivery zone)
+  // - the effect only re-runs if they go on to actually change the CEP field.
+  const lastCepLookedUpRef = useRef(deliveryAddress.street ? deliveryAddress.zipCode.replace(/\D/g, '') : '')
+
+  // Lets a customer who left the tracking page see, right from the menu, that a delivery order is
+  // still in progress (task: menu header "active order" badge) - only relevant off a table (no
+  // tableId), since a dine-in comanda is already visible through the table itself.
+  const [activeDeliveryToken, setActiveDeliveryToken] = useState<string | null>(() =>
+    !tableId && slug ? loadActiveDeliveryOrder(slug)?.token ?? null : null,
+  )
+
+  const { data: activeDelivery, isError: activeDeliveryErrored } = useQuery({
+    queryKey: ['activeDeliveryBadge', activeDeliveryToken],
+    queryFn: () => getPublicDeliveryStatus(activeDeliveryToken!),
+    enabled: !!activeDeliveryToken,
+    retry: false,
+    refetchInterval: 15000,
+  })
+
+  // Once delivered or cancelled (or the token stops resolving - expired) the badge has nothing
+  // left to point at, so the reminder is cleared rather than lingering forever.
+  useEffect(() => {
+    if (!slug || !activeDeliveryToken) return
+    if (activeDelivery?.status === 'DELIVERED' || activeDeliveryErrored) {
+      clearActiveDeliveryOrder(slug)
+      setActiveDeliveryToken(null)
+    }
+  }, [slug, activeDeliveryToken, activeDelivery?.status, activeDeliveryErrored])
 
   function updateDeliveryAddress(patch: Partial<DeliveryAddressForm>) {
     setDeliveryAddress((prev) => ({ ...prev, ...patch }))
@@ -276,6 +315,9 @@ export function PublicMenuPage() {
     // this order isn't "done" yet the way a dine-in self-order is, just handed off.
     onSuccess: (result) => {
       clearPublicOrderState(slug!, tableId)
+      saveLastDeliveryAddress(slug!, deliveryAddress)
+      saveActiveDeliveryOrder(slug!, result.accessToken)
+      setActiveDeliveryToken(result.accessToken)
       navigate(`/delivery/status/${result.accessToken}`)
     },
     onError: () => setOrderError('Não foi possível enviar o pedido. Tente novamente.'),
@@ -503,6 +545,19 @@ export function PublicMenuPage() {
           tableNumber={menu.table?.number}
           theme={theme}
           onToggleTheme={toggleTheme}
+          activeOrder={
+            activeDeliveryToken && activeDelivery
+              ? {
+                  token: activeDeliveryToken,
+                  status: activeDelivery.status,
+                  paid: activeDelivery.paid,
+                  items: activeDelivery.items,
+                  deliveryFee: activeDelivery.deliveryFee,
+                  billTotal: activeDelivery.billTotal,
+                  etaMinutes: activeDelivery.etaMinutes,
+                }
+              : null
+          }
         />
 
         <CategoryNav categories={orderedCategories} search={search} onSearchChange={setSearch} />
@@ -714,6 +769,9 @@ export function PublicMenuPage() {
         deliveryAddress={deliveryAddress}
         onDeliveryAddressChange={updateDeliveryAddress}
         deliveryFeeQuote={deliveryFeeQuote}
+        activeDeliveryWarning={
+          orderMode === 'DELIVERY' && activeDeliveryToken && activeDelivery ? { paid: activeDelivery.paid } : null
+        }
       />
 
       <ModifierSheet

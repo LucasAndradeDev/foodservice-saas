@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, MessageCircle, Minus, Plus, Ticket, Trash2, X } from 'lucide-react'
+import { ArrowRight, MessageCircle, Minus, Plus, Ticket, TriangleAlert, Trash2, X } from 'lucide-react'
+import { useState } from 'react'
 import type { CartItem, DeliveryAddressForm } from './utils'
 import { currencyFormatter, isDeliveryAddressComplete, modifiersTotal, roundCurrency } from './utils'
 import { formatBrazilianPhone } from '../../utils/phone'
@@ -32,6 +33,9 @@ interface CartDrawerProps {
   deliveryAddress: DeliveryAddressForm
   onDeliveryAddressChange: (patch: Partial<DeliveryAddressForm>) => void
   deliveryFeeQuote?: { available: boolean; fee: number | null; distanceKm: number | null; method: 'DISTANCE' | 'ZONE' | null }
+  // Non-null when the customer already has a delivery order in flight for this restaurant - lets
+  // the drawer warn before submitting a second one instead of risking an accidental duplicate.
+  activeDeliveryWarning?: { paid: boolean } | null
 }
 
 export function CartDrawer({
@@ -62,7 +66,9 @@ export function CartDrawer({
   deliveryAddress,
   onDeliveryAddressChange,
   deliveryFeeQuote,
+  activeDeliveryWarning = null,
 }: CartDrawerProps) {
+  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false)
   const deliveryFieldClass =
     'w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500'
   const deliveryComplete = isDeliveryAddressComplete(deliveryAddress)
@@ -71,6 +77,15 @@ export function CartDrawer({
   // simply not part of the total yet, same as it not existing for a dine-in/Balcão order.
   const deliveryFee = showDeliveryFields && deliveryFeeQuote?.available ? (deliveryFeeQuote.fee ?? 0) : 0
   const totalWithDelivery = roundCurrency(cartTotal + deliveryFee)
+
+  function handleSubmitClick() {
+    if (activeDeliveryWarning && !showDuplicateConfirm) {
+      setShowDuplicateConfirm(true)
+      return
+    }
+    onSubmit()
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -355,9 +370,35 @@ export function CartDrawer({
 
                   {orderError && <p className="mb-3 text-sm text-wine-600 dark:text-wine-400">{orderError}</p>}
 
+                  {showDuplicateConfirm && activeDeliveryWarning && (
+                    <div className="mb-3 rounded-xl border border-gold-300 bg-gold-50 p-3 dark:border-gold-500/30 dark:bg-gold-500/10">
+                      <p className="flex items-start gap-2 text-sm font-medium text-gold-800 dark:text-gold-300">
+                        <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                        Você já tem um pedido em aberto{!activeDeliveryWarning.paid && ' aguardando pagamento'}. Quer mesmo criar outro?
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowDuplicateConfirm(false)}
+                          className="flex-1 rounded-lg border border-gold-300 px-3 py-2 text-xs font-semibold text-gold-800 hover:bg-gold-100 dark:border-gold-500/40 dark:text-gold-300 dark:hover:bg-gold-500/10"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={onSubmit}
+                          disabled={isSubmitting}
+                          className="flex-1 rounded-lg bg-gold-600 px-3 py-2 text-xs font-semibold text-white hover:bg-gold-700 disabled:opacity-50"
+                        >
+                          {isSubmitting ? 'Enviando...' : 'Enviar mesmo assim'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     type="button"
-                    onClick={onSubmit}
+                    onClick={handleSubmitClick}
                     disabled={isSubmitting || (showDeliveryFields && !deliveryComplete) || deliveryZoneUnavailable}
                     className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-brand-500 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-900/20 transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100"
                   >

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Bell,
+  BellOff,
   Check,
   ChefHat,
   Clock,
@@ -12,16 +14,16 @@ import {
   PartyPopper,
   QrCode,
   Receipt,
+  Share2,
   ShoppingBag,
   Sun,
 } from 'lucide-react'
-import { useEffect, useState, type ComponentType } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useRef, useState, type ComponentType } from 'react'
+import { useParams } from 'react-router-dom'
 import {
   DELIVERY_ACCENT_STYLES,
   DELIVERY_STATUS_LABELS,
   DELIVERY_STATUS_MESSAGES,
-  DELIVERY_STATUS_STYLES,
   type DeliveryStatus,
 } from '../../api/deliveries'
 import { cancelPublicDeliveryCardCharge, cancelPublicDeliveryPixCharge, getPublicDeliveryStatus } from '../../api/publicMenu'
@@ -35,10 +37,18 @@ import { CardPaymentModal } from './CardPaymentModal'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
-const STEPS: { status: DeliveryStatus; label: string; icon: ComponentType<{ className?: string }> }[] = [
+const DELIVERY_STEPS: { status: DeliveryStatus; label: string; icon: ComponentType<{ className?: string }> }[] = [
   { status: 'SEPARATING', label: 'Preparando', icon: ChefHat },
   { status: 'OUT_FOR_DELIVERY', label: 'A caminho', icon: DeliveryRiderIcon },
   { status: 'DELIVERED', label: 'Entregue', icon: PartyPopper },
+]
+
+// Payment is prepended as its own tracker step (always shown, marked done once delivery.paid) so
+// the payment card and the step tracker read as one continuous progression instead of the tracker
+// appearing out of nowhere the instant the payment card disappears.
+const STEPS: { key: string; label: string; icon: ComponentType<{ className?: string }> }[] = [
+  { key: 'PAYMENT', label: 'Pagamento', icon: CreditCard },
+  ...DELIVERY_STEPS.map((step) => ({ key: step.status as string, label: step.label, icon: step.icon })),
 ]
 
 export function DeliveryStatusPage() {
@@ -51,6 +61,19 @@ export function DeliveryStatusPage() {
   // before and after - without this, clicking the link reads as "nothing happened" even though it
   // worked. Cleared on the next click/unmount so it can't linger past its own confirmation window.
   const [justCancelled, setJustCancelled] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
+  // Browser notification permission - lets a customer who has this granted find out the order
+  // moved forward (SEPARATING -> OUT_FOR_DELIVERY -> DELIVERED) without keeping the tab in view,
+  // instead of only the "Ao vivo" polling badge that's only useful while actually looking at it.
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() =>
+    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
+  )
+  // Once denied, a site can never re-prompt via JS (browser security) - Notification.requestPermission()
+  // silently resolves back to 'denied' instead of showing the dialog again. Clicking the disabled
+  // bell surfaces this explanation instead of doing nothing, since the only real fix is the
+  // customer unblocking it themselves in the browser's own site settings.
+  const [showNotificationBlockedHint, setShowNotificationBlockedHint] = useState(false)
+  const previousStatusRef = useRef<DeliveryStatus | null>(null)
 
   const { data: delivery, isLoading, isError, isFetching } = useQuery({
     queryKey: ['deliveryStatus', token],
@@ -88,6 +111,55 @@ export function DeliveryStatusPage() {
     return () => window.clearTimeout(timeout)
   }, [justCancelled])
 
+  // Fires only on an actual status transition (previousStatusRef starts null, so the first load
+  // never notifies) and only while the tab isn't the one currently in view - if the customer is
+  // looking at the page, the step tracker already shows the change live.
+  useEffect(() => {
+    if (!delivery) return
+    const previousStatus = previousStatusRef.current
+    previousStatusRef.current = delivery.status
+    if (
+      previousStatus &&
+      previousStatus !== delivery.status &&
+      notificationPermission === 'granted' &&
+      document.visibilityState !== 'visible'
+    ) {
+      new Notification(DELIVERY_STATUS_LABELS[delivery.status], {
+        body: DELIVERY_STATUS_MESSAGES[delivery.status],
+        tag: `delivery-status-${token}`,
+      })
+    }
+  }, [delivery, notificationPermission, token])
+
+  function requestNotificationPermission() {
+    if (typeof Notification === 'undefined') return
+    Notification.requestPermission().then(setNotificationPermission)
+  }
+
+  useEffect(() => {
+    if (!showNotificationBlockedHint) return
+    const timeout = window.setTimeout(() => setShowNotificationBlockedHint(false), 6000)
+    return () => window.clearTimeout(timeout)
+  }, [showNotificationBlockedHint])
+
+  // Native share sheet (WhatsApp, SMS, etc.) on mobile/supported browsers; falls back to copying
+  // the link where navigator.share isn't available (most desktop browsers). A share the customer
+  // cancels rejects with AbortError - that's a normal outcome, not a failure to report.
+  async function handleShare() {
+    const url = window.location.href
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Acompanhar meu pedido', text: `Acompanhe meu pedido em ${delivery?.restaurantName}`, url })
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return
+      }
+      return
+    }
+    navigator.clipboard.writeText(url)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
+  }
+
   const themeClass = theme === 'dark' ? 'dark' : ''
 
   if (isLoading) {
@@ -106,7 +178,8 @@ export function DeliveryStatusPage() {
     )
   }
 
-  const currentStepIndex = STEPS.findIndex((step) => step.status === delivery.status)
+  const deliveryStatusStepIndex = DELIVERY_STEPS.findIndex((step) => step.status === delivery.status)
+  const currentStepIndex = delivery.paid ? deliveryStatusStepIndex + 1 : 0
   const itemsTotal = delivery.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0)
   const total = delivery.billTotal ?? itemsTotal + delivery.deliveryFee
 
@@ -145,6 +218,26 @@ export function DeliveryStatusPage() {
                 </span>
                 Ao vivo
               </span>
+              {notificationPermission === 'default' && (
+                <button
+                  type="button"
+                  onClick={requestNotificationPermission}
+                  title="Avisar quando o pedido mudar de status, mesmo com a aba fechada"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+                >
+                  <Bell className="h-4 w-4" />
+                </button>
+              )}
+              {notificationPermission === 'denied' && (
+                <button
+                  type="button"
+                  onClick={() => setShowNotificationBlockedHint(true)}
+                  title="Notificações bloqueadas - toque para ver como reativar"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white/70 transition-colors hover:bg-white/15"
+                >
+                  <BellOff className="h-4 w-4" />
+                </button>
+              )}
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -182,60 +275,66 @@ export function DeliveryStatusPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-md space-y-4 px-4 pt-6 pb-12">
-        {/* Step tracker */}
-        {delivery.paid && (
-          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
-            <div className="flex items-start">
-              {STEPS.map((step, index) => {
-                const Icon = step.icon
-                const isDone = index < currentStepIndex
-                const isCurrent = index === currentStepIndex
-                const isActive = index <= currentStepIndex
-                return (
-                  <div key={step.status} className="flex flex-1 items-start last:flex-none">
-                    <div className="flex flex-col items-center gap-1.5">
-                      <motion.span
-                        animate={isCurrent ? { scale: [1, 1.08, 1] } : { scale: 1 }}
-                        transition={isCurrent ? { duration: 1.6, repeat: Infinity, ease: 'easeInOut' } : {}}
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition-colors duration-500 ${
-                          isActive ? DELIVERY_ACCENT_STYLES[delivery.status] : 'bg-gray-200 dark:bg-white/10'
-                        }`}
-                      >
-                        {isDone ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
-                      </motion.span>
-                      <span
-                        className={`text-[11px] font-medium whitespace-nowrap ${
-                          isActive ? 'text-gray-700 dark:text-stone-200' : 'text-gray-400 dark:text-stone-600'
-                        }`}
-                      >
-                        {step.label}
-                      </span>
-                    </div>
-                    {index < STEPS.length - 1 && (
-                      <div className="mt-4.5 h-1 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
-                        <motion.div
-                          initial={false}
-                          animate={{ width: index < currentStepIndex ? '100%' : '0%' }}
-                          transition={{ duration: 0.5, ease: 'easeOut' }}
-                          className={`h-full rounded-full ${DELIVERY_ACCENT_STYLES[delivery.status]}`}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {!delivery.paid && (
-          <span
-            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${DELIVERY_STATUS_STYLES[delivery.status]}`}
+      <AnimatePresence>
+        {showNotificationBlockedHint && (
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-x-4 top-4 z-30 mx-auto max-w-sm rounded-2xl bg-stone-900 px-4 py-3 text-center text-sm text-white shadow-lg dark:bg-stone-800"
           >
-            {DELIVERY_STATUS_LABELS[delivery.status]}
-          </span>
+            Notificações bloqueadas pra este site. Pra reativar, toque no ícone de cadeado (ou de
+            informações) ao lado do endereço do navegador e permita notificações.
+          </motion.div>
         )}
+      </AnimatePresence>
+
+      <main className="mx-auto max-w-md space-y-4 px-4 pt-6 pb-12">
+        {/* Step tracker - always visible (payment is its own first step) so it never has to pop
+            in or out as a separate element the instant the payment card above disappears. */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+          <div className="flex items-start">
+            {STEPS.map((step, index) => {
+              const Icon = step.icon
+              const isDone = index < currentStepIndex
+              const isCurrent = index === currentStepIndex
+              const isActive = index <= currentStepIndex
+              return (
+                <div key={step.key} className="flex flex-1 items-start last:flex-none">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <motion.span
+                      animate={isCurrent ? { scale: [1, 1.08, 1] } : { scale: 1 }}
+                      transition={isCurrent ? { duration: 1.6, repeat: Infinity, ease: 'easeInOut' } : {}}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-sm transition-colors duration-500 ${
+                        isActive ? DELIVERY_ACCENT_STYLES[delivery.status] : 'bg-gray-200 dark:bg-white/10'
+                      }`}
+                    >
+                      {isDone ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                    </motion.span>
+                    <span
+                      className={`text-[11px] font-medium whitespace-nowrap ${
+                        isActive ? 'text-gray-700 dark:text-stone-200' : 'text-gray-400 dark:text-stone-600'
+                      }`}
+                    >
+                      {step.label}
+                    </span>
+                  </div>
+                  {index < STEPS.length - 1 && (
+                    <div className="mt-4.5 h-1 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+                      <motion.div
+                        initial={false}
+                        animate={{ width: index < currentStepIndex ? '100%' : '0%' }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                        className={`h-full rounded-full ${DELIVERY_ACCENT_STYLES[delivery.status]}`}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
 
         {/* Order items */}
         {delivery.items.length > 0 && (
@@ -363,13 +462,15 @@ export function DeliveryStatusPage() {
 
         {/* What next - keeps the customer from being stranded once they're done looking at status */}
         <div className="grid grid-cols-1 gap-2 pt-2 sm:grid-cols-2">
-          <Link
-            to={`/menu/${delivery.restaurantSlug}`}
+          <a
+            href={`/menu/${delivery.restaurantSlug}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 dark:border-white/10 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-white/5"
           >
             <ShoppingBag className="h-4 w-4" />
             Fazer novo pedido
-          </Link>
+          </a>
           {delivery.restaurantPhone && (
             <a
               href={buildWhatsAppUrl(
@@ -384,6 +485,14 @@ export function DeliveryStatusPage() {
               Falar com {delivery.restaurantName}
             </a>
           )}
+          <button
+            type="button"
+            onClick={handleShare}
+            className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 dark:border-white/10 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-white/5 sm:col-span-2"
+          >
+            {linkCopied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+            {linkCopied ? 'Link copiado!' : 'Compartilhar pedido'}
+          </button>
         </div>
       </main>
 
