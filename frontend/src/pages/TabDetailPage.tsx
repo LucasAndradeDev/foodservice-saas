@@ -177,6 +177,7 @@ export function TabDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [isMerging, setIsMerging] = useState(false)
   const [isConfirmingCancel, setIsConfirmingCancel] = useState(false)
+  const [leaveTarget, setLeaveTarget] = useState<string | null>(null)
   const [tabPendingMerge, setTabPendingMerge] = useState<Tab | null>(null)
   const [pendingUndo, setPendingUndo] = useState<{ sourceTabId: string; label: string } | null>(null)
   const pendingUndoTimeoutRef = useRef<number | null>(null)
@@ -729,9 +730,18 @@ export function TabDetailPage() {
   const activePayments = tab.payments.filter((payment) => payment.status === 'ACTIVE')
   const hasOutstandingBalance = tab.status === 'CLOSED' && (tab.remainingBalance ?? 0) > 0
 
+  function handleBackClick() {
+    const target = tab!.deliveryStatus ? '/deliveries' : '/tables'
+    if (draftItems.length > 0) {
+      setLeaveTarget(target)
+      return
+    }
+    navigate(target)
+  }
+
   return (
     <div>
-      <BackLink onClick={() => navigate(tab.deliveryStatus ? '/deliveries' : '/tables')} className="mb-4">
+      <BackLink onClick={handleBackClick} className="mb-4">
         {tab.deliveryStatus ? 'Voltar para Delivery' : 'Voltar para Mesas'}
       </BackLink>
 
@@ -1406,6 +1416,26 @@ export function TabDetailPage() {
           isLoading={cancelMutation.isPending}
           onConfirm={confirmCancelTab}
           onCancel={() => setIsConfirmingCancel(false)}
+        />
+      )}
+
+      {leaveTarget && (
+        <ConfirmDialog
+          title="Sair sem enviar o pedido?"
+          message={
+            draftItems.length === 1
+              ? 'Você tem 1 item ainda não enviado pra cozinha. Se sair agora, ele é perdido.'
+              : `Você tem ${draftItems.length} itens ainda não enviados pra cozinha. Se sair agora, eles são perdidos.`
+          }
+          confirmLabel="Sair mesmo assim"
+          cancelLabel="Continuar aqui"
+          danger
+          onConfirm={() => {
+            const target = leaveTarget
+            setLeaveTarget(null)
+            navigate(target)
+          }}
+          onCancel={() => setLeaveTarget(null)}
         />
       )}
 

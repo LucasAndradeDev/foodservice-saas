@@ -440,22 +440,34 @@ export function TablesPage() {
     bulkMutation.mutate(Number(quantityInput))
   }
 
-  function handleTableSubmit(event: FormEvent) {
+  async function handleTableSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
     if (!selectedTable) return
 
     if (canManage) {
       const areaPayload = editAreaId ? { areaId: editAreaId } : { clearArea: true }
-      updateMutation.mutate(
-        { id: selectedTable.id, payload: { number: Number(editNumber), active: editActive, ...areaPayload } },
-        { onError: () => setError('Não foi possível salvar. Verifique se o número já está em uso.') },
-      )
+      try {
+        await updateMutation.mutateAsync({
+          id: selectedTable.id,
+          payload: { number: Number(editNumber), active: editActive, ...areaPayload },
+        })
+      } catch {
+        setError('Não foi possível salvar. Verifique se o número já está em uso.')
+        return
+      }
     }
+
     const originalEditableStatus = selectedTable.status === 'RESERVED' ? 'FREE' : selectedTable.status
     if (editStatus !== originalEditableStatus) {
-      statusMutation.mutate({ id: selectedTable.id, status: editStatus })
+      try {
+        await statusMutation.mutateAsync({ id: selectedTable.id, status: editStatus })
+      } catch {
+        setError('Não foi possível salvar o status da mesa.')
+        return
+      }
     }
+
     closeTableModal()
   }
 
