@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { AlertTriangle, CheckCircle2, FileSpreadsheet, LoaderCircle, Trash2, Upload } from 'lucide-react'
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent } from 'react'
 import {
   commitMenuImport,
   uploadMenuDocuments,
@@ -11,14 +11,16 @@ import {
 } from '../api/menuImport'
 import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
+import { CurrencyInput } from '../components/CurrencyInput'
 import { PageHeader } from '../components/PageHeader'
 import { Table, TableHead, TableRow } from '../components/Table'
+import { toTitleCase } from '../utils/textCase'
 
 interface DraftRow {
   tempId: string
   name: string
   description: string
-  price: string
+  price: number | null
   categoryName: string
   duplicate: boolean
 }
@@ -54,6 +56,7 @@ export function MenuImportPage() {
   const [warnings, setWarnings] = useState<string[]>(() => loadStoredDraft()?.warnings ?? [])
   const [draftRows, setDraftRows] = useState<DraftRow[]>(() => loadStoredDraft()?.draftRows ?? [])
   const [commitResult, setCommitResult] = useState<MenuImportCommitResult | null>(null)
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
 
   useEffect(() => {
     if (step === 'upload' && draftRows.length === 0) {
@@ -88,9 +91,7 @@ export function MenuImportPage() {
     onError: () => setExtractError('Não foi possível importar o cardápio. Tente novamente.'),
   })
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const files = event.target.files ? Array.from(event.target.files) : []
-    event.target.value = ''
+  async function processFiles(files: File[]) {
     if (files.length === 0) return
 
     const isSpreadsheet = files.length === 1 && files[0].name.toLowerCase().endsWith('.xlsx')
@@ -99,13 +100,15 @@ export function MenuImportPage() {
     setExtractError(null)
     try {
       const preview = isSpreadsheet ? await uploadMenuExcel(files[0]) : await uploadMenuDocuments(files)
-      const categoryNameByTempId = new Map(preview.categories.map((category) => [category.tempId, category.name]))
+      const categoryNameByTempId = new Map(
+        preview.categories.map((category) => [category.tempId, toTitleCase(category.name)]),
+      )
       setDraftRows(
         preview.products.map((product) => ({
           tempId: product.tempId,
-          name: product.name,
-          description: product.description ?? '',
-          price: product.price != null ? String(product.price) : '',
+          name: toTitleCase(product.name),
+          description: product.description ? toTitleCase(product.description) : '',
+          price: product.price ?? null,
           categoryName: categoryNameByTempId.get(product.categoryTempId) ?? '',
           duplicate: product.duplicate,
         })),
@@ -124,8 +127,35 @@ export function MenuImportPage() {
     }
   }
 
-  function updateRow(index: number, field: keyof DraftRow, value: string) {
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files ? Array.from(event.target.files) : []
+    event.target.value = ''
+    void processFiles(files)
+  }
+
+  function handleDragOver(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault()
+    if (!isExtracting) setIsDraggingOver(true)
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault()
+    setIsDraggingOver(false)
+  }
+
+  function handleDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault()
+    setIsDraggingOver(false)
+    if (isExtracting) return
+    void processFiles(Array.from(event.dataTransfer.files))
+  }
+
+  function updateRow(index: number, field: 'name' | 'description' | 'categoryName', value: string) {
     setDraftRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)))
+  }
+
+  function updatePrice(index: number, price: number | null) {
+    setDraftRows((prev) => prev.map((row, i) => (i === index ? { ...row, price } : row)))
   }
 
   function removeRow(index: number) {
@@ -140,7 +170,7 @@ export function MenuImportPage() {
     setCommitResult(null)
   }
 
-  const missingPriceCount = draftRows.filter((row) => !row.price || Number(row.price) <= 0).length
+  const missingPriceCount = draftRows.filter((row) => row.price == null || row.price <= 0).length
   const hasMissingPrice = missingPriceCount > 0
   const canConfirm = draftRows.length > 0 && !hasMissingPrice && !commitMutation.isPending
 
@@ -150,7 +180,7 @@ export function MenuImportPage() {
       draftRows.map((row) => ({
         name: row.name,
         description: row.description || undefined,
-        price: Number(row.price),
+        price: row.price ?? 0,
         categoryName: row.categoryName,
       })),
     )
@@ -174,7 +204,16 @@ export function MenuImportPage() {
             é salvo sem sua aprovação.
           </p>
 
-          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-6 py-10 text-sm text-gray-500 hover:border-brand-400 hover:bg-brand-50 dark:border-white/10 dark:text-stone-400 dark:hover:border-brand-400 dark:hover:bg-brand-500/10">
+          <label
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-10 text-sm transition-colors ${
+              isDraggingOver
+                ? 'border-brand-500 bg-brand-50 text-brand-600 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-400'
+                : 'border-gray-300 text-gray-500 hover:border-brand-400 hover:bg-brand-50 dark:border-white/10 dark:text-stone-400 dark:hover:border-brand-400 dark:hover:bg-brand-500/10'
+            }`}
+          >
             {isExtracting ? (
               <LoaderCircle className="h-6 w-6 animate-spin text-brand-500" />
             ) : (
@@ -182,7 +221,9 @@ export function MenuImportPage() {
             )}
             {isExtracting
               ? 'Analisando cardápio...'
-              : 'Clique para selecionar um .xlsx, um PDF, ou uma ou mais fotos'}
+              : isDraggingOver
+                ? 'Solte o arquivo aqui'
+                : 'Arraste um arquivo aqui ou clique para selecionar um .xlsx, um PDF, ou uma ou mais fotos'}
             <input
               type="file"
               accept=".xlsx,.pdf,image/jpeg,image/png,image/webp"
@@ -312,13 +353,14 @@ export function MenuImportPage() {
                       className="mb-2 w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                     />
                     <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-stone-400">Preço</label>
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
+                    <CurrencyInput
                       value={row.price}
-                      onChange={(e) => updateRow(index, 'price', e.target.value)}
-                      className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                      onChange={(value) => updatePrice(index, value)}
+                      className={`w-full rounded-md border px-2 py-1 text-sm focus:outline-none dark:bg-stone-800 dark:text-white ${
+                        row.price == null || row.price <= 0
+                          ? 'border-wine-400 focus:border-wine-500 dark:border-wine-500/60'
+                          : 'border-gray-300 focus:border-brand-500 dark:border-white/10 dark:focus:border-brand-400'
+                      }`}
                     />
                   </div>
                 ))}
@@ -371,14 +413,11 @@ export function MenuImportPage() {
                           />
                         </td>
                         <td className="px-4 py-2 align-top">
-                          <input
-                            type="number"
-                            min="0.01"
-                            step="0.01"
+                          <CurrencyInput
                             value={row.price}
-                            onChange={(e) => updateRow(index, 'price', e.target.value)}
-                            className={`w-24 rounded-md border px-2 py-1 text-sm focus:outline-none dark:bg-stone-800 dark:text-white ${
-                              !row.price || Number(row.price) <= 0
+                            onChange={(value) => updatePrice(index, value)}
+                            className={`w-28 rounded-md border px-2 py-1 text-sm focus:outline-none dark:bg-stone-800 dark:text-white ${
+                              row.price == null || row.price <= 0
                                 ? 'border-wine-400 focus:border-wine-500 dark:border-wine-500/60'
                                 : 'border-gray-300 focus:border-brand-500 dark:border-white/10 dark:focus:border-brand-400'
                             }`}
