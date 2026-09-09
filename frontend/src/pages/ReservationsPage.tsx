@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CalendarClock, ChevronLeft, ChevronRight, Phone, Plus, Users } from 'lucide-react'
+import { CalendarClock, ChevronLeft, ChevronRight, MessageCircle, Phone, Plus, Users } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -22,6 +22,7 @@ import { DateTimePicker } from '../components/DateTimePicker'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
 import { Toggle } from '../components/Toggle'
+import { buildWhatsAppUrl } from '../utils/phone'
 
 const RESERVATION_STATUS_STYLES: Record<ReservationStatus, string> = {
   SCHEDULED: 'bg-teal-100 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
@@ -279,10 +280,22 @@ export function ReservationsPage() {
                       <Users className="h-3.5 w-3.5" />
                       {reservation.partySize}
                     </span>
-                    <span className="flex items-center gap-1">
+                    <a
+                      href={`tel:${reservation.customerPhone.replace(/\D/g, '')}`}
+                      className="flex items-center gap-1 hover:text-brand-600 dark:hover:text-brand-400"
+                    >
                       <Phone className="h-3.5 w-3.5" />
                       {reservation.customerPhone}
-                    </span>
+                    </a>
+                    <a
+                      href={buildWhatsAppUrl(reservation.customerPhone)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sage-600 hover:text-sage-700 dark:text-sage-400 dark:hover:text-sage-300"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      WhatsApp
+                    </a>
                     {reservation.tables.length > 0 && (
                       <span>Mesa {reservation.tables.map((t) => t.number).join(', ')}</span>
                     )}
