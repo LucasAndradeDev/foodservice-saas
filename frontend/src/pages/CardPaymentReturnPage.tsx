@@ -1,7 +1,7 @@
 import { CheckCircle2, Clock, XCircle } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { verifyCardCharge } from '../api/cardIntegration'
+import { resolveDeliveryReturnToken, verifyCardCharge } from '../api/cardIntegration'
 
 const STATUS_CONTENT = {
   success: { icon: CheckCircle2, message: 'Pagamento em confirmação. Já já a comanda fecha sozinha.', tone: 'text-sage-600 dark:text-sage-400' },
@@ -21,21 +21,25 @@ const STATUS_CONTENT = {
  * `ref` (our own externalReference, embedded in the back_url when the charge was created - never
  * anything Mercado Pago appends) - that endpoint re-asks Mercado Pago directly and only acts if
  * the answer matches a real PENDING charge, so it stays just as trustworthy as the webhook, only
- * triggered differently. When menu/table are present (the digital-menu flow) or delivery is
+ * triggered differently. When menu/table are present (the digital-menu flow) or flow=delivery is
  * present (the delivery flow, task 29.1), this redirects back after a few seconds, where the
  * existing polling (already proven for Pix) detects the tab closing; the Caixa flow has nowhere
  * meaningful to redirect back to (this is the customer's own phone, no session), so it just shows
- * a static message.
+ * a static message. SECURITY INVARIANT: the delivery order's own tracking token never travels
+ * through this URL (it's Mercado Pago's own server that issues this redirect, so anything embedded
+ * in it lands in their infrastructure too) - `flow=delivery` is just a non-sensitive marker, and the
+ * actual token is resolved from our own backend via `ref` (see CardChargeService#buildDeliveryReturnUrl).
  */
 export function CardPaymentReturnPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const verifiedRef = useRef(false)
+  const [deliveryToken, setDeliveryToken] = useState<string | null>(null)
 
   const status = searchParams.get('status')
   const menu = searchParams.get('menu')
   const table = searchParams.get('table')
-  const delivery = searchParams.get('delivery')
+  const isDeliveryFlow = searchParams.get('flow') === 'delivery'
   const ref = searchParams.get('ref')
   const content = STATUS_CONTENT[status as keyof typeof STATUS_CONTENT] ?? STATUS_CONTENT.pending
   const Icon = content.icon
@@ -46,20 +50,25 @@ export function CardPaymentReturnPage() {
     verifyCardCharge(ref).catch(() => {
       // Best-effort backstop - the webhook (or a later manual close) still covers this.
     })
-  }, [ref])
+    if (isDeliveryFlow) {
+      resolveDeliveryReturnToken(ref).then(setDeliveryToken).catch(() => {
+        // Best-effort - if this fails the customer just stays on the static message below.
+      })
+    }
+  }, [ref, isDeliveryFlow])
 
   useEffect(() => {
-    if (!menu && !delivery) return
-    const destination = delivery ? `/delivery/status/${delivery}` : `/menu/${menu}/${table}`
+    if (!menu && !deliveryToken) return
+    const destination = deliveryToken ? `/delivery/status/${deliveryToken}` : `/menu/${menu}/${table}`
     const timeout = setTimeout(() => navigate(destination, { replace: true }), 2500)
     return () => clearTimeout(timeout)
-  }, [menu, table, delivery, navigate])
+  }, [menu, table, deliveryToken, navigate])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-50 px-4 text-center dark:bg-stone-950">
       <Icon className={`h-10 w-10 ${content.tone}`} />
       <p className="max-w-xs text-sm text-gray-700 dark:text-stone-300">{content.message}</p>
-      {!menu && !delivery && <p className="text-xs text-gray-400 dark:text-stone-500">Pode fechar essa aba.</p>}
+      {!menu && !isDeliveryFlow && <p className="text-xs text-gray-400 dark:text-stone-500">Pode fechar essa aba.</p>}
     </div>
   )
 }

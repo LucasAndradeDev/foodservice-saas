@@ -252,9 +252,9 @@ public class CardChargeService {
             MercadoPagoApiClient.PreferenceResult result = mercadoPagoApiClient.createPreference(
                     mpAccessToken, externalReference, amount, "Comanda " + tabId,
                     buildNotificationUrl(restaurantId),
-                    buildDeliveryReturnUrl(accessToken, "success", externalReference),
-                    buildDeliveryReturnUrl(accessToken, "pending", externalReference),
-                    buildDeliveryReturnUrl(accessToken, "failure", externalReference));
+                    buildDeliveryReturnUrl("success", externalReference),
+                    buildDeliveryReturnUrl("pending", externalReference),
+                    buildDeliveryReturnUrl("failure", externalReference));
 
             CardCharge charge = CardCharge.builder()
                     .restaurantId(restaurantId)
@@ -567,8 +567,35 @@ public class CardChargeService {
         return frontendUrl + "/pagamento/retorno?status=" + status + "&menu=" + slug + "&table=" + tableId + "&ref=" + externalReference;
     }
 
-    private String buildDeliveryReturnUrl(String accessToken, String status, String externalReference) {
-        return frontendUrl + "/pagamento/retorno?status=" + status + "&delivery=" + accessToken + "&ref=" + externalReference;
+    // No access token here on purpose: this URL is handed to Mercado Pago's own server as the
+    // back_url, so anything embedded in it lands in their infrastructure/logs too. The delivery
+    // order's access token is the customer's long-lived bearer credential for that order (same
+    // class as Reservation.accessToken) and has no business leaving our own systems - the return
+    // page resolves it itself via resolveDeliveryAccessTokenForReturn, keyed off this same
+    // externalReference, which was already an accepted single-use hand-off.
+    private String buildDeliveryReturnUrl(String status, String externalReference) {
+        return frontendUrl + "/pagamento/retorno?status=" + status + "&flow=delivery&ref=" + externalReference;
+    }
+
+    /**
+     * Resolves the delivery order's own tracking token for {@code CardPaymentReturnPage} to
+     * redirect to, looked up by the charge's externalReference instead of the access token
+     * traveling through the Mercado Pago back_url (see {@link #buildDeliveryReturnUrl}). Empty
+     * when the charge isn't found or isn't tied to a delivery order (e.g. the Caixa/menu flows).
+     */
+    @Transactional
+    public Optional<String> resolveDeliveryAccessTokenForReturn(String externalReference) {
+        CardCharge charge = cardChargeRepository.findByExternalReferenceBypassingRls(externalReference).orElse(null);
+        if (charge == null) {
+            return Optional.empty();
+        }
+        tenantActivator.activate(charge.getRestaurantId());
+        try {
+            return deliveryDetailsRepository.findByTab_IdAndRestaurantId(charge.getTab().getId(), charge.getRestaurantId())
+                    .map(DeliveryDetails::getAccessToken);
+        } finally {
+            tenantActivator.deactivate();
+        }
     }
 
     private CardChargeResponse toResponse(CardCharge charge) {

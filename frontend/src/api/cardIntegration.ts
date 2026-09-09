@@ -19,3 +19,12 @@ export function saveCardIntegration(accessToken: string, webhookSecret: string) 
 export function verifyCardCharge(externalReference: string) {
   return http.post(`/public/payments/mercadopago/verify/${externalReference}`)
 }
+
+// The delivery order's tracking token never travels through Mercado Pago's back_url (see
+// CardChargeService#buildDeliveryReturnUrl) - CardPaymentReturnPage resolves it here instead,
+// keyed off the same externalReference, so it can redirect back to /delivery/status/:token.
+export function resolveDeliveryReturnToken(externalReference: string) {
+  return http
+    .get<{ accessToken: string }>(`/public/payments/mercadopago/verify/${externalReference}/delivery-token`)
+    .then((res) => res.data.accessToken || null)
+}
