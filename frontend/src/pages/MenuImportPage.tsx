@@ -239,35 +239,50 @@ export function MenuImportPage() {
       )}
 
       {step === 'review' && commitResult && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-stone-900">
-          <p className="mb-4 flex items-center gap-2 text-sm font-medium text-green-700">
-            <CheckCircle2 className="h-5 w-5" />
-            Importação concluída
-          </p>
-          <ul className="mb-4 space-y-1 text-sm text-gray-600 dark:text-stone-400">
-            <li>Categorias criadas: {commitResult.categoriesCreated}</li>
-            <li>Categorias reaproveitadas: {commitResult.categoriesReused}</li>
-            <li>Produtos criados: {commitResult.productsCreated}</li>
-          </ul>
-          {commitResult.skipped.length > 0 && (
-            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-400">
-              <p className="mb-1 font-medium">{commitResult.skipped.length} produto(s) não foram importados:</p>
-              <ul className="list-inside list-disc">
-                {commitResult.skipped.map((item) => (
-                  <li key={item.productName}>
-                    {item.productName} - {item.reason}
-                  </li>
-                ))}
-              </ul>
+        <div className="rounded-2xl border border-gray-200 bg-white px-6 py-12 shadow-sm dark:border-white/10 dark:bg-stone-900 sm:px-10">
+          <div className="mx-auto flex max-w-lg flex-col items-center text-center">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-500/10">
+              <CheckCircle2 className="h-9 w-9 text-green-600 dark:text-green-400" />
             </div>
-          )}
-          <button
-            type="button"
-            onClick={startOver}
-            className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700"
-          >
-            Importar outra planilha
-          </button>
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Importação concluída</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-stone-400">Seu cardápio foi atualizado com sucesso.</p>
+
+            <div className="mt-8 grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-white/10 dark:bg-white/5">
+                <p className="text-3xl font-semibold text-gray-900 dark:text-white">{commitResult.categoriesCreated}</p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-stone-400">Categorias criadas</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-white/10 dark:bg-white/5">
+                <p className="text-3xl font-semibold text-gray-900 dark:text-white">{commitResult.categoriesReused}</p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-stone-400">Categorias reaproveitadas</p>
+              </div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-white/10 dark:bg-white/5">
+                <p className="text-3xl font-semibold text-gray-900 dark:text-white">{commitResult.productsCreated}</p>
+                <p className="mt-1 text-xs text-gray-500 dark:text-stone-400">Produtos criados</p>
+              </div>
+            </div>
+
+            {commitResult.skipped.length > 0 && (
+              <div className="mt-6 w-full rounded-md border border-amber-200 bg-amber-50 p-3 text-left text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
+                <p className="mb-1 font-medium">{commitResult.skipped.length} produto(s) não foram importados:</p>
+                <ul className="list-inside list-disc">
+                  {commitResult.skipped.map((item) => (
+                    <li key={item.productName}>
+                      {item.productName} - {item.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={startOver}
+              className="mt-8 rounded-lg bg-brand-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+            >
+              Importar outra planilha
+            </button>
+          </div>
         </div>
       )}
 
