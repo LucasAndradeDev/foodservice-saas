@@ -299,9 +299,13 @@ public class ReservationService {
     }
 
     private ReservationResponse toResponse(Reservation reservation) {
+        Restaurant restaurant = reservation.getRestaurant();
         return ReservationResponse.builder()
                 .id(reservation.getId())
-                .restaurantId(reservation.getRestaurant().getId())
+                .restaurantId(restaurant.getId())
+                .restaurantSlug(restaurant.getSlug())
+                .restaurantName(restaurant.getDisplayName())
+                .restaurantPhone(restaurant.getPhone())
                 .customerName(reservation.getCustomerName())
                 .customerPhone(reservation.getCustomerPhone())
                 .note(reservation.getNote())

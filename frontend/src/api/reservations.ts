@@ -18,6 +18,9 @@ export interface ReservationTableSummary {
 export interface Reservation {
   id: string
   restaurantId: string
+  restaurantSlug: string
+  restaurantName: string
+  restaurantPhone: string | null
   customerName: string
   customerPhone: string
   note: string | null

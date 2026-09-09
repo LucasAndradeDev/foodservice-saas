@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, Phone, Users } from 'lucide-react'
+import { CalendarClock, MessageCircle, Phone, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { RESERVATION_STATUS_LABELS, cancelReservationByToken, getReservationByToken } from '../api/reservations'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { buildWhatsAppUrl } from '../utils/phone'
 import { usePublicMenuTheme } from './publicMenu/usePublicMenuTheme'
 
 function formatDateTime(iso: string) {
@@ -62,7 +63,7 @@ export function PublicReservationStatusPage() {
               <CalendarClock className="h-5 w-5" />
             </span>
             <div>
-              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Sua reserva</h1>
+              <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Sua reserva em {reservation.restaurantName}</h1>
               <p className="text-sm text-gray-500 dark:text-stone-400">{RESERVATION_STATUS_LABELS[reservation.status]}</p>
             </div>
           </div>
@@ -79,6 +80,21 @@ export function PublicReservationStatusPage() {
             </p>
             {reservation.note && <p className="italic text-gray-500 dark:text-stone-400">{reservation.note}</p>}
           </div>
+
+          {reservation.restaurantPhone && (
+            <a
+              href={buildWhatsAppUrl(
+                reservation.restaurantPhone,
+                `Olá! Tenho uma dúvida sobre minha reserva pra ${formatDateTime(reservation.reservationTime)}.`,
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 dark:border-white/10 dark:text-stone-200 dark:hover:bg-white/5"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Falar com {reservation.restaurantName}
+            </a>
+          )}
 
           {cancelMutation.isSuccess && (
             <p className="mt-4 text-sm text-gray-500 dark:text-stone-400">Reserva cancelada.</p>
