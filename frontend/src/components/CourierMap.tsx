@@ -74,17 +74,18 @@ const destinationIcon = L.divIcon({
 
 // Adds the MapLibre GL vector basemap to the underlying Leaflet map once, on mount - there's only
 // ever one style, so nothing here needs to react to prop changes.
-const ATTRIBUTION = '&copy; OpenFreeMap &copy; OpenMapTiles &copy; OpenStreetMap contributors'
-
+//
+// No manual attributionControl.addAttribution() call here - @maplibre/maplibre-gl-leaflet already
+// adds one itself once the style loads, reading it straight from the style's own sources. Adding
+// our own on top of that produced a duplicated, wrapping attribution line (the same OpenFreeMap
+// credit twice, joined by Leaflet with ", ").
 function VectorBaseLayer() {
   const map = useMap()
 
   useEffect(() => {
     const gl = maplibreGL({ style: MAP_STYLE_URL }).addTo(map)
-    map.attributionControl.addAttribution(ATTRIBUTION)
     return () => {
       map.removeLayer(gl)
-      map.attributionControl.removeAttribution(ATTRIBUTION)
     }
   }, [map])
 
