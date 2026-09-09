@@ -5,6 +5,7 @@ export interface Dashboard {
   occupiedTables: number
   ordersInPreparation: number
   revenueToday: number
+  hasProducts: boolean
 }
 
 export function getDashboard() {

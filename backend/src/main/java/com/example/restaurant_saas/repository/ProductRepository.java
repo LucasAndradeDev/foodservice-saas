@@ -21,4 +21,9 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     boolean existsByCategoryId(UUID categoryId);
     boolean existsByRestaurantIdAndNameIgnoreCase(UUID restaurantId, String name);
     boolean existsByRestaurantIdAndNameIgnoreCaseAndIdNot(UUID restaurantId, String name, UUID id);
+
+    // Used by the dashboard's getting-started card - any product (active or not) counts as "the
+    // owner has been through this step at least once", so temporarily deactivating one item while
+    // still setting up others doesn't bring the onboarding prompt back.
+    boolean existsByRestaurantId(UUID restaurantId);
 }

@@ -5,6 +5,7 @@ import com.example.restaurant_saas.domain.enums.TableStatus;
 import com.example.restaurant_saas.dto.response.DashboardResponse;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.PaymentRepository;
+import com.example.restaurant_saas.repository.ProductRepository;
 import com.example.restaurant_saas.repository.RestaurantTableRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class DashboardService {
     private final RestaurantTableRepository tableRepository;
     private final OrderItemRepository orderItemRepository;
     private final PaymentRepository paymentRepository;
+    private final ProductRepository productRepository;
 
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard(UUID restaurantId) {
@@ -35,6 +37,7 @@ public class DashboardService {
                 .occupiedTables(tableRepository.countByRestaurantIdAndStatus(restaurantId, TableStatus.OCCUPIED))
                 .ordersInPreparation(orderItemRepository.countByOrder_Restaurant_IdAndStatusIn(restaurantId, OPEN_STATUSES))
                 .revenueToday(paymentRepository.sumNetActiveAmountByRestaurantIdAndPaidAtBetween(restaurantId, startOfDay, startOfNextDay))
+                .hasProducts(productRepository.existsByRestaurantId(restaurantId))
                 .build();
     }
 }

@@ -60,9 +60,13 @@ interface FirstStepProps {
   description: string
   to: string
   ctaLabel: string
+  // Renders a "done" badge instead of the call-to-action once this particular step is already
+  // complete - the two steps finish independently (a restaurant can set up its dining room before
+  // its menu, or the other way around), so the card can't just disappear or hide both at once.
+  done: boolean
 }
 
-function FirstStep({ icon: Icon, title, description, to, ctaLabel }: FirstStepProps) {
+function FirstStep({ icon: Icon, title, description, to, ctaLabel, done }: FirstStepProps) {
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:bg-stone-900/60">
       <div className="flex items-start gap-3">
@@ -74,18 +78,25 @@ function FirstStep({ icon: Icon, title, description, to, ctaLabel }: FirstStepPr
           <p className="text-sm text-gray-500 dark:text-stone-400">{description}</p>
         </div>
       </div>
-      <Link
-        to={to}
-        className="flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 sm:justify-start"
-      >
-        {ctaLabel}
-        <ArrowRight className="h-4 w-4" />
-      </Link>
+      {done ? (
+        <span className="flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-sage-50 px-3.5 py-2 text-sm font-medium text-sage-700 dark:bg-sage-500/10 dark:text-sage-400 sm:justify-start">
+          <CheckCircle2 className="h-4 w-4" />
+          Concluído
+        </span>
+      ) : (
+        <Link
+          to={to}
+          className="flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 sm:justify-start"
+        >
+          {ctaLabel}
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      )}
     </div>
   )
 }
 
-function GettingStartedCard() {
+function GettingStartedCard({ hasProducts, hasTables }: { hasProducts: boolean; hasTables: boolean }) {
   return (
     <motion.div
       variants={itemVariants}
@@ -96,7 +107,7 @@ function GettingStartedCard() {
         <h2 className="text-base font-semibold text-gray-800 dark:text-white">Vamos configurar seu restaurante</h2>
       </div>
       <p className="mb-4 text-sm text-gray-500 dark:text-stone-400">
-        Ainda não encontramos mesas cadastradas — comece por aqui pra deixar tudo pronto pra receber os primeiros pedidos.
+        Faltam alguns passos pra deixar tudo pronto pra receber os primeiros pedidos.
       </p>
       <div className="space-y-3">
         <FirstStep
@@ -105,6 +116,7 @@ function GettingStartedCard() {
           description="Importe automaticamente de um PDF ou foto do cardápio, ou cadastre os produtos manualmente."
           to="/products/import"
           ctaLabel="Importar cardápio"
+          done={hasProducts}
         />
         <FirstStep
           icon={Table2}
@@ -112,6 +124,7 @@ function GettingStartedCard() {
           description="Organize as mesas por área para começar a abrir comandas."
           to="/tables"
           ctaLabel="Cadastrar mesas"
+          done={hasTables}
         />
       </div>
     </motion.div>
@@ -149,7 +162,9 @@ export function DashboardPage() {
         <PageHeader icon={LayoutDashboard} title="Dashboard" />
       </motion.div>
 
-      {canSeeTrends && data.freeTables === 0 && data.occupiedTables === 0 && <GettingStartedCard />}
+      {canSeeTrends && (!data.hasProducts || (data.freeTables === 0 && data.occupiedTables === 0)) && (
+        <GettingStartedCard hasProducts={data.hasProducts} hasTables={data.freeTables > 0 || data.occupiedTables > 0} />
+      )}
 
       <motion.div
         variants={itemVariants}

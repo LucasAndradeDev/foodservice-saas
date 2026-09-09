@@ -176,7 +176,22 @@ class DashboardControllerIntegrationTest {
                 .andExpect(jsonPath("$.freeTables").value(3))
                 .andExpect(jsonPath("$.occupiedTables").value(0))
                 .andExpect(jsonPath("$.ordersInPreparation").value(0))
-                .andExpect(jsonPath("$.revenueToday").value(0));
+                .andExpect(jsonPath("$.revenueToday").value(0))
+                // 2026-09-09 onboarding audit, finding #1: tables alone (even several of them)
+                // must never flip this to true - only an actual product does.
+                .andExpect(jsonPath("$.hasProducts").value(false));
+    }
+
+    @Test
+    void getDashboard_withAtLeastOneProduct_shouldReportHasProductsTrue() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        String categoryId = createCategoryAndGetId(ownerToken);
+        createProductAndGetId(ownerToken, categoryId, "Cheeseburger", "25.90");
+
+        mockMvc.perform(get("/api/v1/dashboard")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.hasProducts").value(true));
     }
 
     @Test
