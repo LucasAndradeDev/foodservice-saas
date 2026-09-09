@@ -201,6 +201,15 @@ export function PublicMenuPage() {
     refetchIntervalInBackground: true,
   })
 
+  // A customer can land on DELIVERY from a restored draft/localStorage even if the restaurant
+  // never configured (or later removed) any delivery zone/distance fee - bounce back to dine-in
+  // instead of showing an address form that can never be quoted.
+  useEffect(() => {
+    if (menu && !menu.deliveryAvailable && orderMode === 'DELIVERY') {
+      setOrderMode('DINE_IN')
+    }
+  }, [menu, orderMode])
+
   // Only redirects when a tab we've watched be open during this very session just closed —
   // never on a fresh page load. That's what keeps a new customer scanning the table's QR from
   // ever landing on the previous customer's feedback prompt instead of the ordering menu.
@@ -565,7 +574,7 @@ export function PublicMenuPage() {
 
       {!tableId && (
         <div className="mx-auto max-w-2xl space-y-3 px-4 pt-3">
-          <OrderModeToggle mode={orderMode} onChange={setOrderMode} />
+          {menu.deliveryAvailable && <OrderModeToggle mode={orderMode} onChange={setOrderMode} />}
 
           {orderMode === 'DINE_IN' && (
             <button

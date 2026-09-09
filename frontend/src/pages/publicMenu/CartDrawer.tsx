@@ -71,6 +71,7 @@ export function CartDrawer({
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false)
   const deliveryFieldClass =
     'w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-stone-500'
+  const deliveryLabelClass = 'mb-1 block text-xs font-medium text-gray-500 dark:text-stone-400'
   const deliveryComplete = isDeliveryAddressComplete(deliveryAddress)
   const deliveryZoneUnavailable = showDeliveryFields && deliveryComplete && deliveryFeeQuote?.available === false
   // Known only once the neighborhood resolves to an active DeliveryZone - until then the fee is
@@ -275,96 +276,154 @@ export function CartDrawer({
                   )}
 
                   {showDeliveryFields && (
-                    <div className="mb-3 space-y-2">
-                      <p className="text-xs font-medium text-gray-500 dark:text-stone-400">Endereço de entrega</p>
-                      <div>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={deliveryAddress.zipCode}
-                          onChange={(e) => onDeliveryAddressChange({ zipCode: e.target.value })}
-                          placeholder="CEP"
-                          className={deliveryFieldClass}
-                        />
-                        <p className="mt-1 text-[11px] text-gray-400 dark:text-stone-500">
-                          Informe o CEP e preenchemos rua, bairro e cidade pra você.
-                        </p>
+                    <div className="mb-3 space-y-4">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-gray-600 dark:text-stone-300">Seus dados</p>
+                        <div>
+                          <label htmlFor="deliveryCustomerName" className={deliveryLabelClass}>
+                            Seu nome
+                          </label>
+                          <input
+                            id="deliveryCustomerName"
+                            type="text"
+                            value={deliveryAddress.customerName}
+                            onChange={(e) => onDeliveryAddressChange({ customerName: e.target.value })}
+                            placeholder="Nome e sobrenome"
+                            className={deliveryFieldClass}
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="deliveryCustomerPhone" className={deliveryLabelClass}>
+                            WhatsApp
+                          </label>
+                          <input
+                            id="deliveryCustomerPhone"
+                            type="tel"
+                            value={deliveryAddress.customerPhone}
+                            onChange={(e) => onDeliveryAddressChange({ customerPhone: formatBrazilianPhone(e.target.value) })}
+                            placeholder="(11) 91234-5678"
+                            className={deliveryFieldClass}
+                          />
+                        </div>
                       </div>
-                      <input
-                        type="text"
-                        value={deliveryAddress.customerName}
-                        onChange={(e) => onDeliveryAddressChange({ customerName: e.target.value })}
-                        placeholder="Seu nome"
-                        className={deliveryFieldClass}
-                      />
-                      <input
-                        type="tel"
-                        value={deliveryAddress.customerPhone}
-                        onChange={(e) => onDeliveryAddressChange({ customerPhone: formatBrazilianPhone(e.target.value) })}
-                        placeholder="WhatsApp — (11) 91234-5678"
-                        className={deliveryFieldClass}
-                      />
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={deliveryAddress.street}
-                          onChange={(e) => onDeliveryAddressChange({ street: e.target.value })}
-                          placeholder="Rua"
-                          className={`${deliveryFieldClass} flex-[3]`}
-                        />
-                        <input
-                          type="text"
-                          value={deliveryAddress.number}
-                          onChange={(e) => onDeliveryAddressChange({ number: e.target.value })}
-                          placeholder="Número"
-                          className={`${deliveryFieldClass} flex-1`}
-                        />
+
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold text-gray-600 dark:text-stone-300">Endereço de entrega</p>
+                        <div>
+                          <label htmlFor="deliveryZipCode" className={deliveryLabelClass}>
+                            CEP
+                          </label>
+                          <input
+                            id="deliveryZipCode"
+                            type="text"
+                            inputMode="numeric"
+                            value={deliveryAddress.zipCode}
+                            onChange={(e) => onDeliveryAddressChange({ zipCode: e.target.value })}
+                            placeholder="00000-000"
+                            className={deliveryFieldClass}
+                          />
+                          <p className="mt-1 text-[11px] text-gray-400 dark:text-stone-500">
+                            Informe o CEP e preenchemos rua, bairro e cidade pra você.
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-[3]">
+                            <label htmlFor="deliveryStreet" className={deliveryLabelClass}>
+                              Rua
+                            </label>
+                            <input
+                              id="deliveryStreet"
+                              type="text"
+                              value={deliveryAddress.street}
+                              onChange={(e) => onDeliveryAddressChange({ street: e.target.value })}
+                              placeholder="Rua"
+                              className={deliveryFieldClass}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label htmlFor="deliveryNumber" className={deliveryLabelClass}>
+                              Número
+                            </label>
+                            <input
+                              id="deliveryNumber"
+                              type="text"
+                              value={deliveryAddress.number}
+                              onChange={(e) => onDeliveryAddressChange({ number: e.target.value })}
+                              placeholder="Número"
+                              className={deliveryFieldClass}
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label htmlFor="deliveryComplement" className={deliveryLabelClass}>
+                            Complemento (opcional)
+                          </label>
+                          <input
+                            id="deliveryComplement"
+                            type="text"
+                            value={deliveryAddress.complement}
+                            onChange={(e) => onDeliveryAddressChange({ complement: e.target.value })}
+                            placeholder="Apto, bloco, fundos..."
+                            className={deliveryFieldClass}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <div className="flex-1">
+                            <label htmlFor="deliveryNeighborhood" className={deliveryLabelClass}>
+                              Bairro
+                            </label>
+                            <input
+                              id="deliveryNeighborhood"
+                              type="text"
+                              value={deliveryAddress.neighborhood}
+                              onChange={(e) => onDeliveryAddressChange({ neighborhood: e.target.value })}
+                              placeholder="Bairro"
+                              className={deliveryFieldClass}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label htmlFor="deliveryCity" className={deliveryLabelClass}>
+                              Cidade
+                            </label>
+                            <input
+                              id="deliveryCity"
+                              type="text"
+                              value={deliveryAddress.city}
+                              onChange={(e) => onDeliveryAddressChange({ city: e.target.value })}
+                              placeholder="Cidade"
+                              className={deliveryFieldClass}
+                            />
+                          </div>
+                        </div>
+                        {deliveryAddress.neighborhood.trim().length > 0 && deliveryFeeQuote && (
+                          <p
+                            className={`text-xs font-medium ${
+                              deliveryFeeQuote.available
+                                ? 'text-sage-600 dark:text-sage-400'
+                                : 'text-wine-600 dark:text-wine-400'
+                            }`}
+                          >
+                            {deliveryFeeQuote.available
+                              ? deliveryFeeQuote.method === 'DISTANCE'
+                                ? `Entrega: ${deliveryFeeQuote.distanceKm?.toFixed(1).replace('.', ',')} km — ${currencyFormatter.format(deliveryFeeQuote.fee ?? 0)}`
+                                : `Taxa de entrega pra ${deliveryAddress.neighborhood}: ${currencyFormatter.format(deliveryFeeQuote.fee ?? 0)}`
+                              : `Ainda não entregamos em "${deliveryAddress.neighborhood}".`}
+                          </p>
+                        )}
+                        <div>
+                          <label htmlFor="deliveryReferencePoint" className={deliveryLabelClass}>
+                            Ponto de referência (opcional)
+                          </label>
+                          <input
+                            id="deliveryReferencePoint"
+                            type="text"
+                            value={deliveryAddress.referencePoint}
+                            onChange={(e) => onDeliveryAddressChange({ referencePoint: e.target.value })}
+                            placeholder="Ex: perto da padaria"
+                            className={deliveryFieldClass}
+                          />
+                        </div>
                       </div>
-                      <input
-                        type="text"
-                        value={deliveryAddress.complement}
-                        onChange={(e) => onDeliveryAddressChange({ complement: e.target.value })}
-                        placeholder="Complemento (opcional)"
-                        className={deliveryFieldClass}
-                      />
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={deliveryAddress.neighborhood}
-                          onChange={(e) => onDeliveryAddressChange({ neighborhood: e.target.value })}
-                          placeholder="Bairro"
-                          className={`${deliveryFieldClass} flex-1`}
-                        />
-                        <input
-                          type="text"
-                          value={deliveryAddress.city}
-                          onChange={(e) => onDeliveryAddressChange({ city: e.target.value })}
-                          placeholder="Cidade"
-                          className={`${deliveryFieldClass} flex-1`}
-                        />
-                      </div>
-                      {deliveryAddress.neighborhood.trim().length > 0 && deliveryFeeQuote && (
-                        <p
-                          className={`text-xs font-medium ${
-                            deliveryFeeQuote.available
-                              ? 'text-sage-600 dark:text-sage-400'
-                              : 'text-wine-600 dark:text-wine-400'
-                          }`}
-                        >
-                          {deliveryFeeQuote.available
-                            ? deliveryFeeQuote.method === 'DISTANCE'
-                              ? `Entrega: ${deliveryFeeQuote.distanceKm?.toFixed(1).replace('.', ',')} km — ${currencyFormatter.format(deliveryFeeQuote.fee ?? 0)}`
-                              : `Taxa de entrega pra ${deliveryAddress.neighborhood}: ${currencyFormatter.format(deliveryFeeQuote.fee ?? 0)}`
-                            : `Ainda não entregamos em "${deliveryAddress.neighborhood}".`}
-                        </p>
-                      )}
-                      <input
-                        type="text"
-                        value={deliveryAddress.referencePoint}
-                        onChange={(e) => onDeliveryAddressChange({ referencePoint: e.target.value })}
-                        placeholder="Ponto de referência (opcional)"
-                        className={deliveryFieldClass}
-                      />
                     </div>
                   )}
 

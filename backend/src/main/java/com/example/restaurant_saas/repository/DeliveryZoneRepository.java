@@ -18,4 +18,7 @@ public interface DeliveryZoneRepository extends JpaRepository<DeliveryZone, UUID
     // Used by the public fee quote (task 26.3) and by order creation (task 26.4) - a zone
     // deactivated by the owner must stop matching immediately, same as a deactivated Product.
     Optional<DeliveryZone> findByRestaurantIdAndNeighborhoodIgnoreCaseAndActiveTrue(UUID restaurantId, String neighborhood);
+
+    // Used by the public menu to decide whether the "Delivery" mode toggle should show at all.
+    boolean existsByRestaurantIdAndActiveTrue(UUID restaurantId);
 }

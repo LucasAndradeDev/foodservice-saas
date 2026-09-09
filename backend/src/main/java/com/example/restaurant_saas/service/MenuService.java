@@ -26,6 +26,7 @@ import com.example.restaurant_saas.dto.response.PublicMenuResponse;
 import com.example.restaurant_saas.dto.response.PublicMenuTableResponse;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.repository.CategoryRepository;
+import com.example.restaurant_saas.repository.DeliveryZoneRepository;
 import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.OrderRepository;
 import com.example.restaurant_saas.repository.CardIntegrationRepository;
@@ -83,6 +84,7 @@ public class MenuService {
     private final ComboService comboService;
     private final PixIntegrationRepository pixIntegrationRepository;
     private final CardIntegrationRepository cardIntegrationRepository;
+    private final DeliveryZoneRepository deliveryZoneRepository;
     private final TenantActivator tenantActivator;
 
     @Transactional(readOnly = true)
@@ -159,11 +161,15 @@ public class MenuService {
                     .build();
         }
 
+        boolean deliveryByDistance = restaurant.getDeliveryBaseFee() != null && restaurant.getDeliveryFeePerKm() != null;
+        boolean deliveryAvailable = deliveryByDistance || deliveryZoneRepository.existsByRestaurantIdAndActiveTrue(restaurant.getId());
+
         return PublicMenuResponse.builder()
                 .restaurantName(restaurantName)
                 .logo(restaurant.getLogo())
                 .categories(categories)
                 .table(tableResponse)
+                .deliveryAvailable(deliveryAvailable)
                 .build();
     }
 

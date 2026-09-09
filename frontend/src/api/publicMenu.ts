@@ -72,6 +72,7 @@ export interface PublicMenu {
   logo: string | null
   categories: PublicMenuCategory[]
   table: PublicMenuTable | null
+  deliveryAvailable: boolean
 }
 
 export interface PublicOrderItemPayload {
