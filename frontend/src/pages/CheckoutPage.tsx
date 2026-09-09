@@ -1,7 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, CheckCircle2, ChevronDown, Clock, Copy, CreditCard, Loader2, Lock, Pencil, Percent, Plus, Printer, QrCode, Users, Wallet, X } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, CircleDollarSign, Clock, Copy, CreditCard, Loader2, Lock, Pencil, Percent, Plus, Printer, QrCode, Users, Wallet, X } from 'lucide-react'
 import { QRCodeCanvas } from 'qrcode.react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -39,7 +39,7 @@ import { PageHeader } from '../components/PageHeader'
 import { QrCodeCard } from '../components/QrCodeCard'
 import { formatTableLabel } from '../utils/tableLabel'
 import { feedbackUrl } from '../utils/publicMenuUrl'
-import { PersonSplitPanel } from './checkout/PersonSplitPanel'
+import { defaultSplitPeople, PersonSplitPanel, type Person } from './checkout/PersonSplitPanel'
 
 let entrySeq = 0
 function nextEntryId() {
@@ -158,6 +158,10 @@ interface TabSummary {
   isReady: boolean
   itemsTotal: number
   total: number
+  // What the tab will actually be closed for - unlike `total`, this includes the service charge
+  // (frozen, if the tab already has one, otherwise projected from the restaurant's default) so the
+  // list card shows the same number the checkout modal is about to ask staff to confirm.
+  displayTotal: number
 }
 
 export function CheckoutPage() {
@@ -215,6 +219,12 @@ export function CheckoutPage() {
       items.filter((item) => item.status !== 'CANCELLED').reduce((sum, item) => sum + item.netSubtotal, 0),
     )
     const total = roundCurrency(itemsTotal - computeDiscountAmount(tab.discountType, tab.discountValue, itemsTotal))
+    // Same projection handleCardClick's else-branch does when opening the modal (no service charge
+    // once the total is frozen mid-payment - the frozen tab.billTotal already has it baked in).
+    const defaultChargePercentage = restaurant?.serviceChargeEnabled && !tab.deliveryStatus ? restaurant.serviceChargePercentage : null
+    const projectedChargeAmount = roundCurrency((total * (defaultChargePercentage ?? 0)) / 100)
+    const displayTotal =
+      tab.billTotal ?? roundCurrency(total + projectedChargeAmount + (tab.deliveryFee ?? 0))
     return {
       tab,
       items,
@@ -227,6 +237,7 @@ export function CheckoutPage() {
       isReady: !isLoading && items.length > 0 && (tab.deliveryStatus != null || pendingCount === 0),
       itemsTotal,
       total,
+      displayTotal,
     }
   })
 
@@ -247,6 +258,16 @@ export function CheckoutPage() {
   const [brCodeCopied, setBrCodeCopied] = useState(false)
   const [copiedEntryId, setCopiedEntryId] = useState<string | null>(null)
   const [isPersonSplitOpen, setIsPersonSplitOpen] = useState(false)
+  // Lifted out of PersonSplitPanel so closing it with "Cancelar" (to glance back at the bill, say)
+  // doesn't lose names/assignments already entered - only resetSplitPeople below (a new tab, or the
+  // whole modal closing) starts them over.
+  const [splitPeople, setSplitPeople] = useState<Person[]>(defaultSplitPeople)
+  const [splitAssignments, setSplitAssignments] = useState<Record<string, string[]>>({})
+
+  function resetPersonSplit() {
+    setSplitPeople(defaultSplitPeople())
+    setSplitAssignments({})
+  }
 
   useEffect(() => {
     if (!selectedSummary) return
@@ -576,6 +597,7 @@ export function CheckoutPage() {
     setPixCharge(null)
     setCardCharge(null)
     setIsPersonSplitOpen(false)
+    resetPersonSplit()
     setServiceChargeInput(String(restaurant?.serviceChargePercentage ?? 10))
 
     // The `['tabs', 'OPEN']` list this summary came from has no refetch interval - a customer paying
@@ -655,6 +677,7 @@ export function CheckoutPage() {
     setPixCharge(null)
     setCardCharge(null)
     setIsPersonSplitOpen(false)
+    resetPersonSplit()
   }
 
   function handleCopyBrCode() {
@@ -874,7 +897,7 @@ export function CheckoutPage() {
                     Pronta para fechar
                   </span>
                   <div className="mt-2 text-lg font-semibold text-gray-800 dark:text-white">
-                    {currencyFormatter.format(roundCurrency(summary.total + (summary.tab.deliveryFee ?? 0)))}
+                    {currencyFormatter.format(summary.displayTotal)}
                   </div>
                 </>
               ) : (
@@ -1064,7 +1087,11 @@ export function CheckoutPage() {
                       {selectedSummary.tab.discountType ? (
                         <div className="text-sm text-orange-700 dark:text-orange-400">
                           <span className="flex items-center gap-1 font-medium">
-                            <Percent className="h-3.5 w-3.5" />
+                            {selectedSummary.tab.discountType === 'PERCENTAGE' ? (
+                              <Percent className="h-3.5 w-3.5" />
+                            ) : (
+                              <CircleDollarSign className="h-3.5 w-3.5" />
+                            )}
                             Desconto na comanda: -
                             {currencyFormatter.format(computeDiscountAmount(selectedSummary.tab.discountType, selectedSummary.tab.discountValue, selectedSummary.itemsTotal))}
                           </span>
@@ -1365,6 +1392,10 @@ export function CheckoutPage() {
                 <PersonSplitPanel
                   items={selectedSummary.items}
                   remainingBalance={remainingBalance}
+                  people={splitPeople}
+                  setPeople={setSplitPeople}
+                  assignments={splitAssignments}
+                  setAssignments={setSplitAssignments}
                   onApply={handlePersonSplitApply}
                   onCancel={() => setIsPersonSplitOpen(false)}
                 />

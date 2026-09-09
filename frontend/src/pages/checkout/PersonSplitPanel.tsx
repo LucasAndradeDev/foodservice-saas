@@ -1,18 +1,25 @@
 import { Check, Plus, Users, X } from 'lucide-react'
-import { useState } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import type { OrderItem } from '../../api/orders'
 import { roundCurrency } from '../../api/tabs'
 import { Button } from '../../components/Button'
 
-interface Person {
+export interface Person {
   id: string
   name: string
 }
 
 let personSeq = 0
-function nextPersonId() {
+export function nextPersonId() {
   personSeq += 1
   return `person-${personSeq}`
+}
+
+export function defaultSplitPeople(): Person[] {
+  return [
+    { id: nextPersonId(), name: '' },
+    { id: nextPersonId(), name: '' },
+  ]
 }
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -50,18 +57,28 @@ function computeAmounts(weights: number[], remainingBalance: number): number[] {
 interface PersonSplitPanelProps {
   items: OrderItem[]
   remainingBalance: number
+  // Owned by CheckoutPage rather than local state, so tapping "Cancelar" to close this panel
+  // (e.g. to double-check something on the bill) doesn't wipe out names and item assignments
+  // already entered - only opening the modal for a different tab resets them.
+  people: Person[]
+  setPeople: Dispatch<SetStateAction<Person[]>>
+  // itemId -> personIds sharing that item
+  assignments: Record<string, string[]>
+  setAssignments: Dispatch<SetStateAction<Record<string, string[]>>>
   onApply: (entries: { name: string; amount: number }[]) => void
   onCancel: () => void
 }
 
-export function PersonSplitPanel({ items, remainingBalance, onApply, onCancel }: PersonSplitPanelProps) {
-  const [people, setPeople] = useState<Person[]>([
-    { id: nextPersonId(), name: '' },
-    { id: nextPersonId(), name: '' },
-  ])
-  // itemId -> personIds sharing that item
-  const [assignments, setAssignments] = useState<Record<string, string[]>>({})
-
+export function PersonSplitPanel({
+  items,
+  remainingBalance,
+  people,
+  setPeople,
+  assignments,
+  setAssignments,
+  onApply,
+  onCancel,
+}: PersonSplitPanelProps) {
   const billableItems = items.filter((item) => item.status !== 'CANCELLED')
   const unassignedCount = billableItems.filter((item) => (assignments[item.id]?.length ?? 0) === 0).length
 

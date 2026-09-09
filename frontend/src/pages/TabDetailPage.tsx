@@ -1046,17 +1046,8 @@ export function TabDetailPage() {
               <div className="my-2 border-t border-gray-100 dark:border-white/10" />
             </>
           )}
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-stone-400">
-              <Wallet className="h-4 w-4" />
-              Total da comanda
-            </span>
-            <span className="text-xl font-semibold text-brand-700 dark:text-brand-400">
-              {currencyFormatter.format(tab.billTotal ?? roundCurrency(grandTotalAfterDiscount + (tab.deliveryFee ?? 0)))}
-            </span>
-          </div>
           {tab.serviceChargePercentage != null && (
-            <div className="mt-1 flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
+            <div className="flex items-center justify-between text-sm text-gray-500 dark:text-stone-400">
               <span>Taxa de serviço ({tab.serviceChargePercentage}%)</span>
               <span>{currencyFormatter.format(tab.serviceChargeAmount ?? 0)}</span>
             </div>
@@ -1067,6 +1058,21 @@ export function TabDetailPage() {
               <span>{currencyFormatter.format(tab.deliveryFee)}</span>
             </div>
           )}
+          {/* Comes last, after every line it's the sum of - reading top to bottom otherwise made
+              the total look wrong at a glance (2026-09-09 checkout audit, finding #3): it already
+              includes the service charge below it, but appearing above made the numbers look like
+              they didn't add up until you noticed the charge listed after. */}
+          <div className={tab.serviceChargePercentage != null || tab.deliveryFee != null ? 'mt-2 border-t border-gray-100 pt-2 dark:border-white/10' : ''}>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-2 text-sm font-medium text-gray-500 dark:text-stone-400">
+                <Wallet className="h-4 w-4" />
+                Total da comanda
+              </span>
+              <span className="text-xl font-semibold text-brand-700 dark:text-brand-400">
+                {currencyFormatter.format(tab.billTotal ?? roundCurrency(grandTotalAfterDiscount + (tab.deliveryFee ?? 0)))}
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
