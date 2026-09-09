@@ -1,31 +1,17 @@
 import { useMutation } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
 import { Check, CheckCircle2, Copy } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { createPublicReservation, type PublicCreateReservationPayload } from '../../api/reservations'
+import {
+  createPublicReservation,
+  reservationErrorMessage,
+  type PublicCreateReservationPayload,
+} from '../../api/reservations'
 import { DateTimePicker } from '../../components/DateTimePicker'
 import { Modal } from '../../components/Modal'
 
 interface ReservationFormModalProps {
   slug: string
   onClose: () => void
-}
-
-// Branches by HTTP status rather than passing the backend's own message through - that message is
-// in English (project convention), fine for staff screens but wrong to show a customer here. 403
-// is genuinely "no table available" (ReservationService); 429 is the per-phone/IP rate limit; a
-// 400 (bad party size, a past date slipping past DateTimePicker's own guard, etc.) used to get the
-// same "no table available" text, hiding what was actually wrong (finding #8, 2026-09-07 review).
-function reservationErrorMessage(error: unknown): string {
-  const status = isAxiosError(error) ? error.response?.status : undefined
-
-  if (status === 429) {
-    return 'Muitas tentativas. Aguarde alguns minutos e tente de novo.'
-  }
-  if (status === 400) {
-    return 'Não foi possível fazer a reserva. Confira o número de pessoas e o horário escolhido.'
-  }
-  return 'Não há mesa disponível para esse horário e número de pessoas. Tente outro horário.'
 }
 
 export function ReservationFormModal({ slug, onClose }: ReservationFormModalProps) {

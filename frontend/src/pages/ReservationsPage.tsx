@@ -10,6 +10,7 @@ import {
   createReservation,
   listBlockedTables,
   listReservations,
+  reservationErrorMessage,
   type Reservation,
   type ReservationStatus,
 } from '../api/reservations'
@@ -124,7 +125,7 @@ export function ReservationsPage() {
       invalidate()
       setIsCreating(false)
     },
-    onError: () => setFormError('Não foi possível criar a reserva. Verifique se há mesa disponível nesse horário.'),
+    onError: (err) => setFormError(reservationErrorMessage(err)),
   })
 
   const checkInMutation = useMutation({
@@ -156,6 +157,15 @@ export function ReservationsPage() {
     event.preventDefault()
     if (!reservationTime) {
       setFormError('Escolha a data e o horário da reserva.')
+      return
+    }
+    // DateTimePicker's time input carries a `min` for "today", but that input is portaled to
+    // document.body - outside this <form>'s DOM subtree - so the browser's native constraint
+    // validation on submit never actually sees it and doesn't block the request (same gap fixed
+    // in the customer-facing ReservationFormModal.tsx, finding #8 of the 2026-09-07 review, never
+    // applied here - 2026-09-09 reservation audit, finding #2).
+    if (new Date(reservationTime).getTime() <= Date.now()) {
+      setFormError('Escolha um horário no futuro.')
       return
     }
     if (manualTableSelection && selectedTableIds.size === 0) {
