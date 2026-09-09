@@ -1,9 +1,30 @@
+import { isAxiosError } from 'axios'
 import { Eye, EyeOff, IdCard, Lock, Mail, MapPin, Phone, Store, User } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { AuthInput } from '../components/AuthLayout'
 import { Logo } from '../theme/Logo'
+
+// The backend already distinguishes these two cases (AuthService) from any other failure -
+// showing the same generic "verifique os dados" for a duplicate email hid the one thing a
+// returning owner most needs to hear: they already have an account (2026-09-09 onboarding audit,
+// finding #3). Matched by exact message rather than status code alone, since 400 also covers
+// unrelated validation errors that should keep the generic text.
+type RegisterErrorReason = 'duplicate-email' | 'duplicate-cnpj' | 'generic'
+
+function registerErrorReason(error: unknown): RegisterErrorReason {
+  const message = isAxiosError(error) ? (error.response?.data as { message?: string } | undefined)?.message : undefined
+  if (message === 'Email already registered.') return 'duplicate-email'
+  if (message === 'CNPJ already registered.') return 'duplicate-cnpj'
+  return 'generic'
+}
+
+const REGISTER_ERROR_MESSAGES: Record<RegisterErrorReason, string> = {
+  'duplicate-email': 'Esse e-mail já tem uma conta.',
+  'duplicate-cnpj': 'Esse CNPJ já está cadastrado em outra conta.',
+  generic: 'Não foi possível concluir o cadastro. Verifique os dados e tente novamente.',
+}
 
 export function RegisterPage() {
   const { registerRestaurant, isAuthenticated } = useAuth()
@@ -19,6 +40,7 @@ export function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isDuplicateEmail, setIsDuplicateEmail] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (isAuthenticated) {
@@ -28,6 +50,7 @@ export function RegisterPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
+    setIsDuplicateEmail(false)
 
     if (ownerEmail.trim().toLowerCase() !== confirmOwnerEmail.trim().toLowerCase()) {
       setError('Os emails não coincidem.')
@@ -52,8 +75,10 @@ export function RegisterPage() {
         termsAccepted,
       })
       navigate('/dashboard')
-    } catch {
-      setError('Não foi possível concluir o cadastro. Verifique os dados e tente novamente.')
+    } catch (err) {
+      const reason = registerErrorReason(err)
+      setError(REGISTER_ERROR_MESSAGES[reason])
+      setIsDuplicateEmail(reason === 'duplicate-email')
     } finally {
       setIsSubmitting(false)
     }
@@ -65,6 +90,9 @@ export function RegisterPage() {
       <h1 className="mb-8 text-2xl font-bold text-gray-800 dark:text-white">Cadastre seu restaurante</h1>
 
       <form onSubmit={handleSubmit}>
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-stone-500">
+          Dados do restaurante
+        </p>
         <AuthInput
           id="restaurantName"
           type="text"
@@ -106,6 +134,9 @@ export function RegisterPage() {
           onChange={(e) => setAddress(e.target.value)}
         />
 
+        <p className="mt-2 mb-3 border-t border-gray-100 pt-5 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:border-white/10 dark:text-stone-500">
+          Seus dados
+        </p>
         <AuthInput
           id="ownerName"
           type="text"
@@ -181,7 +212,20 @@ export function RegisterPage() {
           </span>
         </label>
 
-        {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
+        {error && (
+          <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">
+            {error}
+            {isDuplicateEmail && (
+              <>
+                {' '}
+                <Link to="/login" className="font-medium underline">
+                  Fazer login
+                </Link>
+                ?
+              </>
+            )}
+          </p>
+        )}
 
         <button
           type="submit"
