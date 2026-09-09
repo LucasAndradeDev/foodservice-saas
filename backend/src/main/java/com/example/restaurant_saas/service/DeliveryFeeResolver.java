@@ -42,7 +42,7 @@ public class DeliveryFeeResolver {
     private static final BigDecimal ROUNDING_STEP = new BigDecimal("0.50");
 
     public Optional<ResolvedFee> resolve(Restaurant restaurant, String street, String number, String neighborhood, String city, String zipCode) {
-        Optional<ResolvedFee> byDistance = resolveByDistance(restaurant, street, number, city, zipCode);
+        Optional<ResolvedFee> byDistance = resolveByDistance(restaurant, street, number, neighborhood, city, zipCode);
         if (byDistance.isPresent()) {
             return byDistance;
         }
@@ -51,38 +51,54 @@ public class DeliveryFeeResolver {
                 .map(this::toZoneFee);
     }
 
-    private Optional<ResolvedFee> resolveByDistance(Restaurant restaurant, String street, String number, String city, String zipCode) {
+    private Optional<ResolvedFee> resolveByDistance(Restaurant restaurant, String street, String number, String neighborhood, String city, String zipCode) {
         if (restaurant.getLatitude() == null || restaurant.getLongitude() == null
                 || restaurant.getDeliveryBaseFee() == null || restaurant.getDeliveryFeePerKm() == null) {
             return Optional.empty();
         }
 
-        return geocodingService.geocodeStructured(street, number, city, zipCode)
-                .flatMap(point -> {
-                    // Real road distance (docs/DELIVERY.md "v3: rota real") whenever a routing provider
-                    // is available; straight-line Haversine is only the fallback for when all three of
-                    // them are unavailable (see RouteDistanceService) - never blocks pricing either way.
-                    double distance = routeDistanceService
-                            .route(restaurant.getLatitude(), restaurant.getLongitude(), point.latitude(), point.longitude())
-                            .map(RouteDistanceService.RouteResult::distanceKm)
-                            .orElseGet(() -> HaversineUtil.distanceKm(
-                                    restaurant.getLatitude(), restaurant.getLongitude(), point.latitude(), point.longitude()));
+        // A precise street-level match isn't always in OpenStreetMap's data - smaller streets and
+        // vilas in older/informal neighborhoods are routinely missing entirely (found 2026-09-09:
+        // "Vila Valença" in Moura Brasil, Fortaleza, geocodes to nothing on its own, even though the
+        // neighborhood itself resolves fine). Falling back to the neighborhood's own coordinate keeps
+        // distance pricing working with a coarser - but still correct-enough for a delivery fee -
+        // point, instead of dropping straight to the DeliveryZone table, which most restaurants
+        // haven't registered for every neighborhood a customer might actually live in.
+        Optional<GeocodingService.GeoPoint> point = geocodingService.geocodeStructured(street, number, city, zipCode)
+                .or(() -> geocodeByNeighborhood(neighborhood, city));
 
-                    BigDecimal distanceKm = BigDecimal.valueOf(distance).setScale(2, RoundingMode.HALF_UP);
-                    // Farther than the restaurant's configured radius (finding #3, 2026-09-07 review):
-                    // fall back to DeliveryZone instead of pricing/accepting an out-of-range address.
-                    if (restaurant.getMaxDeliveryDistanceKm() != null
-                            && distanceKm.compareTo(restaurant.getMaxDeliveryDistanceKm()) > 0) {
-                        return Optional.empty();
-                    }
+        return point.flatMap(p -> {
+            // Real road distance (docs/DELIVERY.md "v3: rota real") whenever a routing provider
+            // is available; straight-line Haversine is only the fallback for when all three of
+            // them are unavailable (see RouteDistanceService) - never blocks pricing either way.
+            double distance = routeDistanceService
+                    .route(restaurant.getLatitude(), restaurant.getLongitude(), p.latitude(), p.longitude())
+                    .map(RouteDistanceService.RouteResult::distanceKm)
+                    .orElseGet(() -> HaversineUtil.distanceKm(
+                            restaurant.getLatitude(), restaurant.getLongitude(), p.latitude(), p.longitude()));
 
-                    BigDecimal rawFee = restaurant.getDeliveryBaseFee()
-                            .add(restaurant.getDeliveryFeePerKm().multiply(distanceKm));
-                    BigDecimal fee = rawFee.divide(ROUNDING_STEP, 0, RoundingMode.HALF_UP)
-                            .multiply(ROUNDING_STEP)
-                            .setScale(2, RoundingMode.HALF_UP);
-                    return Optional.of(new ResolvedFee(fee, DeliveryFeeMethod.DISTANCE, distanceKm, point.latitude(), point.longitude()));
-                });
+            BigDecimal distanceKm = BigDecimal.valueOf(distance).setScale(2, RoundingMode.HALF_UP);
+            // Farther than the restaurant's configured radius (finding #3, 2026-09-07 review):
+            // fall back to DeliveryZone instead of pricing/accepting an out-of-range address.
+            if (restaurant.getMaxDeliveryDistanceKm() != null
+                    && distanceKm.compareTo(restaurant.getMaxDeliveryDistanceKm()) > 0) {
+                return Optional.empty();
+            }
+
+            BigDecimal rawFee = restaurant.getDeliveryBaseFee()
+                    .add(restaurant.getDeliveryFeePerKm().multiply(distanceKm));
+            BigDecimal fee = rawFee.divide(ROUNDING_STEP, 0, RoundingMode.HALF_UP)
+                    .multiply(ROUNDING_STEP)
+                    .setScale(2, RoundingMode.HALF_UP);
+            return Optional.of(new ResolvedFee(fee, DeliveryFeeMethod.DISTANCE, distanceKm, p.latitude(), p.longitude()));
+        });
+    }
+
+    private Optional<GeocodingService.GeoPoint> geocodeByNeighborhood(String neighborhood, String city) {
+        if (neighborhood == null || neighborhood.isBlank() || city == null || city.isBlank()) {
+            return Optional.empty();
+        }
+        return geocodingService.geocode(neighborhood + ", " + city);
     }
 
     private ResolvedFee toZoneFee(DeliveryZone zone) {

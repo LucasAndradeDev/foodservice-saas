@@ -97,6 +97,28 @@ class DeliveryFeeResolverTest {
     }
 
     @Test
+    void resolve_withStructuredGeocodeFailing_shouldFallBackToNeighborhoodCentroid() {
+        restaurant.setLatitude(-23.5505);
+        restaurant.setLongitude(-46.6333);
+        restaurant.setDeliveryBaseFee(new BigDecimal("5.00"));
+        restaurant.setDeliveryFeePerKm(new BigDecimal("2.00"));
+        // Street-level lookup fails (e.g. a small street missing from OpenStreetMap, found
+        // 2026-09-09 with "Vila Valença" in Moura Brasil, Fortaleza) but the neighborhood alone
+        // still resolves - distance pricing should use that coarser point instead of dropping
+        // straight to the DeliveryZone table.
+        when(geocodingService.geocodeStructured(anyString(), anyString(), anyString(), any())).thenReturn(Optional.empty());
+        when(geocodingService.geocode("Centro, Sao Paulo"))
+                .thenReturn(Optional.of(new GeocodingService.GeoPoint(-23.5629, -46.6544)));
+        when(routeDistanceService.route(anyDouble(), anyDouble(), anyDouble(), anyDouble())).thenReturn(Optional.empty());
+
+        Optional<DeliveryFeeResolver.ResolvedFee> resolved = resolver.resolve(restaurant, "Rua Sem Nome no OSM", "1", "Centro", "Sao Paulo", null);
+
+        assertThat(resolved).isPresent();
+        assertThat(resolved.get().method()).isEqualTo(DeliveryFeeMethod.DISTANCE);
+        verifyNoInteractions(deliveryZoneRepository);
+    }
+
+    @Test
     void resolve_withDistanceModeConfigured_andGeocodeFails_shouldFallBackToZone() {
         restaurant.setLatitude(-23.5505);
         restaurant.setLongitude(-46.6333);
