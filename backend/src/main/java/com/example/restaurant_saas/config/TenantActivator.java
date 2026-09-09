@@ -36,6 +36,6 @@ public class TenantActivator {
     }
 
     public void deactivate() {
-        TenantContext.clear();
+        TenantContext.popCurrentTenant();
     }
 }
