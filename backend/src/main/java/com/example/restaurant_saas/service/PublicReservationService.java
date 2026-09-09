@@ -85,7 +85,11 @@ public class PublicReservationService {
         }
     }
 
-    @Transactional(readOnly = true)
+    // Not readOnly: ReservationService.getByToken can flip a stale SCHEDULED reservation to
+    // NO_SHOW as a side effect (see its own javadoc) - a readOnly transaction here would make that
+    // write silently fail or be rejected, since Spring joins the existing transaction rather than
+    // starting a new one.
+    @Transactional
     public ReservationResponse getByToken(String token, HttpServletRequest httpRequest) {
         rateLimitService.checkAllowed(LOOKUP_ACTION, httpRequest, token);
         try {

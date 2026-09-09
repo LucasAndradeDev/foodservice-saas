@@ -168,17 +168,36 @@ public class ReservationService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public ReservationResponse getByToken(String token) {
         // Same reasoning as cancelByToken: toResponse() lazy-loads reservation.tables, which is
-        // RLS-protected and needs the tenant active even though this is a read-only lookup.
+        // RLS-protected and needs the tenant active even though this is mostly a read-only lookup.
         Reservation reservation = reservationRepository.findByAccessTokenBypassingRls(token)
                 .orElseThrow(() -> new IllegalArgumentException("Reservation not found."));
         tenantActivator.activate(reservation.getRestaurant().getId());
         try {
+            expireIfStale(reservation);
             return toResponse(reservation);
         } finally {
             tenantActivator.deactivate();
+        }
+    }
+
+    // Same "computed live" spirit as the table RESERVED status: without this, a reservation only
+    // ever flips SCHEDULED -> NO_SHOW as a side effect of staff opening the internal Reservations
+    // list for that specific day (see listReservations). A customer reopening their own status
+    // link days later - with no staff having ever revisited that date - would otherwise see
+    // "Agendada" forever, including a "Cancelar reserva" button for a reservation that's long since
+    // expired (2026-09-09 reservation audit, finding #3). Single-row and in-memory (not the bulk
+    // expireNoShows query) so the entity toResponse() reads right after is already up to date.
+    private void expireIfStale(Reservation reservation) {
+        if (reservation.getStatus() != ReservationStatus.SCHEDULED) {
+            return;
+        }
+        int blockAfterMinutes = reservation.getRestaurant().getReservationBlockAfterMinutes();
+        if (reservation.getReservationTime().isBefore(OffsetDateTime.now().minusMinutes(blockAfterMinutes))) {
+            reservation.setStatus(ReservationStatus.NO_SHOW);
+            reservationRepository.save(reservation);
         }
     }
 

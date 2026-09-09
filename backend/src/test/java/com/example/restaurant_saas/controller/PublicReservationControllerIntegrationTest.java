@@ -3,6 +3,7 @@ package com.example.restaurant_saas.controller;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.PublicCreateReservationRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
+import com.example.restaurant_saas.support.TenantTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,10 +12,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.OffsetDateTime;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -30,6 +33,9 @@ class PublicReservationControllerIntegrationTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private RegisterRestaurantRequest registerRequest;
 
@@ -57,6 +63,14 @@ class PublicReservationControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
         return JsonPath.read(result.getResponse().getContentAsString(), "$.slug");
+    }
+
+    private UUID getRestaurantId(String token) throws Exception {
+        MvcResult result = mockMvc.perform(get("/api/v1/restaurants/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        return UUID.fromString(JsonPath.read(result.getResponse().getContentAsString(), "$.id"));
     }
 
     private void createTable(String token, int capacity) throws Exception {
@@ -110,6 +124,31 @@ class PublicReservationControllerIntegrationTest {
                 // Regression check: reservation.tables is RLS-protected and lazy-loaded, which
                 // only works if the tenant is active by the time it's read (see ReservationService).
                 .andExpect(jsonPath("$.tables.length()").value(1));
+    }
+
+    @Test
+    void getByToken_pastReservationBeyondBlockAfterWindow_flipsToNoShow() throws Exception {
+        // 2026-09-09 reservation audit, finding #3: this endpoint (the customer's own status link)
+        // must reflect NO_SHOW on its own, not only after some staff member happens to open the
+        // internal Reservations list for that specific day (ReservationService#listReservations).
+        String ownerToken = registerOwnerAndGetToken();
+        createTable(ownerToken, 4);
+        String slug = getSlug(ownerToken);
+        UUID restaurantId = getRestaurantId(ownerToken);
+
+        MvcResult createResult = createPublicReservation(slug, "11933332222", OffsetDateTime.now().plusHours(2));
+        String accessToken = JsonPath.read(createResult.getResponse().getContentAsString(), "$.accessToken");
+
+        // Backdates well past the default 30-minute block-after threshold - bypasses the @Future
+        // validation the create endpoint enforces, which a real customer could never trigger this
+        // way, but is the only way to get a stale reservation into the table for this test.
+        TenantTestSupport.withTenant(restaurantId, () -> jdbcTemplate.update(
+                "UPDATE reservations SET reservation_time = ? WHERE access_token = ?",
+                OffsetDateTime.now().minusHours(2), accessToken));
+
+        mockMvc.perform(get("/api/v1/public/reservations/" + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("NO_SHOW"));
     }
 
     @Test
