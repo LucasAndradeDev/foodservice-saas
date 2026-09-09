@@ -1,23 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarClock, ChevronLeft, ChevronRight, Phone, Plus, Users } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   RESERVATION_STATUS_LABELS,
   cancelReservation,
   checkInReservation,
   createReservation,
+  listBlockedTables,
   listReservations,
   type Reservation,
   type ReservationStatus,
 } from '../api/reservations'
+import { listTables } from '../api/tables'
 import { useAuth } from '../auth/AuthContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DatePicker } from '../components/DatePicker'
 import { DateTimePicker } from '../components/DateTimePicker'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
+import { Toggle } from '../components/Toggle'
 
 const RESERVATION_STATUS_STYLES: Record<ReservationStatus, string> = {
   SCHEDULED: 'bg-teal-100 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
@@ -63,11 +66,53 @@ export function ReservationsPage() {
   const [reservationPendingCancel, setReservationPendingCancel] = useState<Reservation | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
+  // Auto-assign never combines more than two tables (see backend ReservationService) - this lets
+  // staff pick tables themselves for a party that needs three or more, the escape hatch the
+  // backend already supported but no UI ever exposed (2026-09-09 reservation audit, finding #1).
+  const [manualTableSelection, setManualTableSelection] = useState(false)
+  const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(new Set())
 
   const { data: reservations, isLoading } = useQuery({
     queryKey: ['reservations', date],
     queryFn: () => listReservations(date),
   })
+
+  // Only fetched while the modal that needs it is open - this list rarely changes and every other
+  // screen that needs it (Mesas) already fetches it independently.
+  const { data: allTables } = useQuery({
+    queryKey: ['tables-for-reservation-picker'],
+    queryFn: () => listTables({ active: true }),
+    enabled: isCreating,
+  })
+
+  const { data: blockedTableIds } = useQuery({
+    queryKey: ['reservationBlockedTables', reservationTime],
+    queryFn: () => listBlockedTables(new Date(reservationTime).toISOString()),
+    enabled: isCreating && manualTableSelection && !!reservationTime,
+  })
+
+  const blockedTableIdSet = useMemo(() => new Set(blockedTableIds ?? []), [blockedTableIds])
+  const sortedTables = useMemo(() => (allTables ?? []).slice().sort((a, b) => a.number - b.number), [allTables])
+  const selectedTablesSummary = useMemo(() => {
+    const selected = sortedTables.filter((table) => selectedTableIds.has(table.id))
+    return { count: selected.length, capacity: selected.reduce((sum, table) => sum + table.capacity, 0) }
+  }, [sortedTables, selectedTableIds])
+
+  // A table selected under one time can stop being valid the moment the time changes (it might now
+  // be blocked, or a table blocked before might now be free) - clearing the selection instead of
+  // silently carrying it over forces staff to re-confirm against the new availability.
+  useEffect(() => {
+    setSelectedTableIds(new Set())
+  }, [reservationTime])
+
+  function toggleTableSelection(tableId: string) {
+    setSelectedTableIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(tableId)) next.delete(tableId)
+      else next.add(tableId)
+      return next
+    })
+  }
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['reservations', date] })
@@ -113,6 +158,10 @@ export function ReservationsPage() {
       setFormError('Escolha a data e o horário da reserva.')
       return
     }
+    if (manualTableSelection && selectedTableIds.size === 0) {
+      setFormError('Escolha pelo menos uma mesa.')
+      return
+    }
     setFormError(null)
     const form = new FormData(event.currentTarget)
     createMutation.mutate({
@@ -121,6 +170,7 @@ export function ReservationsPage() {
       note: String(form.get('note') || '') || undefined,
       partySize: Number(form.get('partySize')),
       reservationTime: new Date(reservationTime).toISOString(),
+      ...(manualTableSelection ? { tableIds: Array.from(selectedTableIds) } : {}),
     })
   }
 
@@ -134,6 +184,8 @@ export function ReservationsPage() {
             onClick={() => {
               setFormError(null)
               setReservationTime('')
+              setManualTableSelection(false)
+              setSelectedTableIds(new Set())
               setIsCreating(true)
             }}
             className="flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3.5 text-base font-semibold text-white shadow-sm transition-all hover:bg-brand-700 hover:shadow-md active:scale-[0.98] sm:py-2.5 sm:text-sm"
@@ -317,6 +369,68 @@ export function ReservationsPage() {
                   initialViewDate={date}
                 />
               </div>
+            </div>
+
+            <div className="mb-3 rounded-xl border border-gray-200 p-3 dark:border-white/10">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-stone-300">Escolher mesas manualmente</p>
+                  <p className="text-xs text-gray-400 dark:text-stone-500">
+                    Necessário pra grupos grandes — o sistema só combina até 2 mesas sozinho.
+                  </p>
+                </div>
+                <Toggle
+                  checked={manualTableSelection}
+                  onChange={(checked) => {
+                    setManualTableSelection(checked)
+                    setSelectedTableIds(new Set())
+                  }}
+                />
+              </div>
+
+              {manualTableSelection && (
+                <div className="mt-3">
+                  {!reservationTime ? (
+                    <p className="text-xs text-gray-400 dark:text-stone-500">Escolha a data e hora primeiro.</p>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+                        {sortedTables.map((table) => {
+                          const isBlocked = blockedTableIdSet.has(table.id)
+                          const isSelected = selectedTableIds.has(table.id)
+                          return (
+                            <button
+                              key={table.id}
+                              type="button"
+                              disabled={isBlocked}
+                              onClick={() => toggleTableSelection(table.id)}
+                              title={
+                                isBlocked
+                                  ? 'Já reservada perto desse horário'
+                                  : `Mesa ${table.number} · ${table.capacity} lugares`
+                              }
+                              className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border-2 px-2 py-2 text-xs font-semibold transition ${
+                                isBlocked
+                                  ? 'cursor-not-allowed border-gray-100 bg-gray-50 text-gray-300 line-through dark:border-white/5 dark:bg-white/5 dark:text-stone-600'
+                                  : isSelected
+                                    ? 'border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-400'
+                                    : 'border-gray-200 text-gray-600 hover:border-brand-300 dark:border-white/10 dark:text-stone-300'
+                              }`}
+                            >
+                              <span>Mesa {table.number}</span>
+                              <span className="text-[10px] font-normal opacity-70">{table.capacity} lug.</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500 dark:text-stone-400">
+                        {selectedTablesSummary.count} mesa{selectedTablesSummary.count === 1 ? '' : 's'} selecionada
+                        {selectedTablesSummary.count === 1 ? '' : 's'} · {selectedTablesSummary.capacity} lugares
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="note">

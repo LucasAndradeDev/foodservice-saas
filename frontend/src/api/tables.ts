@@ -6,6 +6,7 @@ export interface RestaurantTable {
   id: string
   restaurantId: string
   number: number
+  capacity: number
   status: TableStatus
   active: boolean
   areaId: string | null

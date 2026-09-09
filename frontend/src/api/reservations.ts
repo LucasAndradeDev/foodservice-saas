@@ -43,6 +43,12 @@ export function listReservations(date: string) {
   return http.get<Reservation[]>('/reservations', { params: { date } }).then((res) => res.data)
 }
 
+// Ids of tables already booked around this time (respecting the restaurant's block-before/after
+// thresholds) - powers the manual table picker for parties too large to auto-assign.
+export function listBlockedTables(reservationTime: string) {
+  return http.get<string[]>('/reservations/blocked-tables', { params: { reservationTime } }).then((res) => res.data)
+}
+
 export function createReservation(payload: CreateReservationPayload) {
   return http.post<Reservation>('/reservations', payload).then((res) => res.data)
 }

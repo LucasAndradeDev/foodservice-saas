@@ -18,6 +18,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,6 +38,16 @@ public class ReservationController {
             @Parameter(description = "Date to list, defaults to today") @RequestParam(required = false) LocalDate date
     ) {
         return ResponseEntity.ok(reservationService.listReservations(currentUser.getRestaurantId(), date != null ? date : LocalDate.now()));
+    }
+
+    @GetMapping("/blocked-tables")
+    @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','CASHIER')")
+    @Operation(summary = "List tables blocked at a given time", description = "Returns the ids of tables with a SCHEDULED reservation overlapping the given time (considering the restaurant's block-before/after thresholds). Used by the manual table picker when creating a reservation for a party too large to auto-assign (more than two tables).")
+    public ResponseEntity<List<UUID>> listBlockedTables(
+            @AuthenticationPrincipal UserDetailsImpl currentUser,
+            @Parameter(description = "Candidate reservation time, ISO-8601") @RequestParam OffsetDateTime reservationTime
+    ) {
+        return ResponseEntity.ok(reservationService.listBlockedTableIds(currentUser.getRestaurantId(), reservationTime));
     }
 
     @PostMapping

@@ -91,6 +91,19 @@ public class ReservationService {
         return toResponse(reservationRepository.save(reservation));
     }
 
+    // Powers the manual table picker (staff UI) for parties too large for auto-assignment (which
+    // never combines more than two tables, see autoAssignTables) — lets staff pick 3+ tables
+    // themselves for a given time. Returns only which tables are blocked, not full table details
+    // (number/capacity/area); the frontend already has that from the regular table list and just
+    // cross-references by id.
+    @Transactional(readOnly = true)
+    public List<UUID> listBlockedTableIds(UUID restaurantId, OffsetDateTime reservationTime) {
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Restaurant not found."));
+        Window conflictWindow = conflictWindow(restaurant, reservationTime);
+        return reservationRepository.findBlockedTableIds(restaurantId, conflictWindow.start(), conflictWindow.end());
+    }
+
     @Transactional
     public List<ReservationResponse> listReservations(UUID restaurantId, LocalDate date) {
         Restaurant restaurant = restaurantRepository.findById(restaurantId)
