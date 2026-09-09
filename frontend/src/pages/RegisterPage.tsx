@@ -22,7 +22,7 @@ export function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/dashboard" replace />
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -51,7 +51,7 @@ export function RegisterPage() {
         ownerPassword,
         termsAccepted,
       })
-      navigate('/')
+      navigate('/dashboard')
     } catch {
       setError('Não foi possível concluir o cadastro. Verifique os dados e tente novamente.')
     } finally {

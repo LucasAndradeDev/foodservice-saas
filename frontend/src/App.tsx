@@ -7,6 +7,7 @@ import { AdminResetPasswordPage } from './admin/AdminResetPasswordPage'
 import { AdminRestaurantsPage } from './admin/AdminRestaurantsPage'
 import { AuthProvider } from './auth/AuthContext'
 import { BlockCourierRole } from './auth/BlockCourierRole'
+import { HomeRoute } from './auth/HomeRoute'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { RequireCourierRole } from './auth/RequireCourierRole'
 import { AuthLayout } from './components/AuthLayout'
@@ -80,6 +81,7 @@ function App() {
             <Route element={<AdminProtectedRoute />}>
               <Route path="/admin/restaurants" element={<AdminRestaurantsPage />} />
             </Route>
+            <Route path="/" element={<HomeRoute />} />
             <Route path="/login" element={<AuthRoutes />} />
             <Route path="/register" element={<AuthRoutes />} />
             <Route
@@ -121,7 +123,7 @@ function App() {
                 <Route path="/orders/:orderId/print" element={<OrderTicketPrintPage />} />
                 <Route path="/tabs/:tabId/print" element={<TabReceiptPrintPage />} />
                 <Route element={<AppLayout />}>
-                  <Route path="/" element={<DashboardPage />} />
+                  <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/tables" element={<TablesPage />} />
                   <Route path="/tabs/:tabId" element={<TabDetailPage />} />
                   <Route path="/kitchen" element={<KitchenPage />} />

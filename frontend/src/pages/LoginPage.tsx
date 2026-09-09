@@ -18,7 +18,7 @@ export function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (isAuthenticated) {
-    return <Navigate to={user?.role === 'COURIER' ? '/my-deliveries' : '/'} replace />
+    return <Navigate to={user?.role === 'COURIER' ? '/my-deliveries' : '/dashboard'} replace />
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -28,7 +28,7 @@ export function LoginPage() {
     setIsSubmitting(true)
     try {
       const response = await login(email, password)
-      navigate(response.user.role === 'COURIER' ? '/my-deliveries' : '/')
+      navigate(response.user.role === 'COURIER' ? '/my-deliveries' : '/dashboard')
     } catch (err) {
       if (isAxiosError(err) && err.response?.status === 429) {
         setError('Muitas tentativas de login. Aguarde alguns minutos e tente novamente.')

@@ -93,7 +93,7 @@ interface NavItem {
 }
 
 const PRIMARY_NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/tables', label: 'Mesas', icon: Table2, section: 'TABLES' },
   { to: '/kitchen', label: 'Cozinha', icon: ChefHat, section: 'KITCHEN' },
   { to: '/checkout', label: 'Fechar Conta', mobileLabel: 'Conta', icon: Wallet, section: 'CHECKOUT' },

@@ -7,7 +7,7 @@ export function RequireCourierRole() {
   const { user } = useAuth()
 
   if (user?.role !== 'COURIER') {
-    return <Navigate to="/" replace />
+    return <Navigate to="/dashboard" replace />
   }
 
   return <Outlet />
