@@ -83,7 +83,6 @@ export function PixIntegrationCard({ canManage }: { canManage: boolean }) {
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             type="text"
-            required
             placeholder="AppID da Woovi"
             value={appId}
             onChange={(e) => setAppId(e.target.value)}
