@@ -10,7 +10,10 @@ import com.example.restaurant_saas.dto.response.PublicCouponRedemptionResponse;
 import com.example.restaurant_saas.repository.CouponRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.TabRepository;
+import com.example.restaurant_saas.security.RateLimitService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,48 +24,72 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class PublicCouponService {
 
+    private static final String REDEEM_ACTION = "public-coupon-redeem";
+
     private final RestaurantRepository restaurantRepository;
     private final CouponRepository couponRepository;
     private final TabRepository tabRepository;
     private final TabService tabService;
     private final TenantActivator tenantActivator;
+    private final RateLimitService rateLimitService;
+    private final HttpServletRequest httpRequest;
+
+    @Value("${security.public-coupon-redeem-rate-limit.max-attempts}")
+    private int redeemMaxAttempts;
+
+    @Value("${security.public-coupon-redeem-rate-limit.window-minutes}")
+    private long redeemWindowMinutes;
+
+    @Value("${security.public-coupon-redeem-rate-limit.block-minutes}")
+    private long redeemBlockMinutes;
 
     @Transactional
     public PublicCouponRedemptionResponse redeem(String slug, UUID tableId, RedeemCouponRequest request) {
-        Restaurant restaurant = restaurantRepository.findBySlug(slug)
-                .orElseThrow(() -> new IllegalArgumentException("Menu not found."));
-
-        tenantActivator.activate(restaurant.getId());
+        // Keyed by the guessed code itself (like reservation lookup is keyed by the guessed
+        // token): a fresh code always starts a fresh bucket, so the per-IP-only ceiling in
+        // RateLimitService is what actually stops someone brute-forcing codes by varying them.
+        rateLimitService.checkAllowed(REDEEM_ACTION, httpRequest, request.getCode());
         try {
-            Coupon coupon = couponRepository.findByRestaurantIdAndCodeIgnoreCase(restaurant.getId(), request.getCode())
-                    .filter(c -> Boolean.TRUE.equals(c.getActive()))
-                    .orElseThrow(() -> new IllegalArgumentException("Coupon not found or inactive."));
-            if (coupon.getExpiresAt() != null && coupon.getExpiresAt().isBefore(OffsetDateTime.now())) {
-                throw new IllegalStateException("This coupon has expired.");
-            }
+            Restaurant restaurant = restaurantRepository.findBySlug(slug)
+                    .orElseThrow(() -> new IllegalArgumentException("Menu not found."));
 
-            Tab tab = tabService.openOrGetTabForTable(restaurant.getId(), tableId);
-            String reason = "Cupom: " + coupon.getCode();
-
-            if (!reason.equalsIgnoreCase(tab.getDiscountReason())) {
-                if (couponRepository.incrementUsage(coupon.getId()) == 0) {
-                    throw new IllegalStateException("This coupon has already reached its usage limit.");
+            tenantActivator.activate(restaurant.getId());
+            try {
+                Coupon coupon = couponRepository.findByRestaurantIdAndCodeIgnoreCase(restaurant.getId(), request.getCode())
+                        .filter(c -> Boolean.TRUE.equals(c.getActive()))
+                        .orElseThrow(() -> new IllegalArgumentException("Coupon not found or inactive."));
+                if (coupon.getExpiresAt() != null && coupon.getExpiresAt().isBefore(OffsetDateTime.now())) {
+                    throw new IllegalStateException("This coupon has expired.");
                 }
-                tab.setDiscountType(coupon.getDiscountType());
-                tab.setDiscountValue(coupon.getDiscountValue());
-                tab.setDiscountReason(reason);
-                tab.setDiscountAppliedBy("Cliente (autoatendimento)");
-                tab.setDiscountAppliedAt(OffsetDateTime.now());
-                tab = tabRepository.save(tab);
-            }
 
-            return PublicCouponRedemptionResponse.builder()
-                    .discountAppliedLabel(buildDiscountLabel(tab))
-                    .discountType(tab.getDiscountType())
-                    .discountValue(tab.getDiscountValue())
-                    .build();
+                Tab tab = tabService.openOrGetTabForTable(restaurant.getId(), tableId);
+                String reason = "Cupom: " + coupon.getCode();
+
+                if (!reason.equalsIgnoreCase(tab.getDiscountReason())) {
+                    if (couponRepository.incrementUsage(coupon.getId()) == 0) {
+                        throw new IllegalStateException("This coupon has already reached its usage limit.");
+                    }
+                    tab.setDiscountType(coupon.getDiscountType());
+                    tab.setDiscountValue(coupon.getDiscountValue());
+                    tab.setDiscountReason(reason);
+                    tab.setDiscountAppliedBy("Cliente (autoatendimento)");
+                    tab.setDiscountAppliedAt(OffsetDateTime.now());
+                    tab = tabRepository.save(tab);
+                }
+
+                return PublicCouponRedemptionResponse.builder()
+                        .discountAppliedLabel(buildDiscountLabel(tab))
+                        .discountType(tab.getDiscountType())
+                        .discountValue(tab.getDiscountValue())
+                        .build();
+            } finally {
+                tenantActivator.deactivate();
+            }
         } finally {
-            tenantActivator.deactivate();
+            // Counted whether this call succeeds or fails, same as reservation lookup: otherwise
+            // someone could probe codes for free by repeatedly hitting the failure path only.
+            rateLimitService.recordAttempt(REDEEM_ACTION, httpRequest, request.getCode(),
+                    redeemMaxAttempts, redeemWindowMinutes, redeemBlockMinutes);
         }
     }
 

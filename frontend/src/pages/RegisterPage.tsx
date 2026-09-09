@@ -146,7 +146,7 @@ export function RegisterPage() {
           label="Senha"
           icon={Lock}
           required
-          minLength={6}
+          minLength={8}
           placeholder="Digite a senha"
           value={ownerPassword}
           onChange={(e) => setOwnerPassword(e.target.value)}

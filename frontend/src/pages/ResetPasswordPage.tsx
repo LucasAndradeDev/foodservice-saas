@@ -77,7 +77,7 @@ export function ResetPasswordPage() {
           label="Nova senha"
           icon={Lock}
           required
-          minLength={6}
+          minLength={8}
           placeholder="Digite a nova senha"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
@@ -99,7 +99,7 @@ export function ResetPasswordPage() {
           label="Confirmar nova senha"
           icon={Lock}
           required
-          minLength={6}
+          minLength={8}
           placeholder="Confirme a nova senha"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}

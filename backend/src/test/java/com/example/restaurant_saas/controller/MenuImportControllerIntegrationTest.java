@@ -253,6 +253,45 @@ class MenuImportControllerIntegrationTest {
     }
 
     @Test
+    void extract_beyondRateLimit_shouldReturn429ButNotAffectAnotherRestaurant() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        when(geminiService.extractMenu(anyString(), anyList()))
+                .thenReturn(new GeminiExtractionResult(List.of()));
+
+        // security.menu-import-rate-limit.max-attempts is 10 in test config (application.yml) -
+        // the 11th call within the window should be blocked, regardless of whether earlier calls
+        // succeeded or failed, since it's keyed by restaurantId and recorded on every call.
+        for (int i = 0; i < 10; i++) {
+            mockMvc.perform(multipart("/api/v1/menu-import/extract")
+                            .file(validXlsxFile())
+                            .header("Authorization", "Bearer " + ownerToken))
+                    .andExpect(status().isOk());
+        }
+
+        mockMvc.perform(multipart("/api/v1/menu-import/extract")
+                        .file(validXlsxFile())
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isTooManyRequests());
+
+        RegisterRestaurantRequest otherRestaurant = new RegisterRestaurantRequest();
+        otherRestaurant.setRestaurantName("Another Restaurant");
+        otherRestaurant.setOwnerName("Other Owner");
+        otherRestaurant.setOwnerEmail("other-owner+" + System.nanoTime() + "@test.com");
+        otherRestaurant.setOwnerPassword("password123");
+        MvcResult otherResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(otherRestaurant)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String otherToken = JsonPath.read(otherResult.getResponse().getContentAsString(), "$.accessToken");
+
+        mockMvc.perform(multipart("/api/v1/menu-import/extract")
+                        .file(validXlsxFile())
+                        .header("Authorization", "Bearer " + otherToken))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void extractDocument_withValidImageAndStubbedGemini_shouldFlagMatchedCategoryAndDuplicateProduct() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         String bebidasId = createCategory(ownerToken, "Bebidas");

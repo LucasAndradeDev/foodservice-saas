@@ -12,7 +12,10 @@ import com.example.restaurant_saas.dto.response.MenuImportCommitResponse;
 import com.example.restaurant_saas.dto.response.MenuImportPreviewResponse;
 import com.example.restaurant_saas.repository.CategoryRepository;
 import com.example.restaurant_saas.repository.ProductRepository;
+import com.example.restaurant_saas.security.RateLimitService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -33,6 +36,7 @@ import java.util.regex.Pattern;
 public class MenuImportService {
 
     private static final Pattern NON_NUMERIC_CHARS = Pattern.compile("[^0-9.,-]");
+    private static final String EXTRACT_ACTION = "menu-import-extract";
 
     private final SpreadsheetExtractionService spreadsheetExtractionService;
     private final DocumentExtractionService documentExtractionService;
@@ -41,10 +45,25 @@ public class MenuImportService {
     private final ProductRepository productRepository;
     private final CategoryService categoryService;
     private final ProductService productService;
+    private final RateLimitService rateLimitService;
+    private final HttpServletRequest httpRequest;
+
+    @Value("${security.menu-import-rate-limit.max-attempts}")
+    private int extractMaxAttempts;
+
+    @Value("${security.menu-import-rate-limit.window-minutes}")
+    private long extractWindowMinutes;
+
+    @Value("${security.menu-import-rate-limit.block-minutes}")
+    private long extractBlockMinutes;
 
     // Not @Transactional: the Gemini call can take up to ~45s and must not hold a DB
     // connection/transaction open. Each repository lookup below gets its own short-lived one.
     public MenuImportPreviewResponse extract(UUID restaurantId, MultipartFile file) {
+        // Keyed by restaurantId, not IP: the Gemini API key is shared across every tenant on a
+        // free-tier daily quota, so what matters is capping how much of that shared quota a
+        // single restaurant can burn through, regardless of which IP it calls from.
+        checkExtractionAllowed(restaurantId);
         String flattenedText = spreadsheetExtractionService.extractFlattenedText(file);
         List<String> existingCategoryNames = loadExistingCategoryNames(restaurantId);
         GeminiExtractionResult aiResult = geminiService.extractMenu(flattenedText, existingCategoryNames);
@@ -53,10 +72,18 @@ public class MenuImportService {
 
     // Not @Transactional, same reasoning as extract() above.
     public MenuImportPreviewResponse extractFromDocuments(UUID restaurantId, List<MultipartFile> files) {
+        checkExtractionAllowed(restaurantId);
         List<GeminiDocument> documents = documentExtractionService.extractDocuments(files);
         List<String> existingCategoryNames = loadExistingCategoryNames(restaurantId);
         GeminiExtractionResult aiResult = geminiService.extractMenuFromDocuments(documents, existingCategoryNames);
         return buildPreview(restaurantId, aiResult);
+    }
+
+    private void checkExtractionAllowed(UUID restaurantId) {
+        String identifier = restaurantId.toString();
+        rateLimitService.checkAllowed(EXTRACT_ACTION, httpRequest, identifier);
+        rateLimitService.recordAttempt(EXTRACT_ACTION, httpRequest, identifier,
+                extractMaxAttempts, extractWindowMinutes, extractBlockMinutes);
     }
 
     private List<String> loadExistingCategoryNames(UUID restaurantId) {

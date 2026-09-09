@@ -74,6 +74,14 @@ security:
     max-attempts: 30
     window-minutes: 15
     block-minutes: 15
+  public-coupon-redeem-rate-limit:
+    max-attempts: 10
+    window-minutes: 15
+    block-minutes: 30
+  menu-import-rate-limit:
+    max-attempts: 10
+    window-minutes: 60
+    block-minutes: 60
 
 app:
   upload-dir: ./target/test-uploads

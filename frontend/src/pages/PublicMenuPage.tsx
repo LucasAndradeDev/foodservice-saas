@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CalendarClock, ShoppingBag, Ticket } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -339,7 +340,15 @@ export function PublicMenuPage() {
       setCouponCode('')
       queryClient.invalidateQueries({ queryKey: ['publicMenu', slug, tableId] })
     },
-    onError: () => setCouponError('Cupom inválido, expirado ou esgotado.'),
+    // 429 is the per-code/IP rate limit (backstop against brute-forcing coupon codes); anything
+    // else means the code itself was rejected. Same status-branching convention as
+    // ReservationFormModal's reservationErrorMessage.
+    onError: (error) =>
+      setCouponError(
+        isAxiosError(error) && error.response?.status === 429
+          ? 'Muitas tentativas. Aguarde alguns minutos e tente de novo.'
+          : 'Cupom inválido, expirado ou esgotado.'
+      ),
   })
 
   const removeCouponMutation = useMutation({

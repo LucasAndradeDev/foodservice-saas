@@ -103,6 +103,19 @@ security:
     max-attempts: ${PUBLIC_DELIVERY_FEE_QUOTE_RATE_LIMIT_MAX_ATTEMPTS:30}
     window-minutes: ${PUBLIC_DELIVERY_FEE_QUOTE_RATE_LIMIT_WINDOW_MINUTES:15}
     block-minutes: ${PUBLIC_DELIVERY_FEE_QUOTE_RATE_LIMIT_BLOCK_MINUTES:15}
+  public-coupon-redeem-rate-limit:
+    # Caps how many coupon codes a single IP can try against the public, unauthenticated
+    # self-order endpoint - stops brute-forcing an active coupon code to get an unauthorized discount.
+    max-attempts: ${PUBLIC_COUPON_REDEEM_RATE_LIMIT_MAX_ATTEMPTS:10}
+    window-minutes: ${PUBLIC_COUPON_REDEEM_RATE_LIMIT_WINDOW_MINUTES:15}
+    block-minutes: ${PUBLIC_COUPON_REDEEM_RATE_LIMIT_BLOCK_MINUTES:30}
+  menu-import-rate-limit:
+    # Caps how many AI extraction calls a single restaurant can make - the Gemini API key is
+    # shared across every tenant on a free-tier daily quota, so one restaurant looping this
+    # endpoint could exhaust the quota for the whole platform, not just itself.
+    max-attempts: ${MENU_IMPORT_RATE_LIMIT_MAX_ATTEMPTS:10}
+    window-minutes: ${MENU_IMPORT_RATE_LIMIT_WINDOW_MINUTES:60}
+    block-minutes: ${MENU_IMPORT_RATE_LIMIT_BLOCK_MINUTES:60}
 
 app:
   upload-dir: ${UPLOAD_DIR:./uploads}
