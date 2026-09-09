@@ -18,11 +18,12 @@ import { Badge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DeliveryRiderIcon } from '../components/DeliveryRiderIcon'
-import { Dropdown } from '../components/Dropdown'
+import { Dropdown, type DropdownOption } from '../components/Dropdown'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
 import { SectionTabs } from '../components/SectionTabs'
 import { Table, TableHead, TableRow } from '../components/Table'
+import { formatBrazilianPhone } from '../utils/phone'
 
 const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral', icon: Store },
@@ -47,6 +48,11 @@ const ASSIGNABLE_ROLES: Record<'OWNER' | 'MANAGER', UserRole[]> = {
 }
 
 const VEHICLE_TYPE_OPTIONS: CourierVehicleType[] = ['MOTORCYCLE', 'BICYCLE', 'CAR', 'ON_FOOT']
+
+const VEHICLE_TYPE_DROPDOWN_OPTIONS: DropdownOption<CourierVehicleType>[] = VEHICLE_TYPE_OPTIONS.map((option) => ({
+  value: option,
+  label: COURIER_VEHICLE_TYPE_LABELS[option],
+}))
 
 const STATUS_FILTER_OPTIONS: { value: 'active' | 'inactive' | 'all'; label: string }[] = [
   { value: 'active', label: 'Ativos' },
@@ -74,6 +80,7 @@ export function StaffPage() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const assignableRoles = user?.role === 'OWNER' ? ASSIGNABLE_ROLES.OWNER : ASSIGNABLE_ROLES.MANAGER
+  const roleOptions: DropdownOption<UserRole>[] = assignableRoles.map((option) => ({ value: option, label: ROLE_LABELS[option] }))
 
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active')
 
@@ -404,21 +411,10 @@ export function StaffPage() {
               </>
             )}
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffRole">
-              Papel
-            </label>
-            <select
-              id="staffRole"
-              value={role}
-              onChange={(e) => setRole(e.target.value as UserRole)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-            >
-              {assignableRoles.map((option) => (
-                <option key={option} value={option}>
-                  {ROLE_LABELS[option]}
-                </option>
-              ))}
-            </select>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">Papel</label>
+            <div className="mb-4">
+              <Dropdown<UserRole> value={role} onChange={setRole} options={roleOptions} fullWidth mobileTitle="Papel" />
+            </div>
 
             {role === 'COURIER' && (
               <>
@@ -431,26 +427,21 @@ export function StaffPage() {
                   required
                   maxLength={20}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(formatBrazilianPhone(e.target.value))}
                   placeholder="(11) 91234-5678"
                   className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                 />
 
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffVehicleType">
-                  Veículo
-                </label>
-                <select
-                  id="staffVehicleType"
-                  value={vehicleType}
-                  onChange={(e) => setVehicleType(e.target.value as CourierVehicleType)}
-                  className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-                >
-                  {VEHICLE_TYPE_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {COURIER_VEHICLE_TYPE_LABELS[option]}
-                    </option>
-                  ))}
-                </select>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">Veículo</label>
+                <div className="mb-4">
+                  <Dropdown<CourierVehicleType>
+                    value={vehicleType}
+                    onChange={setVehicleType}
+                    options={VEHICLE_TYPE_DROPDOWN_OPTIONS}
+                    fullWidth
+                    mobileTitle="Veículo"
+                  />
+                </div>
               </>
             )}
 
