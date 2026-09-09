@@ -627,7 +627,11 @@ export function PublicMenuPage() {
 
       <main className="mx-auto max-w-2xl px-4 pt-6 pb-1">
         {filteredCategories.length === 0 && (
-          <p className="mt-6 text-center text-sm text-gray-500 dark:text-stone-400">Nenhum produto encontrado.</p>
+          <p className="mt-6 text-center text-sm text-gray-500 dark:text-stone-400">
+            {isSearching
+              ? 'Nenhum produto encontrado.'
+              : 'Estamos preparando nosso cardápio. Volte em breve!'}
+          </p>
         )}
 
         {filteredCategories.map((category) => {
