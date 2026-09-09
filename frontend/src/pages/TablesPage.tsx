@@ -537,7 +537,19 @@ export function TablesPage() {
     const currentGroupId = table.areaId ?? 'none'
     if (targetGroupId === currentGroupId) return
     const payload = targetGroupId === 'none' ? { clearArea: true } : { areaId: targetGroupId }
-    updateMutation.mutate({ id: table.id, payload })
+
+    // Applied synchronously (before the mutation resolves) so the table's card already sits in the
+    // target group by the time framer-motion's dragSnapToOrigin spring starts -- it flies straight
+    // into the new slot instead of visibly snapping back to the old one and jumping after the request lands.
+    const previousTables = queryClient.getQueryData<RestaurantTable[]>(['tables'])
+    queryClient.setQueryData<RestaurantTable[]>(['tables'], (old) =>
+      old?.map((t) => (t.id === table.id ? { ...t, areaId: targetGroupId === 'none' ? null : targetGroupId } : t)),
+    )
+
+    updateMutation.mutate(
+      { id: table.id, payload },
+      { onError: () => queryClient.setQueryData(['tables'], previousTables) },
+    )
   }
 
   function handleTableDragEnd(table: RestaurantTable, info: PanInfo) {
@@ -619,6 +631,17 @@ export function TablesPage() {
                           <Plus className="h-4 w-4 text-gray-400 dark:text-stone-500" />
                           Nova mesa
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigate('/dining-areas')
+                            setIsMoreMenuOpen(false)
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
+                        >
+                          <MapPin className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+                          Áreas do salão
+                        </button>
                         {areas && areas.length > 0 && (
                           <button
                             type="button"
@@ -680,6 +703,17 @@ export function TablesPage() {
                               >
                                 <Plus className="h-5 w-5 shrink-0 text-gray-400 dark:text-stone-500" />
                                 Nova mesa
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigate('/dining-areas')
+                                  setIsMoreMenuOpen(false)
+                                }}
+                                className="flex w-full items-center gap-2.5 px-4 py-3.5 text-left text-base text-gray-700 dark:text-stone-300"
+                              >
+                                <MapPin className="h-5 w-5 shrink-0 text-gray-400 dark:text-stone-500" />
+                                Áreas do salão
                               </button>
                               {areas && areas.length > 0 && (
                                 <button
