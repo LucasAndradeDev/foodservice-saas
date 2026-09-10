@@ -582,7 +582,7 @@ export function CheckoutPage() {
       })
       setIsEditingDiscount(false)
     },
-    onError: () => setError('Não foi possível aplicar o desconto nesta comanda.'),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível aplicar o desconto nesta comanda.')),
   })
 
   async function handleCardClick(summary: TabSummary) {

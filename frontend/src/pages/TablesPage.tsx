@@ -1144,6 +1144,7 @@ export function TablesPage() {
                     id="editNumber"
                     type="number"
                     min="1"
+                    required
                     disabled={!canManage}
                     value={editNumber}
                     onChange={(e) => setEditNumber(e.target.value)}
@@ -1157,6 +1158,7 @@ export function TablesPage() {
                     id="editCapacity"
                     type="number"
                     min="1"
+                    required
                     disabled={!canManage}
                     value={editCapacity}
                     onChange={(e) => setEditCapacity(e.target.value)}

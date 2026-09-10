@@ -303,13 +303,13 @@ export function TabDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['tabs', tabId, 'orders'] })
       setDraftItems([])
     },
-    onError: () => setError('Não foi possível enviar o pedido para a cozinha.'),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível enviar o pedido para a cozinha.')),
   })
 
   const cancelMutation = useMutation({
     mutationFn: () => cancelTab(tabId!),
     onSuccess: () => navigate('/tables'),
-    onError: () => setError('Não foi possível cancelar a comanda.'),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível cancelar a comanda.')),
   })
 
   const voidPaymentMutation = useMutation({
@@ -374,7 +374,7 @@ export function TabDetailPage() {
       invalidateTabQueries()
       setIsMerging(false)
     },
-    onError: () => setError('Não foi possível adicionar essa mesa à comanda.'),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível adicionar essa mesa à comanda.')),
   })
 
   const mergeMutation = useMutation({
@@ -389,7 +389,7 @@ export function TabDetailPage() {
       setPendingUndo({ sourceTabId, label })
       pendingUndoTimeoutRef.current = window.setTimeout(() => setPendingUndo(null), UNDO_MERGE_WINDOW_MS)
     },
-    onError: () => setError('Não foi possível mesclar essa comanda.'),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível mesclar essa comanda.')),
   })
 
   const undoMergeMutation = useMutation({
@@ -399,7 +399,7 @@ export function TabDetailPage() {
       if (pendingUndoTimeoutRef.current) window.clearTimeout(pendingUndoTimeoutRef.current)
       setPendingUndo(null)
     },
-    onError: () => setError('Não foi possível desfazer a mesclagem.'),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível desfazer a mesclagem.')),
   })
 
   const transferItemsMutation = useMutation({
@@ -417,7 +417,7 @@ export function TabDetailPage() {
       pendingTransferUndoTimeoutRef.current = window.setTimeout(() => setPendingTransferUndo(null), UNDO_MERGE_WINDOW_MS)
       setSelectedItemIds(new Set())
     },
-    onError: () => setError('Não foi possível transferir os itens selecionados.'),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível transferir os itens selecionados.')),
   })
 
   const undoTransferMutation = useMutation({
@@ -428,7 +428,7 @@ export function TabDetailPage() {
       if (pendingTransferUndoTimeoutRef.current) window.clearTimeout(pendingTransferUndoTimeoutRef.current)
       setPendingTransferUndo(null)
     },
-    onError: () => setError('Não foi possível desfazer a transferência.'),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível desfazer a transferência.')),
   })
 
   function toggleTransferSelectionMode() {
@@ -461,7 +461,7 @@ export function TabDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tabs', tabId] })
     },
-    onError: () => setError('Não foi possível remover o desconto desta comanda.'),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível remover o desconto desta comanda.')),
   })
 
   const itemDiscountMutation = useMutation({
@@ -471,7 +471,7 @@ export function TabDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['tabs', tabId, 'orders'] })
       setDiscountingItem(null)
     },
-    onError: () => setError('Não foi possível aplicar o desconto neste item.'),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível aplicar o desconto neste item.')),
   })
 
   function openDiscountModal(item: OrderItem) {
