@@ -152,6 +152,7 @@ export function StaffPage() {
   function openEditForm(row: StaffMember) {
     setEditingStaff(row)
     setName(row.name)
+    setEmail(row.email)
     setRole(row.role)
     setPhone(row.phone ?? '')
     setVehicleType(row.vehicleType ?? 'MOTORCYCLE')
@@ -184,7 +185,7 @@ export function StaffPage() {
     setError(null)
     updateMutation.mutate({
       id: editingStaff.id,
-      payload: role === 'COURIER' ? { name, role, active, phone, vehicleType } : { name, role, active },
+      payload: role === 'COURIER' ? { name, email, role, active, phone, vehicleType } : { name, email, role, active },
     })
   }
 
@@ -391,24 +392,28 @@ export function StaffPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
-            {!editingStaff && (
-              <>
-                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffEmail">
-                  Email
-                </label>
-                <input
-                  id="staffEmail"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-                />
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="staffEmail">
+              Email
+            </label>
+            <input
+              id="staffEmail"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+            />
 
-                <p className="mb-4 text-xs text-gray-500 dark:text-stone-400">
-                  Vamos mandar um email pro funcionário com um link pra ele definir a própria senha.
-                </p>
-              </>
+            {!editingStaff && (
+              <p className="mb-4 text-xs text-gray-500 dark:text-stone-400">
+                Vamos mandar um email pro funcionário com um link pra ele definir a própria senha.
+              </p>
+            )}
+
+            {editingStaff && email !== editingStaff.email && (
+              <p className="mb-4 text-xs text-gray-500 dark:text-stone-400">
+                O funcionário vai precisar confirmar o novo email de novo.
+              </p>
             )}
 
             <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">Papel</label>

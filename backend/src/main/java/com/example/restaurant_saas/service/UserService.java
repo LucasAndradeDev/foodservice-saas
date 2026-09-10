@@ -131,6 +131,19 @@ public class UserService {
             throw new IllegalArgumentException("Phone and vehicle type are required for a courier.");
         }
 
+        if (request.getEmail() != null) {
+            String newEmail = request.getEmail().toLowerCase().trim();
+            if (!newEmail.equals(target.getEmail())) {
+                if (userRepository.existsByEmail(newEmail)) {
+                    throw new IllegalArgumentException("Email already registered.");
+                }
+                target.setEmail(newEmail);
+                // Address changed, so any prior verification no longer proves ownership of it -
+                // the existing banner + resend flow (see project_email_verification_design) picks
+                // this back up without needing a dedicated re-verification email here.
+                target.setEmailVerified(false);
+            }
+        }
         if (request.getName() != null) {
             target.setName(request.getName());
         }

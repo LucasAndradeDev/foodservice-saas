@@ -34,6 +34,7 @@ export interface CreateUserPayload {
 
 export interface UpdateUserPayload {
   name?: string
+  email?: string
   role?: UserRole
   active?: boolean
   phone?: string

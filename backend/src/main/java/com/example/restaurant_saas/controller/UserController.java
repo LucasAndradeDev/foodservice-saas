@@ -76,10 +76,10 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update staff member", description = "Updates name, role and/or active status. A user can never change their own role or active status, and the restaurant's last active OWNER cannot be deactivated. Fields omitted from the request body are left unchanged.")
+    @Operation(summary = "Update staff member", description = "Updates name, email, role and/or active status. A user can never change their own role or active status, and the restaurant's last active OWNER cannot be deactivated. Changing the email resets emailVerified to false. Fields omitted from the request body are left unchanged.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Staff member updated"),
-            @ApiResponse(responseCode = "400", description = "User not found in this restaurant"),
+            @ApiResponse(responseCode = "400", description = "User not found in this restaurant, or the new email is already registered"),
             @ApiResponse(responseCode = "403", description = "Self role/active change, target out of caller's management scope, or would leave the restaurant without an active owner")
     })
     public ResponseEntity<UserResponse> updateUser(

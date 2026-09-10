@@ -359,6 +359,44 @@ class UserControllerIntegrationTest {
     }
 
     @Test
+    void updateUser_changeEmail_shouldSucceedAndResetEmailVerified() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        waiter.setEmailVerified(true);
+        TenantTestSupport.withTenant(owner.getRestaurant().getId(), () -> userRepository.save(waiter));
+
+        String newEmail = "renamed+" + System.nanoTime() + "@test.com";
+        UpdateUserRequest request = new UpdateUserRequest();
+        request.setEmail(newEmail);
+
+        mockMvc.perform(put("/api/v1/users/" + waiter.getId())
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(newEmail))
+                .andExpect(jsonPath("$.emailVerified").value(false));
+    }
+
+    @Test
+    void updateUser_changeEmailToAlreadyRegistered_shouldBeRejected() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
+        User waiter = createUserDirectly(owner, UserRole.WAITER);
+        User kitchen = createUserDirectly(owner, UserRole.KITCHEN);
+
+        UpdateUserRequest request = new UpdateUserRequest();
+        request.setEmail(kitchen.getEmail());
+
+        mockMvc.perform(put("/api/v1/users/" + waiter.getId())
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void updateUser_selfRoleChange_shouldBeForbidden() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
         User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
