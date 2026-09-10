@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { BarChart3, CheckCircle2, Circle, Clock, Filter, KeyRound, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
@@ -23,7 +24,6 @@ import { PageHeader } from '../components/PageHeader'
 import { SectionTabs } from '../components/SectionTabs'
 import { Table, TableHead, TableRow } from '../components/Table'
 import { formatBrazilianPhone } from '../utils/phone'
-import { translateApiError } from '../utils/apiErrorMessage'
 
 const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral', icon: Store },
@@ -66,6 +66,16 @@ function defaultRole(assignableRoles: UserRole[]): UserRole {
   return assignableRoles.includes('WAITER') ? 'WAITER' : assignableRoles[0]
 }
 
+// The backend rejects create/update for several distinct reasons (email already in use, courier
+// missing phone/vehicle, deactivating the last active OWNER...) - surfacing its actual message
+// instead of one fixed guess so the real cause is visible (finding #10, 2026-09-07 review).
+function extractErrorMessage(err: unknown, fallback: string) {
+  if (isAxiosError(err) && err.response?.data?.message) {
+    return err.response.data.message as string
+  }
+  return fallback
+}
+
 export function StaffPage() {
   const { user } = useAuth()
   const canManage = user?.role === 'OWNER' || user?.role === 'MANAGER'
@@ -101,7 +111,7 @@ export function StaffPage() {
       resetFields()
       closeForm()
     },
-    onError: (err) => setError(translateApiError(err, 'Não foi possível criar. Verifique se o email já está em uso.')),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível criar. Verifique se o email já está em uso.')),
   })
 
   const updateMutation = useMutation({
@@ -111,7 +121,7 @@ export function StaffPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       closeForm()
     },
-    onError: (err) => setError(translateApiError(err, 'Não foi possível salvar as alterações.')),
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível salvar as alterações.')),
   })
 
   const sendResetLinkMutation = useMutation({
