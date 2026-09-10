@@ -5,6 +5,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { AuthInput } from '../components/AuthLayout'
 import { Logo } from '../theme/Logo'
+import { formatBrazilianPhone } from '../utils/phone'
 
 // The backend already distinguishes these two cases (AuthService) from any other failure -
 // showing the same generic "verifique os dados" for a duplicate email hid the one thing a
@@ -121,9 +122,10 @@ export function RegisterPage() {
           label="Telefone (opcional)"
           icon={Phone}
           autoComplete="tel"
+          maxLength={16}
           placeholder="Digite o telefone"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => setPhone(formatBrazilianPhone(e.target.value))}
         />
 
         <AuthInput
