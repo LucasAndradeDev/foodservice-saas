@@ -251,6 +251,11 @@ export function PeakHoursHeatmap({ title, cells, metric, unitLabel, rangeStart, 
                         onMouseLeave={() => setHovered(null)}
                         onFocus={() => setHovered({ day, hour, value, sampleCount })}
                         onBlur={() => setHovered(null)}
+                        onClick={() =>
+                          setHovered((current) =>
+                            current?.day === day && current?.hour === hour ? null : { day, hour, value, sampleCount },
+                          )
+                        }
                         className={
                           hasSamples
                             ? `relative flex h-6 items-center justify-center rounded-md text-[11px] tabular-nums ring-1 ring-inset ring-black/5 transition-all duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ${
@@ -316,7 +321,7 @@ export function PeakHoursHeatmap({ title, cells, metric, unitLabel, rangeStart, 
               <>
                 <MousePointerClick className="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-stone-600" />
                 <p className="text-xs text-gray-400 dark:text-stone-500">
-                  Passe o mouse ou navegue pelas células para ver o detalhe de cada horário.
+                  Toque ou passe o mouse pelas células para ver o detalhe de cada horário.
                 </p>
               </>
             )}
