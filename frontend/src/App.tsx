@@ -15,6 +15,7 @@ import { AppLayout } from './layout/AppLayout'
 import { CourierLayout } from './layout/CourierLayout'
 import { MyDeliveriesPage } from './pages/courier/MyDeliveriesPage'
 import { AllFeedbackPage } from './pages/AllFeedbackPage'
+import { ArmazemMoraComingSoonPage } from './pages/ArmazemMoraComingSoonPage'
 import { AuthRoutes } from './pages/AuthRoutes'
 import { CardPaymentReturnPage } from './pages/CardPaymentReturnPage'
 import { CardSetupGuidePage } from './pages/CardSetupGuidePage'
@@ -147,6 +148,7 @@ function App() {
                   <Route path="/reports/feedback" element={<AllFeedbackPage />} />
                   <Route path="/settings" element={<RestaurantSettingsPage />} />
                   <Route path="/staff" element={<StaffPage />} />
+                  <Route path="/armazem-mora" element={<ArmazemMoraComingSoonPage />} />
                 </Route>
               </Route>
               <Route element={<RequireCourierRole />}>
