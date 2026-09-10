@@ -189,7 +189,7 @@ export function DeliveryZonesPage() {
       <SectionTabs tabs={MANAGEMENT_TABS} />
 
       <div className="mb-5 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center justify-between gap-3">
           <PageHeader icon={DeliveryRiderIcon} title="Zonas de entrega" />
           <Button type="button" onClick={openCreateForm} className="shrink-0" aria-label="Nova zona">
             <Plus className="h-4 w-4" />
