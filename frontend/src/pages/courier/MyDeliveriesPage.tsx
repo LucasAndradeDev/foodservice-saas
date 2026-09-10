@@ -1,21 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CheckCircle2, MapPin, MapPinOff, MessageCircle, Navigation, Phone } from 'lucide-react'
+import {
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  MapPin,
+  MapPinOff,
+  MessageCircle,
+  Navigation,
+  Phone,
+  Route,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { DeliveryRiderIcon } from '../../components/DeliveryRiderIcon'
-import { listMyDeliveries, updateDeliveryStatus, updateMyLocation } from '../../api/deliveries'
+import { listMyDeliveredToday, listMyDeliveries, updateDeliveryStatus, updateMyLocation } from '../../api/deliveries'
 import { buildMapsUrl, formatAddressLines } from '../../utils/delivery'
 import { buildWhatsAppUrl } from '../../utils/phone'
+import { minutesSince } from '../../utils/time'
+import { translateApiError } from '../../utils/apiErrorMessage'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-
-function extractErrorMessage(err: unknown, fallback: string) {
-  if (isAxiosError(err) && err.response?.data?.message) {
-    return err.response.data.message as string
-  }
-  return fallback
-}
+const timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
 const cardVariants = {
   hidden: { opacity: 0, y: 12 },
@@ -31,7 +36,9 @@ const LOCATION_SEND_MIN_INTERVAL_MS = 20000
 export function MyDeliveriesPage() {
   const queryClient = useQueryClient()
   const [locationDenied, setLocationDenied] = useState(false)
+  const [locationActive, setLocationActive] = useState(false)
   const [deliverError, setDeliverError] = useState<{ tabId: string; message: string } | null>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const lastSentAtRef = useRef(0)
 
   // Reports position whenever this screen is open, not gated on having an active delivery - the
@@ -47,12 +54,16 @@ export function MyDeliveriesPage() {
         // permission was denied for good - watchPosition keeps calling back on its own once the
         // signal comes back, so clear the warning here instead of leaving it stuck until reload.
         setLocationDenied(false)
+        setLocationActive(true)
         const now = Date.now()
         if (now - lastSentAtRef.current < LOCATION_SEND_MIN_INTERVAL_MS) return
         lastSentAtRef.current = now
         updateMyLocation(position.coords.latitude, position.coords.longitude).catch(() => {})
       },
-      () => setLocationDenied(true),
+      () => {
+        setLocationDenied(true)
+        setLocationActive(false)
+      },
       { enableHighAccuracy: false, maximumAge: 15000 },
     )
     return () => navigator.geolocation.clearWatch(watchId)
@@ -64,26 +75,103 @@ export function MyDeliveriesPage() {
     refetchInterval: 15000,
   })
 
+  // Backs the day summary card and the "history" disclosure below - refetched less often than the
+  // active list since it only changes when this courier finishes a delivery (also invalidated
+  // directly in deliverMutation's onSuccess, so it updates right away instead of waiting a full
+  // interval).
+  const { data: deliveredToday } = useQuery({
+    queryKey: ['my-deliveries-history'],
+    queryFn: listMyDeliveredToday,
+    refetchInterval: 60000,
+  })
+
   const deliverMutation = useMutation({
     mutationFn: (tabId: string) => updateDeliveryStatus(tabId, 'DELIVERED'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-deliveries'] })
+      queryClient.invalidateQueries({ queryKey: ['my-deliveries-history'] })
       setDeliverError(null)
     },
-    onError: (err, tabId) => setDeliverError({ tabId, message: extractErrorMessage(err, 'Não foi possível marcar como entregue.') }),
+    onError: (err, tabId) => setDeliverError({ tabId, message: translateApiError(err, 'Não foi possível marcar como entregue.') }),
   })
 
   const isEmpty = deliveries?.length === 0 && !isLoading
+  const deliveredCount = deliveredToday?.length ?? 0
+  const feesToday = (deliveredToday ?? []).reduce((sum, delivery) => sum + delivery.deliveryFee, 0)
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-6">
       <h1 className="text-center text-xl font-semibold text-gray-900 dark:text-white">Minhas entregas</h1>
 
-      {locationDenied && (
+      {locationDenied ? (
         <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-amber-600 dark:text-amber-400">
           <MapPinOff className="h-3.5 w-3.5 shrink-0" />
           Sem acesso à localização: a loja não vai te ver no mapa.
         </p>
+      ) : (
+        locationActive && (
+          <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-gray-400 dark:text-stone-500">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sage-500" />
+            Compartilhando localização com a loja
+          </p>
+        )
+      )}
+
+      {deliveredToday && (
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="rounded-2xl border border-gray-200 bg-white p-3.5 text-center shadow-sm dark:border-white/10 dark:bg-stone-900">
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{deliveredCount}</p>
+            <p className="text-xs text-gray-500 dark:text-stone-400">
+              {deliveredCount === 1 ? 'entrega hoje' : 'entregas hoje'}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-gray-200 bg-white p-3.5 text-center shadow-sm dark:border-white/10 dark:bg-stone-900">
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{currencyFormatter.format(feesToday)}</p>
+            <p className="text-xs text-gray-500 dark:text-stone-400">em taxas de entrega</p>
+          </div>
+        </div>
+      )}
+
+      {deliveredCount > 0 && (
+        <div className="mt-3 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
+          <button
+            type="button"
+            onClick={() => setHistoryOpen((open) => !open)}
+            className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
+          >
+            <span className="text-sm font-semibold text-gray-700 dark:text-stone-200">
+              Entregas concluídas hoje
+            </span>
+            <motion.span animate={{ rotate: historyOpen ? 180 : 0 }} transition={{ duration: 0.2 }}>
+              <ChevronDown className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+            </motion.span>
+          </button>
+          <AnimatePresence initial={false}>
+            {historyOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="divide-y divide-gray-100 border-t border-gray-100 dark:divide-white/10 dark:border-white/10">
+                  {deliveredToday?.map((delivery) => (
+                    <div key={delivery.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                      <span className="min-w-0 truncate text-gray-700 dark:text-stone-200">{delivery.customerName}</span>
+                      <span className="flex shrink-0 items-center gap-2 text-xs text-gray-400 dark:text-stone-500">
+                        {delivery.deliveredAt && timeFormatter.format(new Date(delivery.deliveredAt))}
+                        <span className="font-semibold text-gray-600 dark:text-stone-300">
+                          {currencyFormatter.format(delivery.deliveryFee)}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       )}
 
       {isLoading && (
@@ -138,7 +226,23 @@ export function MyDeliveriesPage() {
                 className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900"
               >
                 <div className="flex items-start justify-between gap-3 p-4 pb-3">
-                  <span className="font-semibold text-gray-900 dark:text-white">{delivery.customerName}</span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold text-gray-900 dark:text-white">{delivery.customerName}</span>
+                    <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-400 dark:text-stone-500">
+                      {delivery.outForDeliveryAt && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Saiu há {minutesSince(delivery.outForDeliveryAt)} min
+                        </span>
+                      )}
+                      {delivery.deliveryDistanceKm != null && (
+                        <span className="flex items-center gap-1">
+                          <Route className="h-3 w-3" />
+                          {delivery.deliveryDistanceKm.toFixed(1).replace('.', ',')} km
+                        </span>
+                      )}
+                    </span>
+                  </span>
                   <span className="shrink-0 text-sm font-bold text-gray-900 dark:text-white">
                     {currencyFormatter.format(total)}
                   </span>

@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
 import { AnimatePresence, motion, type Variants } from 'framer-motion'
 import {
   AlertTriangle,
@@ -39,6 +38,7 @@ import { SectionTabs } from '../components/SectionTabs'
 import { Toggle } from '../components/Toggle'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { publicMenuUrl } from '../utils/publicMenuUrl'
+import { translateApiError } from '../utils/apiErrorMessage'
 
 const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral', icon: Store },
@@ -91,16 +91,6 @@ const FIELD_CARD_CLASS =
 
 const ADDRESS_FIELD_CLASS =
   'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500'
-
-// The backend rejects this save for several distinct reasons (CNPJ already registered, a
-// threshold pair out of order...) - surfacing its actual message instead of one fixed guess so
-// the real cause is visible (finding #10, 2026-09-07 review).
-function extractErrorMessage(err: unknown, fallback: string) {
-  if (isAxiosError(err) && err.response?.data?.message) {
-    return err.response.data.message as string
-  }
-  return fallback
-}
 
 export function RestaurantSettingsPage() {
   const { user, updateRestaurant } = useAuth()
@@ -185,7 +175,7 @@ export function RestaurantSettingsPage() {
       setSuccess(true)
       setTimeout(() => setSuccess(false), 3000)
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível salvar. Verifique os dados e tente novamente.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível salvar. Verifique os dados e tente novamente.')),
   })
 
   function handleSubmit(event: FormEvent) {

@@ -30,6 +30,7 @@ import {
   type Tab,
 } from '../api/tabs'
 import { getMyRestaurant } from '../api/restaurant'
+import { translateApiError } from '../utils/apiErrorMessage'
 import { useAuth } from '../auth/AuthContext'
 import { Button } from '../components/Button'
 import { Dropdown, type DropdownOption } from '../components/Dropdown'
@@ -88,14 +89,7 @@ function isSameLocalDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
-function extractErrorMessage(err: unknown, fallback: string) {
-  if (isAxiosError(err) && err.response?.data?.message) {
-    return err.response.data.message as string
-  }
-  return fallback
-}
-
-/** Same idea as extractErrorMessage, but for creating a Pix charge specifically: the backend's
+/** Same idea as translateApiError, but for creating a Pix charge specifically: the backend's
  * validation messages there are internal English text (e.g. "Requested amount exceeds the tab's
  * remaining uncommitted balance of 46.20"), never meant to reach a screen. That one case - the
  * requested amount exceeds what's actually left uncommitted right now - is also the one staff can
@@ -114,7 +108,7 @@ function extractPixChargeErrorMessage(err: unknown, fallback: string) {
     }
     return `O valor digitado é maior que o restante disponível pra gerar Pix (${currencyFormatter.format(remaining)}). Ajuste o valor e tente novamente.`
   }
-  return fallback
+  return translateApiError(err, fallback)
 }
 
 /** Same idea as extractPixChargeErrorMessage, for a card charge instead - the amount-exceeds-remaining
@@ -130,7 +124,7 @@ function extractCardChargeErrorMessage(err: unknown, fallback: string) {
     }
     return `O valor digitado é maior que o restante disponível pra cobrar no cartão (${currencyFormatter.format(remaining)}). Ajuste o valor e tente novamente.`
   }
-  return fallback
+  return translateApiError(err, fallback)
 }
 
 /** Same idea as extractPixChargeErrorMessage/extractCardChargeErrorMessage, for registering a
@@ -148,7 +142,7 @@ function extractRegisterPaymentsErrorMessage(err: unknown, fallback: string) {
     }
     return `O valor digitado é maior que o restante da comanda (${currencyFormatter.format(remaining)}). Ajuste o valor e tente novamente.`
   }
-  return fallback
+  return translateApiError(err, fallback)
 }
 
 interface TabSummary {
@@ -331,7 +325,7 @@ export function CheckoutPage() {
       const updatedTab = await getTab(tabId)
       setSelectedSummary((prev) => (prev && prev.tab.id === tabId ? { ...prev, tab: updatedTab } : prev))
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível cancelar a cobrança Pix. Tente novamente.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível cancelar a cobrança Pix. Tente novamente.')),
   })
 
   // Confirmation is asynchronous (Woovi calls a webhook when the customer pays) - poll the tab
@@ -374,7 +368,7 @@ export function CheckoutPage() {
       const updatedTab = await getTab(tabId)
       setSelectedSummary((prev) => (prev && prev.tab.id === tabId ? { ...prev, tab: updatedTab } : prev))
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível cancelar a cobrança no cartão. Tente novamente.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível cancelar a cobrança no cartão. Tente novamente.')),
   })
 
   // Same idea as the Pix poll above: confirmation is asynchronous (Mercado Pago's webhook), so
@@ -443,7 +437,7 @@ export function CheckoutPage() {
     onSuccess: (_data, { entryId }) => {
       setPendingEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, pixCharge: undefined } : entry)))
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível cancelar a cobrança Pix dessa parcela. Tente novamente.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível cancelar a cobrança Pix dessa parcela. Tente novamente.')),
   })
 
   // Fallback for a split Pix share the customer paid through some channel outside the app (a Pix key
@@ -488,7 +482,7 @@ export function CheckoutPage() {
     onSuccess: (_data, { entryId }) => {
       setPendingEntries((prev) => prev.map((entry) => (entry.id === entryId ? { ...entry, cardCharge: undefined } : entry)))
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível cancelar a cobrança no cartão dessa parcela. Tente novamente.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível cancelar a cobrança no cartão dessa parcela. Tente novamente.')),
   })
 
   const hasOutstandingEntryCardCharge = pendingEntries.some((entry) => entry.cardCharge)
@@ -582,7 +576,7 @@ export function CheckoutPage() {
       })
       setIsEditingDiscount(false)
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível aplicar o desconto nesta comanda.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível aplicar o desconto nesta comanda.')),
   })
 
   async function handleCardClick(summary: TabSummary) {

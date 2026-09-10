@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertTriangle,
@@ -40,6 +39,7 @@ import {
 import { buildMapsUrl, formatAddressLines } from '../utils/delivery'
 import { buildWhatsAppUrl } from '../utils/phone'
 import { minutesSince } from '../utils/time'
+import { translateApiError } from '../utils/apiErrorMessage'
 
 // Represents "no courier assigned" as '' since Dropdown's generic is string-keyed - translated
 // back to null right before calling the API (courierId: null is what actually unassigns).
@@ -55,13 +55,6 @@ const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', cu
 // a visual nudge, not a configurable SLA, and delivery has no equivalent settings field yet.
 const WARNING_THRESHOLD_MINUTES = 25
 const CRITICAL_THRESHOLD_MINUTES = 45
-
-function extractErrorMessage(err: unknown, fallback: string) {
-  if (isAxiosError(err) && err.response?.data?.message) {
-    return err.response.data.message as string
-  }
-  return fallback
-}
 
 type DelayLevel = 'none' | 'warning' | 'critical'
 
@@ -204,7 +197,7 @@ export function DeliveryPage() {
       queryClient.invalidateQueries({ queryKey: ['deliveries'] })
       setError(null)
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível atualizar o status da entrega.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível atualizar o status da entrega.')),
   })
 
   const assignCourierMutation = useMutation({
@@ -213,7 +206,7 @@ export function DeliveryPage() {
       queryClient.invalidateQueries({ queryKey: ['deliveries'] })
       setError(null)
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível atribuir o entregador.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível atribuir o entregador.')),
   })
 
   const cancelMutation = useMutation({
@@ -223,7 +216,7 @@ export function DeliveryPage() {
       setDeliveryPendingCancel(null)
       setError(null)
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível cancelar a entrega.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível cancelar a entrega.')),
   })
 
   function courierOptionsFor(delivery: DeliveryDetails): DropdownOption<string>[] {

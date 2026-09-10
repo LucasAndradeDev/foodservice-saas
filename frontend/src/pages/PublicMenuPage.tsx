@@ -21,6 +21,7 @@ import { clearActiveDeliveryOrder, loadActiveDeliveryOrder, saveActiveDeliveryOr
 import { sameComboSelections, type SelectedComboSlot } from '../utils/combos'
 import { loadLastDeliveryAddress, saveLastDeliveryAddress } from '../utils/lastDeliveryAddressStorage'
 import { clearPublicOrderState, loadPublicOrderState, savePublicOrderState } from '../utils/publicOrderStorage'
+import { translateApiError } from '../utils/apiErrorMessage'
 import { CartDrawer } from './publicMenu/CartDrawer'
 import { CategoryBanner } from './publicMenu/CategoryBanner'
 import { CategoryNav } from './publicMenu/CategoryNav'
@@ -60,13 +61,6 @@ const containerVariants = {
 const itemVariants = {
   hidden: { opacity: 0, y: 8 },
   visible: { opacity: 1, y: 0 },
-}
-
-function extractErrorMessage(err: unknown, fallback: string) {
-  if (isAxiosError(err) && err.response?.data?.message) {
-    return err.response.data.message as string
-  }
-  return fallback
 }
 
 export function PublicMenuPage() {
@@ -311,7 +305,7 @@ export function PublicMenuPage() {
       setTimeout(() => setOrderSuccess(false), 4000)
       queryClient.invalidateQueries({ queryKey: ['publicMenu', slug, tableId] })
     },
-    onError: (err) => setOrderError(extractErrorMessage(err, 'Não foi possível enviar o pedido. Tente novamente.')),
+    onError: (err) => setOrderError(translateApiError(err, 'Não foi possível enviar o pedido. Tente novamente.')),
   })
 
   const submitDeliveryOrderMutation = useMutation({
@@ -337,7 +331,7 @@ export function PublicMenuPage() {
       setActiveDeliveryToken(result.accessToken)
       navigate(`/delivery/status/${result.accessToken}`)
     },
-    onError: (err) => setOrderError(extractErrorMessage(err, 'Não foi possível enviar o pedido. Tente novamente.')),
+    onError: (err) => setOrderError(translateApiError(err, 'Não foi possível enviar o pedido. Tente novamente.')),
   })
 
   const applyCouponMutation = useMutation({

@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
 import { Banknote, History, Lock, MinusCircle, Unlock, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import {
@@ -14,16 +13,10 @@ import { DateRangePicker } from '../components/DateRangePicker'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
 import { toDateInputValue } from '../utils/calendarGrid'
+import { translateApiError } from '../utils/apiErrorMessage'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-
-function extractErrorMessage(err: unknown, fallback: string) {
-  if (isAxiosError(err) && err.response?.data?.message) {
-    return err.response.data.message as string
-  }
-  return fallback
-}
 
 export function CashRegisterPage() {
   const queryClient = useQueryClient()
@@ -66,7 +59,7 @@ export function CashRegisterPage() {
       invalidate()
       setIsOpeningForm(false)
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível abrir o caixa.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível abrir o caixa.')),
   })
 
   const withdrawalMutation = useMutation({
@@ -75,7 +68,7 @@ export function CashRegisterPage() {
       invalidate()
       setIsWithdrawalForm(false)
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível registrar a sangria.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível registrar a sangria.')),
   })
 
   const closeMutation = useMutation({
@@ -84,7 +77,7 @@ export function CashRegisterPage() {
       invalidate()
       setIsClosingForm(false)
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível fechar o caixa.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível fechar o caixa.')),
   })
 
   function openOpeningForm() {

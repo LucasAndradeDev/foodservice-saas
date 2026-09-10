@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
 import { BarChart3, CheckCircle2, Circle, Clock, Filter, KeyRound, Pencil, Plus, Store, Ticket, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
@@ -24,6 +23,7 @@ import { PageHeader } from '../components/PageHeader'
 import { SectionTabs } from '../components/SectionTabs'
 import { Table, TableHead, TableRow } from '../components/Table'
 import { formatBrazilianPhone } from '../utils/phone'
+import { translateApiError } from '../utils/apiErrorMessage'
 
 const MANAGEMENT_TABS = [
   { to: '/settings', label: 'Geral', icon: Store },
@@ -66,16 +66,6 @@ function defaultRole(assignableRoles: UserRole[]): UserRole {
   return assignableRoles.includes('WAITER') ? 'WAITER' : assignableRoles[0]
 }
 
-// The backend rejects create/update for several distinct reasons (email already in use, courier
-// missing phone/vehicle, deactivating the last active OWNER...) - surfacing its actual message
-// instead of one fixed guess so the real cause is visible (finding #10, 2026-09-07 review).
-function extractErrorMessage(err: unknown, fallback: string) {
-  if (isAxiosError(err) && err.response?.data?.message) {
-    return err.response.data.message as string
-  }
-  return fallback
-}
-
 export function StaffPage() {
   const { user } = useAuth()
   const canManage = user?.role === 'OWNER' || user?.role === 'MANAGER'
@@ -108,9 +98,10 @@ export function StaffPage() {
     mutationFn: createUser,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
+      resetFields()
       closeForm()
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível criar. Verifique se o email já está em uso.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível criar. Verifique se o email já está em uso.')),
   })
 
   const updateMutation = useMutation({
@@ -120,7 +111,7 @@ export function StaffPage() {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       closeForm()
     },
-    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível salvar as alterações.')),
+    onError: (err) => setError(translateApiError(err, 'Não foi possível salvar as alterações.')),
   })
 
   const sendResetLinkMutation = useMutation({
@@ -141,12 +132,15 @@ export function StaffPage() {
     return true
   }
 
-  function openCreateForm() {
+  function resetFields() {
     setName('')
     setEmail('')
     setRole(defaultRole(assignableRoles))
     setPhone('')
     setVehicleType('MOTORCYCLE')
+  }
+
+  function openCreateForm() {
     setError(null)
     setIsCreating(true)
   }
@@ -162,7 +156,12 @@ export function StaffPage() {
     setError(null)
   }
 
+  // Closing (backdrop click, X, or Esc) only hides the modal - it never wipes what the user
+  // typed, so an accidental dismiss during "Novo funcionário" doesn't lose the draft. The one
+  // exception is leaving an edit in progress, where we clear so those field values don't leak
+  // into the next "Novo funcionário" draft.
   function closeForm() {
+    if (editingStaff) resetFields()
     setIsCreating(false)
     setEditingStaff(null)
   }

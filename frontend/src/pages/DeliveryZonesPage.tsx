@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
 import { AlertTriangle, Check, CheckCircle2, Clock, Pencil, Plus, Route, Store, Ticket, Trash2, Users } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
@@ -22,6 +21,7 @@ import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
 import { SectionTabs } from '../components/SectionTabs'
 import { Toggle } from '../components/Toggle'
+import { translateApiError } from '../utils/apiErrorMessage'
 
 const CURRENCY_INPUT_CLASS =
   'w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400'
@@ -79,10 +79,7 @@ export function DeliveryZonesPage() {
     // This form previously had no error path at all (finding #10, 2026-09-07 review) - a rejected
     // save (e.g. an out-of-range raio máximo) looked identical to a successful one, just without
     // the "Salvo" flash, with no indication anything went wrong.
-    onError: (err) =>
-      setDistanceFeeError(
-        isAxiosError(err) && err.response?.data?.message ? (err.response.data.message as string) : 'Não foi possível salvar.'
-      ),
+    onError: (err) => setDistanceFeeError(translateApiError(err, 'Não foi possível salvar.')),
   })
 
   function handleSaveDistanceFee(event: FormEvent) {
@@ -191,17 +188,16 @@ export function DeliveryZonesPage() {
     <div>
       <SectionTabs tabs={MANAGEMENT_TABS} />
 
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
+      <div className="mb-5 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
         <div className="flex flex-wrap items-center gap-3">
           <PageHeader icon={DeliveryRiderIcon} title="Zonas de entrega" />
-          <Badge tone={distanceStatus === 'active' ? 'neutral' : 'free'}>
-            {distanceStatus === 'active' ? 'Alternativa' : 'Método atual'}
-          </Badge>
+          <Button type="button" onClick={openCreateForm} className="shrink-0" aria-label="Nova zona">
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
-        <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Nova zona</span>
-        </Button>
+        <Badge tone={distanceStatus === 'active' ? 'neutral' : 'free'} className="mt-2">
+          {distanceStatus === 'active' ? 'Alternativa' : 'Método atual'}
+        </Badge>
       </div>
 
       <div className="mb-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">

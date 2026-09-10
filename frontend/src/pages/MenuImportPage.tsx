@@ -15,6 +15,7 @@ import { CurrencyInput } from '../components/CurrencyInput'
 import { PageHeader } from '../components/PageHeader'
 import { Table, TableHead, TableRow } from '../components/Table'
 import { toTitleCase } from '../utils/textCase'
+import { translateApiError } from '../utils/apiErrorMessage'
 
 interface DraftRow {
   tempId: string
@@ -118,7 +119,7 @@ export function MenuImportPage() {
       setStep('review')
     } catch (err) {
       if (isAxiosError(err) && (err.response?.status === 422 || err.response?.status === 400)) {
-        setExtractError(err.response.data?.message ?? 'Não foi possível processar o arquivo enviado.')
+        setExtractError(translateApiError(err, 'Não foi possível processar o arquivo enviado.'))
       } else {
         setExtractError('Não foi possível processar o arquivo. Tente novamente.')
       }
