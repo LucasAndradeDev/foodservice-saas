@@ -87,8 +87,8 @@ export function RegisterPage() {
 
   return (
     <>
-      <Logo className="mx-auto mb-6 block h-16 w-auto" />
-      <h1 className="mb-8 text-2xl font-bold text-gray-800 dark:text-white">Cadastre seu restaurante</h1>
+      <Logo className="mx-auto mb-6 block h-24 w-auto" />
+      <h1 className="mb-8 text-center text-2xl font-bold text-gray-800 dark:text-white">Cadastre seu restaurante</h1>
 
       <form onSubmit={handleSubmit}>
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-stone-500">

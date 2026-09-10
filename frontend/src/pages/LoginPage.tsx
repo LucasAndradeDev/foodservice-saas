@@ -45,8 +45,8 @@ export function LoginPage() {
 
   return (
     <>
-      <Logo className="mx-auto mb-8 block h-16 w-auto" />
-      <h1 className="mb-8 text-2xl font-bold text-gray-800 dark:text-white">Acesse sua conta</h1>
+      <Logo className="mx-auto mb-6 block h-24 w-auto" />
+      <h1 className="mb-8 text-center text-2xl font-bold text-gray-800 dark:text-white">Acesse sua conta</h1>
 
       <form onSubmit={handleSubmit}>
         <AuthInput
