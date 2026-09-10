@@ -301,11 +301,13 @@ export function TablesPage() {
   const [selectedTable, setSelectedTable] = useState<RestaurantTable | null>(null)
   const [numberInput, setNumberInput] = useState('')
   const [createAreaId, setCreateAreaId] = useState('')
+  const [capacityInput, setCapacityInput] = useState('')
   const [quantityInput, setQuantityInput] = useState('')
   const [editNumber, setEditNumber] = useState('')
   const [editStatus, setEditStatus] = useState<TableStatus>('FREE')
   const [editActive, setEditActive] = useState(true)
   const [editAreaId, setEditAreaId] = useState('')
+  const [editCapacity, setEditCapacity] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
 
@@ -334,7 +336,8 @@ export function TablesPage() {
   }
 
   const createMutation = useMutation({
-    mutationFn: ({ number, areaId }: { number?: number; areaId: string | null }) => createTable(number, areaId),
+    mutationFn: ({ number, areaId, capacity }: { number?: number; areaId: string | null; capacity?: number }) =>
+      createTable(number, areaId, capacity),
     onSuccess: () => {
       invalidate()
       setIsCreating(false)
@@ -387,6 +390,7 @@ export function TablesPage() {
   function openCreateForm() {
     setNumberInput('')
     setCreateAreaId('')
+    setCapacityInput('')
     setError(null)
     setIsCreating(true)
   }
@@ -405,6 +409,7 @@ export function TablesPage() {
     setEditStatus(table.status === 'RESERVED' ? 'FREE' : table.status)
     setEditActive(table.active)
     setEditAreaId(table.areaId ?? '')
+    setEditCapacity(String(table.capacity))
     setError(null)
   }
 
@@ -431,6 +436,7 @@ export function TablesPage() {
     createMutation.mutate({
       number: numberInput ? Number(numberInput) : undefined,
       areaId: createAreaId || null,
+      capacity: capacityInput ? Number(capacityInput) : undefined,
     })
   }
 
@@ -450,7 +456,7 @@ export function TablesPage() {
       try {
         await updateMutation.mutateAsync({
           id: selectedTable.id,
-          payload: { number: Number(editNumber), active: editActive, ...areaPayload },
+          payload: { number: Number(editNumber), capacity: Number(editCapacity), active: editActive, ...areaPayload },
         })
       } catch {
         setError('Não foi possível salvar. Verifique se o número já está em uso.')
@@ -995,6 +1001,19 @@ export function TablesPage() {
               className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
             />
 
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="tableCapacity">
+              Capacidade <span className="font-normal text-gray-400 dark:text-stone-500">(opcional, 4 lugares se vazio)</span>
+            </label>
+            <input
+              id="tableCapacity"
+              type="number"
+              min="1"
+              placeholder="4"
+              value={capacityInput}
+              onChange={(e) => setCapacityInput(e.target.value)}
+              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+            />
+
             {areas && areas.length === 0 && (
               <div className="mb-4 rounded-lg border border-dashed border-brand-200 bg-brand-50/60 p-3.5 dark:border-brand-500/30 dark:bg-brand-500/10">
                 <div className="flex items-start gap-3">
@@ -1128,6 +1147,19 @@ export function TablesPage() {
                     disabled={!canManage}
                     value={editNumber}
                     onChange={(e) => setEditNumber(e.target.value)}
+                    className="mb-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
+                  />
+
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="editCapacity">
+                    Capacidade
+                  </label>
+                  <input
+                    id="editCapacity"
+                    type="number"
+                    min="1"
+                    disabled={!canManage}
+                    value={editCapacity}
+                    onChange={(e) => setEditCapacity(e.target.value)}
                     className="mb-3 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-500 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400 dark:disabled:bg-white/5 dark:disabled:text-stone-500"
                   />
 

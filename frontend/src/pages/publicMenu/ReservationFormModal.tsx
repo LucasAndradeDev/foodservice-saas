@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { Check, CheckCircle2, Copy } from 'lucide-react'
+import { Check, CheckCircle2, Share2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import {
   createPublicReservation,
@@ -8,6 +8,7 @@ import {
 } from '../../api/reservations'
 import { DateTimePicker } from '../../components/DateTimePicker'
 import { Modal } from '../../components/Modal'
+import { formatBrazilianPhone } from '../../utils/phone'
 
 interface ReservationFormModalProps {
   slug: string
@@ -17,6 +18,7 @@ interface ReservationFormModalProps {
 export function ReservationFormModal({ slug, onClose }: ReservationFormModalProps) {
   const [error, setError] = useState<string | null>(null)
   const [reservationTime, setReservationTime] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
   const [copied, setCopied] = useState(false)
 
   const createMutation = useMutation({
@@ -43,14 +45,25 @@ export function ReservationFormModal({ slug, onClose }: ReservationFormModalProp
     const form = new FormData(event.currentTarget)
     createMutation.mutate({
       customerName: String(form.get('customerName')),
-      customerPhone: String(form.get('customerPhone')),
+      customerPhone,
       note: String(form.get('note') || '') || undefined,
       partySize: Number(form.get('partySize')),
       reservationTime: new Date(reservationTime).toISOString(),
     })
   }
 
-  function handleCopy(url: string) {
+  // Same native-share-with-clipboard-fallback pattern as DeliveryStatusPage.handleShare - lets the
+  // customer save this link through whichever app they actually use (WhatsApp, Notes, SMS...)
+  // instead of only being able to copy it (2026-09-09 reservation audit, finding #4).
+  async function handleShare(url: string) {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Minha reserva', text: 'Guarde o link da sua reserva:', url })
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return
+      }
+      return
+    }
     navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -74,11 +87,11 @@ export function ReservationFormModal({ slug, onClose }: ReservationFormModalProp
           </a>
           <button
             type="button"
-            onClick={() => handleCopy(statusUrl)}
+            onClick={() => handleShare(statusUrl)}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
           >
-            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            {copied ? 'Copiado!' : 'Copiar link'}
+            {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
+            {copied ? 'Copiado!' : 'Compartilhar link'}
           </button>
         </div>
       </Modal>
@@ -108,7 +121,9 @@ export function ReservationFormModal({ slug, onClose }: ReservationFormModalProp
           name="customerPhone"
           type="tel"
           required
-          maxLength={20}
+          maxLength={16}
+          value={customerPhone}
+          onChange={(e) => setCustomerPhone(formatBrazilianPhone(e.target.value))}
           className="mb-3 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white"
         />
 

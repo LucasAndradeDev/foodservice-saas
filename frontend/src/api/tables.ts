@@ -21,8 +21,8 @@ export function listTables(filters: TableFilters = {}) {
   return http.get<RestaurantTable[]>('/tables', { params: filters }).then((res) => res.data)
 }
 
-export function createTable(number?: number, areaId?: string | null) {
-  return http.post<RestaurantTable>('/tables', { number, areaId }).then((res) => res.data)
+export function createTable(number?: number, areaId?: string | null, capacity?: number) {
+  return http.post<RestaurantTable>('/tables', { number, areaId, capacity }).then((res) => res.data)
 }
 
 export function createTablesBulk(quantity: number) {
@@ -31,7 +31,7 @@ export function createTablesBulk(quantity: number) {
 
 export function updateTable(
   id: string,
-  payload: { number?: number; active?: boolean; areaId?: string | null; clearArea?: boolean },
+  payload: { number?: number; capacity?: number; active?: boolean; areaId?: string | null; clearArea?: boolean },
 ) {
   return http.put<RestaurantTable>(`/tables/${id}`, payload).then((res) => res.data)
 }

@@ -22,7 +22,7 @@ import { DateTimePicker } from '../components/DateTimePicker'
 import { Modal } from '../components/Modal'
 import { PageHeader } from '../components/PageHeader'
 import { Toggle } from '../components/Toggle'
-import { buildWhatsAppUrl } from '../utils/phone'
+import { buildWhatsAppUrl, formatBrazilianPhone } from '../utils/phone'
 
 const RESERVATION_STATUS_STYLES: Record<ReservationStatus, string> = {
   SCHEDULED: 'bg-teal-100 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
@@ -65,6 +65,7 @@ export function ReservationsPage() {
   const [date, setDate] = useState(() => toLocalDateString(new Date()))
   const [isCreating, setIsCreating] = useState(false)
   const [reservationTime, setReservationTime] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
   const [reservationPendingCancel, setReservationPendingCancel] = useState<Reservation | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [pageError, setPageError] = useState<string | null>(null)
@@ -177,7 +178,7 @@ export function ReservationsPage() {
     const form = new FormData(event.currentTarget)
     createMutation.mutate({
       customerName: String(form.get('customerName')),
-      customerPhone: String(form.get('customerPhone')),
+      customerPhone,
       note: String(form.get('note') || '') || undefined,
       partySize: Number(form.get('partySize')),
       reservationTime: new Date(reservationTime).toISOString(),
@@ -195,6 +196,7 @@ export function ReservationsPage() {
             onClick={() => {
               setFormError(null)
               setReservationTime('')
+              setCustomerPhone('')
               setManualTableSelection(false)
               setSelectedTableIds(new Set())
               setIsCreating(true)
@@ -361,7 +363,9 @@ export function ReservationsPage() {
               name="customerPhone"
               type="tel"
               required
-              maxLength={20}
+              maxLength={16}
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(formatBrazilianPhone(e.target.value))}
               className="mb-3 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white"
             />
 
