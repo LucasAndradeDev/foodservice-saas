@@ -124,7 +124,11 @@ export function DeliveryZonesPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Parameters<typeof updateDeliveryZone>[1] }) =>
       updateDeliveryZone(id, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliveryZones'] }),
+    onSuccess: () => {
+      setListError(null)
+      queryClient.invalidateQueries({ queryKey: ['deliveryZones'] })
+    },
+    onError: () => setListError('Não foi possível salvar a alteração.'),
   })
 
   const deleteMutation = useMutation({

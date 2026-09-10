@@ -62,6 +62,13 @@ const itemVariants = {
   visible: { opacity: 1, y: 0 },
 }
 
+function extractErrorMessage(err: unknown, fallback: string) {
+  if (isAxiosError(err) && err.response?.data?.message) {
+    return err.response.data.message as string
+  }
+  return fallback
+}
+
 export function PublicMenuPage() {
   const { slug, tableId } = useParams<{ slug: string; tableId?: string }>()
   const navigate = useNavigate()
@@ -304,7 +311,7 @@ export function PublicMenuPage() {
       setTimeout(() => setOrderSuccess(false), 4000)
       queryClient.invalidateQueries({ queryKey: ['publicMenu', slug, tableId] })
     },
-    onError: () => setOrderError('Não foi possível enviar o pedido. Tente novamente.'),
+    onError: (err) => setOrderError(extractErrorMessage(err, 'Não foi possível enviar o pedido. Tente novamente.')),
   })
 
   const submitDeliveryOrderMutation = useMutation({
@@ -330,7 +337,7 @@ export function PublicMenuPage() {
       setActiveDeliveryToken(result.accessToken)
       navigate(`/delivery/status/${result.accessToken}`)
     },
-    onError: () => setOrderError('Não foi possível enviar o pedido. Tente novamente.'),
+    onError: (err) => setOrderError(extractErrorMessage(err, 'Não foi possível enviar o pedido. Tente novamente.')),
   })
 
   const applyCouponMutation = useMutation({

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
 import { CheckCircle2, MapPin, MapPinOff, MessageCircle, Navigation, Phone } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -8,6 +9,13 @@ import { buildMapsUrl, formatAddressLines } from '../../utils/delivery'
 import { buildWhatsAppUrl } from '../../utils/phone'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+
+function extractErrorMessage(err: unknown, fallback: string) {
+  if (isAxiosError(err) && err.response?.data?.message) {
+    return err.response.data.message as string
+  }
+  return fallback
+}
 
 const cardVariants = {
   hidden: { opacity: 0, y: 12 },
@@ -23,6 +31,7 @@ const LOCATION_SEND_MIN_INTERVAL_MS = 20000
 export function MyDeliveriesPage() {
   const queryClient = useQueryClient()
   const [locationDenied, setLocationDenied] = useState(false)
+  const [deliverError, setDeliverError] = useState<{ tabId: string; message: string } | null>(null)
   const lastSentAtRef = useRef(0)
 
   // Reports position whenever this screen is open, not gated on having an active delivery - the
@@ -57,7 +66,11 @@ export function MyDeliveriesPage() {
 
   const deliverMutation = useMutation({
     mutationFn: (tabId: string) => updateDeliveryStatus(tabId, 'DELIVERED'),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['my-deliveries'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-deliveries'] })
+      setDeliverError(null)
+    },
+    onError: (err, tabId) => setDeliverError({ tabId, message: extractErrorMessage(err, 'Não foi possível marcar como entregue.') }),
   })
 
   const isEmpty = deliveries?.length === 0 && !isLoading
@@ -184,6 +197,9 @@ export function MyDeliveriesPage() {
                 </div>
 
                 <div className="border-t border-gray-100 p-3 dark:border-white/10">
+                  {deliverError?.tabId === delivery.tabId && (
+                    <p className="mb-2 text-center text-xs text-wine-600 dark:text-wine-400">{deliverError.message}</p>
+                  )}
                   <button
                     type="button"
                     onClick={() => deliverMutation.mutate(delivery.tabId)}

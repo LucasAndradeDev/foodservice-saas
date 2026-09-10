@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   AlertTriangle,
@@ -54,6 +55,13 @@ const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', cu
 // a visual nudge, not a configurable SLA, and delivery has no equivalent settings field yet.
 const WARNING_THRESHOLD_MINUTES = 25
 const CRITICAL_THRESHOLD_MINUTES = 45
+
+function extractErrorMessage(err: unknown, fallback: string) {
+  if (isAxiosError(err) && err.response?.data?.message) {
+    return err.response.data.message as string
+  }
+  return fallback
+}
 
 type DelayLevel = 'none' | 'warning' | 'critical'
 
@@ -111,6 +119,7 @@ export function DeliveryPage() {
   const [courierFilter, setCourierFilter] = useState<'available' | 'all'>('all')
   const [focusedCourierId, setFocusedCourierId] = useState(SHOW_ALL_COURIERS_VALUE)
   const [deliveryPendingCancel, setDeliveryPendingCancel] = useState<DeliveryDetails | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const { data: deliveries, isLoading } = useQuery({
     queryKey: ['deliveries'],
@@ -191,12 +200,20 @@ export function DeliveryPage() {
   const advanceMutation = useMutation({
     mutationFn: ({ tabId, status }: { tabId: string; status: DeliveryDetails['status'] }) =>
       updateDeliveryStatus(tabId, status),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliveries'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deliveries'] })
+      setError(null)
+    },
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível atualizar o status da entrega.')),
   })
 
   const assignCourierMutation = useMutation({
     mutationFn: ({ tabId, courierId }: { tabId: string; courierId: string | null }) => assignCourier(tabId, courierId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['deliveries'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deliveries'] })
+      setError(null)
+    },
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível atribuir o entregador.')),
   })
 
   const cancelMutation = useMutation({
@@ -204,7 +221,9 @@ export function DeliveryPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['deliveries'] })
       setDeliveryPendingCancel(null)
+      setError(null)
     },
+    onError: (err) => setError(extractErrorMessage(err, 'Não foi possível cancelar a entrega.')),
   })
 
   function courierOptionsFor(delivery: DeliveryDetails): DropdownOption<string>[] {
@@ -281,6 +300,8 @@ export function DeliveryPage() {
           </button>
         </div>
       </div>
+
+      {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
       {showMap && (
         <div className="mb-5 rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-stone-900">
