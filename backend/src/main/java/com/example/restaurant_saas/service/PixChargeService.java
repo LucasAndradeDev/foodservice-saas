@@ -308,6 +308,13 @@ public class PixChargeService {
 
         // Bypasses RLS on purpose - this is the one lookup that genuinely can't know the tenant
         // up front, same reasoning as ReservationService#cancelByToken.
+        //
+        // Unlike Mercado Pago's webhook secret (per-restaurant HMAC), Woovi's signature only
+        // proves "genuinely from Woovi" - the RSA key is the same for every Woovi merchant, so it
+        // can't prove this specific restaurant's account sent it. The random UUID correlationId
+        // (generated above, never returned by any API response - see PixChargeResponse) is what
+        // actually binds a webhook to the right tenant here. If correlationId/externalChargeId is
+        // ever exposed to a client for any reason, this lookup stops being tenant-safe.
         PixCharge pixCharge = pixChargeRepository.findByExternalChargeIdBypassingRls(correlationId).orElse(null);
         if (pixCharge == null || pixCharge.getStatus() != PixChargeStatus.PENDING) {
             return;

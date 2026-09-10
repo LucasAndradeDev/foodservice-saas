@@ -42,15 +42,18 @@ public class PublicOrderService {
         Restaurant restaurant = restaurantRepository.findBySlug(slug)
                 .orElseThrow(() -> new IllegalArgumentException("Menu not found."));
 
+        // customerPhone is optional here (unlike delivery, where it's required) - phone is
+        // omitted entirely, not just blank, is still throttled: an empty identifier still keys
+        // into the per-IP-only backstop RateLimitService always checks alongside it, which is
+        // what actually caps a flood of phoneless orders against one table.
         String customerPhone = request.getCustomerPhone();
-        if (customerPhone != null && !customerPhone.isBlank()) {
-            String normalizedPhone = customerPhone.replaceAll("\\D", "");
-            rateLimitService.checkAllowed(PUBLIC_ORDER_PHONE_ACTION, httpRequest, normalizedPhone);
-            rateLimitService.recordAttempt(
-                    PUBLIC_ORDER_PHONE_ACTION, httpRequest, normalizedPhone,
-                    phoneMaxAttempts, phoneWindowMinutes, phoneBlockMinutes
-            );
-        }
+        String normalizedPhone = (customerPhone == null || customerPhone.isBlank())
+                ? "" : customerPhone.replaceAll("\\D", "");
+        rateLimitService.checkAllowed(PUBLIC_ORDER_PHONE_ACTION, httpRequest, normalizedPhone);
+        rateLimitService.recordAttempt(
+                PUBLIC_ORDER_PHONE_ACTION, httpRequest, normalizedPhone,
+                phoneMaxAttempts, phoneWindowMinutes, phoneBlockMinutes
+        );
 
         tenantActivator.activate(restaurant.getId());
         try {
