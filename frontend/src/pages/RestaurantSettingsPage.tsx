@@ -259,7 +259,7 @@ export function RestaurantSettingsPage() {
       <SectionTabs tabs={MANAGEMENT_TABS} />
 
       <div className="mb-5 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
-        <PageHeader icon={Store} title="Configurações do restaurante" />
+        <PageHeader icon={Store} title="Configurações" />
       </div>
 
       <form onSubmit={handleSubmit}>

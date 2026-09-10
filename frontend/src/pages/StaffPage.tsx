@@ -78,6 +78,7 @@ function extractErrorMessage(err: unknown, fallback: string) {
 
 export function StaffPage() {
   const { user } = useAuth()
+  const canManage = user?.role === 'OWNER' || user?.role === 'MANAGER'
   const queryClient = useQueryClient()
   const assignableRoles = user?.role === 'OWNER' ? ASSIGNABLE_ROLES.OWNER : ASSIGNABLE_ROLES.MANAGER
   const roleOptions: DropdownOption<UserRole>[] = assignableRoles.map((option) => ({ value: option, label: ROLE_LABELS[option] }))
@@ -133,6 +134,7 @@ export function StaffPage() {
   })
 
   function canEditRow(row: StaffMember) {
+    if (!canManage) return false
     if (row.id === user?.id) return false
     if (row.role === 'OWNER') return false
     if (user?.role === 'MANAGER' && row.role === 'MANAGER') return false
@@ -199,11 +201,13 @@ export function StaffPage() {
         <div className="flex min-w-0 items-center justify-between gap-3 sm:justify-start">
           <PageHeader icon={Users} title="Funcionários" />
           {/* On mobile the "+" sits beside the title; on sm+ it moves into the row below, next to the filter. */}
-          <div className="sm:hidden">
-            <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
+          {canManage && (
+            <div className="sm:hidden">
+              <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Dropdown
@@ -214,12 +218,14 @@ export function StaffPage() {
             panelClassName="w-40"
             mobileTitle="Filtrar por status"
           />
-          <div className="hidden sm:block">
-            <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
-              <Plus className="h-4 w-4" />
-              <span>Novo funcionário</span>
-            </Button>
-          </div>
+          {canManage && (
+            <div className="hidden sm:block">
+              <Button type="button" onClick={openCreateForm} className="shrink-0 whitespace-nowrap">
+                <Plus className="h-4 w-4" />
+                <span>Novo funcionário</span>
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
