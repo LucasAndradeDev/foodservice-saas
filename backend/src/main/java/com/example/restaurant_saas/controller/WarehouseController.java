@@ -44,7 +44,10 @@ public class WarehouseController {
 
         String rawApiKey = warehouseIntegrationService.rotateApiKey(restaurant.getId());
         String handoffToken = handoffTokenService.generateHandoffToken(restaurant.getId(), restaurant.getName(), rawApiKey);
-        String handoffUrl = warehouseFrontendUrl + "/sso?token=" + handoffToken;
+        // Token goes in the URL fragment (#), not the query string (?): the fragment never
+        // leaves the browser in an HTTP request, so the long-lived API key embedded in the
+        // token never reaches a server access log or a cross-origin Referer header.
+        String handoffUrl = warehouseFrontendUrl + "/sso#token=" + handoffToken;
 
         return ResponseEntity.ok(WarehouseHandoffResponse.builder().handoffUrl(handoffUrl).build());
     }

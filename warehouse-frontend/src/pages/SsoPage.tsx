@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 
 export function SsoPage() {
-  const [searchParams] = useSearchParams()
   const { exchangeHandoffToken } = useAuth()
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const token = searchParams.get('token')
+    // The token travels in the URL fragment (#token=...), not the query string: the fragment is
+    // never sent in the HTTP request line, so it never lands in a server access log or a
+    // cross-origin Referer header - only the browser itself ever sees it. Read it manually since
+    // it isn't part of location.search.
+    const token = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token')
+    // Clear it from the visible URL immediately so it doesn't linger in this tab's address bar
+    // longer than necessary.
+    window.history.replaceState(null, '', window.location.pathname)
     if (!token) {
       setError('Link inválido - faltando o token de acesso.')
       return
