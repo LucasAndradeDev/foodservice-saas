@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { CheckCircle2, MapPin, MapPinOff, MessageCircle, Navigation, Phone } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { DeliveryRiderIcon } from '../../components/DeliveryRiderIcon'
-import { EmptyState } from '../../components/EmptyState'
 import { listMyDeliveries, updateDeliveryStatus, updateMyLocation } from '../../api/deliveries'
 import { buildMapsUrl, formatAddressLines } from '../../utils/delivery'
 import { buildWhatsAppUrl } from '../../utils/phone'
@@ -61,21 +60,51 @@ export function MyDeliveriesPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['my-deliveries'] }),
   })
 
+  const isEmpty = deliveries?.length === 0 && !isLoading
+
   return (
-    <div className="mx-auto max-w-lg px-4 py-6">
-      <h1 className="mb-4 text-lg font-bold text-gray-900 dark:text-white">Minhas entregas</h1>
+    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-6">
+      <h1 className="text-center text-xl font-semibold text-gray-900 dark:text-white">Minhas entregas</h1>
 
       {locationDenied && (
-        <p className="mb-4 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+        <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-amber-600 dark:text-amber-400">
           <MapPinOff className="h-3.5 w-3.5 shrink-0" />
-          Não conseguimos acessar sua localização — a loja não vai te ver no mapa.
+          Sem acesso à localização: a loja não vai te ver no mapa.
         </p>
       )}
 
-      {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
+      {isLoading && (
+        <div className="mt-5 space-y-3">
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              className="h-40 animate-pulse rounded-2xl border border-gray-200 bg-white dark:border-white/10 dark:bg-stone-900"
+            />
+          ))}
+        </div>
+      )}
 
-      {deliveries?.length === 0 && !isLoading && (
-        <EmptyState icon={DeliveryRiderIcon} message="Nenhuma entrega com você no momento." />
+      {isEmpty && (
+        <div className="flex flex-1 flex-col items-center justify-center pb-16">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex w-full flex-col items-center gap-4 rounded-2xl border border-gray-200 bg-white px-6 py-14 text-center shadow-sm dark:border-white/10 dark:bg-stone-900"
+          >
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-50 text-gray-300 dark:bg-white/5 dark:text-stone-600">
+              <DeliveryRiderIcon className="h-8 w-8" />
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm font-semibold text-gray-700 dark:text-stone-200">
+                Nenhuma entrega com você no momento
+              </p>
+              <p className="max-w-[16rem] text-xs text-gray-400 dark:text-stone-500">
+                Novos pedidos aparecem aqui automaticamente assim que forem despachados.
+              </p>
+            </div>
+          </motion.div>
+        </div>
       )}
 
       <div className="space-y-3">

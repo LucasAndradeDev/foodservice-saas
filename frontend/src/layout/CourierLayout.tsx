@@ -12,8 +12,8 @@ export function CourierLayout() {
   const { logout } = useAuth()
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-stone-950">
-      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-stone-900">
+    <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-stone-950">
+      <header className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-stone-900">
         <Logo className="h-8 w-auto" />
         <div className="flex items-center gap-1">
           <ThemeToggleButton />
@@ -28,7 +28,9 @@ export function CourierLayout() {
           </button>
         </div>
       </header>
-      <Outlet />
+      <main className="flex flex-1 flex-col">
+        <Outlet />
+      </main>
     </div>
   )
 }
