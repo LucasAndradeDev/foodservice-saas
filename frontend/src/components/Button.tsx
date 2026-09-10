@@ -25,10 +25,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   { variant = 'primary', size = 'md', className = '', ...props },
   ref,
 ) {
+  const sizeStyle = /\brounded(-\S+)?\b/.test(className)
+    ? SIZE_STYLES[size].replace(/\brounded-\S+\b/, '').trim()
+    : SIZE_STYLES[size]
   return (
     <button
       ref={ref}
-      className={`inline-flex items-center justify-center font-medium transition disabled:cursor-default disabled:opacity-50 ${SIZE_STYLES[size]} ${VARIANT_STYLES[variant]} ${className}`}
+      className={`inline-flex items-center justify-center font-medium transition disabled:cursor-default disabled:opacity-50 ${sizeStyle} ${VARIANT_STYLES[variant]} ${className}`}
       {...props}
     />
   )

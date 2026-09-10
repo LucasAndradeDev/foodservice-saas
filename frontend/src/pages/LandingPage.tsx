@@ -219,14 +219,14 @@ function PhoneMenuMockup() {
           <motion.span
             variants={itemVariants}
             whileTap={{ scale: 0.95 }}
-            className="flex-1 rounded-lg bg-brand-600 px-2 py-1.5 text-center text-[10px] font-semibold text-white"
+            className="flex flex-1 items-center justify-center rounded-lg bg-brand-600 px-2 py-1.5 text-center text-[10px] font-semibold text-white"
           >
             Chamar garçom
           </motion.span>
           <motion.span
             variants={itemVariants}
             whileTap={{ scale: 0.95 }}
-            className="flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-center text-[10px] font-semibold text-gray-600 dark:border-white/15 dark:text-stone-300"
+            className="flex flex-1 items-center justify-center rounded-lg border border-gray-200 px-2 py-1.5 text-center text-[10px] font-semibold text-gray-600 dark:border-white/15 dark:text-stone-300"
           >
             Pedir a conta
           </motion.span>
@@ -477,40 +477,42 @@ export function LandingPage() {
         <AnimatePresence>
           {mobileOpen && (
             <motion.div
-              initial={{ opacity: 0, y: -8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.98 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="mx-auto mt-2 max-w-5xl overflow-hidden rounded-2xl border border-gray-200/70 bg-white p-2 shadow-lg sm:hidden dark:border-white/10 dark:bg-stone-900"
+              initial={{ opacity: 0, y: -8, scale: 0.98, height: 0 }}
+              animate={{ opacity: 1, y: 0, scale: 1, height: 'auto' }}
+              exit={{ opacity: 0, y: -8, scale: 0.98, height: 0 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="mx-auto mt-2 max-w-5xl overflow-hidden rounded-2xl border border-gray-200/70 bg-white shadow-lg sm:hidden dark:border-white/10 dark:bg-stone-900"
             >
-              {NAV_LINKS.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="block rounded-xl px-3 py-2.5 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-stone-200 dark:hover:bg-white/10"
-                >
-                  {link.label}
-                </a>
-              ))}
-              <div className="my-1 border-t border-gray-100 dark:border-white/10" />
-              <div className="flex items-center gap-2 px-1 pt-1">
-                <Link
-                  to="/login"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex-1 rounded-full border border-gray-300 px-3.5 py-2 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/15 dark:text-stone-200 dark:hover:bg-white/5"
-                >
-                  Entrar
-                </Link>
-                <Button
-                  onClick={() => {
-                    setMobileOpen(false)
-                    navigate('/register')
-                  }}
-                  className="flex-1 justify-center rounded-full"
-                >
-                  Criar conta
-                </Button>
+              <div className="p-2">
+                {NAV_LINKS.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileOpen(false)}
+                    className="block rounded-xl px-3 py-2.5 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-stone-200 dark:hover:bg-white/10"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+                <div className="my-1 border-t border-gray-100 dark:border-white/10" />
+                <div className="flex items-center gap-2 px-1 pt-1">
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex-1 rounded-full border border-gray-300 px-3.5 py-2 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-white/15 dark:text-stone-200 dark:hover:bg-white/5"
+                  >
+                    Entrar
+                  </Link>
+                  <Button
+                    onClick={() => {
+                      setMobileOpen(false)
+                      navigate('/register')
+                    }}
+                    className="flex-1 justify-center rounded-full"
+                  >
+                    Criar conta
+                  </Button>
+                </div>
               </div>
             </motion.div>
           )}
