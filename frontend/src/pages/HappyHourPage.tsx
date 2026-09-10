@@ -325,33 +325,38 @@ export function HappyHourPage() {
 
       <div className="mb-5 flex items-center justify-between gap-3 rounded-b-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-stone-900">
         <PageHeader icon={Clock} title="Happy Hour" />
-        <Button
-          type="button"
-          onClick={openCreateForm}
-          disabled={!categories || categories.length === 0}
-          className="shrink-0 whitespace-nowrap"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Nova regra</span>
-        </Button>
+        {(!categories || categories.length > 0) && (
+          <Button type="button" onClick={openCreateForm} disabled={!categories} className="shrink-0 whitespace-nowrap">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Nova regra</span>
+          </Button>
+        )}
       </div>
       <p className="mb-4 text-sm text-gray-500 dark:text-stone-400">
         Desconto automático por categoria, em dias e horários específicos. Aparece no cardápio digital e é aplicado
         sozinho quando o item é lançado na comanda dentro do horário.
       </p>
 
+      {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
+
       {categories && categories.length === 0 && (
-        <div className="mb-4 flex flex-col gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
-          <span>Cadastre uma categoria de produtos antes de criar uma regra de happy hour.</span>
-          <Link to="/categories" className="font-medium underline">
+        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center dark:border-white/10 dark:bg-white/5">
+          <Tag className="mx-auto mb-2 h-8 w-8 text-gray-300 dark:text-stone-600" />
+          <p className="mb-1 text-sm font-medium text-gray-700 dark:text-stone-300">Nenhuma categoria cadastrada</p>
+          <p className="mx-auto mb-4 max-w-sm text-sm text-gray-500 dark:text-stone-400">
+            Crie uma categoria de produtos, como "Bebidas", antes de montar sua primeira regra de happy hour.
+          </p>
+          <Link
+            to="/categories"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
+          >
+            <Tag className="h-4 w-4" />
             Ir para Categorias
           </Link>
         </div>
       )}
 
-      {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
-
-      {rules && rules.length === 0 && (
+      {categories && categories.length > 0 && rules && rules.length === 0 && (
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center dark:border-white/10 dark:bg-white/5">
           <Clock className="mx-auto mb-2 h-8 w-8 text-gray-300 dark:text-stone-600" />
           <p className="mb-1 text-sm font-medium text-gray-700 dark:text-stone-300">Nenhuma regra cadastrada ainda</p>
