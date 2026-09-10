@@ -55,6 +55,7 @@ export function LoginPage() {
           label="Email"
           icon={Mail}
           required
+          autoComplete="email"
           placeholder="Digite o e-mail"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -66,6 +67,7 @@ export function LoginPage() {
           label="Senha"
           icon={Lock}
           required
+          autoComplete="current-password"
           placeholder="Digite a senha"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -74,7 +76,7 @@ export function LoginPage() {
               type="button"
               onClick={() => setShowPassword((show) => !show)}
               aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-              className="text-gray-400 hover:text-gray-600 dark:text-stone-500 dark:hover:text-stone-300"
+              className="-m-2 p-2 text-gray-400 hover:text-gray-600 dark:text-stone-500 dark:hover:text-stone-300"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -87,7 +89,11 @@ export function LoginPage() {
           </Link>
         </p>
 
-        {error && <p className="mb-2 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
+        {error && (
+          <p role="alert" className="mb-2 text-sm text-wine-600 dark:text-wine-400">
+            {error}
+          </p>
+        )}
         {isSuspended && (
           <p className="mb-4 text-sm text-gray-600 dark:text-stone-400">
             <a href={SUPPORT_WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 hover:underline dark:text-brand-400">

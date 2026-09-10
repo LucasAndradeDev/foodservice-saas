@@ -64,12 +64,17 @@ export function ForgotPasswordPage() {
           label="Email"
           icon={Mail}
           required
+          autoComplete="email"
           placeholder="Digite o e-mail"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
+        {error && (
+          <p role="alert" className="mb-4 text-sm text-wine-600 dark:text-wine-400">
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"

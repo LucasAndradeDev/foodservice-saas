@@ -15,6 +15,7 @@ export function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isExpiredToken, setIsExpiredToken] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   if (isAuthenticated) {
@@ -42,6 +43,7 @@ export function ResetPasswordPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
+    setIsExpiredToken(false)
 
     if (newPassword !== confirmPassword) {
       setError('As senhas não coincidem.')
@@ -57,6 +59,7 @@ export function ResetPasswordPage() {
         setError('Muitas tentativas. Aguarde alguns minutos e tente novamente.')
       } else if (isAxiosError(err) && err.response?.status === 400) {
         setError('Esse link de recuperação é inválido ou já expirou. Solicite um novo.')
+        setIsExpiredToken(true)
       } else {
         setError('Não foi possível redefinir a senha. Tente novamente.')
       }
@@ -78,6 +81,7 @@ export function ResetPasswordPage() {
           icon={Lock}
           required
           minLength={8}
+          autoComplete="new-password"
           placeholder="Digite a nova senha"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
@@ -86,7 +90,7 @@ export function ResetPasswordPage() {
               type="button"
               onClick={() => setShowPassword((show) => !show)}
               aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-              className="text-gray-400 hover:text-gray-600 dark:text-stone-500 dark:hover:text-stone-300"
+              className="-m-2 p-2 text-gray-400 hover:text-gray-600 dark:text-stone-500 dark:hover:text-stone-300"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -100,12 +104,26 @@ export function ResetPasswordPage() {
           icon={Lock}
           required
           minLength={8}
+          autoComplete="new-password"
           placeholder="Confirme a nova senha"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
         />
 
-        {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
+        {error && (
+          <p role="alert" className="mb-4 text-sm text-wine-600 dark:text-wine-400">
+            {error}
+            {isExpiredToken && (
+              <>
+                {' '}
+                <Link to="/forgot-password" className="font-medium underline">
+                  Solicitar novo link
+                </Link>
+                .
+              </>
+            )}
+          </p>
+        )}
 
         <button
           type="submit"

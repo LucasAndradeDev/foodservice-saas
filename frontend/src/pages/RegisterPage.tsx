@@ -99,6 +99,7 @@ export function RegisterPage() {
           label="Nome do restaurante"
           icon={Store}
           required
+          autoComplete="organization"
           placeholder="Digite o nome do restaurante"
           value={restaurantName}
           onChange={(e) => setRestaurantName(e.target.value)}
@@ -116,9 +117,10 @@ export function RegisterPage() {
 
         <AuthInput
           id="phone"
-          type="text"
+          type="tel"
           label="Telefone (opcional)"
           icon={Phone}
+          autoComplete="tel"
           placeholder="Digite o telefone"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
@@ -129,6 +131,7 @@ export function RegisterPage() {
           type="text"
           label="Endereço (opcional)"
           icon={MapPin}
+          autoComplete="street-address"
           placeholder="Digite o endereço"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
@@ -143,6 +146,7 @@ export function RegisterPage() {
           label="Seu nome"
           icon={User}
           required
+          autoComplete="name"
           placeholder="Digite seu nome"
           value={ownerName}
           onChange={(e) => setOwnerName(e.target.value)}
@@ -154,6 +158,7 @@ export function RegisterPage() {
           label="Email"
           icon={Mail}
           required
+          autoComplete="email"
           placeholder="Digite o e-mail"
           value={ownerEmail}
           onChange={(e) => setOwnerEmail(e.target.value)}
@@ -165,6 +170,7 @@ export function RegisterPage() {
           label="Confirmar email"
           icon={Mail}
           required
+          autoComplete="off"
           placeholder="Confirme o e-mail"
           value={confirmOwnerEmail}
           onChange={(e) => setConfirmOwnerEmail(e.target.value)}
@@ -178,6 +184,7 @@ export function RegisterPage() {
           icon={Lock}
           required
           minLength={8}
+          autoComplete="new-password"
           placeholder="Digite a senha"
           value={ownerPassword}
           onChange={(e) => setOwnerPassword(e.target.value)}
@@ -186,7 +193,7 @@ export function RegisterPage() {
               type="button"
               onClick={() => setShowPassword((show) => !show)}
               aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-              className="text-gray-400 hover:text-gray-600 dark:text-stone-500 dark:hover:text-stone-300"
+              className="-m-2 p-2 text-gray-400 hover:text-gray-600 dark:text-stone-500 dark:hover:text-stone-300"
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
@@ -213,7 +220,7 @@ export function RegisterPage() {
         </label>
 
         {error && (
-          <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">
+          <p role="alert" className="mb-4 text-sm text-wine-600 dark:text-wine-400">
             {error}
             {isDuplicateEmail && (
               <>
@@ -229,7 +236,7 @@ export function RegisterPage() {
 
         <button
           type="submit"
-          disabled={isSubmitting || !termsAccepted}
+          disabled={isSubmitting}
           className="mt-2 w-full rounded-lg bg-brand-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
         >
           {isSubmitting ? 'Cadastrando...' : 'Cadastrar'}
