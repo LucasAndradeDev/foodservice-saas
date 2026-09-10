@@ -84,6 +84,13 @@ public class DeliveryDetailsResponse {
     // The tab's own frozen total (items + service charge + deliveryFee) - same value staff sees,
     // not recomputed here, so this can never drift from what payment actually settles.
     private BigDecimal billTotal;
+
+    // Null until the corresponding status transition happens (DeliveryService#updateStatus) - back
+    // the courier's elapsed-time display and same-day history, see DeliveryDetails javadoc for why
+    // updatedAt can't be reused for this.
+    private OffsetDateTime outForDeliveryAt;
+    private OffsetDateTime deliveredAt;
+
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

@@ -86,6 +86,10 @@ export interface DeliveryDetails {
   etaMinutes: number | null
   items: DeliveryItem[]
   billTotal: number | null
+  // Null until the corresponding status transition happens - see backend DeliveryDetails javadoc
+  // for why updatedAt can't be reused for either of these.
+  outForDeliveryAt: string | null
+  deliveredAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -113,6 +117,12 @@ export function listOpenDeliveries() {
 // A courier's own restricted screen (MyDeliveriesPage) - only their own out-for-delivery orders.
 export function listMyDeliveries() {
   return http.get<DeliveryDetails[]>('/deliveries/mine').then((res) => res.data)
+}
+
+// Same courier's own orders marked DELIVERED today, most recent first - backs the day summary
+// card and recent-history list on MyDeliveriesPage.
+export function listMyDeliveredToday() {
+  return http.get<DeliveryDetails[]>('/deliveries/mine/history').then((res) => res.data)
 }
 
 export function updateDeliveryStatus(tabId: string, status: DeliveryStatus) {

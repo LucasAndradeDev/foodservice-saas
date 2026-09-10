@@ -109,6 +109,16 @@ public class DeliveryDetails {
     @JoinColumn(name = "courier_id")
     private User courier;
 
+    // Set once, the moment status moves to OUT_FOR_DELIVERY/DELIVERED (DeliveryService#updateStatus)
+    // - unlike updatedAt, never touched by anything else (e.g. the throttled ETA background
+    // refresh), so it's the only reliable source for "how long has this been out" or "when was
+    // this delivered" (courier's elapsed-time card and same-day history).
+    @Column(name = "out_for_delivery_at")
+    private OffsetDateTime outForDeliveryAt;
+
+    @Column(name = "delivered_at")
+    private OffsetDateTime deliveredAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

@@ -27,7 +27,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -123,6 +125,12 @@ public class DeliveryService {
         }
 
         deliveryDetails.setStatus(to);
+        OffsetDateTime now = OffsetDateTime.now();
+        if (to == DeliveryStatus.OUT_FOR_DELIVERY) {
+            deliveryDetails.setOutForDeliveryAt(now);
+        } else if (to == DeliveryStatus.DELIVERED) {
+            deliveryDetails.setDeliveredAt(now);
+        }
         DeliveryDetails saved = deliveryDetailsRepository.save(deliveryDetails);
 
         // Found testing task 29.3 end to end: without this, an order marked DELIVERED here (the
@@ -174,6 +182,25 @@ public class DeliveryService {
     public List<DeliveryDetailsResponse> listMyDeliveries(UUID restaurantId, UUID courierId) {
         return deliveryDetailsRepository
                 .findByRestaurantIdAndCourier_IdAndStatusOrderByCreatedAtAsc(restaurantId, courierId, DeliveryStatus.OUT_FOR_DELIVERY)
+                .stream()
+                .map(d -> toResponse(d, false))
+                .toList();
+    }
+
+    // Same-day summary + recent history for MyDeliveriesPage's redesign - deliveries this courier
+    // marked DELIVERED today (restaurant's local day, same boundary convention as
+    // ReportService/ReservationService). The frontend derives the count and delivery-fee total
+    // from this list itself rather than a separate aggregate endpoint - one round trip, and the
+    // list is never long enough (a single courier's single day) for that to matter.
+    @Transactional(readOnly = true)
+    public List<DeliveryDetailsResponse> listMyDeliveredToday(UUID restaurantId, UUID courierId) {
+        ZoneId zone = ZoneId.systemDefault();
+        LocalDate today = LocalDate.now(zone);
+        OffsetDateTime from = today.atStartOfDay(zone).toOffsetDateTime();
+        OffsetDateTime to = today.plusDays(1).atStartOfDay(zone).toOffsetDateTime();
+        return deliveryDetailsRepository
+                .findByRestaurantIdAndCourier_IdAndStatusAndDeliveredAtBetweenOrderByDeliveredAtDesc(
+                        restaurantId, courierId, DeliveryStatus.DELIVERED, from, to)
                 .stream()
                 .map(d -> toResponse(d, false))
                 .toList();
@@ -370,6 +397,8 @@ public class DeliveryService {
                 .etaMinutes(etaMinutes)
                 .items(toItemResponses(d.getTab().getId()))
                 .billTotal(d.getTab().getBillTotal())
+                .outForDeliveryAt(d.getOutForDeliveryAt())
+                .deliveredAt(d.getDeliveredAt())
                 .createdAt(d.getCreatedAt())
                 .updatedAt(d.getUpdatedAt())
                 .build();

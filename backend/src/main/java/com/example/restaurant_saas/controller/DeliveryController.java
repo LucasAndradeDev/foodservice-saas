@@ -80,6 +80,15 @@ public class DeliveryController {
         return ResponseEntity.ok(deliveryService.listMyDeliveries(currentUser.getRestaurantId(), currentUser.getId()));
     }
 
+    @GetMapping("/mine/history")
+    @PreAuthorize("hasRole('COURIER')")
+    @Operation(summary = "List my deliveries completed today", description = "For the authenticated courier: their own orders marked DELIVERED today (restaurant's local day), most recent first. Backs the day summary card and recent-history list on their screen.")
+    public ResponseEntity<List<DeliveryDetailsResponse>> listMyDeliveredToday(
+            @AuthenticationPrincipal UserDetailsImpl currentUser
+    ) {
+        return ResponseEntity.ok(deliveryService.listMyDeliveredToday(currentUser.getRestaurantId(), currentUser.getId()));
+    }
+
     @GetMapping("/couriers")
     @PreAuthorize("hasAnyRole('OWNER','MANAGER','WAITER','KITCHEN','CASHIER')")
     @Operation(summary = "List assignable couriers", description = "Lists the restaurant's courier accounts for the assignment dropdown - narrower than /api/v1/users so non-management roles don't get a courier's email back.")

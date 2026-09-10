@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -28,6 +29,11 @@ public interface DeliveryDetailsRepository extends JpaRepository<DeliveryDetails
     // action they have; nothing still SEPARATING is theirs to act on yet.
     List<DeliveryDetails> findByRestaurantIdAndCourier_IdAndStatusOrderByCreatedAtAsc(
             UUID restaurantId, UUID courierId, DeliveryStatus status);
+
+    // Same-day "resumo do dia" card + recent history on MyDeliveriesPage - deliveredAt (not
+    // createdAt/updatedAt) is what bounds "today", see DeliveryDetails javadoc.
+    List<DeliveryDetails> findByRestaurantIdAndCourier_IdAndStatusAndDeliveredAtBetweenOrderByDeliveredAtDesc(
+            UUID restaurantId, UUID courierId, DeliveryStatus status, OffsetDateTime from, OffsetDateTime to);
 
     // One query per kitchen-queue request instead of one per item (OrderItemService#toKitchenResponse)
     // - the queue can have dozens of items, and this only needs to happen once per restaurant. Kept
