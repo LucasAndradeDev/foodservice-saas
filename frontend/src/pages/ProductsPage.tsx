@@ -374,9 +374,20 @@ export function ProductsPage() {
       </div>
 
       {showNoCategoryNotice && categories?.length === 0 && (
-        <div className="mb-4 flex flex-col gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800 sm:flex-row sm:items-center sm:justify-between dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400">
-          <span>Crie uma categoria antes de cadastrar produtos.</span>
-          <Link to="/categories" className="font-medium underline">
+        <div className="mb-4 flex flex-col items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-500/30 dark:bg-amber-500/10">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400">
+              <Tag className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-amber-900 dark:text-amber-300">Nenhuma categoria cadastrada</p>
+              <p className="text-sm text-amber-700 dark:text-amber-400">Crie uma categoria antes de cadastrar produtos.</p>
+            </div>
+          </div>
+          <Link
+            to="/categories"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700 active:scale-[0.98] sm:w-auto"
+          >
             Ir para Categorias
           </Link>
         </div>
