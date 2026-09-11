@@ -67,7 +67,7 @@ export function MenuHero({ restaurantName, logo, tableNumber, theme, onToggleThe
           />
         ) : (
           <div
-            style={{ backgroundImage: `linear-gradient(135deg, ${MENU_ACCENT_COLOR}, color-mix(in srgb, ${MENU_ACCENT_COLOR} 60%, black))` }}
+            style={{ backgroundColor: MENU_ACCENT_COLOR }}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-base font-semibold text-white shadow-sm"
           >
             {restaurantName.charAt(0).toUpperCase()}

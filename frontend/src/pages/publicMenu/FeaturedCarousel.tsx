@@ -81,8 +81,8 @@ export function FeaturedCarousel({
   return (
     <section className="mx-auto max-w-2xl pb-2 pt-4">
       <div className="mb-3.5 flex items-end justify-between px-4">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold-400 via-brand-500 to-brand-700 text-white shadow-md shadow-brand-900/30">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-sm">
             <Sparkles className="h-4 w-4" />
           </span>
           <div>

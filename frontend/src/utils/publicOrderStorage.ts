@@ -1,5 +1,4 @@
-import type { CartItem, DeliveryAddressForm } from '../pages/publicMenu/utils'
-import type { OrderMode } from '../pages/publicMenu/OrderModeToggle'
+import type { CartItem, DeliveryAddressForm, OrderMode } from '../pages/publicMenu/utils'
 
 const STORAGE_KEY_PREFIX = 'restaurant_saas_public_order_'
 

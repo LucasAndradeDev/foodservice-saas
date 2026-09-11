@@ -42,6 +42,7 @@ import { PostMealFeedbackPage } from './pages/PostMealFeedbackPage'
 import { PixSetupGuidePage } from './pages/PixSetupGuidePage'
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage'
 import { PublicMenuPage } from './pages/PublicMenuPage'
+import { PublicReservationPage } from './pages/PublicReservationPage'
 import { PublicReservationStatusPage } from './pages/PublicReservationStatusPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { ReservationsPage } from './pages/ReservationsPage'
@@ -115,6 +116,7 @@ function App() {
             <Route path="/ajuda/cartao" element={<CardSetupGuidePage />} />
             <Route path="/pagamento/retorno" element={<CardPaymentReturnPage />} />
             <Route path="/menu/:slug" element={<PublicMenuPage />} />
+            <Route path="/menu/:slug/reservar" element={<PublicReservationPage />} />
             <Route path="/menu/:slug/:tableId" element={<PublicMenuPage />} />
             <Route path="/feedback/:slug/:tabId" element={<PostMealFeedbackPage />} />
             <Route path="/reservations/status/:token" element={<PublicReservationStatusPage />} />

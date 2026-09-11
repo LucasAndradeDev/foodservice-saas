@@ -31,11 +31,9 @@ import { FeaturedCarousel } from './publicMenu/FeaturedCarousel'
 import { CardPaymentModal } from './publicMenu/CardPaymentModal'
 import { MenuHero } from './publicMenu/MenuHero'
 import { ModifierSheet } from './publicMenu/ModifierSheet'
-import { OrderModeToggle, type OrderMode } from './publicMenu/OrderModeToggle'
 import { PixPaymentModal } from './publicMenu/PixPaymentModal'
 import { ProductCard } from './publicMenu/ProductCard'
 import { ProductDetailModal } from './publicMenu/ProductDetailModal'
-import { ReservationFormModal } from './publicMenu/ReservationFormModal'
 import { TableActionsMenu } from './publicMenu/TableActionsMenu'
 import { usePublicMenuTheme } from './publicMenu/usePublicMenuTheme'
 import {
@@ -47,6 +45,7 @@ import {
   sameModifiers,
   type CartItem,
   type DeliveryAddressForm,
+  type OrderMode,
   type SelectedModifier,
 } from './publicMenu/utils'
 
@@ -81,12 +80,13 @@ export function PublicMenuPage() {
   const requestTimeoutsRef = useRef<Partial<Record<TableRequestType, number>>>({})
   const [couponCode, setCouponCode] = useState('')
   const [couponError, setCouponError] = useState<string | null>(null)
-  const [isReservationModalOpen, setIsReservationModalOpen] = useState(false)
   const [isPixModalOpen, setIsPixModalOpen] = useState(false)
   const [isCardModalOpen, setIsCardModalOpen] = useState(false)
   const [customerPhone, setCustomerPhone] = useState('')
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
-  const [orderMode, setOrderMode] = useState<OrderMode>(() => loadPublicOrderState(slug!, tableId)?.orderMode ?? 'DINE_IN')
+  const [orderMode, setOrderMode] = useState<OrderMode>(
+    () => loadPublicOrderState(slug!, tableId)?.orderMode ?? (tableId ? 'DINE_IN' : 'DELIVERY'),
+  )
   const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddressForm>(
     () =>
       loadPublicOrderState(slug!, tableId)?.deliveryAddress ??
@@ -203,14 +203,16 @@ export function PublicMenuPage() {
     refetchIntervalInBackground: true,
   })
 
-  // A customer can land on DELIVERY from a restored draft/localStorage even if the restaurant
-  // never configured (or later removed) any delivery zone/distance fee - bounce back to dine-in
-  // instead of showing an address form that can never be quoted.
+  // The generic menu link (no tableId) no longer offers a dine-in/delivery toggle - dine-in without
+  // a table could never actually place an order anyway, so delivery is the only real option there.
+  // This keeps orderMode in sync with that: forced to DELIVERY once the restaurant has it available,
+  // or bounced back to DINE_IN (browse-only, same dead end as before) if it doesn't - covering a
+  // customer landing here from a restored draft/localStorage with a stale mode.
   useEffect(() => {
-    if (menu && !menu.deliveryAvailable && orderMode === 'DELIVERY') {
-      setOrderMode('DINE_IN')
-    }
-  }, [menu, orderMode])
+    if (!menu || tableId) return
+    if (menu.deliveryAvailable && orderMode !== 'DELIVERY') setOrderMode('DELIVERY')
+    if (!menu.deliveryAvailable && orderMode !== 'DINE_IN') setOrderMode('DINE_IN')
+  }, [menu, tableId, orderMode])
 
   // Only redirects when a tab we've watched be open during this very session just closed —
   // never on a fresh page load. That's what keeps a new customer scanning the table's QR from
@@ -583,24 +585,19 @@ export function PublicMenuPage() {
       </div>
 
       {!tableId && (
-        <div className="mx-auto max-w-2xl space-y-3 px-4 pt-3">
-          {menu.deliveryAvailable && <OrderModeToggle mode={orderMode} onChange={setOrderMode} />}
-
-          {orderMode === 'DINE_IN' && (
-            <button
-              type="button"
-              onClick={() => setIsReservationModalOpen(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-brand-300 px-3 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-500/30 dark:text-brand-400 dark:hover:bg-brand-500/10"
-            >
-              <CalendarClock className="h-4 w-4" />
-              Reservar mesa
-            </button>
-          )}
+        <div className="mx-auto max-w-2xl px-4 pt-3">
+          <Link
+            to={`/menu/${slug}/reservar`}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-3 py-2.5 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-100 dark:border-brand-500/25 dark:bg-brand-500/10 dark:text-brand-400 dark:hover:bg-brand-500/15"
+          >
+            <CalendarClock className="h-4 w-4" />
+            Reservar mesa
+          </Link>
 
           {orderMode === 'DELIVERY' && (
-            <div className="rounded-xl border border-dashed border-brand-300 px-3 py-2.5 text-center text-sm font-medium text-brand-600 dark:border-brand-500/30 dark:text-brand-400">
+            <p className="mt-2 text-center text-xs font-medium text-gray-500 dark:text-stone-400">
               Monte seu pedido e informe o endereço no carrinho.
-            </div>
+            </p>
           )}
         </div>
       )}
@@ -822,10 +819,6 @@ export function PublicMenuPage() {
         onIncrement={(productId) => updateQuantityByProductId(productId, 1)}
         onDecrement={(productId) => updateQuantityByProductId(productId, -1)}
       />
-
-      {isReservationModalOpen && slug && (
-        <ReservationFormModal slug={slug} onClose={() => setIsReservationModalOpen(false)} />
-      )}
 
       {isPixModalOpen && slug && tableId && (
         <PixPaymentModal slug={slug} tableId={tableId} onClose={() => setIsPixModalOpen(false)} />

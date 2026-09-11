@@ -3,6 +3,8 @@ export { modifiersTotal, sameModifiers } from '../../utils/modifiers'
 import type { SelectedModifier } from '../../utils/modifiers'
 import type { SelectedComboSlot } from '../../utils/combos'
 
+export type OrderMode = 'DINE_IN' | 'DELIVERY'
+
 export interface CartItem {
   productId: string
   productName: string
