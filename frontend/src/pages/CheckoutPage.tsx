@@ -249,6 +249,10 @@ export function CheckoutPage() {
   const [serviceChargeInput, setServiceChargeInput] = useState('')
   const [pixCharge, setPixCharge] = useState<PixCharge | null>(null)
   const [cardCharge, setCardCharge] = useState<CardCharge | null>(null)
+  // Staff's attestation that a PIX/CREDIT_CARD/DEBIT_CARD entry being registered manually (no real
+  // Woovi/Mercado Pago charge behind it) was actually received outside the app - see the
+  // requiresExternalPaymentConfirmation/paymentEntrySignature effect below for why and when it resets.
+  const [externalPaymentConfirmed, setExternalPaymentConfirmed] = useState(false)
   const [brCodeCopied, setBrCodeCopied] = useState(false)
   const [copiedEntryId, setCopiedEntryId] = useState<string | null>(null)
   const [isPersonSplitOpen, setIsPersonSplitOpen] = useState(false)
@@ -729,13 +733,42 @@ export function CheckoutPage() {
   const manualSplitEntriesSum = roundCurrency(manualEntries.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0))
   const hasManualEntriesToConfirm = manualEntries.length > 0
 
+  // A manual entry left as PIX/CREDIT_CARD/DEBIT_CARD (no real charge generated) relies entirely on
+  // staff's word that the customer paid outside the app - a physical maquininha, the customer's own
+  // phone, a Pix key read out loud. CASH is excluded: there's no integrated alternative to skip for
+  // it, so the trust exposure is the same as it's always been. Require an explicit attestation before
+  // those can be confirmed, so marking one paid is a deliberate act instead of a side effect of
+  // picking a method from a dropdown and hitting Enter.
+  //
+  // A split-mode Pix entry still awaiting its own QR code carries the exact same exposure the moment
+  // staff reaches for "Já recebi esse Pix por fora" below instead of generating the real charge -
+  // that entry is deliberately excluded from manualEntries (see the comment above it), so it has to
+  // be checked for here too or that shortcut would confirm a payment with no attestation at all.
+  const hasSplitPixEntryAwaitingManualConfirm = pendingEntries.some((entry) => isAwaitingSplitPixQr(entry) && pixStatus?.configured)
+  const requiresExternalPaymentConfirmation =
+    !isZeroBalance && (manualEntries.some((entry) => entry.method !== 'CASH') || hasSplitPixEntryAwaitingManualConfirm)
+  // Re-arm the checkbox whenever the set of entries could change what needs confirming - an entry
+  // added, removed, or its method switched - or the modal moves to a different tab. Keyed on every
+  // pending entry's id+method (not just manualEntries', so a split Pix entry gaining/losing its
+  // "awaiting QR" status is covered too) so it survives amount edits and the split/card polling
+  // effects re-creating the entries array every few seconds without content actually changing.
+  const paymentEntrySignature = pendingEntries.map((entry) => `${entry.id}:${entry.method}`).join('|')
+  useEffect(() => {
+    setExternalPaymentConfirmed(false)
+    // A failed attempt's error (e.g. "Abra o caixa antes de receber pagamento em dinheiro.") was
+    // about the *previous* method/entry shape - once staff changes what they're about to submit,
+    // leaving it on screen reads as if the new attempt already failed too, which it hasn't yet.
+    setError(null)
+  }, [paymentEntrySignature, selectedSummary?.tab.id])
+
   const canConfirmPayment =
     !!selectedSummary &&
     justPaidTabId !== selectedSummary.tab.id &&
     canPay &&
     !payMutation.isPending &&
     (hasManualEntriesToConfirm || isZeroBalance) &&
-    (isZeroBalance || (manualSplitEntriesSum > 0 && amountLeftToAllocate >= -0.001))
+    (isZeroBalance || (manualSplitEntriesSum > 0 && amountLeftToAllocate >= -0.001)) &&
+    (!requiresExternalPaymentConfirmation || externalPaymentConfirmed)
 
   // Enter confirms the payment while the form is valid -- skipped while a sub-form (discount/service
   // charge) is open so its own native Enter-to-submit isn't double-fired by this handler.
@@ -1101,7 +1134,7 @@ export function CheckoutPage() {
                       <button
                         type="button"
                         onClick={openDiscountForm}
-                        className="text-sm text-brand-600 hover:underline dark:text-brand-400"
+                        className="-my-1.5 shrink-0 rounded-md px-2.5 py-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-500/10"
                       >
                         {selectedSummary.tab.discountType ? 'Editar' : 'Aplicar desconto'}
                       </button>
@@ -1197,7 +1230,7 @@ export function CheckoutPage() {
                         <button
                           type="button"
                           onClick={() => setIsEditingServiceCharge(true)}
-                          className="text-sm text-brand-600 hover:underline dark:text-brand-400"
+                          className="-my-1.5 shrink-0 rounded-md px-2.5 py-1.5 text-sm font-medium text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-500/10"
                         >
                           {serviceChargePercentage != null ? 'Editar' : 'Adicionar'}
                         </button>
@@ -1443,6 +1476,18 @@ export function CheckoutPage() {
                     />
                   </div>
 
+                  {requiresExternalPaymentConfirmation && (
+                    <label className="mb-3 flex cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+                      <input
+                        type="checkbox"
+                        checked={externalPaymentConfirmed}
+                        onChange={(e) => setExternalPaymentConfirmed(e.target.checked)}
+                        className="mt-0.5 h-5 w-5 shrink-0 accent-amber-600"
+                      />
+                      <span>Confirmo que recebi esse pagamento fora do sistema, na maquininha ou no celular do cliente.</span>
+                    </label>
+                  )}
+
                   <ul className="mb-2 space-y-3">
                     {pendingEntries.map((entry, index) => {
                       const canGenerateEntryQr = isAwaitingSplitPixQr(entry) && pixStatus?.configured
@@ -1470,7 +1515,7 @@ export function CheckoutPage() {
                           )}
                           <div className="space-y-2">
                           {!entry.pixCharge && !entry.cardCharge && (
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                               <div className="flex-1">
                                 <Dropdown<PaymentMethod>
                                   value={entry.method}
@@ -1481,25 +1526,27 @@ export function CheckoutPage() {
                                   mobileTitle={`Forma de pagamento ${index + 1}`}
                                 />
                               </div>
-                              <input
-                                aria-label={`Valor ${index + 1}`}
-                                type="number"
-                                min="0.01"
-                                step="0.01"
-                                value={entry.amount}
-                                onChange={(e) => updateEntryAmount(entry.id, e.target.value)}
-                                className="w-28 rounded-md border border-gray-300 px-2 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-                              />
-                              {isSplitMode && (
-                                <button
-                                  type="button"
-                                  onClick={() => removeEntry(entry.id)}
-                                  aria-label="Remover este pagamento"
-                                  className="shrink-0 text-gray-400 hover:text-red-600 dark:text-stone-500 dark:hover:text-red-400"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              )}
+                              <div className="flex items-center gap-2">
+                                <input
+                                  aria-label={`Valor ${index + 1}`}
+                                  type="number"
+                                  min="0.01"
+                                  step="0.01"
+                                  value={entry.amount}
+                                  onChange={(e) => updateEntryAmount(entry.id, e.target.value)}
+                                  className="w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm focus:border-brand-500 focus:outline-none sm:w-28 dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                                />
+                                {isSplitMode && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeEntry(entry.id)}
+                                    aria-label="Remover este pagamento"
+                                    className="shrink-0 rounded-md p-2.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:text-stone-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           )}
                           {canGenerateEntryQr && (() => {
@@ -1535,7 +1582,11 @@ export function CheckoutPage() {
                                     amount: Number(entry.amount),
                                   })
                                 }
-                                disabled={isThisEntryConfirming || !(Number(entry.amount) > 0)}
+                                disabled={
+                                  isThisEntryConfirming ||
+                                  !(Number(entry.amount) > 0) ||
+                                  (requiresExternalPaymentConfirmation && !externalPaymentConfirmed)
+                                }
                                 className="mt-1.5 w-full text-center text-xs text-gray-400 hover:text-gray-600 hover:underline disabled:opacity-50 dark:text-stone-500 dark:hover:text-stone-300"
                               >
                                 {isThisEntryConfirming ? 'Confirmando...' : 'Já recebi esse Pix por fora (confirmar sem QR)'}
@@ -1692,9 +1743,9 @@ export function CheckoutPage() {
                     type="button"
                     onClick={addEntry}
                     disabled={hasOutstandingEntrySplitCharge}
-                    className="mb-3 flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline disabled:pointer-events-none disabled:opacity-50 dark:text-brand-400"
+                    className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-2.5 text-sm font-medium text-brand-600 transition hover:border-brand-300 hover:bg-brand-50 disabled:pointer-events-none disabled:opacity-50 dark:border-white/15 dark:text-brand-400 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10"
                   >
-                    <Plus className="h-3.5 w-3.5" />
+                    <Plus className="h-4 w-4" />
                     Adicionar outro pagamento
                   </button>
 
@@ -1734,6 +1785,17 @@ export function CheckoutPage() {
 
               {error && !isPersonSplitOpen && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
+              {/* Every split entry is waiting on its own QR code / card charge, so there's nothing
+                  left for the bulk button below to submit - it stays hidden rather than show a
+                  disabled no-op. Without this note the modal reads as stuck: nothing is a "pagamento
+                  parcial" ready to confirm, but the entry-level "Gerar QR Code Pix"/"Cobrar no
+                  cartão" buttons above are still exactly what staff needs to click next. */}
+              {canPay && isSplitMode && !hasManualEntriesToConfirm && !isZeroBalance && !pixCharge && !cardCharge && !isPersonSplitOpen && (
+                <p className="mb-4 text-sm text-gray-500 dark:text-stone-400">
+                  Cada pagamento vai ser confirmado pelo próprio botão dele, ali em cima (QR Code Pix ou cobrança no cartão) - assim que todos forem pagos, a comanda fecha sozinha.
+                </p>
+              )}
+
               {/* Nothing left to hand-confirm once every split entry has its own Pix charge - the
                   tab closes on its own as each one's webhook lands, same as the single-payment flow.
                   Also hidden while assigning items to people below - that panel has its own
@@ -1743,7 +1805,11 @@ export function CheckoutPage() {
                 <Button
                   type="button"
                   onClick={handleRegisterPayments}
-                  disabled={payMutation.isPending || (!isZeroBalance && (manualSplitEntriesSum <= 0 || amountLeftToAllocate < -0.001))}
+                  disabled={
+                    payMutation.isPending ||
+                    (!isZeroBalance && (manualSplitEntriesSum <= 0 || amountLeftToAllocate < -0.001)) ||
+                    (requiresExternalPaymentConfirmation && !externalPaymentConfirmed)
+                  }
                   className="w-full"
                 >
                   {isZeroBalance
