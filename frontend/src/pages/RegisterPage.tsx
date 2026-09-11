@@ -1,5 +1,6 @@
 import { isAxiosError } from 'axios'
-import { Eye, EyeOff, IdCard, Lock, Mail, MapPin, Phone, Store, User } from 'lucide-react'
+import { AnimatePresence, motion, type Variants } from 'framer-motion'
+import { ChevronDown, Eye, EyeOff, IdCard, Lock, Mail, MapPin, Phone, Store, User } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -9,6 +10,15 @@ import { Logo } from '../theme/Logo'
 import { formatBrazilianPhone } from '../utils/phone'
 import { lookupCep } from '../api/cep'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
+
+// Same collapse pattern as the "Configurações avançadas" panel (RestaurantSettingsPage) - keeps
+// this optional section out of the way of the fast path (just name + owner data) while still one
+// click away for an owner who wants distance-based delivery pricing working from day one.
+const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1]
+const addressPanelVariants: Variants = {
+  collapsed: { height: 0, opacity: 0, transition: { duration: 0.25, ease: EASE_OUT } },
+  expanded: { height: 'auto', opacity: 1, transition: { duration: 0.3, ease: EASE_OUT } },
+}
 
 // The backend already distinguishes these two cases (AuthService) from any other failure -
 // showing the same generic "verifique os dados" for a duplicate email hid the one thing a
@@ -42,6 +52,7 @@ export function RegisterPage() {
   const [neighborhood, setNeighborhood] = useState('')
   const [city, setCity] = useState('')
   const [zipCode, setZipCode] = useState('')
+  const [isAddressOpen, setIsAddressOpen] = useState(false)
   const lastCepLookedUpRef = useRef('')
   const [ownerName, setOwnerName] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
@@ -183,88 +194,116 @@ export function RegisterPage() {
           onChange={(e) => setPhone(formatBrazilianPhone(e.target.value))}
         />
 
-        <p className="mb-1 text-sm font-medium text-gray-600 dark:text-stone-400">Endereço (opcional)</p>
-        <p className="mb-3 text-xs text-gray-400 dark:text-stone-500">
-          Usado pra calcular a taxa de entrega por distância. Informe o CEP e preenchemos rua, bairro e cidade
-          pra você.
-        </p>
+        <div className="mb-5">
+          <button
+            type="button"
+            onClick={() => setIsAddressOpen((prev) => !prev)}
+            className="group flex w-full items-center justify-between gap-2 border-b border-gray-300 py-2 text-left dark:border-white/10"
+          >
+            <span className="flex items-center gap-2 text-sm text-gray-600 group-hover:text-gray-800 dark:text-stone-400 dark:group-hover:text-stone-200">
+              <MapPin className="h-4 w-4 shrink-0 text-gray-400 dark:text-stone-500" />
+              Endereço (opcional)
+            </span>
+            <motion.span animate={{ rotate: isAddressOpen ? 180 : 0 }} transition={{ duration: 0.3, ease: EASE_OUT }}>
+              <ChevronDown className="h-4 w-4 text-gray-400 dark:text-stone-500" />
+            </motion.span>
+          </button>
 
-        <AuthInput
-          id="zipCode"
-          type="text"
-          label="CEP"
-          icon={MapPin}
-          inputMode="numeric"
-          autoComplete="postal-code"
-          maxLength={10}
-          placeholder="Digite o CEP"
-          value={zipCode}
-          onChange={(e) => setZipCode(e.target.value)}
-        />
+          <AnimatePresence initial={false}>
+            {isAddressOpen && (
+              <motion.div
+                initial="collapsed"
+                animate="expanded"
+                exit="collapsed"
+                variants={addressPanelVariants}
+                className="overflow-hidden"
+              >
+                <div className="pt-4">
+                  <p className="mb-3 text-xs text-gray-400 dark:text-stone-500">
+                    Informe o CEP e preenchemos rua, bairro e cidade pra você.
+                  </p>
 
-        <div className="flex gap-3">
-          <div className="flex-[3]">
-            <AuthInput
-              id="street"
-              type="text"
-              label="Rua"
-              icon={MapPin}
-              autoComplete="address-line1"
-              placeholder="Digite a rua"
-              value={street}
-              onChange={(e) => setStreet(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <AuthInput
-              id="number"
-              type="text"
-              label="Número"
-              icon={MapPin}
-              autoComplete="off"
-              placeholder="Nº"
-              value={number}
-              onChange={(e) => setNumber(e.target.value)}
-            />
-          </div>
-        </div>
+                  <AuthInput
+                    id="zipCode"
+                    type="text"
+                    label="CEP"
+                    icon={MapPin}
+                    inputMode="numeric"
+                    autoComplete="postal-code"
+                    maxLength={10}
+                    placeholder="Digite o CEP"
+                    value={zipCode}
+                    onChange={(e) => setZipCode(e.target.value)}
+                  />
 
-        <AuthInput
-          id="complement"
-          type="text"
-          label="Complemento (opcional)"
-          icon={MapPin}
-          autoComplete="address-line2"
-          placeholder="Apto, sala, etc."
-          value={complement}
-          onChange={(e) => setComplement(e.target.value)}
-        />
+                  <div className="flex gap-3">
+                    <div className="flex-[3]">
+                      <AuthInput
+                        id="street"
+                        type="text"
+                        label="Rua"
+                        icon={MapPin}
+                        autoComplete="address-line1"
+                        placeholder="Digite a rua"
+                        value={street}
+                        onChange={(e) => setStreet(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <AuthInput
+                        id="number"
+                        type="text"
+                        label="Número"
+                        icon={MapPin}
+                        autoComplete="off"
+                        placeholder="Nº"
+                        value={number}
+                        onChange={(e) => setNumber(e.target.value)}
+                      />
+                    </div>
+                  </div>
 
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <AuthInput
-              id="neighborhood"
-              type="text"
-              label="Bairro"
-              icon={MapPin}
-              autoComplete="off"
-              placeholder="Digite o bairro"
-              value={neighborhood}
-              onChange={(e) => setNeighborhood(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
-            <AuthInput
-              id="city"
-              type="text"
-              label="Cidade"
-              icon={MapPin}
-              autoComplete="address-level2"
-              placeholder="Digite a cidade"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-            />
-          </div>
+                  <AuthInput
+                    id="complement"
+                    type="text"
+                    label="Complemento (opcional)"
+                    icon={MapPin}
+                    autoComplete="address-line2"
+                    placeholder="Apto, sala, etc."
+                    value={complement}
+                    onChange={(e) => setComplement(e.target.value)}
+                  />
+
+                  <div className="flex gap-3">
+                    <div className="flex-1">
+                      <AuthInput
+                        id="neighborhood"
+                        type="text"
+                        label="Bairro"
+                        icon={MapPin}
+                        autoComplete="off"
+                        placeholder="Digite o bairro"
+                        value={neighborhood}
+                        onChange={(e) => setNeighborhood(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <AuthInput
+                        id="city"
+                        type="text"
+                        label="Cidade"
+                        icon={MapPin}
+                        autoComplete="address-level2"
+                        placeholder="Digite a cidade"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <p className="mt-2 mb-3 border-t border-gray-100 pt-5 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:border-white/10 dark:text-stone-500">
