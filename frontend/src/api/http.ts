@@ -63,7 +63,12 @@ http.interceptors.response.use(
       (status !== 401 && status !== 403) ||
       !originalRequest ||
       originalRequest._retry ||
-      originalRequest.url === '/auth/refresh-token'
+      originalRequest.url === '/auth/refresh-token' ||
+      // /auth/login has no access token to be stale - a 401/403 here is a real login failure
+      // (bad credentials, suspended restaurant), not the race this retry exists for. Without this,
+      // the refresh attempt below fails (no session) and its error replaces the real one, so
+      // LoginPage never sees the "Restaurant Suspended" shape it needs to show that message.
+      originalRequest.url === '/auth/login'
     ) {
       return Promise.reject(error)
     }
