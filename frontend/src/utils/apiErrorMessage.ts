@@ -46,6 +46,7 @@ const EXACT_TRANSLATIONS: Record<string, string> = {
   'Payment is already voided.': 'Esse pagamento já foi cancelado.',
   'This card payment was already refunded.': 'Esse pagamento no cartão já foi estornado.',
   'A category with this name already exists.': 'Já existe uma categoria com esse nome.',
+  'A product with this name already exists.': 'Já existe um produto com esse nome.',
   'Cannot deactivate a category that still has active products.': 'Não é possível desativar uma categoria que ainda tem produtos ativos.',
   'Cannot delete a category that has products. Remove or move them first.':
     'Não é possível excluir uma categoria que tem produtos. Remova ou mova-os primeiro.',
@@ -156,14 +157,12 @@ const PATTERN_TRANSLATIONS: { pattern: RegExp; translate: (...groups: string[]) 
   },
 ]
 
-/** Turns a raw axios error into Portuguese text: an exact or pattern match from a known backend
- * message translates it, and anything already in Portuguese (or an English message this list
- * doesn't know about yet) passes through unchanged rather than being hidden behind a generic
- * string. */
-export function translateApiError(err: unknown, fallback: string): string {
-  const message = extractBackendMessage(err)
-  if (!message) return fallback
-
+/** Same lookup translateApiError uses, exposed directly for backend text that doesn't arrive as an
+ * axios error - e.g. a per-row reason inside an otherwise-successful response, like the menu
+ * import's skipped-product list. An exact or pattern match translates it; anything already in
+ * Portuguese (or an English message this list doesn't know about yet) passes through unchanged
+ * rather than being hidden behind a generic string. */
+export function translateBackendMessage(message: string): string {
   const exact = EXACT_TRANSLATIONS[message]
   if (exact) return exact
 
@@ -173,4 +172,15 @@ export function translateApiError(err: unknown, fallback: string): string {
   }
 
   return message
+}
+
+/** Turns a raw axios error into Portuguese text: an exact or pattern match from a known backend
+ * message translates it, and anything already in Portuguese (or an English message this list
+ * doesn't know about yet) passes through unchanged rather than being hidden behind a generic
+ * string. */
+export function translateApiError(err: unknown, fallback: string): string {
+  const message = extractBackendMessage(err)
+  if (!message) return fallback
+
+  return translateBackendMessage(message)
 }

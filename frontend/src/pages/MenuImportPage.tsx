@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
-import { AlertTriangle, CheckCircle2, FileSpreadsheet, LoaderCircle, Trash2, Upload } from 'lucide-react'
-import { useEffect, useMemo, useState, type ChangeEvent, type DragEvent } from 'react'
+import { AlertTriangle, CheckCircle2, ChevronDown, FileSpreadsheet, LoaderCircle, Trash2, Upload } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import { createPortal } from 'react-dom'
 import {
   commitMenuImport,
   uploadMenuDocuments,
@@ -14,8 +15,9 @@ import { Button } from '../components/Button'
 import { CurrencyInput } from '../components/CurrencyInput'
 import { PageHeader } from '../components/PageHeader'
 import { Table, TableHead, TableRow } from '../components/Table'
+import { computeAnchoredPanelPosition, type AnchoredPanelPosition } from '../utils/anchoredPanel'
 import { toTitleCase } from '../utils/textCase'
-import { translateApiError } from '../utils/apiErrorMessage'
+import { translateApiError, translateBackendMessage } from '../utils/apiErrorMessage'
 
 interface DraftRow {
   tempId: string
@@ -36,6 +38,120 @@ interface StoredDraft {
 // clicks another page before confirming/canceling) - cleared once the
 // import is confirmed or explicitly canceled.
 const STORAGE_KEY = 'menuImportDraft'
+
+// A plain input[list] draws its own native suggestion arrow that browsers render outside the
+// page's CSS/DOM (not a stylable pseudo-element like a search field's clear button), so it can't
+// be hidden or made to reliably open on click. This is a small custom combobox instead: a normal
+// text input (still freely editable, for categories the AI didn't already know about) plus a
+// portal-rendered panel - same anchoring technique as components/Dropdown.tsx - listing the other
+// categories already seen in this import for one-click reuse.
+function CategoryNameField({
+  value,
+  onChange,
+  options,
+  className = '',
+}: {
+  value: string
+  onChange: (value: string) => void
+  options: string[]
+  className?: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [anchor, setAnchor] = useState<AnchoredPanelPosition | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  const visibleOptions = options.filter((option) => option.toLowerCase().includes(value.trim().toLowerCase()))
+
+  function openPanel() {
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (rect) setAnchor(computeAnchoredPanelPosition(rect, 240))
+    setIsOpen(true)
+  }
+
+  useEffect(() => {
+    if (!isOpen) return
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target
+      if (target instanceof Node && (containerRef.current?.contains(target) || panelRef.current?.contains(target))) {
+        return
+      }
+      setIsOpen(false)
+    }
+    function handleReposition() {
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (rect) setAnchor(computeAnchoredPanelPosition(rect, 240))
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    window.addEventListener('scroll', handleReposition, true)
+    window.addEventListener('resize', handleReposition)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      window.removeEventListener('scroll', handleReposition, true)
+      window.removeEventListener('resize', handleReposition)
+    }
+  }, [isOpen])
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      <input
+        ref={inputRef}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={openPanel}
+        className="w-full rounded-md border border-gray-300 py-1 pr-7 pl-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+      />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => {
+          inputRef.current?.focus()
+          if (isOpen) setIsOpen(false)
+          else openPanel()
+        }}
+        aria-label="Ver categorias sugeridas"
+        className="absolute inset-y-0 right-0 flex items-center px-1.5 text-gray-400 hover:text-gray-600 dark:text-stone-500 dark:hover:text-stone-300"
+      >
+        <ChevronDown className="h-3.5 w-3.5" />
+      </button>
+
+      {isOpen &&
+        anchor &&
+        visibleOptions.length > 0 &&
+        createPortal(
+          <div
+            ref={panelRef}
+            style={{
+              position: 'fixed',
+              top: anchor.top,
+              bottom: anchor.bottom,
+              left: anchor.left,
+              width: anchor.width,
+              maxHeight: anchor.maxHeight,
+            }}
+            className="z-30 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-stone-800"
+          >
+            {visibleOptions.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => {
+                  onChange(option)
+                  setIsOpen(false)
+                }}
+                className="block w-full truncate px-3 py-1.5 text-left text-gray-700 hover:bg-gray-50 dark:text-stone-300 dark:hover:bg-white/5"
+              >
+                {option}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </div>
+  )
+}
 
 function loadStoredDraft(): StoredDraft | null {
   try {
@@ -269,7 +385,7 @@ export function MenuImportPage() {
                 <ul className="list-inside list-disc">
                   {commitResult.skipped.map((item) => (
                     <li key={item.productName}>
-                      {item.productName} - {item.reason}
+                      {item.productName} - {translateBackendMessage(item.reason)}
                     </li>
                   ))}
                 </ul>
@@ -317,12 +433,6 @@ export function MenuImportPage() {
                 </ul>
               </div>
 
-              <datalist id="menu-import-categories">
-                {categoryNameOptions.map((name) => (
-                  <option key={name} value={name} />
-                ))}
-              </datalist>
-
               {/* Mobile: stacked cards */}
               <div className="space-y-2 sm:hidden">
                 {draftRows.map((row, index) => (
@@ -361,12 +471,11 @@ export function MenuImportPage() {
                       className="mb-2 w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                     />
                     <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-stone-400">Categoria</label>
-                    <input
-                      type="text"
-                      list="menu-import-categories"
+                    <CategoryNameField
                       value={row.categoryName}
-                      onChange={(e) => updateRow(index, 'categoryName', e.target.value)}
-                      className="mb-2 w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                      onChange={(value) => updateRow(index, 'categoryName', value)}
+                      options={categoryNameOptions}
+                      className="mb-2"
                     />
                     <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-stone-400">Preço</label>
                     <CurrencyInput
@@ -420,12 +529,10 @@ export function MenuImportPage() {
                           />
                         </td>
                         <td className="px-4 py-2 align-top">
-                          <input
-                            type="text"
-                            list="menu-import-categories"
+                          <CategoryNameField
                             value={row.categoryName}
-                            onChange={(e) => updateRow(index, 'categoryName', e.target.value)}
-                            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                            onChange={(value) => updateRow(index, 'categoryName', value)}
+                            options={categoryNameOptions}
                           />
                         </td>
                         <td className="px-4 py-2 align-top">
