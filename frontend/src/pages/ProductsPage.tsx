@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Circle,
   Filter,
+  Image as ImageIcon,
   Layers,
   ListChecks,
   MoreVertical,
@@ -83,6 +84,8 @@ export function ProductsPage() {
     { value: '', label: 'Todas as categorias' },
     ...(categories ?? []).map((category) => ({ value: category.id, label: category.name })),
   ]
+
+  const productCategoryOptions = (categories ?? []).map((category) => ({ value: category.id, label: category.name }))
 
   useEffect(() => {
     const timeout = setTimeout(() => setSearch(searchInput), 300)
@@ -611,149 +614,177 @@ export function ProductsPage() {
       {isFormOpen && (
         <Modal title={editingProduct ? 'Editar produto' : 'Novo produto'} onClose={closeForm}>
           <form onSubmit={handleSubmit}>
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productName">
-              Nome
-            </label>
-            <input
-              id="productName"
-              type="text"
-              required
-              maxLength={100}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-            />
-
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productDescription">
-              Descrição
-            </label>
-            <textarea
-              id="productDescription"
-              maxLength={255}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-              rows={2}
-            />
-
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productPhotoUrl">
-              Foto do produto <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
-            </label>
-            <div className="mb-1 flex flex-col gap-2 sm:flex-row">
-              <input
-                id="productPhotoUrl"
-                type="text"
-                placeholder="Cole uma URL..."
-                maxLength={500}
-                value={photoUrl}
-                onChange={(e) => setPhotoUrl(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-              />
-              <label className="flex shrink-0 cursor-pointer items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5">
-                {isUploading ? 'Enviando...' : 'Enviar do dispositivo'}
-                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} disabled={isUploading} />
-              </label>
-            </div>
-            {photoUrl && (
-              <img src={photoUrl} alt="" className="mb-4 h-16 w-16 rounded object-cover" />
-            )}
-            {!photoUrl && <div className="mb-4" />}
-
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">
-              Fotos adicionais <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
-            </label>
-            <p className="mb-2 text-xs text-gray-500 dark:text-stone-400">
-              Com mais de uma foto, o cliente pode passar o dedo pra ver todas no cardápio digital.
-            </p>
-            <div className="mb-4 flex flex-wrap gap-2">
-              {galleryUrls.map((url, index) => (
-                <div key={url + index} className="relative h-16 w-16 shrink-0">
-                  <img src={url} alt="" className="h-16 w-16 rounded object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removeGalleryPhoto(index)}
-                    aria-label="Remover foto"
-                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-wine-600 text-white shadow-sm hover:bg-wine-700"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-              <label className="flex h-16 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-gray-300 text-gray-400 hover:bg-gray-50 dark:border-white/20 dark:text-stone-500 dark:hover:bg-white/5">
-                <Plus className="h-4 w-4" />
-                <span className="text-[10px]">{isUploadingGalleryPhoto ? '...' : 'Adicionar'}</span>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productName">
+                  Nome
+                </label>
                 <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={handleGalleryFileChange}
-                  disabled={isUploadingGalleryPhoto}
+                  id="productName"
+                  type="text"
+                  required
+                  maxLength={100}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
                 />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productDescription">
+                  Descrição
+                </label>
+                <textarea
+                  id="productDescription"
+                  maxLength={255}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="my-5 border-t border-gray-100 dark:border-white/10" />
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productPhotoUrl">
+                  Foto do produto <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 text-gray-300 dark:bg-white/5 dark:text-stone-600">
+                    {photoUrl ? (
+                      <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <ImageIcon className="h-6 w-6" />
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row">
+                    <input
+                      id="productPhotoUrl"
+                      type="text"
+                      placeholder="Cole uma URL..."
+                      maxLength={500}
+                      value={photoUrl}
+                      onChange={(e) => setPhotoUrl(e.target.value)}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                    />
+                    <label className="flex shrink-0 cursor-pointer items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5">
+                      {isUploading ? 'Enviando...' : 'Enviar do dispositivo'}
+                      <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFileChange} disabled={isUploading} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">
+                  Fotos adicionais <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
+                </label>
+                <p className="mb-2 text-xs text-gray-500 dark:text-stone-400">
+                  Com mais de uma foto, o cliente pode passar o dedo pra ver todas no cardápio digital.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {galleryUrls.map((url, index) => (
+                    <div key={url + index} className="relative h-16 w-16 shrink-0">
+                      <img src={url} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeGalleryPhoto(index)}
+                        aria-label="Remover foto"
+                        className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-wine-600 text-white shadow-sm hover:bg-wine-700"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="flex h-16 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 text-gray-400 hover:bg-gray-50 dark:border-white/20 dark:text-stone-500 dark:hover:bg-white/5">
+                    <Plus className="h-4 w-4" />
+                    <span className="text-[10px]">{isUploadingGalleryPhoto ? '...' : 'Adicionar'}</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleGalleryFileChange}
+                      disabled={isUploadingGalleryPhoto}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="my-5 border-t border-gray-100 dark:border-white/10" />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productPrice">
+                  Preço
+                </label>
+                <input
+                  id="productPrice"
+                  type="number"
+                  required
+                  min="0.01"
+                  step="0.01"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productCostPrice">
+                  Custo <span className="font-normal text-gray-400 dark:text-stone-500">(opc.)</span>
+                </label>
+                <input
+                  id="productCostPrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={costPrice}
+                  onChange={(e) => setCostPrice(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
+                />
+              </div>
+            </div>
+
+            <div className="my-5 border-t border-gray-100 dark:border-white/10" />
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300">Categoria</label>
+                <Dropdown
+                  value={categoryId}
+                  onChange={setCategoryId}
+                  options={productCategoryOptions}
+                  icon={Tag}
+                  fullWidth
+                  mobileTitle="Categoria"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">
+                <input
+                  type="checkbox"
+                  checked={featured}
+                  onChange={(e) => setFeatured(e.target.checked)}
+                  className="rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-white/20 dark:bg-stone-800"
+                />
+                Marcar como destaque no cardápio digital
               </label>
             </div>
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productPrice">
-              Preço
-            </label>
-            <input
-              id="productPrice"
-              type="number"
-              required
-              min="0.01"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-            />
+            {error && <p className="mt-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
 
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productCostPrice">
-              Preço de custo <span className="font-normal text-gray-400 dark:text-stone-500">(opcional)</span>
-            </label>
-            <input
-              id="productCostPrice"
-              type="number"
-              min="0"
-              step="0.01"
-              value={costPrice}
-              onChange={(e) => setCostPrice(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-            />
-
-            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-stone-300" htmlFor="productCategory">
-              Categoria
-            </label>
-            <select
-              id="productCategory"
-              required
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="mb-4 w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none dark:border-white/10 dark:bg-stone-800 dark:text-white dark:focus:border-brand-400"
-            >
-              <option value="" disabled>
-                Selecione uma categoria
-              </option>
-              {categories?.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-
-            <label className="mb-4 flex items-center gap-2 text-sm text-gray-700 dark:text-stone-300">
-              <input
-                type="checkbox"
-                checked={featured}
-                onChange={(e) => setFeatured(e.target.checked)}
-                className="rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-white/20 dark:bg-stone-800"
-              />
-              Marcar como destaque no cardápio digital
-            </label>
-
-            {error && <p className="mb-4 text-sm text-wine-600 dark:text-wine-400">{error}</p>}
-
-            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="w-full">
-              Salvar
-            </Button>
+            <div className="mt-6 flex gap-2">
+              <Button type="button" variant="secondary" onClick={closeForm}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="flex-1">
+                Salvar
+              </Button>
+            </div>
           </form>
         </Modal>
       )}
