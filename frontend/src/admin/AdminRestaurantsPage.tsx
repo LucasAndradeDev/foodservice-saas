@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { LogOut, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { LogOut, ShieldAlert, ShieldCheck, UserCheck } from 'lucide-react'
 import { useState } from 'react'
-import { listRestaurants, updateRestaurantStatus, type AdminRestaurant } from '../api/admin'
+import { approveRestaurant, listRestaurants, updateRestaurantStatus, type AdminRestaurant } from '../api/admin'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Logo } from '../theme/Logo'
 import { useAdminAuth } from './AdminAuthContext'
@@ -16,12 +16,25 @@ export function AdminRestaurantsPage() {
     queryFn: listRestaurants,
   })
 
+  // Pending-approval signups need attention first - surfaced at the top regardless of when
+  // they were created.
+  const sortedRestaurants = restaurants
+    ? [...restaurants].sort((a, b) => Number(a.approved) - Number(b.approved))
+    : undefined
+
   const statusMutation = useMutation({
     mutationFn: ({ id, active, paymentDueDate }: { id: string; active: boolean; paymentDueDate: string | null }) =>
       updateRestaurantStatus(id, active, paymentDueDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminRestaurants'] })
       setPendingBlock(null)
+    },
+  })
+
+  const approveMutation = useMutation({
+    mutationFn: approveRestaurant,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminRestaurants'] })
     },
   })
 
@@ -60,7 +73,7 @@ export function AdminRestaurantsPage() {
 
         {isLoading && <p className="text-sm text-gray-500 dark:text-stone-400">Carregando...</p>}
 
-        {restaurants && (
+        {sortedRestaurants && (
           <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-white/10 dark:bg-stone-900">
             <table className="w-full text-left text-sm">
               <thead>
@@ -73,7 +86,7 @@ export function AdminRestaurantsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-white/10">
-                {restaurants.map((restaurant) => (
+                {sortedRestaurants.map((restaurant) => (
                   <tr key={restaurant.id}>
                     <td className="px-4 py-3 text-gray-800 dark:text-white">
                       {restaurant.tradeName || restaurant.name}
@@ -85,12 +98,14 @@ export function AdminRestaurantsPage() {
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                          restaurant.active
-                            ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/15 dark:text-sage-400'
-                            : 'bg-wine-100 text-wine-700 dark:bg-wine-500/15 dark:text-wine-400'
+                          !restaurant.approved
+                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400'
+                            : restaurant.active
+                              ? 'bg-sage-100 text-sage-700 dark:bg-sage-500/15 dark:text-sage-400'
+                              : 'bg-wine-100 text-wine-700 dark:bg-wine-500/15 dark:text-wine-400'
                         }`}
                       >
-                        {restaurant.active ? 'Ativo' : 'Bloqueado'}
+                        {!restaurant.approved ? 'Pendente' : restaurant.active ? 'Ativo' : 'Bloqueado'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -102,25 +117,36 @@ export function AdminRestaurantsPage() {
                       />
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => setPendingBlock(restaurant)}
-                        className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${
-                          restaurant.active
-                            ? 'border border-wine-300 text-wine-700 hover:bg-wine-50 dark:border-wine-700 dark:text-wine-400 dark:hover:bg-wine-500/10'
-                            : 'border border-sage-300 text-sage-700 hover:bg-sage-50 dark:border-sage-700 dark:text-sage-400 dark:hover:bg-sage-500/10'
-                        }`}
-                      >
-                        {restaurant.active ? (
-                          <>
-                            <ShieldAlert className="h-4 w-4" /> Bloquear
-                          </>
-                        ) : (
-                          <>
-                            <ShieldCheck className="h-4 w-4" /> Desbloquear
-                          </>
-                        )}
-                      </button>
+                      {!restaurant.approved ? (
+                        <button
+                          type="button"
+                          onClick={() => approveMutation.mutate(restaurant.id)}
+                          disabled={approveMutation.isPending}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-brand-300 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-50 dark:border-brand-700 dark:text-brand-400 dark:hover:bg-brand-500/10"
+                        >
+                          <UserCheck className="h-4 w-4" /> Aprovar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setPendingBlock(restaurant)}
+                          className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${
+                            restaurant.active
+                              ? 'border border-wine-300 text-wine-700 hover:bg-wine-50 dark:border-wine-700 dark:text-wine-400 dark:hover:bg-wine-500/10'
+                              : 'border border-sage-300 text-sage-700 hover:bg-sage-50 dark:border-sage-700 dark:text-sage-400 dark:hover:bg-sage-500/10'
+                          }`}
+                        >
+                          {restaurant.active ? (
+                            <>
+                              <ShieldAlert className="h-4 w-4" /> Bloquear
+                            </>
+                          ) : (
+                            <>
+                              <ShieldCheck className="h-4 w-4" /> Desbloquear
+                            </>
+                          )}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.DiscountType;
 import com.example.restaurant_saas.domain.enums.UserRole;
@@ -9,6 +10,7 @@ import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
+import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.OpenCashRegisterRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PaymentEntryRequest;
@@ -17,6 +19,7 @@ import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.TransferItemsRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
+import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.support.TenantTestSupport;
 import com.example.restaurant_saas.security.JwtService;
@@ -59,6 +62,9 @@ class OrderItemControllerIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private RestaurantRepository restaurantRepository;
+
     private RegisterRestaurantRequest registerRequest;
 
     @BeforeEach
@@ -72,13 +78,11 @@ class OrderItemControllerIntegrationTest {
         registerRequest.setOwnerPassword("password123");
     }
 
+    // A new signup is unapproved by default (AuthService#registerRestaurant) and can't log in -
+    // approve it directly then log in to get a working token, since registration itself no
+    // longer hands one out.
     private String registerOwnerAndGetToken() throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/auth/register-restaurant")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        String token = JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        String token = registerAndGetToken(registerRequest);
         // A test pays a tab in CASH; opening a session here keeps it green now that CASH
         // payments require an open cash register.
         openCashRegister(token);
@@ -101,7 +105,20 @@ class OrderItemControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andReturn();
-        return JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        String restaurantId = JsonPath.read(result.getResponse().getContentAsString(), "$.restaurant.id");
+        Restaurant restaurant = restaurantRepository.findById(UUID.fromString(restaurantId)).orElseThrow();
+        restaurant.setApproved(true);
+        restaurantRepository.save(restaurant);
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(request.getOwnerEmail());
+        loginRequest.setPassword(request.getOwnerPassword());
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return JsonPath.read(loginResult.getResponse().getContentAsString(), "$.accessToken");
     }
 
     private User createUserDirectly(User owner, UserRole role) {

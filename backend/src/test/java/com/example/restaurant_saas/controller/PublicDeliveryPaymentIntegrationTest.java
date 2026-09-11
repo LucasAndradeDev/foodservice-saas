@@ -1,13 +1,16 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
 import com.example.restaurant_saas.dto.request.CreateDeliveryZoneRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
+import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.SaveCardIntegrationRequest;
 import com.example.restaurant_saas.dto.request.SavePixIntegrationRequest;
 import com.example.restaurant_saas.repository.PixChargeRepository;
+import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.security.WooviWebhookSignatureVerifier;
 import com.example.restaurant_saas.service.MercadoPagoApiClient;
 import com.example.restaurant_saas.service.WooviApiClient;
@@ -52,6 +55,9 @@ class PublicDeliveryPaymentIntegrationTest {
     @Autowired
     private PixChargeRepository pixChargeRepository;
 
+    @Autowired
+    private RestaurantRepository restaurantRepository;
+
     @MockBean
     private WooviApiClient wooviApiClient;
 
@@ -69,6 +75,9 @@ class PublicDeliveryPaymentIntegrationTest {
     private record OwnerSession(String token, UUID restaurantId) {
     }
 
+    // A new signup is unapproved by default (AuthService#registerRestaurant) and can't log in -
+    // approve it directly then log in to get a working token, since registration itself no
+    // longer hands one out.
     private OwnerSession registerOwner() throws Exception {
         RegisterRestaurantRequest registerRequest = new RegisterRestaurantRequest();
         registerRequest.setRestaurantName("Burger House");
@@ -80,10 +89,22 @@ class PublicDeliveryPaymentIntegrationTest {
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
                 .andReturn();
-        String content = result.getResponse().getContentAsString();
+        UUID restaurantId = UUID.fromString(JsonPath.read(result.getResponse().getContentAsString(), "$.restaurant.id"));
+        Restaurant restaurant = restaurantRepository.findById(restaurantId).orElseThrow();
+        restaurant.setApproved(true);
+        restaurantRepository.save(restaurant);
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(registerRequest.getOwnerEmail());
+        loginRequest.setPassword(registerRequest.getOwnerPassword());
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
         return new OwnerSession(
-                JsonPath.read(content, "$.accessToken"),
-                UUID.fromString(JsonPath.read(content, "$.restaurant.id")));
+                JsonPath.read(loginResult.getResponse().getContentAsString(), "$.accessToken"),
+                restaurantId);
     }
 
     private String getSlug(String token) throws Exception {

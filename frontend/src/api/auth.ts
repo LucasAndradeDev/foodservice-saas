@@ -2,7 +2,9 @@ import { http } from './http'
 import type { StoredRestaurant, StoredUser } from '../auth/tokenStorage'
 
 export interface AuthResponse {
-  accessToken: string
+  // Null when a just-registered restaurant is still pending admin approval - see
+  // RegisterPage, which reads this as "registration received, nothing to log into yet".
+  accessToken: string | null
   tokenType: string
   user: StoredUser
   restaurant: StoredRestaurant
@@ -16,7 +18,12 @@ export interface RegisterRestaurantPayload {
   restaurantName: string
   cnpj?: string
   phone?: string
-  address?: string
+  street?: string
+  number?: string
+  complement?: string
+  neighborhood?: string
+  city?: string
+  zipCode?: string
   ownerName: string
   ownerEmail: string
   ownerPassword: string

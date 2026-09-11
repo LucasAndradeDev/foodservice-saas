@@ -1,5 +1,13 @@
 package com.example.restaurant_saas.controller;
 
+import java.util.UUID;
+
+import com.example.restaurant_saas.repository.RestaurantRepository;
+
+import com.example.restaurant_saas.dto.request.LoginRequest;
+
+import com.example.restaurant_saas.domain.entity.Restaurant;
+
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.CreateDeliveryZoneRequest;
@@ -45,6 +53,10 @@ class DeliveryZoneControllerIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private RestaurantRepository restaurantRepository;
+
+
     private RegisterRestaurantRequest registerRequest;
 
     @BeforeEach
@@ -56,13 +68,33 @@ class DeliveryZoneControllerIntegrationTest {
         registerRequest.setOwnerPassword("password123");
     }
 
+    // A new signup is unapproved by default (AuthService#registerRestaurant) and can't log in -
+    // approve it directly (Restaurant carries no tenant RLS/@Filter, see AdminRestaurantService)
+    // then log in to get a working token, since registration itself no longer hands one out.
     private String registerOwnerAndGetToken() throws Exception {
+        return registerAndGetToken(registerRequest);
+    }
+
+    private String registerAndGetToken(RegisterRestaurantRequest request) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register-restaurant")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andReturn();
-        return JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        String restaurantId = JsonPath.read(result.getResponse().getContentAsString(), "$.restaurant.id");
+        Restaurant restaurant = restaurantRepository.findById(UUID.fromString(restaurantId)).orElseThrow();
+        restaurant.setApproved(true);
+        restaurantRepository.save(restaurant);
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(request.getOwnerEmail());
+        loginRequest.setPassword(request.getOwnerPassword());
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return JsonPath.read(loginResult.getResponse().getContentAsString(), "$.accessToken");
     }
 
     private User createUserDirectly(User owner, UserRole role) {
@@ -208,12 +240,7 @@ class DeliveryZoneControllerIntegrationTest {
         otherRestaurant.setOwnerName("Another Owner");
         otherRestaurant.setOwnerEmail("another+" + System.nanoTime() + "@test.com");
         otherRestaurant.setOwnerPassword("password789");
-        MvcResult otherResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(otherRestaurant)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        String otherToken = JsonPath.read(otherResult.getResponse().getContentAsString(), "$.accessToken");
+        String otherToken = registerAndGetToken(otherRestaurant);
 
         UpdateDeliveryZoneRequest updateRequest = new UpdateDeliveryZoneRequest();
         updateRequest.setNeighborhood("Centro");

@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Data
@@ -33,6 +34,8 @@ public class RestaurantResponse {
     private String logo;
     private Integer tableCount;
     private Boolean active;
+    private Boolean approved;
+    private OffsetDateTime createdAt;
     private LocalDate paymentDueDate;
     private Boolean autoPrintKitchenTickets;
     private Integer kitchenWarningThresholdMinutes;

@@ -1,4 +1,7 @@
 package com.example.restaurant_saas.controller;
+import com.example.restaurant_saas.repository.RestaurantRepository;
+import com.example.restaurant_saas.dto.request.LoginRequest;
+import com.example.restaurant_saas.domain.entity.Restaurant;
 
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
 import com.example.restaurant_saas.dto.request.PublicCreateReservationRequest;
@@ -37,6 +40,9 @@ class PublicReservationControllerIntegrationTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private RestaurantRepository restaurantRepository;
+
     private RegisterRestaurantRequest registerRequest;
 
     @BeforeEach
@@ -48,13 +54,29 @@ class PublicReservationControllerIntegrationTest {
         registerRequest.setOwnerPassword("password123");
     }
 
+    // A new signup is unapproved by default (AuthService#registerRestaurant) and can't log in -
+    // approve it directly (Restaurant carries no tenant RLS/@Filter, see AdminRestaurantService)
+    // then log in to get a working token, since registration itself no longer hands one out.
     private String registerOwnerAndGetToken() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register-restaurant")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
                 .andReturn();
-        return JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        String restaurantId = JsonPath.read(result.getResponse().getContentAsString(), "$.restaurant.id");
+        Restaurant restaurant = restaurantRepository.findById(UUID.fromString(restaurantId)).orElseThrow();
+        restaurant.setApproved(true);
+        restaurantRepository.save(restaurant);
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(registerRequest.getOwnerEmail());
+        loginRequest.setPassword(registerRequest.getOwnerPassword());
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return JsonPath.read(loginResult.getResponse().getContentAsString(), "$.accessToken");
     }
 
     private String getSlug(String token) throws Exception {

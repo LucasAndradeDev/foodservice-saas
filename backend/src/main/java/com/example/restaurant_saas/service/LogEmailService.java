@@ -33,4 +33,9 @@ public class LogEmailService implements EmailService {
     public void sendStaffInviteEmail(String toEmail, String setPasswordLink) {
         log.info("Staff invite sent for {}. Set-password link: {}", toEmail, setPasswordLink);
     }
+
+    @Override
+    public void sendAccountApprovedEmail(String toEmail, String loginLink) {
+        log.info("Restaurant approved for {}. Login link: {}", toEmail, loginLink);
+    }
 }

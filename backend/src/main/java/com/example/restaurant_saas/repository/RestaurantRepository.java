@@ -19,5 +19,7 @@ public interface RestaurantRepository extends JpaRepository<Restaurant, UUID> {
 
     boolean existsByIdAndActiveTrue(UUID id);
 
+    boolean existsByIdAndActiveTrueAndApprovedTrue(UUID id);
+
     Optional<Restaurant> findBySlug(String slug);
 }

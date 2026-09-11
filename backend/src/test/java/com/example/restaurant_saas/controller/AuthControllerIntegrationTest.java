@@ -9,8 +9,10 @@ import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.ResetPasswordRequest;
 import com.example.restaurant_saas.dto.request.VerifyEmailRequest;
+import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.repository.EmailVerificationTokenRepository;
 import com.example.restaurant_saas.repository.PasswordResetTokenRepository;
+import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.support.TenantTestSupport;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,6 +26,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -49,6 +53,9 @@ class AuthControllerIntegrationTest {
     @Autowired
     private EmailVerificationTokenRepository emailVerificationTokenRepository;
 
+    @Autowired
+    private RestaurantRepository restaurantRepository;
+
     private RegisterRestaurantRequest registerRequest;
 
     @BeforeEach
@@ -63,27 +70,54 @@ class AuthControllerIntegrationTest {
         registerRequest.setOwnerPassword("password123");
     }
 
+    // A new signup is unapproved by default (AuthService#registerRestaurant) and can't log in -
+    // most tests below aren't exercising that gate itself, so they call this right after
+    // registering to get back to the previous "registration = usable account" behavior.
+    private void approveRestaurant(String restaurantId) {
+        Restaurant restaurant = restaurantRepository.findById(UUID.fromString(restaurantId)).orElseThrow();
+        restaurant.setApproved(true);
+        restaurantRepository.save(restaurant);
+    }
+
+    private String registerApproveAndLogin(RegisterRestaurantRequest request) throws Exception {
+        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String restaurantId = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.restaurant.id");
+        approveRestaurant(restaurantId);
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(request.getOwnerEmail());
+        loginRequest.setPassword(request.getOwnerPassword());
+
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return JsonPath.read(loginResult.getResponse().getContentAsString(), "$.accessToken");
+    }
+
     @Test
-    void registerRestaurant_shouldCreateOwnerAndReturnTokens() throws Exception {
+    void registerRestaurant_shouldCreateOwnerPendingApprovalWithoutTokens() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register-restaurant")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                // The refresh token must never appear in the JSON body — it only ever travels as
-                // the httpOnly cookie asserted below.
+                // Unapproved - nothing to log into yet (AuthService#registerRestaurant).
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
                 .andExpect(jsonPath("$.refreshToken").doesNotExist())
                 .andExpect(jsonPath("$.user.email").value(registerRequest.getOwnerEmail()))
                 .andExpect(jsonPath("$.user.role").value("OWNER"))
                 .andExpect(jsonPath("$.user.emailVerified").value(false))
                 .andExpect(jsonPath("$.restaurant.name").value("Burger House"))
+                .andExpect(jsonPath("$.restaurant.approved").value(false))
                 .andReturn();
 
-        Cookie refreshCookie = result.getResponse().getCookie("refreshToken");
-        assertThat(refreshCookie).isNotNull();
-        assertThat(refreshCookie.isHttpOnly()).isTrue();
-        assertThat(refreshCookie.getPath()).isEqualTo("/api/v1/auth");
-        assertThat(refreshCookie.getValue()).isNotBlank();
+        // No refresh cookie either - registerRestaurant() issues no tokens at all pending approval.
+        assertThat(result.getResponse().getCookie("refreshToken")).isNull();
 
         User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         assertThat(owner.getEmailVerified()).isFalse();
@@ -106,10 +140,12 @@ class AuthControllerIntegrationTest {
 
     @Test
     void login_withValidCredentials_shouldReturnTokens() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/register-restaurant")
+        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andReturn();
+        approveRestaurant(JsonPath.read(registerResult.getResponse().getContentAsString(), "$.restaurant.id"));
 
         LoginRequest loginRequest = new LoginRequest();
         loginRequest.setEmail(registerRequest.getOwnerEmail());
@@ -260,10 +296,14 @@ class AuthControllerIntegrationTest {
 
     @Test
     void resetPassword_withValidToken_shouldAllowLoginWithNewPassword() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/register-restaurant")
+        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andReturn();
+        // resetPassword() itself doesn't gate on approval (a locked-out owner must always be able
+        // to reset their password), but the final login check below does.
+        approveRestaurant(JsonPath.read(registerResult.getResponse().getContentAsString(), "$.restaurant.id"));
 
         ForgotPasswordRequest forgotRequest = new ForgotPasswordRequest();
         forgotRequest.setEmail(registerRequest.getOwnerEmail());
@@ -348,8 +388,18 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
                 .andReturn();
+        approveRestaurant(JsonPath.read(registerResult.getResponse().getContentAsString(), "$.restaurant.id"));
 
-        Cookie refreshCookie = registerResult.getResponse().getCookie("refreshToken");
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(registerRequest.getOwnerEmail());
+        loginRequest.setPassword(registerRequest.getOwnerPassword());
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Cookie refreshCookie = loginResult.getResponse().getCookie("refreshToken");
 
         mockMvc.perform(post("/api/v1/auth/refresh-token").cookie(refreshCookie))
                 .andExpect(status().isOk())
@@ -377,9 +427,19 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
                 .andReturn();
+        approveRestaurant(JsonPath.read(registerResult.getResponse().getContentAsString(), "$.restaurant.id"));
 
-        String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
-        Cookie refreshCookie = registerResult.getResponse().getCookie("refreshToken");
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(registerRequest.getOwnerEmail());
+        loginRequest.setPassword(registerRequest.getOwnerPassword());
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String accessToken = JsonPath.read(loginResult.getResponse().getContentAsString(), "$.accessToken");
+        Cookie refreshCookie = loginResult.getResponse().getCookie("refreshToken");
 
         mockMvc.perform(post("/api/v1/auth/logout")
                         .header("Authorization", "Bearer " + accessToken)
@@ -404,13 +464,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void me_withValidToken_shouldReturnCurrentUser() throws Exception {
-        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isCreated())
-                .andReturn();
-
-        String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
+        String accessToken = registerApproveAndLogin(registerRequest);
 
         mockMvc.perform(get("/api/v1/auth/me")
                         .header("Authorization", "Bearer " + accessToken))
@@ -420,13 +474,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void changePassword_withCorrectCurrentPassword_shouldAllowLoginWithNewPassword() throws Exception {
-        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isCreated())
-                .andReturn();
-
-        String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
+        String accessToken = registerApproveAndLogin(registerRequest);
 
         ChangePasswordRequest changeRequest = new ChangePasswordRequest();
         changeRequest.setCurrentPassword(registerRequest.getOwnerPassword());
@@ -450,13 +498,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void changePassword_withWrongCurrentPassword_shouldReturn400() throws Exception {
-        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isCreated())
-                .andReturn();
-
-        String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
+        String accessToken = registerApproveAndLogin(registerRequest);
 
         ChangePasswordRequest changeRequest = new ChangePasswordRequest();
         changeRequest.setCurrentPassword("wrongPassword");
@@ -554,12 +596,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void resendVerificationEmail_shouldReplaceExistingToken() throws Exception {
-        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
+        String accessToken = registerApproveAndLogin(registerRequest);
 
         User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         String firstToken = emailVerificationTokenRepository.findByUser(owner).orElseThrow().getToken();
@@ -574,12 +611,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void resendVerificationEmail_afterTooManyAttempts_shouldReturn429() throws Exception {
-        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
+        String accessToken = registerApproveAndLogin(registerRequest);
 
         for (int i = 0; i < 3; i++) {
             mockMvc.perform(post("/api/v1/auth/resend-verification-email")
@@ -594,12 +626,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     void resendVerificationEmail_whenAlreadyVerified_shouldBeNoOpAndNotCountTowardsRateLimit() throws Exception {
-        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isCreated())
-                .andReturn();
-        String accessToken = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.accessToken");
+        String accessToken = registerApproveAndLogin(registerRequest);
 
         User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
         owner.setEmailVerified(true);

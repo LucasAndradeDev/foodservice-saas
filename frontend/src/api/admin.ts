@@ -24,6 +24,8 @@ export interface AdminRestaurant {
   cnpj: string | null
   phone: string | null
   active: boolean
+  approved: boolean
+  createdAt: string
   paymentDueDate: string | null
 }
 
@@ -35,4 +37,8 @@ export function updateRestaurantStatus(id: string, active: boolean, paymentDueDa
   return adminHttp
     .patch<AdminRestaurant>(`/restaurants/${id}`, { active, paymentDueDate })
     .then((res) => res.data)
+}
+
+export function approveRestaurant(id: string) {
+  return adminHttp.post<AdminRestaurant>(`/restaurants/${id}/approve`).then((res) => res.data)
 }

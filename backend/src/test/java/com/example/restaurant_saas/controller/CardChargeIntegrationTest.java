@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.CardChargeStatus;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
@@ -11,6 +12,7 @@ import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateTableRequest;
+import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.OpenTabRequest;
 import com.example.restaurant_saas.dto.request.PaymentEntryRequest;
 import com.example.restaurant_saas.dto.request.RegisterPaymentsRequest;
@@ -21,6 +23,7 @@ import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.dto.request.VoidPaymentRequest;
 import com.example.restaurant_saas.repository.CardChargeRepository;
 import com.example.restaurant_saas.repository.CardIntegrationRepository;
+import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.MercadoPagoWebhookSignatureVerifier;
@@ -95,6 +98,9 @@ class CardChargeIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private RestaurantRepository restaurantRepository;
+
     @MockBean
     private MercadoPagoApiClient mercadoPagoApiClient;
 
@@ -122,13 +128,29 @@ class CardChargeIntegrationTest {
         when(signatureVerifier.isValid(any(), any(), any(), any())).thenReturn(true);
     }
 
+    // A new signup is unapproved by default (AuthService#registerRestaurant) and can't log in -
+    // approve it directly (Restaurant carries no tenant RLS/@Filter, see AdminRestaurantService)
+    // then log in to get a working token, since registration itself no longer hands one out.
     private String registerOwnerAndGetToken() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register-restaurant")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
                 .andReturn();
-        return JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        String restaurantId = JsonPath.read(result.getResponse().getContentAsString(), "$.restaurant.id");
+        Restaurant restaurant = restaurantRepository.findById(UUID.fromString(restaurantId)).orElseThrow();
+        restaurant.setApproved(true);
+        restaurantRepository.save(restaurant);
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(registerRequest.getOwnerEmail());
+        loginRequest.setPassword(registerRequest.getOwnerPassword());
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return JsonPath.read(loginResult.getResponse().getContentAsString(), "$.accessToken");
     }
 
     private User createUserDirectly(User owner, UserRole role) {

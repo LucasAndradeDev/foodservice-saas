@@ -46,10 +46,14 @@ import java.util.UUID;
 public class AuthService {
 
     private static final String LOGIN_ACTION = "login";
+    private static final String REGISTER_RESTAURANT_ACTION = "register-restaurant";
     private static final String FORGOT_PASSWORD_ACTION = "forgot-password";
     private static final String RESEND_VERIFICATION_ACTION = "resend-verification";
+    private static final String RESTAURANT_PENDING_APPROVAL_MESSAGE =
+            "Restaurant pending approval. You'll be notified by email once it's approved.";
 
     private final RestaurantRepository restaurantRepository;
+    private final RestaurantService restaurantService;
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
@@ -77,6 +81,15 @@ public class AuthService {
     @Value("${security.login-rate-limit.block-minutes}")
     private long loginBlockMinutes;
 
+    @Value("${security.register-restaurant-rate-limit.max-attempts}")
+    private int registerMaxAttempts;
+
+    @Value("${security.register-restaurant-rate-limit.window-minutes}")
+    private long registerWindowMinutes;
+
+    @Value("${security.register-restaurant-rate-limit.block-minutes}")
+    private long registerBlockMinutes;
+
     @Value("${security.forgot-password-rate-limit.max-attempts}")
     private int forgotPasswordMaxAttempts;
 
@@ -103,7 +116,17 @@ public class AuthService {
 
     @Transactional
     public AuthResponse registerRestaurant(RegisterRestaurantRequest request) {
-        if (userRepository.existsByEmailBypassingRls(request.getOwnerEmail())) {
+        String ownerEmail = request.getOwnerEmail().toLowerCase().trim();
+
+        // Caps mass automated account creation - see RateLimitService for the per-identifier +
+        // per-IP-only backstop split.
+        rateLimitService.checkAllowed(REGISTER_RESTAURANT_ACTION, httpRequest, ownerEmail);
+        rateLimitService.recordAttempt(
+                REGISTER_RESTAURANT_ACTION, httpRequest, ownerEmail,
+                registerMaxAttempts, registerWindowMinutes, registerBlockMinutes
+        );
+
+        if (userRepository.existsByEmailBypassingRls(ownerEmail)) {
             throw new IllegalArgumentException("Email already registered.");
         }
 
@@ -117,8 +140,21 @@ public class AuthService {
                 .cnpj(request.getCnpj())
                 .phone(request.getPhone())
                 .address(request.getAddress())
+                .street(request.getStreet())
+                .number(request.getNumber())
+                .complement(request.getComplement())
+                .neighborhood(request.getNeighborhood())
+                .city(request.getCity())
+                .zipCode(request.getZipCode())
                 .active(true)
+                // Every new signup starts unreviewed - a platform admin must approve it from the
+                // admin panel before its owner can log in (see AdminRestaurantService#approve).
+                .approved(false)
                 .build();
+        // Geocode right away (same lookup Settings uses) so a restaurant that fills in its address
+        // at signup doesn't have to re-save an unchanged address in Settings later just to unlock
+        // distance-based delivery pricing - best-effort, never blocks registration on failure.
+        restaurantService.geocodeAndApply(restaurant);
         restaurant = restaurantRepository.save(restaurant);
 
         tenantActivator.activate(restaurant.getId());
@@ -126,7 +162,7 @@ public class AuthService {
             User owner = User.builder()
                     .restaurant(restaurant)
                     .name(request.getOwnerName())
-                    .email(request.getOwnerEmail().toLowerCase().trim())
+                    .email(ownerEmail)
                     .password(passwordEncoder.encode(request.getOwnerPassword()))
                     .role(UserRole.OWNER)
                     .active(true)
@@ -137,11 +173,10 @@ public class AuthService {
 
             sendVerificationEmail(owner);
 
-            UserDetailsImpl userDetails = new UserDetailsImpl(owner);
-            String accessToken = jwtService.generateToken(userDetails);
-            RefreshToken refreshToken = createRefreshToken(owner);
-
-            return buildAuthResponse(accessToken, refreshToken.getToken(), owner, restaurant);
+            // No token issued yet - the restaurant isn't approved, so there's nothing it could use
+            // one for anyway (every subsequent request would be rejected, see JwtAuthenticationFilter).
+            // The frontend reads accessToken == null as "registration received, pending approval".
+            return buildAuthResponse(null, null, owner, restaurant);
         } finally {
             tenantActivator.deactivate();
         }
@@ -170,6 +205,9 @@ public class AuthService {
         if (!Boolean.TRUE.equals(user.getRestaurant().getActive())) {
             throw new RestaurantSuspendedException("Restaurant access suspended. Contact support.");
         }
+        if (!Boolean.TRUE.equals(user.getRestaurant().getApproved())) {
+            throw new RestaurantSuspendedException(RESTAURANT_PENDING_APPROVAL_MESSAGE);
+        }
 
         UserDetailsImpl userDetails = new UserDetailsImpl(user);
         String accessToken = jwtService.generateToken(userDetails);
@@ -197,6 +235,9 @@ public class AuthService {
 
         if (!Boolean.TRUE.equals(user.getRestaurant().getActive())) {
             throw new RestaurantSuspendedException("Restaurant access suspended. Contact support.");
+        }
+        if (!Boolean.TRUE.equals(user.getRestaurant().getApproved())) {
+            throw new RestaurantSuspendedException(RESTAURANT_PENDING_APPROVAL_MESSAGE);
         }
 
         // A deactivated user must lose access on their very next request, not just at their next
@@ -485,6 +526,7 @@ public class AuthService {
                 .logo(restaurant.getLogo())
                 .tableCount(restaurant.getTableCount())
                 .active(restaurant.getActive())
+                .approved(restaurant.getApproved())
                 .paymentDueDate(restaurant.getPaymentDueDate())
                 .autoPrintKitchenTickets(restaurant.getAutoPrintKitchenTickets())
                 .kitchenWarningThresholdMinutes(restaurant.getKitchenWarningThresholdMinutes())

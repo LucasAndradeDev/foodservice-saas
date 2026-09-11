@@ -46,7 +46,13 @@ public class AuthController {
     @PostMapping("/register-restaurant")
     public ResponseEntity<AuthResponse> registerRestaurant(@Valid @RequestBody RegisterRestaurantRequest request) {
         AuthResponse response = authService.registerRestaurant(request);
-        return withRefreshCookie(ResponseEntity.status(HttpStatus.CREATED), response.getRefreshToken()).body(response);
+        // No refresh token yet when the new restaurant is still pending admin approval (see
+        // AuthService#registerRestaurant) - nothing to set a cookie for in that case.
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(HttpStatus.CREATED);
+        if (response.getRefreshToken() != null) {
+            builder = withRefreshCookie(builder, response.getRefreshToken());
+        }
+        return builder.body(response);
     }
 
     @PostMapping("/login")

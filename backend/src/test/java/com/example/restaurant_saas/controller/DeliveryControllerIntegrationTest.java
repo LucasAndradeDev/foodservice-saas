@@ -1,5 +1,6 @@
 package com.example.restaurant_saas.controller;
 
+import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.CourierVehicleType;
 import com.example.restaurant_saas.domain.enums.UserRole;
@@ -8,8 +9,10 @@ import com.example.restaurant_saas.dto.request.CreateDeliveryZoneRequest;
 import com.example.restaurant_saas.dto.request.CreateOrderItemRequest;
 import com.example.restaurant_saas.dto.request.CreateProductRequest;
 import com.example.restaurant_saas.dto.request.CreateUserRequest;
+import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.UpdateDeliveryStatusRequest;
+import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.security.JwtService;
 import com.example.restaurant_saas.security.UserDetailsImpl;
@@ -55,6 +58,12 @@ class DeliveryControllerIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private RestaurantRepository restaurantRepository;
+
+    // A new signup is unapproved by default (AuthService#registerRestaurant) and can't log in -
+    // approve it directly then log in to get a working token, since registration itself no
+    // longer hands one out.
     private String registerOwnerAndGetToken(String restaurantName) throws Exception {
         RegisterRestaurantRequest registerRequest = new RegisterRestaurantRequest();
         registerRequest.setRestaurantName(restaurantName);
@@ -67,7 +76,20 @@ class DeliveryControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
                 .andReturn();
-        return JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        String restaurantId = JsonPath.read(result.getResponse().getContentAsString(), "$.restaurant.id");
+        Restaurant restaurant = restaurantRepository.findById(UUID.fromString(restaurantId)).orElseThrow();
+        restaurant.setApproved(true);
+        restaurantRepository.save(restaurant);
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(registerRequest.getOwnerEmail());
+        loginRequest.setPassword(registerRequest.getOwnerPassword());
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return JsonPath.read(loginResult.getResponse().getContentAsString(), "$.accessToken");
     }
 
     private String getSlug(String token) throws Exception {
@@ -139,6 +161,10 @@ class DeliveryControllerIntegrationTest {
     // Same registration flow as registerOwnerAndGetToken, but also hands back the persisted owner
     // User row (via a bypass-RLS lookup by the email we just chose) so a courier's User row can be
     // built directly against the same restaurant, without going through the invite-email flow.
+    //
+    // A new signup is unapproved by default (AuthService#registerRestaurant) and can't log in -
+    // approve it directly then log in to get a working token, since registration itself no
+    // longer hands one out.
     private OwnerSession registerOwnerAndGetSession(String restaurantName) throws Exception {
         String email = "owner+" + System.nanoTime() + "@test.com";
         RegisterRestaurantRequest registerRequest = new RegisterRestaurantRequest();
@@ -152,7 +178,20 @@ class DeliveryControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
                 .andReturn();
-        String token = JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        String restaurantId = JsonPath.read(result.getResponse().getContentAsString(), "$.restaurant.id");
+        Restaurant restaurant = restaurantRepository.findById(UUID.fromString(restaurantId)).orElseThrow();
+        restaurant.setApproved(true);
+        restaurantRepository.save(restaurant);
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(email);
+        loginRequest.setPassword(registerRequest.getOwnerPassword());
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String token = JsonPath.read(loginResult.getResponse().getContentAsString(), "$.accessToken");
         User owner = userRepository.findByEmailBypassingRls(email).orElseThrow();
         return new OwnerSession(token, owner);
     }

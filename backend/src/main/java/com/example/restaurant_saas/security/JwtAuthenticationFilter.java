@@ -88,12 +88,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     ? jwtService.extractRestaurantId(jwt)
                                     : (userDetails instanceof UserDetailsImpl customUser ? customUser.getRestaurantId() : null);
 
-                            // A restaurant blocked for non-payment (Restaurant.active = false) must lose
-                            // access on its very next request, not just at its next login/refresh — access
-                            // tokens live for 24h and aren't otherwise re-checked against the database.
-                            // Likewise, a deactivated user (userDetails.isEnabled() above) must lose access
-                            // on its very next request, not just at its next login/refresh.
-                            if (restaurantId == null || restaurantRepository.existsByIdAndActiveTrue(restaurantId)) {
+                            // A restaurant blocked for non-payment (Restaurant.active = false) or still
+                            // pending admin approval (Restaurant.approved = false) must lose access on its
+                            // very next request, not just at its next login/refresh — access tokens live for
+                            // 24h and aren't otherwise re-checked against the database. Likewise, a
+                            // deactivated user (userDetails.isEnabled() above) must lose access on its very
+                            // next request, not just at its next login/refresh.
+                            if (restaurantId == null || restaurantRepository.existsByIdAndActiveTrueAndApprovedTrue(restaurantId)) {
                                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                                         userDetails,
                                         null,

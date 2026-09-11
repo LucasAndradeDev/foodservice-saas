@@ -43,4 +43,9 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     // recency of locationUpdatedAt, not a stored flag, so this is the only place that concept
     // exists at all.
     List<User> findByRestaurantIdAndRoleAndLocationUpdatedAtAfter(UUID restaurantId, UserRole role, OffsetDateTime threshold);
+
+    // RLS bypass (see V79 migration, same reasoning as V52): AdminRestaurantService#approve needs
+    // the owner's email to notify them, but platform-admin requests never set app.tenant_id.
+    @Query(value = "SELECT owner_email_by_restaurant(:restaurantId)", nativeQuery = true)
+    String findOwnerEmailBypassingRls(@Param("restaurantId") UUID restaurantId);
 }

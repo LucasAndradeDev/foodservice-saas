@@ -37,4 +37,10 @@ public class AdminController {
     ) {
         return ResponseEntity.ok(adminRestaurantService.updateStatus(id, request));
     }
+
+    @PostMapping("/{id}/approve")
+    @Operation(summary = "Approve a pending restaurant signup", description = "Lets its owner log in for the first time and emails them a notification.")
+    public ResponseEntity<RestaurantResponse> approveRestaurant(@PathVariable UUID id) {
+        return ResponseEntity.ok(adminRestaurantService.approve(id));
+    }
 }

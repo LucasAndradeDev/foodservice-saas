@@ -142,6 +142,21 @@ public class BrevoEmailService implements EmailService {
         send(toEmail, "Bem-vindo ao Morá - defina sua senha", html);
     }
 
+    @Override
+    public void sendAccountApprovedEmail(String toEmail, String loginLink) {
+        String buttonRow = BUTTON_ROW.formatted(loginLink, "Acessar minha conta");
+        String html = SHELL.formatted(
+                LOGO_HTML,
+                "🎉",
+                "Sua conta foi aprovada",
+                "Revisamos seu cadastro e sua conta Morá já está liberada. Clique no botão abaixo para acessar.",
+                buttonRow,
+                "Se você não pediu essa conta, entre em contato com quem administra sua conta Morá."
+        );
+
+        send(toEmail, "Sua conta foi aprovada - Morá", html);
+    }
+
     private void send(String toEmail, String subject, String htmlContent) {
         Map<String, Object> body = Map.of(
                 "sender", Map.of("email", senderEmail, "name", senderName),

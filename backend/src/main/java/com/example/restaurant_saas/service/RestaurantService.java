@@ -33,10 +33,14 @@ public class RestaurantService {
             restaurant.setTradeName(request.getTradeName());
         }
         if (request.getSlug() != null) {
-            if (!request.getSlug().isBlank() && restaurantRepository.existsBySlugAndIdNot(request.getSlug(), restaurantId)) {
+            // Blank means "not set", not the literal value "" - the column has a unique index, and
+            // storing "" instead of null would make every restaurant that clears/never sets its
+            // slug collide with each other (null vs null never conflicts in Postgres, "" vs "" does).
+            String slug = request.getSlug().isBlank() ? null : request.getSlug();
+            if (slug != null && restaurantRepository.existsBySlugAndIdNot(slug, restaurantId)) {
                 throw new IllegalArgumentException("Slug already in use.");
             }
-            restaurant.setSlug(request.getSlug());
+            restaurant.setSlug(slug);
         }
         if (request.getLogo() != null) {
             restaurant.setLogo(request.getLogo());
@@ -80,9 +84,7 @@ public class RestaurantService {
             // at the previous address's coordinates. A blank/unresolvable address, or Nominatim
             // being unavailable, just means distance-based delivery pricing stays unavailable
             // (DeliveryFeeResolver falls back to DeliveryZone) - never blocks saving settings.
-            Optional<GeocodingService.GeoPoint> geocoded = geocodeRestaurantAddress(restaurant);
-            restaurant.setLatitude(geocoded.map(GeocodingService.GeoPoint::latitude).orElse(null));
-            restaurant.setLongitude(geocoded.map(GeocodingService.GeoPoint::longitude).orElse(null));
+            geocodeAndApply(restaurant);
         }
         if (request.getDeliveryBaseFee() != null) {
             restaurant.setDeliveryBaseFee(request.getDeliveryBaseFee());
@@ -94,10 +96,13 @@ public class RestaurantService {
             restaurant.setMaxDeliveryDistanceKm(request.getMaxDeliveryDistanceKm());
         }
         if (request.getCnpj() != null) {
-            if (!request.getCnpj().isBlank() && restaurantRepository.existsByCnpjAndIdNot(request.getCnpj(), restaurantId)) {
+            // Same blank-vs-null distinction as slug above: CNPJ is optional, and storing "" would
+            // collide every restaurant that leaves it unset against each other on this unique column.
+            String cnpj = request.getCnpj().isBlank() ? null : request.getCnpj();
+            if (cnpj != null && restaurantRepository.existsByCnpjAndIdNot(cnpj, restaurantId)) {
                 throw new IllegalArgumentException("CNPJ already registered.");
             }
-            restaurant.setCnpj(request.getCnpj());
+            restaurant.setCnpj(cnpj);
         }
         if (request.getAutoPrintKitchenTickets() != null) {
             restaurant.setAutoPrintKitchenTickets(request.getAutoPrintKitchenTickets());
@@ -162,6 +167,16 @@ public class RestaurantService {
         return Optional.empty();
     }
 
+    // Package-private: also called by AuthService right after a new restaurant is built with an
+    // address (structured or free-text), so a brand new signup can unlock distance-based delivery
+    // pricing without the owner having to re-save an unchanged address in Settings first - see
+    // updateMyRestaurant above, which only re-geocodes when a field actually *changes*.
+    void geocodeAndApply(Restaurant restaurant) {
+        Optional<GeocodingService.GeoPoint> geocoded = geocodeRestaurantAddress(restaurant);
+        restaurant.setLatitude(geocoded.map(GeocodingService.GeoPoint::latitude).orElse(null));
+        restaurant.setLongitude(geocoded.map(GeocodingService.GeoPoint::longitude).orElse(null));
+    }
+
     private Restaurant findById(UUID restaurantId) {
         return restaurantRepository.findById(restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Restaurant not found."));
@@ -192,6 +207,8 @@ public class RestaurantService {
                 .logo(restaurant.getLogo())
                 .tableCount(restaurant.getTableCount())
                 .active(restaurant.getActive())
+                .approved(restaurant.getApproved())
+                .createdAt(restaurant.getCreatedAt())
                 .paymentDueDate(restaurant.getPaymentDueDate())
                 .autoPrintKitchenTickets(restaurant.getAutoPrintKitchenTickets())
                 .kitchenWarningThresholdMinutes(restaurant.getKitchenWarningThresholdMinutes())

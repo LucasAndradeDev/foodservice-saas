@@ -1,11 +1,14 @@
 import { isAxiosError } from 'axios'
 import { Eye, EyeOff, IdCard, Lock, Mail, MapPin, Phone, Store, User } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../auth/AuthContext'
 import { AuthInput } from '../components/AuthLayout'
 import { Logo } from '../theme/Logo'
 import { formatBrazilianPhone } from '../utils/phone'
+import { lookupCep } from '../api/cep'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 
 // The backend already distinguishes these two cases (AuthService) from any other failure -
 // showing the same generic "verifique os dados" for a duplicate email hid the one thing a
@@ -33,7 +36,13 @@ export function RegisterPage() {
   const [restaurantName, setRestaurantName] = useState('')
   const [cnpj, setCnpj] = useState('')
   const [phone, setPhone] = useState('')
-  const [address, setAddress] = useState('')
+  const [street, setStreet] = useState('')
+  const [number, setNumber] = useState('')
+  const [complement, setComplement] = useState('')
+  const [neighborhood, setNeighborhood] = useState('')
+  const [city, setCity] = useState('')
+  const [zipCode, setZipCode] = useState('')
+  const lastCepLookedUpRef = useRef('')
   const [ownerName, setOwnerName] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
   const [confirmOwnerEmail, setConfirmOwnerEmail] = useState('')
@@ -43,9 +52,46 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [isDuplicateEmail, setIsDuplicateEmail] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [pendingApproval, setPendingApproval] = useState(false)
+
+  // Same CEP autofill as the Configurações address fields (RestaurantSettingsPage) - lets the
+  // owner type just the CEP and get street/neighborhood/city filled in here too, instead of
+  // typing the whole address by hand.
+  const debouncedZipCode = useDebouncedValue(zipCode.replace(/\D/g, ''), 400)
+  const { data: cepAddress } = useQuery({
+    queryKey: ['cepLookup', debouncedZipCode],
+    queryFn: () => lookupCep(debouncedZipCode),
+    enabled: debouncedZipCode.length === 8,
+  })
+  useEffect(() => {
+    if (!cepAddress || lastCepLookedUpRef.current === debouncedZipCode) return
+    lastCepLookedUpRef.current = debouncedZipCode
+    setStreet(cepAddress.street)
+    setNeighborhood(cepAddress.neighborhood)
+    setCity(cepAddress.city)
+  }, [cepAddress, debouncedZipCode])
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />
+  }
+
+  if (pendingApproval) {
+    return (
+      <>
+        <Logo className="mx-auto mb-6 block h-24 w-auto" />
+        <h1 className="mb-4 text-center text-2xl font-bold text-gray-800 dark:text-white">Cadastro recebido!</h1>
+        <p className="mb-8 text-center text-sm text-gray-600 dark:text-stone-400">
+          Sua conta está em análise pela nossa equipe. Você vai receber um email em{' '}
+          <strong>{ownerEmail}</strong> assim que ela for aprovada e liberada para uso.
+        </p>
+        <Link
+          to="/login"
+          className="block w-full rounded-lg bg-brand-600 px-3 py-2.5 text-center text-sm font-semibold text-white hover:bg-brand-700"
+        >
+          Voltar para o login
+        </Link>
+      </>
+    )
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -65,17 +111,26 @@ export function RegisterPage() {
 
     setIsSubmitting(true)
     try {
-      await registerRestaurant({
+      const response = await registerRestaurant({
         restaurantName,
         cnpj: cnpj || undefined,
         phone: phone || undefined,
-        address: address || undefined,
+        street: street || undefined,
+        number: number || undefined,
+        complement: complement || undefined,
+        neighborhood: neighborhood || undefined,
+        city: city || undefined,
+        zipCode: zipCode || undefined,
         ownerName,
         ownerEmail,
         ownerPassword,
         termsAccepted,
       })
-      navigate('/dashboard')
+      if (response.accessToken) {
+        navigate('/dashboard')
+      } else {
+        setPendingApproval(true)
+      }
     } catch (err) {
       const reason = registerErrorReason(err)
       setError(REGISTER_ERROR_MESSAGES[reason])
@@ -128,16 +183,89 @@ export function RegisterPage() {
           onChange={(e) => setPhone(formatBrazilianPhone(e.target.value))}
         />
 
+        <p className="mb-1 text-sm font-medium text-gray-600 dark:text-stone-400">Endereço (opcional)</p>
+        <p className="mb-3 text-xs text-gray-400 dark:text-stone-500">
+          Usado pra calcular a taxa de entrega por distância. Informe o CEP e preenchemos rua, bairro e cidade
+          pra você.
+        </p>
+
         <AuthInput
-          id="address"
+          id="zipCode"
           type="text"
-          label="Endereço (opcional)"
+          label="CEP"
           icon={MapPin}
-          autoComplete="street-address"
-          placeholder="Digite o endereço"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
+          inputMode="numeric"
+          autoComplete="postal-code"
+          maxLength={10}
+          placeholder="Digite o CEP"
+          value={zipCode}
+          onChange={(e) => setZipCode(e.target.value)}
         />
+
+        <div className="flex gap-3">
+          <div className="flex-[3]">
+            <AuthInput
+              id="street"
+              type="text"
+              label="Rua"
+              icon={MapPin}
+              autoComplete="address-line1"
+              placeholder="Digite a rua"
+              value={street}
+              onChange={(e) => setStreet(e.target.value)}
+            />
+          </div>
+          <div className="flex-1">
+            <AuthInput
+              id="number"
+              type="text"
+              label="Número"
+              icon={MapPin}
+              autoComplete="off"
+              placeholder="Nº"
+              value={number}
+              onChange={(e) => setNumber(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <AuthInput
+          id="complement"
+          type="text"
+          label="Complemento (opcional)"
+          icon={MapPin}
+          autoComplete="address-line2"
+          placeholder="Apto, sala, etc."
+          value={complement}
+          onChange={(e) => setComplement(e.target.value)}
+        />
+
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <AuthInput
+              id="neighborhood"
+              type="text"
+              label="Bairro"
+              icon={MapPin}
+              autoComplete="off"
+              placeholder="Digite o bairro"
+              value={neighborhood}
+              onChange={(e) => setNeighborhood(e.target.value)}
+            />
+          </div>
+          <div className="flex-1">
+            <AuthInput
+              id="city"
+              type="text"
+              label="Cidade"
+              icon={MapPin}
+              autoComplete="address-level2"
+              placeholder="Digite a cidade"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+            />
+          </div>
+        </div>
 
         <p className="mt-2 mb-3 border-t border-gray-100 pt-5 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:border-white/10 dark:text-stone-500">
           Seus dados

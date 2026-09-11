@@ -2,11 +2,13 @@ package com.example.restaurant_saas.controller;
 
 import com.example.restaurant_saas.domain.entity.AdminCredentials;
 import com.example.restaurant_saas.domain.entity.AdminPasswordResetToken;
+import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.dto.request.LoginRequest;
 import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.ResetPasswordRequest;
 import com.example.restaurant_saas.repository.AdminCredentialsRepository;
 import com.example.restaurant_saas.repository.AdminPasswordResetTokenRepository;
+import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.AfterEach;
@@ -19,6 +21,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -46,6 +50,9 @@ class AdminControllerIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private RestaurantRepository restaurantRepository;
 
     private RegisterRestaurantRequest registerRequest;
 
@@ -97,13 +104,34 @@ class AdminControllerIntegrationTest {
         adminCredentialsRepository.save(credentials);
     }
 
+    // A new signup is unapproved by default (AuthService#registerRestaurant) and can't log in -
+    // approve it directly (Restaurant carries no tenant RLS/@Filter, see AdminRestaurantService)
+    // so callers that just need a working owner token don't have to exercise that gate themselves.
+    private void approveRestaurant(String restaurantId) {
+        Restaurant restaurant = restaurantRepository.findById(UUID.fromString(restaurantId)).orElseThrow();
+        restaurant.setApproved(true);
+        restaurantRepository.save(restaurant);
+    }
+
     private String registerRestaurantAndGetToken() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/auth/register-restaurant")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerRequest)))
                 .andExpect(status().isCreated())
                 .andReturn();
-        return JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");
+        String restaurantId = JsonPath.read(result.getResponse().getContentAsString(), "$.restaurant.id");
+        approveRestaurant(restaurantId);
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(registerRequest.getOwnerEmail());
+        loginRequest.setPassword(registerRequest.getOwnerPassword());
+
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return JsonPath.read(loginResult.getResponse().getContentAsString(), "$.accessToken");
     }
 
     private String adminLoginAndGetToken() throws Exception {
@@ -177,6 +205,8 @@ class AdminControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         String restaurantId = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.restaurant.id");
+        // Approved up front - this test is about the active/suspend gate, not the approval gate.
+        approveRestaurant(restaurantId);
 
         String adminToken = adminLoginAndGetToken();
 
@@ -203,6 +233,42 @@ class AdminControllerIntegrationTest {
                         .content("{\"active\":true,\"paymentDueDate\":null}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.active").value(true));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty());
+    }
+
+    @Test
+    void newSignup_isRejectedAtLogin_untilAdminApprovesIt() throws Exception {
+        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/register-restaurant")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(registerRequest)))
+                .andExpect(status().isCreated())
+                // Unapproved - no working session handed out at registration time.
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andReturn();
+        String restaurantId = JsonPath.read(registerResult.getResponse().getContentAsString(), "$.restaurant.id");
+
+        LoginRequest loginRequest = new LoginRequest();
+        loginRequest.setEmail(registerRequest.getOwnerEmail());
+        loginRequest.setPassword(registerRequest.getOwnerPassword());
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Restaurant Suspended"))
+                .andExpect(jsonPath("$.message").value("Restaurant pending approval. You'll be notified by email once it's approved."));
+
+        String adminToken = adminLoginAndGetToken();
+
+        mockMvc.perform(post("/api/v1/admin/restaurants/" + restaurantId + "/approve")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.approved").value(true));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

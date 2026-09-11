@@ -5,4 +5,5 @@ public interface EmailService {
     void sendPasswordChangedNotification(String toEmail);
     void sendVerificationEmail(String toEmail, String verifyLink);
     void sendStaffInviteEmail(String toEmail, String setPasswordLink);
+    void sendAccountApprovedEmail(String toEmail, String loginLink);
 }

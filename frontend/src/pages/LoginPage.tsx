@@ -34,8 +34,15 @@ export function LoginPage() {
       if (isAxiosError(err) && err.response?.status === 429) {
         setError('Muitas tentativas de login. Aguarde alguns minutos e tente novamente.')
       } else if (isAxiosError(err) && err.response?.data?.error === 'Restaurant Suspended') {
-        setError('Sua conta está temporariamente bloqueada. Entre em contato com o suporte para resolver isso.')
-        setIsSuspended(true)
+        // Same exception/HTTP shape covers two different reasons (AuthService#login) - a pending
+        // first-time signup isn't "suspended", so it gets its own message and skips the
+        // suspended-only support links below.
+        if (err.response.data.message === "Restaurant pending approval. You'll be notified by email once it's approved.") {
+          setError('Seu cadastro está em análise. Você vai receber um email assim que ele for aprovado.')
+        } else {
+          setError('Sua conta está temporariamente bloqueada. Entre em contato com o suporte para resolver isso.')
+          setIsSuspended(true)
+        }
       } else {
         setError('Email ou senha inválidos')
       }

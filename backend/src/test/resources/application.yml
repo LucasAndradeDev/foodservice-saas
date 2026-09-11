@@ -34,6 +34,10 @@ security:
     max-attempts: 5
     window-minutes: 15
     block-minutes: 15
+  register-restaurant-rate-limit:
+    max-attempts: 5
+    window-minutes: 60
+    block-minutes: 60
   forgot-password-rate-limit:
     max-attempts: 3
     window-minutes: 15

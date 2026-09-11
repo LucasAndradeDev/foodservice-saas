@@ -70,6 +70,14 @@ public class Restaurant {
     @Builder.Default
     private Boolean active = true;
 
+    // Manual admin-approval gate for a brand new signup (AuthService#registerRestaurant sets this
+    // explicitly to false) - separate from `active` above, which is the suspend/reactivate switch
+    // for an *already approved* restaurant. Defaults true so every other Restaurant.builder() call
+    // (tests, any future direct creation path) stays unaffected.
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean approved = true;
+
     @Column(name = "payment_due_date")
     private LocalDate paymentDueDate;
 

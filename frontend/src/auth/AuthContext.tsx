@@ -27,7 +27,7 @@ interface AuthContextValue {
   restaurant: StoredRestaurant | null
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<AuthResponse>
-  registerRestaurant: (payload: RegisterRestaurantPayload) => Promise<void>
+  registerRestaurant: (payload: RegisterRestaurantPayload) => Promise<AuthResponse>
   resetPassword: (token: string, newPassword: string) => Promise<AuthResponse>
   updateRestaurant: (restaurant: Partial<StoredRestaurant>) => void
   refreshUser: () => Promise<void>
@@ -91,7 +91,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function registerRestaurant(payload: RegisterRestaurantPayload) {
-    applyAuthResponse(await registerRestaurantRequest(payload))
+    const response = await registerRestaurantRequest(payload)
+    // No accessToken means the restaurant is still pending admin approval - nothing to log into
+    // yet, so leave the current (logged-out) auth state untouched. RegisterPage reads this off
+    // the response itself to show the right screen.
+    if (response.accessToken) {
+      applyAuthResponse(response)
+    }
+    return response
   }
 
   async function resetPassword(token: string, newPassword: string) {
