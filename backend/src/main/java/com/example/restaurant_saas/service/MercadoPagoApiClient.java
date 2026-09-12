@@ -10,7 +10,6 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Talks to the Mercado Pago REST API (no SDK, same style as {@link WooviApiClient}). Like Woovi,
@@ -207,9 +206,15 @@ public class MercadoPagoApiClient {
 
     /**
      * Issues a full refund (no {@code amount} in the body - partial refunds are out of scope for
-     * V1, see docs/CARD_PAYMENT.md). {@code X-Idempotency-Key} is a fresh UUID per call so a retry
-     * of this exact call (e.g. a timeout where the first attempt actually succeeded server-side)
-     * can't accidentally issue two refunds.
+     * V1, see docs/CARD_PAYMENT.md). {@code X-Idempotency-Key} is derived from {@code paymentId}
+     * itself (stable across calls), not a fresh UUID per call - a fresh UUID would make every
+     * retry of this exact call (e.g. a timeout where the first attempt actually succeeded
+     * server-side, or two concurrent "estornar" clicks racing in {@link
+     * com.example.restaurant_saas.service.CardChargeService#voidPayment}) look like a brand-new
+     * request to Mercado Pago, which would then happily issue a second real refund. Keying it off
+     * paymentId - one full refund is the only refund operation this method ever performs for a
+     * given payment - lets Mercado Pago itself recognize a retry and return the original refund
+     * instead of creating a new one.
      */
     public String refundPayment(String accessToken, String paymentId) {
         try {
@@ -217,7 +222,7 @@ public class MercadoPagoApiClient {
             Map<String, Object> response = restClient.post()
                     .uri("/v1/payments/{id}/refunds", paymentId)
                     .header("Authorization", "Bearer " + accessToken)
-                    .header("X-Idempotency-Key", UUID.randomUUID().toString())
+                    .header("X-Idempotency-Key", "refund-" + paymentId)
                     .retrieve()
                     .body(Map.class);
 

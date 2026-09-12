@@ -648,6 +648,99 @@ class CardChargeIntegrationTest {
         assertEquals(CardChargeStatus.PAID, statusAfterRefund);
     }
 
+    // Regression test for the double-refund race fixed in this session (found during code review):
+    // two "estornar" clicks (or a client retry after a timeout) racing on the very same PAID card
+    // payment must never both call the gateway. CardChargeService#voidPayment now locks the tab
+    // before checking cardCharge.getRefundedAt(), so the loser blocks until the winner's
+    // transaction commits and then correctly sees the charge already refunded, instead of also
+    // calling MercadoPagoApiClient#refundPayment - mirrors the concurrency test pattern already
+    // used by verify_concurrentCallsOnSplitBillCharge_shouldNeverDoubleCreditTheTab above.
+    @Test
+    void voidPayment_concurrentCallsOnSamePayment_shouldOnlyRefundOnce() throws Exception {
+        String ownerToken = registerOwnerAndGetToken();
+        saveCardIntegration(ownerToken, "mp-access-token", "mp-webhook-secret");
+        String tabId = createDeliveredItemTab(ownerToken, "25.90");
+        stubCreatePreference("https://mercadopago.com/checkout/pref-id");
+
+        MvcResult chargeResult = mockMvc.perform(post("/api/v1/tabs/" + tabId + "/card-charges")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        String cardChargeId = JsonPath.read(chargeResult.getResponse().getContentAsString(), "$.id");
+
+        UUID restaurantId = restaurantIdFor(registerRequest.getOwnerEmail());
+        String externalReference = TenantTestSupport.withTenant(restaurantId,
+                        () -> cardChargeRepository.findById(UUID.fromString(cardChargeId)))
+                .orElseThrow().getExternalReference();
+
+        when(mercadoPagoApiClient.getPayment(any(), eq("mp-payment-race-refund"))).thenReturn(
+                new MercadoPagoApiClient.PaymentResult("mp-payment-race-refund", "approved", "accredited", externalReference, new BigDecimal("28.49"), "credit_card"));
+        mockMvc.perform(post("/api/v1/public/payments/mercadopago/webhook/" + restaurantId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("x-signature", "ts=1,v1=irrelevant-stubbed-valid")
+                        .content(webhookBody("mp-payment-race-refund")))
+                .andExpect(status().isOk());
+
+        MvcResult tabResult = mockMvc.perform(get("/api/v1/tabs/" + tabId).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andReturn();
+        String paymentId = JsonPath.read(tabResult.getResponse().getContentAsString(), "$.payments[0].id");
+
+        when(mercadoPagoApiClient.refundPayment(any(), eq("mp-payment-race-refund"))).thenReturn("refund-id-race");
+
+        UUID ownerId = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow().getId();
+        VoidPaymentRequest voidRequest = new VoidPaymentRequest();
+        voidRequest.setReason("teste de corrida - estorno duplicado");
+
+        int threadCount = 2;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch ready = new CountDownLatch(threadCount);
+        CountDownLatch go = new CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicInteger successes = new java.util.concurrent.atomic.AtomicInteger();
+        java.util.concurrent.atomic.AtomicInteger failures = new java.util.concurrent.atomic.AtomicInteger();
+        try {
+            List<java.util.concurrent.Future<?>> futures = new java.util.ArrayList<>();
+            for (int i = 0; i < threadCount; i++) {
+                futures.add(executor.submit(() -> {
+                    ready.countDown();
+                    try {
+                        go.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    try {
+                        // Raw worker threads never go through JwtAuthenticationFilter, so
+                        // TenantContext is empty here by default - RLS would silently hide the
+                        // tab/payment/card_charge rows (see TenantTestSupport javadoc) and both
+                        // calls would fail with "Tab not found." instead of racing on the real
+                        // check. Same tenant-activation need as every other direct-service-call
+                        // test in this class.
+                        TenantTestSupport.withTenant(restaurantId, () ->
+                                cardChargeService.voidPayment(restaurantId, UUID.fromString(tabId), UUID.fromString(paymentId), ownerId, voidRequest));
+                        successes.incrementAndGet();
+                    } catch (RuntimeException e) {
+                        failures.incrementAndGet();
+                    }
+                }));
+            }
+            ready.await(5, TimeUnit.SECONDS);
+            go.countDown();
+            for (java.util.concurrent.Future<?> future : futures) {
+                future.get(10, TimeUnit.SECONDS);
+            }
+        } finally {
+            executor.shutdown();
+        }
+
+        assertEquals(1, successes.get(), "exactly one of the two concurrent void calls should succeed");
+        assertEquals(1, failures.get(), "the other call must be rejected instead of also refunding");
+        verify(mercadoPagoApiClient, times(1)).refundPayment(any(), eq("mp-payment-race-refund"));
+
+        mockMvc.perform(get("/api/v1/tabs/" + tabId).header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.amountPaid").value(0));
+    }
+
     @Test
     void refund_whenGatewayCallFails_shouldNotVoidThePayment() throws Exception {
         String ownerToken = registerOwnerAndGetToken();
