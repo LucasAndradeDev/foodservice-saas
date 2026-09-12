@@ -34,6 +34,7 @@ import com.example.restaurant_saas.security.MercadoPagoWebhookSignatureVerifier;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CardChargeService {
@@ -377,26 +379,35 @@ public class CardChargeService {
      */
     @Transactional
     public void handleWebhook(UUID restaurantId, byte[] rawBody, String signatureHeader, String requestIdHeader) {
+        long start = System.currentTimeMillis();
+        log.info("Mercado Pago webhook received for restaurant {}", restaurantId);
         tenantActivator.activate(restaurantId);
         try {
             CardIntegration integration = cardIntegrationRepository.findByRestaurantId(restaurantId).orElse(null);
             if (integration == null || integration.getWebhookSecretEncrypted() == null) {
+                log.warn("Mercado Pago webhook for restaurant {} ignored: card payment not configured.", restaurantId);
                 return;
             }
 
             String paymentId = extractPaymentId(rawBody);
             if (paymentId == null) {
+                log.warn("Mercado Pago webhook for restaurant {} ignored: no payment id in the body.", restaurantId);
                 return;
             }
 
             String webhookSecret = credentialEncryptionService.decrypt(integration.getWebhookSecretEncrypted());
             if (!signatureVerifier.isValid(signatureHeader, requestIdHeader, paymentId, webhookSecret)) {
+                log.warn("Mercado Pago webhook for restaurant {} rejected: invalid signature (payment {}).", restaurantId, paymentId);
                 throw new IllegalArgumentException("Invalid webhook signature.");
             }
 
             String accessToken = credentialEncryptionService.decrypt(integration.getAccessTokenEncrypted());
+            long beforeLookup = System.currentTimeMillis();
             MercadoPagoApiClient.PaymentResult result = mercadoPagoApiClient.getPayment(accessToken, paymentId);
+            log.info("Mercado Pago GET /v1/payments/{} took {}ms (restaurant {})",
+                    paymentId, System.currentTimeMillis() - beforeLookup, restaurantId);
             if (result.externalReference() == null) {
+                log.warn("Mercado Pago webhook for restaurant {} ignored: payment {} has no external_reference.", restaurantId, paymentId);
                 return;
             }
 
@@ -405,10 +416,14 @@ public class CardChargeService {
             // beyond the tenant context already active above.
             CardCharge charge = cardChargeRepository.findByExternalReferenceBypassingRls(result.externalReference()).orElse(null);
             if (charge == null || !charge.getRestaurantId().equals(restaurantId) || charge.getStatus() != CardChargeStatus.PENDING) {
+                log.warn("Mercado Pago webhook for restaurant {} ignored: no matching PENDING charge for external reference {}.",
+                        restaurantId, result.externalReference());
                 return;
             }
 
             applyResolvedPayment(charge, paymentId, result);
+            log.info("Mercado Pago webhook for restaurant {} applied payment {} as {} in {}ms total.",
+                    restaurantId, paymentId, result.status(), System.currentTimeMillis() - start);
         } finally {
             tenantActivator.deactivate();
         }
@@ -506,9 +521,19 @@ public class CardChargeService {
      * refund call never leaves a payment marked VOIDED while the money never actually moved back.
      * Kept as a single entry point (staff only ever sees one "estornar" action) rather than a
      * second button they'd need to learn to use for card payments specifically.
+     *
+     * <p>Locks the tab first, before reading {@code payment}/{@code cardCharge} - otherwise two
+     * concurrent void requests for the same card payment (a double-click, or a client retry after
+     * a timeout) could both read {@code cardCharge.getRefundedAt() == null} before either commits
+     * and both call {@link MercadoPagoApiClient#refundPayment}, each issuing a real refund. The
+     * second call now blocks on this lock until the first transaction commits, then re-reads
+     * {@code cardCharge} fresh and correctly sees it already refunded.
      */
     @Transactional
     public TabResponse voidPayment(UUID restaurantId, UUID tabId, UUID paymentId, UUID actingUserId, VoidPaymentRequest request) {
+        tabRepository.findByIdAndRestaurantIdForUpdate(tabId, restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Tab not found."));
+
         Payment payment = paymentRepository.findByIdAndTabIdAndRestaurantId(paymentId, tabId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found."));
 
