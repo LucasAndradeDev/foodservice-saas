@@ -1,9 +1,11 @@
-import { Check, CreditCard, ExternalLink, Mail, MessageCircle, TriangleAlert } from 'lucide-react'
+import { Check, Copy, CreditCard, ExternalLink, Mail, MessageCircle, TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useAuth } from '../auth/AuthContext'
 import { BackLink } from '../components/BackLink'
 import { SUPPORT_EMAIL, SUPPORT_WHATSAPP_URL } from '../config/support'
 import { Logo } from '../theme/Logo'
 
+const BACKEND_URL = 'https://mora-backend-ubuw.onrender.com'
 const MERCADO_PAGO_SIGNUP_URL = 'https://www.mercadopago.com.br'
 const MERCADO_PAGO_PANEL_URL = 'https://www.mercadopago.com.br/developers/panel'
 const PROGRESS_STORAGE_KEY = 'mora:card-setup-guide-progress'
@@ -30,7 +32,7 @@ interface Step {
   action?: React.ReactNode
 }
 
-const STEPS: Step[] = [
+const STEPS_BEFORE_WEBHOOK: Step[] = [
   {
     id: 'create-account',
     title: 'Crie sua conta no Mercado Pago',
@@ -47,8 +49,14 @@ const STEPS: Step[] = [
     title: 'Crie uma aplicação no painel',
     body: (
       <>
-        Acesse <strong>Suas integrações → Criar aplicação</strong> e escolha o produto <strong>Checkout Pro</strong>.
-        Pode dar o nome que quiser, ex.: "Morá".
+        Na página <strong>Integrações</strong>, abra a aba <strong>Suas integrações</strong> e clique em{' '}
+        <strong>Criar aplicação</strong>. Dê o nome que quiser (ex.: "Morá"), escolha o tipo de pagamento{' '}
+        <strong>Pagamentos online</strong> e depois <strong>Checkout Pro</strong>.
+        <br />
+        <br />
+        Na pergunta seguinte, <strong>"Com qual API você vai integrar?"</strong>, escolha{' '}
+        <strong>API de Preferências</strong> (a opção "Versão anterior", não a "API de Orders" recomendada) — é o
+        formato que o Morá já usa pra gerar as cobranças.
       </>
     ),
     action: <ExternalLinkButton href={MERCADO_PAGO_PANEL_URL}>Abrir painel Mercado Pago</ExternalLinkButton>,
@@ -68,24 +76,9 @@ const STEPS: Step[] = [
     warning: 'Trate o Access Token como uma senha: quem tiver esse código consegue gerar e estornar cobranças na sua conta.',
     action: <ExternalLinkButton href={MERCADO_PAGO_PANEL_URL}>Abrir painel Mercado Pago</ExternalLinkButton>,
   },
-  {
-    id: 'webhook-secret',
-    title: 'Copie a Assinatura secreta',
-    body: (
-      <>
-        Ainda na mesma aplicação, abra <strong>Webhooks → Configurar notificações</strong> e copie o valor em{' '}
-        <strong>Assinatura secreta</strong>, mais abaixo na tela.
-        <br />
-        <br />
-        Se ela pedir uma URL antes de mostrar esse valor, pode colar qualquer coisa nesse campo (ex.:{' '}
-        <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs dark:bg-white/10">https://exemplo.com</code>): o
-        Morá nunca usa a URL cadastrada aqui, ele já manda a URL certa, identificando o seu restaurante, em cada
-        cobrança que gera. Só a Assinatura secreta importa.
-      </>
-    ),
-    warning: 'Também é uma senha: quem tiver esse código pode forjar avisos de pagamento falso.',
-    action: <ExternalLinkButton href={MERCADO_PAGO_PANEL_URL}>Abrir painel Mercado Pago</ExternalLinkButton>,
-  },
+]
+
+const STEPS_AFTER_WEBHOOK: Step[] = [
   {
     id: 'paste-in-mora',
     title: 'Cole os dois no Morá',
@@ -102,6 +95,8 @@ const STEPS: Step[] = [
 ]
 
 export function CardSetupGuidePage() {
+  const { restaurant } = useAuth()
+  const [copied, setCopied] = useState(false)
   const [completed, setCompleted] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem(PROGRESS_STORAGE_KEY)
@@ -131,9 +126,69 @@ export function CardSetupGuidePage() {
     })
   }
 
-  const totalSteps = STEPS.length
+  // Unlike Pix's fixed webhook URL, this one is per-restaurant - Mercado Pago really does call
+  // back to whatever URL is pasted in its panel (confirmed 2026-09-12 after webhook deliveries
+  // kept 502ing: it's not just cosmetic, an unreachable/wrong URL here breaks automatic payment
+  // confirmation for real), so the guide must show this restaurant's own real URL, not a
+  // placeholder.
+  const webhookUrl = restaurant
+    ? `${BACKEND_URL}/api/v1/public/payments/mercadopago/webhook/${restaurant.id}`
+    : null
+
+  function handleCopyWebhookUrl() {
+    if (!webhookUrl) return
+    navigator.clipboard.writeText(webhookUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1800)
+  }
+
+  const totalSteps = STEPS_BEFORE_WEBHOOK.length + STEPS_AFTER_WEBHOOK.length + 1 // +1 for the webhook step, rendered separately below
   const doneCount = completed.size
   const progressPercent = Math.round((doneCount / totalSteps) * 100)
+
+  function renderStep(step: Step, index: number) {
+    const isDone = completed.has(step.id)
+    return (
+      <li key={step.id} className="flex gap-4 border-t border-gray-100 pt-6 first:border-t-0 first:pt-0 dark:border-white/10">
+        <button
+          type="button"
+          onClick={() => toggleStep(step.id)}
+          aria-pressed={isDone}
+          aria-label={isDone ? 'Marcar passo como não concluído' : 'Marcar passo como concluído'}
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold transition-colors ${
+            isDone
+              ? 'bg-sage-500 text-white'
+              : 'bg-brand-100 text-brand-600 hover:bg-brand-200 dark:bg-brand-500/15 dark:text-brand-400 dark:hover:bg-brand-500/25'
+          }`}
+        >
+          {isDone ? <Check className="h-4 w-4" /> : index}
+        </button>
+        <div className="min-w-0 flex-1">
+          <h2
+            className={`mb-1 text-sm font-semibold ${
+              isDone ? 'text-gray-400 line-through dark:text-stone-600' : 'text-gray-800 dark:text-white'
+            }`}
+          >
+            {step.title}
+          </h2>
+          <div
+            className={`text-sm leading-relaxed ${
+              isDone ? 'text-gray-400 dark:text-stone-600' : 'text-gray-600 dark:text-stone-400'
+            }`}
+          >
+            {step.body}
+          </div>
+          {step.warning && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg border border-wine-300 bg-wine-100 px-3 py-2 text-xs text-wine-700 dark:border-wine-700 dark:bg-wine-500/10 dark:text-wine-400">
+              <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>{step.warning}</span>
+            </div>
+          )}
+          {step.action && <div className="mt-3">{step.action}</div>}
+        </div>
+      </li>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-stone-950">
@@ -168,49 +223,85 @@ export function CardSetupGuidePage() {
           </div>
 
           <ol className="space-y-6">
-            {STEPS.map((step, index) => {
-              const isDone = completed.has(step.id)
-              return (
-                <li key={step.id} className="flex gap-4 border-t border-gray-100 pt-6 first:border-t-0 first:pt-0 dark:border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => toggleStep(step.id)}
-                    aria-pressed={isDone}
-                    aria-label={isDone ? 'Marcar passo como não concluído' : 'Marcar passo como concluído'}
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold transition-colors ${
-                      isDone
-                        ? 'bg-sage-500 text-white'
-                        : 'bg-brand-100 text-brand-600 hover:bg-brand-200 dark:bg-brand-500/15 dark:text-brand-400 dark:hover:bg-brand-500/25'
-                    }`}
-                  >
-                    {isDone ? <Check className="h-4 w-4" /> : index + 1}
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <h2
-                      className={`mb-1 text-sm font-semibold ${
-                        isDone ? 'text-gray-400 line-through dark:text-stone-600' : 'text-gray-800 dark:text-white'
-                      }`}
+            {STEPS_BEFORE_WEBHOOK.map((step, index) => renderStep(step, index + 1))}
+
+            <li className="flex gap-4 border-t border-gray-100 pt-6 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => toggleStep('webhook-secret')}
+                aria-pressed={completed.has('webhook-secret')}
+                aria-label={completed.has('webhook-secret') ? 'Marcar passo como não concluído' : 'Marcar passo como concluído'}
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold transition-colors ${
+                  completed.has('webhook-secret')
+                    ? 'bg-sage-500 text-white'
+                    : 'bg-brand-100 text-brand-600 hover:bg-brand-200 dark:bg-brand-500/15 dark:text-brand-400 dark:hover:bg-brand-500/25'
+                }`}
+              >
+                {completed.has('webhook-secret') ? <Check className="h-4 w-4" /> : STEPS_BEFORE_WEBHOOK.length + 1}
+              </button>
+              <div className="min-w-0 flex-1">
+                <h2
+                  className={`mb-1 text-sm font-semibold ${
+                    completed.has('webhook-secret') ? 'text-gray-400 line-through dark:text-stone-600' : 'text-gray-800 dark:text-white'
+                  }`}
+                >
+                  Cadastre a URL do webhook e copie a Assinatura secreta
+                </h2>
+                <p
+                  className={`mb-3 text-sm leading-relaxed ${
+                    completed.has('webhook-secret') ? 'text-gray-400 dark:text-stone-600' : 'text-gray-600 dark:text-stone-400'
+                  }`}
+                >
+                  Ainda na mesma aplicação, abra <strong>Webhooks → Configurar notificações</strong>. Ela vai pedir uma
+                  URL antes de mostrar a Assinatura secreta — cole esta aqui (é a URL do seu restaurante, só funciona
+                  pra ele, não use a de outro Morá):
+                </p>
+                {webhookUrl ? (
+                  <div className="flex items-stretch gap-2">
+                    <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap rounded-lg bg-gray-900 px-3 py-2 text-xs text-gray-100 dark:bg-black">
+                      {webhookUrl}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={handleCopyWebhookUrl}
+                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-stone-300 dark:hover:bg-white/5"
                     >
-                      {step.title}
-                    </h2>
-                    <div
-                      className={`text-sm leading-relaxed ${
-                        isDone ? 'text-gray-400 dark:text-stone-600' : 'text-gray-600 dark:text-stone-400'
-                      }`}
-                    >
-                      {step.body}
-                    </div>
-                    {step.warning && (
-                      <div className="mt-3 flex items-start gap-2 rounded-lg border border-wine-300 bg-wine-100 px-3 py-2 text-xs text-wine-700 dark:border-wine-700 dark:bg-wine-500/10 dark:text-wine-400">
-                        <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                        <span>{step.warning}</span>
-                      </div>
-                    )}
-                    {step.action && <div className="mt-3">{step.action}</div>}
+                      {copied ? (
+                        <>
+                          <Check className="h-3.5 w-3.5 text-sage-600 dark:text-sage-400" />
+                          Copiado
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3.5 w-3.5" />
+                          Copiar
+                        </>
+                      )}
+                    </button>
                   </div>
-                </li>
-              )
-            })}
+                ) : (
+                  <p className="text-sm text-wine-600 dark:text-wine-400">
+                    Não deu pra montar sua URL agora - saia e entre de novo no Morá e volte nesta página.
+                  </p>
+                )}
+                <p
+                  className={`mt-3 text-sm leading-relaxed ${
+                    completed.has('webhook-secret') ? 'text-gray-400 dark:text-stone-600' : 'text-gray-600 dark:text-stone-400'
+                  }`}
+                >
+                  Depois de colar e salvar, copie o valor em <strong>Assinatura secreta</strong>, mais abaixo na tela.
+                </p>
+                <div className="mt-3 flex items-start gap-2 rounded-lg border border-wine-300 bg-wine-100 px-3 py-2 text-xs text-wine-700 dark:border-wine-700 dark:bg-wine-500/10 dark:text-wine-400">
+                  <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>Também é uma senha: quem tiver esse código pode forjar avisos de pagamento falso.</span>
+                </div>
+                <div className="mt-3">
+                  <ExternalLinkButton href={MERCADO_PAGO_PANEL_URL}>Abrir painel Mercado Pago</ExternalLinkButton>
+                </div>
+              </div>
+            </li>
+
+            {STEPS_AFTER_WEBHOOK.map((step, index) => renderStep(step, STEPS_BEFORE_WEBHOOK.length + 1 + index + 1))}
           </ol>
 
           {doneCount === totalSteps && (
