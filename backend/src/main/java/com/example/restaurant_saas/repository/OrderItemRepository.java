@@ -2,8 +2,10 @@ package com.example.restaurant_saas.repository;
 
 import com.example.restaurant_saas.domain.entity.OrderItem;
 import com.example.restaurant_saas.domain.enums.ItemStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -17,6 +19,15 @@ import java.util.UUID;
 @Repository
 public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
     Optional<OrderItem> findByIdAndOrder_Restaurant_Id(UUID id, UUID restaurantId);
+
+    // Locked (not the plain read above): two concurrent status changes on the same item - e.g. the
+    // kitchen starting to prepare it while a waiter cancels it - must not both read the same `from`
+    // status and both pass isValidTransition/rolesAllowedFor before either commits, which would let
+    // the later write silently overwrite the earlier one (a cancelled item ending up PREPARING, or
+    // vice versa) with no error. Mirrors TabRepository#findByIdAndRestaurantIdForUpdate.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT oi FROM OrderItem oi WHERE oi.id = :id AND oi.order.restaurant.id = :restaurantId")
+    Optional<OrderItem> findByIdAndOrder_Restaurant_IdForUpdate(@Param("id") UUID id, @Param("restaurantId") UUID restaurantId);
     List<OrderItem> findByOrder_Restaurant_IdAndStatusInOrderByCreatedAtAsc(UUID restaurantId, List<ItemStatus> statuses);
     boolean existsByOrder_Tab_IdAndStatusNotIn(UUID tabId, List<ItemStatus> statuses);
     boolean existsByOrder_Tab_IdAndStatus(UUID tabId, ItemStatus status);

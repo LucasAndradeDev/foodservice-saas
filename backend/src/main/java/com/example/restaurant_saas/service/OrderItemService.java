@@ -68,9 +68,15 @@ public class OrderItemService {
                 .toList();
     }
 
+    // Locked (not a plain read): two concurrent status changes on the same item - e.g. the kitchen
+    // starting to prepare it while a waiter cancels it - must not both read the same `from` status
+    // and both pass the checks below before either commits, which would let whichever write lands
+    // last silently overwrite the other with no error (a cancelled item ending up PREPARING, or a
+    // prepared item ending up CANCELLED with the kitchen never told). The second call now blocks on
+    // this lock until the first transaction commits, then re-reads the item's real, current status.
     @Transactional
     public OrderItemResponse updateStatus(UUID restaurantId, UUID itemId, UserRole currentUserRole, String actingUserName, UpdateOrderItemStatusRequest request) {
-        OrderItem item = orderItemRepository.findByIdAndOrder_Restaurant_Id(itemId, restaurantId)
+        OrderItem item = orderItemRepository.findByIdAndOrder_Restaurant_IdForUpdate(itemId, restaurantId)
                 .orElseThrow(() -> new IllegalArgumentException("Order item not found."));
 
         if (item.isComboChild()) {

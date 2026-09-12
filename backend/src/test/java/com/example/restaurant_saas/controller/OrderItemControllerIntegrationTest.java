@@ -3,6 +3,7 @@ package com.example.restaurant_saas.controller;
 import com.example.restaurant_saas.domain.entity.Restaurant;
 import com.example.restaurant_saas.domain.entity.User;
 import com.example.restaurant_saas.domain.enums.DiscountType;
+import com.example.restaurant_saas.domain.enums.ItemStatus;
 import com.example.restaurant_saas.domain.enums.UserRole;
 import com.example.restaurant_saas.dto.request.ApplyDiscountRequest;
 import com.example.restaurant_saas.dto.request.CreateCategoryRequest;
@@ -19,6 +20,7 @@ import com.example.restaurant_saas.dto.request.RegisterRestaurantRequest;
 import com.example.restaurant_saas.dto.request.TransferItemsRequest;
 import com.example.restaurant_saas.dto.request.UpdateOrderItemStatusRequest;
 import com.example.restaurant_saas.domain.enums.PaymentMethod;
+import com.example.restaurant_saas.repository.OrderItemRepository;
 import com.example.restaurant_saas.repository.RestaurantRepository;
 import com.example.restaurant_saas.repository.UserRepository;
 import com.example.restaurant_saas.support.TenantTestSupport;
@@ -37,9 +39,18 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -55,6 +66,9 @@ class OrderItemControllerIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private OrderItemRepository orderItemRepository;
 
     @Autowired
     private JwtService jwtService;
@@ -421,6 +435,89 @@ class OrderItemControllerIntegrationTest {
                 .andExpect(jsonPath("$.status").value("CANCELLED"))
                 .andExpect(jsonPath("$.cancelledBy").value("KITCHEN"))
                 .andExpect(jsonPath("$.cancelledAt").isNotEmpty());
+    }
+
+    // Regression test for the status-transition race fixed in this session (found during code
+    // review): OrderItemService#updateStatus used to read the item with a plain find, so two
+    // concurrent status changes on the same READY item - a waiter serving it (READY->DELIVERED)
+    // racing a kitchen cancellation (READY->CANCELLED) - could both read from=READY and both pass
+    // isValidTransition/rolesAllowedFor before either committed, letting whichever write landed
+    // last silently overwrite the other with no error. DELIVERED and CANCELLED are both terminal
+    // (isValidTransition returns false for any transition out of either), so with the fix in place
+    // exactly one of the two calls can ever succeed regardless of scheduling order - the loser
+    // re-reads the real post-lock status and correctly gets rejected instead of also applying.
+    @Test
+    void updateStatus_concurrentConflictingTransitionsFromReady_shouldOnlyApplyOne() throws Exception {
+        TestSetup setup = setupTabWithProduct();
+        User owner = userRepository.findByEmailBypassingRls(registerRequest.getOwnerEmail()).orElseThrow();
+        String waiterToken = tokenFor(createUserDirectly(owner, UserRole.WAITER));
+        String kitchenToken = tokenFor(createUserDirectly(owner, UserRole.KITCHEN));
+        String itemId = createOrderAndGetFirstItemId(setup.ownerToken(), setup.tabId(), setup.productId());
+
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateStatusRequestBody("PREPARING")))
+                .andExpect(status().isOk());
+        mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                        .header("Authorization", "Bearer " + setup.ownerToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateStatusRequestBody("READY")))
+                .andExpect(status().isOk());
+
+        int threadCount = 2;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch ready = new CountDownLatch(threadCount);
+        CountDownLatch go = new CountDownLatch(1);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicInteger failures = new AtomicInteger();
+        try {
+            List<Future<?>> futures = new ArrayList<>();
+            futures.add(executor.submit(() -> raceStatusUpdate(waiterToken, itemId, "DELIVERED", ready, go, successes, failures)));
+            futures.add(executor.submit(() -> raceStatusUpdate(kitchenToken, itemId, "CANCELLED", ready, go, successes, failures)));
+            ready.await(5, TimeUnit.SECONDS);
+            go.countDown();
+            for (Future<?> future : futures) {
+                future.get(10, TimeUnit.SECONDS);
+            }
+        } finally {
+            executor.shutdown();
+        }
+
+        assertEquals(1, successes.get(), "exactly one of the two concurrent transitions should succeed");
+        assertEquals(1, failures.get(), "the other must be rejected instead of silently overwriting the winner");
+
+        UUID restaurantId = owner.getRestaurant().getId();
+        ItemStatus finalStatus = TenantTestSupport.withTenant(restaurantId, () -> orderItemRepository.findById(UUID.fromString(itemId)))
+                .orElseThrow().getStatus();
+        assertTrue(finalStatus == ItemStatus.DELIVERED || finalStatus == ItemStatus.CANCELLED,
+                "final status must be a real outcome of exactly one transition, not something else");
+    }
+
+    private void raceStatusUpdate(
+            String token, String itemId, String targetStatus,
+            CountDownLatch ready, CountDownLatch go, AtomicInteger successes, AtomicInteger failures
+    ) {
+        ready.countDown();
+        try {
+            go.await(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        try {
+            MvcResult result = mockMvc.perform(patch("/api/v1/order-items/" + itemId + "/status")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(updateStatusRequestBody(targetStatus)))
+                    .andReturn();
+            if (result.getResponse().getStatus() == 200) {
+                successes.incrementAndGet();
+            } else {
+                failures.incrementAndGet();
+            }
+        } catch (Exception e) {
+            failures.incrementAndGet();
+        }
     }
 
     @Test

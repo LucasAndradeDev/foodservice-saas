@@ -103,7 +103,9 @@ class OrderItemServiceTest {
     }
 
     private void stubFind(OrderItem toReturn) {
-        when(orderItemRepository.findByIdAndOrder_Restaurant_Id(eq(item.getId()), eq(restaurant.getId())))
+        // updateStatus reads via the locked finder (findByIdAndOrder_Restaurant_IdForUpdate), not
+        // the plain one - see OrderItemService#updateStatus's race-condition fix.
+        when(orderItemRepository.findByIdAndOrder_Restaurant_IdForUpdate(eq(item.getId()), eq(restaurant.getId())))
                 .thenReturn(Optional.of(toReturn));
         when(orderItemRepository.save(any(OrderItem.class))).thenAnswer(inv -> inv.getArgument(0));
     }
