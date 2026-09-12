@@ -66,8 +66,12 @@ services:
         sync: false
       # This service's own public URL - Mercado Pago's card payment webhook is called back here
       # (docs/CARD_PAYMENT.md), unlike Woovi's Pix webhook, which needs no self-reference.
+      # MUST match the service's real onrender.com hostname (Settings > Custom Domains has none
+      # configured, so that's "-ubuw", not the plain "mora-backend" this was wrongly set to
+      # before) - the wrong value silently broke every card-payment webhook in production with a
+      # 502 from Mercado Pago's side, since requests to the wrong host just hang. Found 2026-09-12.
       - key: BACKEND_URL
-        value: https://mora-backend.onrender.com
+        value: https://mora-backend-ubuw.onrender.com
       # Error tracking (Sentry). Blank in application.yml's default leaves the SDK disabled -
       # set the real DSN by hand in the Render dashboard once a Sentry project exists.
       - key: SENTRY_DSN
